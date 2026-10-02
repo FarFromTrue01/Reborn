@@ -36,6 +36,13 @@ export class MinigameScene extends Phaser.Scene {
   goodSteps = 0;
   steps = 0;
   lastStepT = 0;
+  // görsel sahne
+  joe!: Phaser.GameObjects.Container;
+  joeLayers: Phaser.GameObjects.Sprite[] = [];
+  prop?: Phaser.GameObjects.Image;
+  swingT = -1;
+  runAnimT = 0;
+  stage!: Phaser.GameObjects.Graphics;
 
   constructor() {
     super('Minigame');
@@ -52,6 +59,8 @@ export class MinigameScene extends Phaser.Scene {
     this.needle = 0;
     this.vel = 0;
     this.lastSide = null;
+    this.swingT = -1;
+    this.runAnimT = 0;
     this.dur = data.kind === 'chop' ? 24 : data.kind === 'lift' ? 25 : 30;
   }
 
@@ -73,7 +82,9 @@ export class MinigameScene extends Phaser.Scene {
     txt(this, W / 2, py + 26, titles[this.kind], { size: 26, font: FONT.title, color: COLORS.textGold }).setOrigin(0.5, 0);
     this.info = txt(this, W / 2, py + 70, helps[this.kind], { size: 17, color: COLORS.textDim, align: 'center', wrap: pw - 60 }).setOrigin(0.5, 0);
     this.timeT = txt(this, px + pw - 30, py + 30, '', { size: 18, color: COLORS.text, bold: true }).setOrigin(1, 0);
+    this.stage = this.add.graphics();
     this.g = this.add.graphics();
+    this.buildStage();
     const by = py + ph - 70;
     if (this.kind === 'run') {
       const l = new Button(this, W / 2 - 150, by, 'SOL', () => this.step('L'), { w: 220, h: 80, size: 24, sound: null });
@@ -111,11 +122,53 @@ export class MinigameScene extends Phaser.Scene {
     });
   }
 
+  /** Joseph'in o anki giysi katmanlarıyla küçük bir sahne. */
+  buildStage() {
+    const W = Display.uiW, H = Display.uiH;
+    const world = this.scene.get('World') as any;
+    const keys: string[] = world?.player?.actor?.layers?.map((l: Phaser.GameObjects.Sprite) => l.texture.key) ?? ['j_body', 'j_head'];
+    this.joe = this.add.container(0, 0);
+    this.joeLayers = keys.filter((k) => this.textures.exists(k)).map((k) => this.add.sprite(0, 0, k, 0).setOrigin(0.5, 61 / 64));
+    this.joe.add(this.joeLayers);
+    this.joe.setScale(2.4);
+    const shadow = this.add.ellipse(0, 0, 70, 18, 0x000000, 0.35);
+    const feetY = H / 2 + 150;
+    if (this.kind === 'chop') {
+      this.joe.setPosition(W / 2 - 50, feetY);
+      shadow.setPosition(W / 2 - 50, feetY);
+      if (this.textures.get('props').has('chop_block')) this.prop = this.add.image(W / 2 + 40, feetY + 6, 'props', 'chop_block').setOrigin(0.5, 1).setScale(2.4);
+      this.setJoeFrame(12 + 3, 0);
+    } else if (this.kind === 'lift') {
+      this.joe.setPosition(W / 2 + 190, feetY - 20);
+      shadow.setPosition(W / 2 + 190, feetY - 20);
+      if (this.textures.get('props').has('boulder2')) this.prop = this.add.image(W / 2 + 190, feetY - 60, 'props', 'boulder2').setOrigin(0.5, 1).setScale(2);
+      this.setJoeFrame(2, 0);
+    } else {
+      this.joe.setPosition(W / 2 - 330, H / 2 - 40);
+      shadow.setVisible(false);
+      this.joe.setScale(1.6);
+      this.setJoeFrame(8 + 3, 0);
+    }
+    this.children.moveBelow(shadow, this.joe);
+  }
+
+  setJoeFrame(row: number, col: number) {
+    for (const l of this.joeLayers) l.setFrame(row * 13 + col);
+  }
+
+  chips(x: number, y: number) {
+    for (let i = 0; i < 8; i++) {
+      const c = this.add.rectangle(x, y, 6, 4, i % 2 ? 0xc89a5a : 0x8a5a2a);
+      this.tweens.add({ targets: c, x: x + (Math.random() - 0.5) * 120, y: y - 20 - Math.random() * 60, angle: Math.random() * 360, duration: 260, ease: 'Quad.Out', yoyo: false, onComplete: () => this.tweens.add({ targets: c, y: y + 30, alpha: 0, duration: 300, onComplete: () => c.destroy() }) });
+    }
+  }
+
   press(down: boolean) {
     if (!this.running) return;
     if (this.kind === 'chop') {
       if (!down) return;
       this.attempts++;
+      this.swingT = 0;
       const d = Math.abs(this.marker - this.zoneC);
       if (d < this.zoneW / 2) {
         const q = 1 - d / (this.zoneW / 2);
@@ -126,6 +179,7 @@ export class MinigameScene extends Phaser.Scene {
         this.zoneC = 0.2 + Math.random() * 0.6;
         this.zoneW = Math.max(0.08, 0.16 - this.logs * 0.006);
         this.flash(0x9fe08a);
+        this.time.delayedCall(170, () => this.prop && this.chips(this.prop.x, this.prop.y - 40));
       } else {
         Sound.sfx('miss');
         this.flash(0xff5040);
@@ -162,7 +216,7 @@ export class MinigameScene extends Phaser.Scene {
     const W = Display.uiW, H = Display.uiH;
     const g = this.g;
     g.clear();
-    const bx = W / 2 - 330, bw = 660, by = H / 2 - 40;
+    const bx = W / 2 - 330, bw = 660, by = this.kind === 'chop' ? H / 2 - 95 : H / 2 - 40;
     if (this.running) {
       this.t += dt;
       if (this.t >= this.dur) this.finish();
@@ -184,6 +238,15 @@ export class MinigameScene extends Phaser.Scene {
       g.fillTriangle(bx + this.marker * bw - 10, by - 14, bx + this.marker * bw + 10, by - 14, bx + this.marker * bw, by + 2);
       g.fillRect(bx + this.marker * bw - 2, by, 4, 40);
       this.info.setText(`Kesilen kütük: ${this.logs}`);
+      if (this.swingT >= 0) {
+        this.swingT += dt;
+        const f = Math.min(5, Math.floor(this.swingT / 0.05));
+        this.setJoeFrame(12 + 3, f);
+        if (this.swingT > 0.32) {
+          this.swingT = -1;
+          this.setJoeFrame(12 + 3, 0);
+        }
+      }
     } else if (this.kind === 'lift') {
       if (this.running) {
         this.vel += (this.holding ? 1.6 : -1.8) * dt;
@@ -199,11 +262,10 @@ export class MinigameScene extends Phaser.Scene {
       g.fillRect(vx, vy + (1 - this.target - 0.1) * vh, 60, 0.2 * vh);
       g.fillStyle(0xffffff, 1);
       g.fillRect(vx - 14, vy + (1 - this.needle) * vh - 3, 88, 6);
-      // taş
-      g.fillStyle(0x8a8a96, 1);
-      g.fillEllipse(W / 2 + 140, vy + vh - this.needle * 150, 90, 60);
-      g.lineStyle(2, 0x3a3a46, 1);
-      g.strokeEllipse(W / 2 + 140, vy + vh - this.needle * 150, 90, 60);
+      // taş: Joseph kaldırdıkça başının üstüne çıkar
+      const feet = this.joe.y;
+      if (this.prop) this.prop.setY(feet - 40 - this.needle * 110 + Math.sin(this.t * 30) * (this.holding ? 1.5 : 0));
+      this.setJoeFrame(2, Math.min(6, 1 + Math.round(this.needle * 5)));
       this.info.setText(`Bölgede: ${this.inZone.toFixed(1)} sn`);
     } else {
       if (this.running) {
@@ -220,8 +282,9 @@ export class MinigameScene extends Phaser.Scene {
       g.fillStyle(0x6fbf4a, 1);
       g.fillRoundedRect(bx, by + 50, bw * this.speed, 14, 6);
       // koşucu
-      g.fillStyle(0xffffff, 1);
-      g.fillCircle(bx + bw * Math.min(1, this.dist), by - 16 + Math.sin(this.t * 16 * this.speed) * 3, 9);
+      this.runAnimT += dt * (2 + this.speed * 14);
+      this.joe.setPosition(bx + bw * Math.min(1, this.dist), by - 2 - Math.abs(Math.sin(this.runAnimT * 1.5)) * 3 * this.speed);
+      this.setJoeFrame(8 + 3, this.speed > 0.05 ? 1 + (Math.floor(this.runAnimT) % 8) : 0);
       this.info.setText(`Mesafe: %${Math.round(Math.min(1, this.dist) * 100)} · Ritim: ${this.steps ? Math.round((this.goodSteps / this.steps) * 100) : 0}%`);
     }
   }

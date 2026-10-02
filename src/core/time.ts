@@ -49,7 +49,7 @@ export function weekNumber(t: GameTime): number {
 }
 
 export function dateLabel(t: GameTime): string {
-  return `${weekNumber(t)}. Hafta · ${weekday(t)}`;
+  return `${t.day}. Gün · ${weekday(t)} · ${weekNumber(t)}. Hafta`;
 }
 
 /** Saat aralığında mı? (gece yarısını aşan aralıkları destekler) */

@@ -794,6 +794,7 @@ export class UIScene extends Phaser.Scene {
   }
 
   closeMenu() {
+    if (this.scene.isActive('Menu')) this.scene.stop('Menu');
     this.menuIsOpen = false;
     this.world.paused = false;
     this.world.physics.resume();

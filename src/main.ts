@@ -10,6 +10,7 @@ import { MinigameScene } from './scenes/MinigameScene';
 import { CreditsScene } from './scenes/CreditsScene';
 import { G } from './game/G';
 import { setupPWA } from './game/pwa';
+import * as R from './game/rules';
 
 declare const __APP_VERSION__: string;
 export const APP_VERSION = __APP_VERSION__;
@@ -62,6 +63,7 @@ async function start() {
     physics: { default: 'arcade', arcade: { gravity: { x: 0, y: 0 }, debug: false } },
   });
   (window as any).__game = game;
+  (window as any).__R = R;
   (window as any).Phaser = Phaser;
   const onResize = () => {
     Display.compute();

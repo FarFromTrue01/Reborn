@@ -211,29 +211,68 @@ export class PrologueScene extends Phaser.Scene {
     g.fillStyle(0x200a08, 1);
     for (let x = 0; x < W; x += 40) g.fillTriangle(x - 60, H * 0.72, x + 60, H * 0.72, x, H * 0.62 - Math.random() * 40);
     bf.add(g);
-    // ejderha silueti
-    const d = this.add.graphics();
-    const cx = W * 0.62, cy = H * 0.36;
-    d.fillStyle(0x0a0404, 1);
-    d.fillEllipse(cx, cy, 260, 110);
-    d.fillTriangle(cx - 40, cy - 20, cx - 340, cy - 210, cx - 150, cy + 10);
-    d.fillTriangle(cx + 30, cy - 20, cx + 360, cy - 230, cx + 170, cy + 10);
-    d.fillTriangle(cx - 300, cy - 190, cx - 200, cy - 60, cx - 250, cy - 120);
-    d.fillTriangle(cx + 320, cy - 210, cx + 220, cy - 70, cx + 270, cy - 140);
-    d.fillEllipse(cx - 170, cy + 30, 70, 40);
-    d.lineStyle(26, 0x0a0404, 1);
-    d.beginPath();
-    d.moveTo(cx - 100, cy + 10);
-    d.lineTo(cx - 170, cy + 40);
-    d.strokePath();
-    d.fillTriangle(cx + 120, cy + 20, cx + 330, cy + 120, cx + 140, cy + 50);
-    const eye = this.add.circle(cx - 185, cy + 24, 4, 0xffd040);
-    bf.add([d, eye]);
-    this.tweens.add({ targets: [d, eye], y: '-=12', yoyo: true, repeat: -1, duration: 900, ease: 'Sine.easeInOut' });
+    // ejderha silueti: sola bakan, kanatları kalkık, kanat çırpan
+    const sc = (H / 720) * 0.72;
+    const cx = W * 0.6, cy = H * 0.42;
+    const SIL = 0x0a0404, RIM = 0x6a2010;
+    const poly = (g: Phaser.GameObjects.Graphics, pts: number[][], color = SIL, rim = true) => {
+      const v = pts.map(([x, y]) => new Phaser.Math.Vector2(x * sc, y * sc));
+      g.fillStyle(color, 1);
+      g.fillPoints(v, true);
+      if (rim) {
+        g.lineStyle(2 * sc, RIM, 0.7);
+        g.strokePoints(v, true);
+      }
+    };
+    const wing = (pts: number[][], sx: number, sy: number, color: number, delay: number) => {
+      const wg = this.add.graphics({ x: cx + sx * sc, y: cy + sy * sc });
+      poly(wg, pts, color);
+      // kanat kemikleri
+      wg.lineStyle(4 * sc, 0x050202, 1);
+      const bones = pts.filter((_, i) => i % 2 === 1);
+      for (const [x, y] of bones) wg.lineBetween(pts[1][0] * sc, pts[1][1] * sc, x * sc, y * sc);
+      bf.add(wg);
+      this.tweens.add({ targets: wg, scaleY: 0.45, duration: 650, yoyo: true, repeat: -1, ease: 'Sine.easeInOut', delay });
+      return wg;
+    };
+    // uzak kanat (arkada)
+    const farWing = wing([[0, 0], [-30, -220], [-130, -270], [-95, -190], [-170, -160], [-110, -120], [-140, -60], [-60, -20]], -50, -25, 0x140707, 0);
+    const d = this.add.graphics({ x: cx, y: cy });
+    // kuyruk
+    poly(d, [[80, -20], [190, 15], [290, 60], [350, 50], [395, 15], [420, 0], [400, 40], [375, 85], [300, 100], [185, 60], [70, 30]]);
+    // arka ve ön bacaklar
+    poly(d, [[50, 15], [95, 85], [80, 110], [45, 112], [62, 95], [30, 35]]);
+    poly(d, [[-75, 15], [-95, 75], [-120, 92], [-88, 98], [-58, 60]]);
+    // gövde
+    d.fillStyle(SIL, 1);
+    d.fillEllipse(0, 0, 230 * sc, 95 * sc);
+    d.lineStyle(2 * sc, RIM, 0.7);
+    d.strokeEllipse(0, 0, 230 * sc, 95 * sc);
+    // boyun
+    poly(d, [[-70, -38], [-130, -75], [-180, -108], [-212, -118], [-206, -84], [-160, -48], [-95, 18]]);
+    // sırt dikenleri
+    for (let i = 0; i < 6; i++) {
+      const t = i / 5, x = -190 + t * 260, y = -112 + t * 70;
+      poly(d, [[x - 8, y + 4], [x + 2, y - 18], [x + 10, y + 6]], SIL, false);
+    }
+    // baş, boynuzlar, açık çene
+    poly(d, [[-200, -120], [-246, -126], [-292, -108], [-304, -96], [-276, -88], [-250, -82], [-212, -76]]);
+    poly(d, [[-212, -118], [-180, -160], [-200, -112]]);
+    poly(d, [[-226, -122], [-212, -170], [-232, -118]]);
+    poly(d, [[-248, -84], [-296, -72], [-288, -64], [-238, -70]]);
+    bf.add(d);
+    // yakın kanat (önde)
+    const nearWing = wing([[0, 0], [50, -230], [230, -300], [185, -215], [285, -190], [215, -140], [270, -80], [190, -62], [205, 15], [70, 0]], -10, -30, 0x0c0505, 80);
+    const eye = this.add.circle(cx - 262 * sc, cy - 102 * sc, 4 * sc, 0xffd040);
+    const eyeGlow = this.add.image(eye.x, eye.y, 'light').setTint(0xffa020).setBlendMode(Phaser.BlendModes.ADD).setScale(0.12);
+    bf.add([eye, eyeGlow]);
+    this.tweens.add({ targets: [d, eye, eyeGlow, farWing, nearWing], y: '-=12', yoyo: true, repeat: -1, duration: 1300, ease: 'Sine.easeInOut' });
+    const mouthX = cx - 296 * sc, mouthY = cy - 74 * sc;
     // ateş nefesi
     this.time.addEvent({
-      delay: 60, repeat: 80, callback: () => {
-        const f = this.add.image(cx - 200, cy + 40, 'light').setTint(Math.random() < 0.5 ? 0xff7a20 : 0xffc040).setBlendMode(Phaser.BlendModes.ADD).setScale(0.15).setAlpha(0.9);
+      delay: 60, loop: true, callback: () => {
+        if (this.time.now % 2800 > 1400) return;
+        const f = this.add.image(mouthX, mouthY + d.y - cy, 'light').setTint(Math.random() < 0.5 ? 0xff7a20 : 0xffc040).setBlendMode(Phaser.BlendModes.ADD).setScale(0.15).setAlpha(0.9);
         bf.add(f);
         this.tweens.add({ targets: f, x: W * 0.22 + Math.random() * 60, y: H * 0.74 + Math.random() * 20, scale: 0.7, alpha: 0, duration: 700, onComplete: () => f.destroy() });
       },

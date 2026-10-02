@@ -110,8 +110,8 @@ export class TitleScene extends Phaser.Scene {
       this.tweens.add({ targets: s, alpha: Math.random() * 0.3, yoyo: true, repeat: -1, duration: 1500 + Math.random() * 3000 });
     }
     // ay
-    const moon = this.add.image(W * 0.78, H * 0.18, 'light').setTint(0xffe6b0).setScale(0.5).setAlpha(0.9);
-    const moonCore = this.add.circle(W * 0.78, H * 0.18, 22, 0xfff3d6);
+    const moon = this.add.image(W * 0.88, H * 0.09, 'light').setTint(0xffe6b0).setScale(0.5).setAlpha(0.9);
+    const moonCore = this.add.circle(W * 0.88, H * 0.09, 22, 0xfff3d6);
     this.root.add([moon, moonCore]);
     // uzak dağlar
     const mtn = this.add.graphics();
