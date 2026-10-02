@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="tr">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
+    <meta name="theme-color" content="#0b0a12" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="description" content="Reborn in Elonth — Elonth dünyasında yeniden doğan Joseph'in hikâyesi. Tarayıcıda oynanan 2D aksiyon RPG." />
+    <link rel="manifest" href="./manifest.webmanifest" />
+    <link rel="icon" href="./icons/icon-192.png" />
+    <link rel="apple-touch-icon" href="./icons/icon-192.png" />
+    <title>Reborn in Elonth</title>
+    <style>
+      html, body { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; background: #07060b; touch-action: none; overscroll-behavior: none; -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
+      #game { position: fixed; inset: 0; }
+      #game canvas { display: block; image-rendering: pixelated; image-rendering: crisp-edges; }
+      #boot { position: fixed; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; color: #d9b45a; font-family: Georgia, 'Times New Roman', serif; letter-spacing: .25em; background: radial-gradient(ellipse at center, #15121f 0%, #07060b 70%); z-index: 2; transition: opacity .6s; }
+      #boot .t { font-size: clamp(22px, 4vw, 44px); text-shadow: 0 0 18px rgba(217,180,90,.35); }
+      #boot .bar { margin-top: 28px; width: 40vw; max-width: 420px; height: 6px; border: 1px solid #6b5426; border-radius: 3px; overflow: hidden; }
+      #boot .bar i { display: block; height: 100%; width: 0; background: linear-gradient(90deg,#8a6a2a,#f0d27a); transition: width .2s; }
+      #boot .s { margin-top: 12px; font-size: 12px; color: #8d7a52; letter-spacing: .15em; }
+      #rotate { position: fixed; inset: 0; display: none; z-index: 5; background: #07060b; color: #d9b45a; font-family: Georgia, serif; align-items: center; justify-content: center; text-align: center; padding: 24px; font-size: 20px; letter-spacing: .08em; }
+      @media (orientation: portrait) and (max-width: 1000px) { #rotate { display: flex; } }
+    </style>
+  </head>
+  <body>
+    <div id="game"></div>
+    <div id="boot"><div class="t">REBORN IN ELONTH</div><div class="bar"><i id="bootbar"></i></div><div class="s" id="bootmsg">Yükleniyor…</div></div>
+    <div id="rotate">Lütfen cihazını yatay çevir.<br /><br />⟲</div>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>
