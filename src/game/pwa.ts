@@ -9,8 +9,10 @@ export let updateAvailable = false;
 export function setupPWA() {
   if (!('serviceWorker' in navigator) || import.meta.env.DEV) return;
   let reloading = false;
+  // İlk kurulumda (önceden kontrolcü yokken) yenileme yapma; sadece sürüm güncellemesinde yenile.
+  const hadController = !!navigator.serviceWorker.controller;
   navigator.serviceWorker.addEventListener('controllerchange', () => {
-    if (reloading) return;
+    if (reloading || !hadController) return;
     reloading = true;
     window.location.reload();
   });

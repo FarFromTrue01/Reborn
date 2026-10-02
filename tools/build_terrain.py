@@ -86,9 +86,9 @@ for tid, (c, r) in [('forest', (6, 24)), ('dirt', (15, 0)), ('mud', (18, 0)), ('
     terrains.append((tid, cs, fs))
 
 # Kaldırım (gri arnavut taşı) – toprak maskesiyle
-cob = [tile(30, 16), tile(31, 17), tile(30, 18), tile(31, 19)]
+cob = [tile(30, 16), tile(31, 17), tile(30, 18), tile(31, 19), tile(31, 20)]
 cs = masked_cases(15, 0, cob, (30, 30, 35, 120))
-terrains.append(('cobble', cs, [tile(30, 17), tile(31, 18), tile(30, 19)]))
+terrains.append(('cobble', cs, [tile(30, 17), tile(31, 18), tile(31, 19)]))
 
 # Tarla (sürülmüş toprak)
 tilled = [tile(6, 20), tile(7, 20), tile(6, 20).transpose(Image.FLIP_LEFT_RIGHT)]

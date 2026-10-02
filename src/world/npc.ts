@@ -1,0 +1,220 @@
+// NPC kontrolcüsü: günlük program, yürüme, balonlar.
+import Phaser from 'phaser';
+import { Actor, dirFromVec, type Dir } from './actor';
+import { scheduleAt, type NpcDef, type ScheduleEntry } from '../data/npcs';
+import { TILE } from './types';
+import { findPath, nearestFree } from './path';
+import type { WorldScene } from '../scenes/WorldScene';
+import { derive } from '../core/creature';
+
+export class Npc {
+  actor: Actor;
+  entry: ScheduleEntry | null = null;
+  path: [number, number][] = [];
+  pathT = 0;
+  state: 'idle' | 'walk' | 'leaving' | 'scripted' = 'idle';
+  idleT = 0;
+  bubble: Phaser.GameObjects.Container | null = null;
+  bubbleT = 0;
+  bubbleCd = 5 + Math.random() * 15;
+  nameTag: Phaser.GameObjects.Text;
+  patrolIdx = 0;
+  homeTile: [number, number] = [0, 0];
+  scripted = false;
+  leaveCb: (() => void) | null = null;
+  speed: number;
+  hp: number;
+
+  constructor(public w: WorldScene, public def: NpcDef, x: number, y: number) {
+    this.actor = new Actor(w, x, y, [def.sheet], 'lpc');
+    this.actor.enablePhysics(9);
+    this.actor.body2.setImmovable(true);
+    this.speed = (def.speed ?? 2.2) * TILE;
+    this.nameTag = w.add.text(x, y, def.name, { fontFamily: 'AlegreyaSans, sans-serif', fontSize: '10px', color: '#f0e6c8', stroke: '#140c06', strokeThickness: 3 }).setOrigin(0.5, 1).setDepth(960000).setAlpha(0);
+    this.nameTag.setResolution(w.cameras.main.zoom);
+    this.hp = derive(def.creature).maxHp;
+  }
+
+  get x() { return this.actor.x; }
+  get y() { return this.actor.y; }
+
+  tile(): [number, number] {
+    return [Math.floor(this.x / TILE), Math.floor(this.y / TILE)];
+  }
+
+  destroy() {
+    this.actor.destroy();
+    this.nameTag.destroy();
+    this.bubble?.destroy();
+  }
+
+  /** Programdaki hedefin bu haritadaki karosu. */
+  resolveAt(at: ScheduleEntry['at']): [number, number] | null {
+    if (Array.isArray(at)) return at;
+    const p = this.w.mapData.points[at];
+    return p ? [p.x, p.y] : null;
+  }
+
+  walkTo(tx: number, ty: number) {
+    const m = this.w.mapData;
+    const [sx, sy] = nearestFree(m.solid, m.w, m.h, ...this.tile());
+    const [gx, gy] = nearestFree(m.solid, m.w, m.h, tx, ty);
+    const p = findPath(m.solid, m.w, m.h, sx, sy, gx, gy);
+    this.path = p ?? [];
+    this.state = this.path.length ? 'walk' : 'idle';
+  }
+
+  update(dt: number, hour: number) {
+    const a = this.actor;
+    a.tickAnim(dt);
+    a.tickFlash(dt);
+    const body = a.body2;
+    // isim etiketi: oyuncu yakınsa
+    const pd = this.w.player.actor;
+    const dist = Math.hypot(pd.x - this.x, pd.y - this.y) / TILE;
+    this.nameTag.setPosition(a.x, a.y - 60);
+    this.nameTag.setAlpha(Phaser.Math.Clamp((4 - dist) / 2, 0, 1) * (this.bubble ? 0 : 1));
+    // balon
+    if (this.bubble) {
+      this.bubbleT -= dt;
+      this.bubble.setPosition(a.x, a.y - 62);
+      if (this.bubbleT <= 0) {
+        const b = this.bubble;
+        this.bubble = null;
+        this.w.tweens.add({ targets: b, alpha: 0, y: b.y - 6, duration: 250, onComplete: () => b.destroy() });
+      }
+    }
+    if (this.scripted) {
+      a.setDepth(a.y);
+      if (this.state === 'walk') this.followPath(dt, body);
+      else body.setVelocity(0, 0);
+      return;
+    }
+    // program
+    const e = scheduleAt(this.def, hour);
+    if (e !== this.entry) {
+      this.entry = e;
+      this.onEntry(e);
+    }
+    if (this.state === 'walk' || this.state === 'leaving') this.followPath(dt, body);
+    else {
+      body.setVelocity(0, 0);
+      a.play('idle');
+      this.idleT += dt;
+      if (e.act === 'patrol' && e.patrol && this.idleT > 2) {
+        this.patrolIdx = (this.patrolIdx + 1) % e.patrol.length;
+        const [px, py] = e.patrol[this.patrolIdx];
+        this.walkTo(px, py);
+        this.idleT = 0;
+      } else if ((e.wander ?? 0) > 0 && this.idleT > 4 + Math.random() * 6) {
+        const [hx, hy] = this.homeTile;
+        const r = e.wander!;
+        this.walkTo(hx + Math.round((Math.random() * 2 - 1) * r), hy + Math.round((Math.random() * 2 - 1) * r));
+        this.idleT = 0;
+      } else if (this.idleT > 3 && Math.random() < dt * 0.3) {
+        a.face((['down', 'left', 'right', 'down'] as Dir[])[Math.floor(Math.random() * 4)]);
+      }
+      // oyuncuya dön (yakınsa)
+      if (dist < 2.2) a.face(dirFromVec(pd.x - this.x, pd.y - this.y));
+    }
+    // dünya balonu
+    this.bubbleCd -= dt;
+    if (this.bubbleCd <= 0 && dist < 5.5 && !this.bubble && this.w.canBubble()) {
+      const line = this.w.pickBubble(this.def);
+      if (line) this.say(line, 3.4);
+      this.bubbleCd = 18 + Math.random() * 25;
+    }
+    a.setDepth(a.y);
+  }
+
+  onEntry(e: ScheduleEntry) {
+    const mapId = this.w.mapData.id;
+    if (e.map === mapId) {
+      const t = this.resolveAt(e.at);
+      if (t) {
+        this.homeTile = t;
+        this.walkTo(t[0], t[1]);
+      }
+    } else {
+      // Başka bir yere gidiyor: bu haritadan ayrıl (kapıya/çıkışa yürü, sonra kaybol)
+      let door: { x: number; y: number } | null = null;
+      if (mapId === 'world') {
+        const b = this.w.mapData.points['door_' + (e.map === 'inn_attic' ? 'inn' : e.map)];
+        if (b) door = b;
+      } else door = this.w.mapData.points.exit ?? null;
+      if (door && e.map !== 'hidden') {
+        this.walkTo(door.x, door.y);
+        this.state = 'leaving';
+      } else if (door && e.map === 'hidden') {
+        this.walkTo(door.x, door.y);
+        this.state = 'leaving';
+      } else {
+        this.state = 'leaving';
+        this.path = [];
+      }
+    }
+  }
+
+  followPath(dt: number, body: Phaser.Physics.Arcade.Body) {
+    const a = this.actor;
+    if (!this.path.length) {
+      body.setVelocity(0, 0);
+      a.play('idle');
+      if (this.state === 'leaving') {
+        this.w.removeNpc(this);
+        return;
+      }
+      this.state = 'idle';
+      if (this.leaveCb) {
+        const cb = this.leaveCb;
+        this.leaveCb = null;
+        cb();
+      }
+      return;
+    }
+    const [tx, ty] = this.path[0];
+    const gx = tx * TILE + TILE / 2, gy = ty * TILE + TILE / 2 + 6;
+    const dx = gx - a.x, dy = gy - a.y;
+    const d = Math.hypot(dx, dy);
+    if (d < 4) {
+      this.path.shift();
+      return;
+    }
+    body.setVelocity((dx / d) * this.speed, (dy / d) * this.speed);
+    a.face(dirFromVec(dx, dy));
+    a.play('walk');
+    a.animSpeed = this.speed / (2.2 * TILE);
+    this.pathT += dt;
+    if (this.pathT > 0.6) {
+      this.pathT = 0;
+      // takıldıysa ışınla
+      if (Math.abs(body.velocity.x) + Math.abs(body.velocity.y) < 5) a.setPosition(gx, gy);
+    }
+  }
+
+  say(text: string, dur = 3.2) {
+    this.bubble?.destroy();
+    const c = this.w.add.container(this.actor.x, this.actor.y - 62).setDepth(970000);
+    const t = this.w.add.text(0, 0, text, {
+      fontFamily: 'AlegreyaSans, sans-serif', fontSize: '9px', color: '#2a1d10',
+      wordWrap: { width: 120, useAdvancedWrap: true }, align: 'center',
+    }).setOrigin(0.5, 1);
+    t.setResolution(this.w.cameras.main.zoom * 1.5);
+    const bw = t.width + 10, bh = t.height + 6;
+    const g = this.w.add.graphics();
+    g.fillStyle(0x000000, 0.25);
+    g.fillRoundedRect(-bw / 2 + 1, -bh - 4 + 2, bw, bh, 4);
+    g.fillStyle(0xfff6e0, 0.97);
+    g.fillRoundedRect(-bw / 2, -bh - 4, bw, bh, 4);
+    g.fillTriangle(-4, -5, 4, -5, 0, 1);
+    g.lineStyle(1, 0x6b5426, 1);
+    g.strokeRoundedRect(-bw / 2, -bh - 4, bw, bh, 4);
+    t.setPosition(0, -6);
+    c.add([g, t]);
+    c.setScale(0.6);
+    this.w.tweens.add({ targets: c, scale: 1, duration: 160, ease: 'Back.Out' });
+    this.bubble = c;
+    this.bubbleT = dur;
+    this.w.noteBubble();
+  }
+}

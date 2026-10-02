@@ -1,6 +1,14 @@
 import Phaser from 'phaser';
 import { Display } from './game/display';
 import { BootScene } from './scenes/BootScene';
+import { TitleScene } from './scenes/TitleScene';
+import { PrologueScene } from './scenes/PrologueScene';
+import { WorldScene } from './scenes/WorldScene';
+import { UIScene } from './scenes/UIScene';
+import { MenuScene } from './scenes/MenuScene';
+import { MinigameScene } from './scenes/MinigameScene';
+import { CreditsScene } from './scenes/CreditsScene';
+import { G } from './game/G';
 import { setupPWA } from './game/pwa';
 
 declare const __APP_VERSION__: string;
@@ -35,6 +43,7 @@ async function start() {
   cssFonts();
   setupPWA();
   await loadFonts();
+  Display.uiScaleSetting = G.settings.uiScale;
   Display.compute();
   const game = new Phaser.Game({
     type: Phaser.WEBGL,
@@ -49,7 +58,8 @@ async function start() {
     input: { activePointers: 4 },
     fps: { target: 60, smoothStep: true },
     render: { powerPreference: 'high-performance', maxLights: 24 } as any,
-    scene: [BootScene],
+    scene: [BootScene, TitleScene, PrologueScene, WorldScene, UIScene, MenuScene, MinigameScene, CreditsScene],
+    physics: { default: 'arcade', arcade: { gravity: { x: 0, y: 0 }, debug: false } },
   });
   (window as any).__game = game;
   const onResize = () => {
