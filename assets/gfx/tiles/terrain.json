@@ -1,0 +1,58 @@
+{
+ "tileSize": 32,
+ "cols": 20,
+ "terrains": {
+  "grass": {
+   "row": 0,
+   "base": 0
+  },
+  "grass_flowers": {
+   "row": 1,
+   "base": 20
+  },
+  "forest": {
+   "row": 2,
+   "base": 40
+  },
+  "dirt": {
+   "row": 3,
+   "base": 60
+  },
+  "mud": {
+   "row": 4,
+   "base": 80
+  },
+  "sand": {
+   "row": 5,
+   "base": 100
+  },
+  "water": {
+   "row": 6,
+   "base": 120
+  },
+  "cobble": {
+   "row": 7,
+   "base": 140
+  },
+  "farm": {
+   "row": 8,
+   "base": 160
+  },
+  "pond": {
+   "row": 9,
+   "base": 180
+  }
+ },
+ "floors": {
+  "floor_wood": 200,
+  "floor_wood2": 201,
+  "floor_check": 202,
+  "floor_stone": 203,
+  "floor_flag": 204,
+  "floor_flag2": 205,
+  "floor_flag3": 206,
+  "floor_tan": 207,
+  "cobble_fill": 208,
+  "dirt_fill": 209
+ }
+}

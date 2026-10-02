@@ -1,0 +1,1347 @@
+[
+ {
+  "file": "arms/gloves/male",
+  "notes": "metal gloves by wulax, recolors by bigbeargames, adapted to v3 bases by bluecarrot16, added to expanded animations by JaidynReiman",
+  "authors": [
+   "Michael Whitlock (bigbeargames)",
+   "Matthew Krohn (makrohn)",
+   "Johannes Sjölund (wulax)",
+   "bluecarrot16",
+   "JaidynReiman"
+  ],
+  "licenses": [
+   "OGA-BY 3.0",
+   "CC-BY-SA 3.0",
+   "GPL 3.0"
+  ],
+  "urls": [
+   "https://opengameart.org/content/lpc-medieval-fantasy-character-sprites",
+   "http://opengameart.org/content/lpc-clothing-updates"
+  ]
+ },
+ {
+  "file": "beards/beard/5oclock_shadow",
+  "notes": "Original by Pennomi, repositioning by JaidynReiman.",
+  "authors": [
+   "JaidynReiman",
+   "Thane Brimhall (pennomi)"
+  ],
+  "licenses": [
+   "CC-BY-SA 3.0",
+   "GPL 3.0"
+  ],
+  "urls": [
+   "https://opengameart.org/content/lpc-base-character-expressions"
+  ]
+ },
+ {
+  "file": "beards/beard/basic",
+  "notes": "Original by Nemisys, repositioning by JaidynReiman.",
+  "authors": [
+   "JaidynReiman",
+   "Carlo Enrico Victoria (Nemisys)"
+  ],
+  "licenses": [
+   "CC-BY-SA 3.0",
+   "GPL 3.0"
+  ],
+  "urls": [
+   "https://opengameart.org/content/lpc-white-beard"
+  ]
+ },
+ {
+  "file": "beards/beard/medium",
+  "notes": "",
+  "authors": [
+   "ElizaWy"
+  ],
+  "licenses": [
+   "OGA-BY 3.0"
+  ],
+  "urls": [
+   "https://github.com/ElizaWy/LPC/tree/main/Characters/Hair",
+   "https://opengameart.org/content/expanded-universal-lpc-spritesheet-idle-run-jump-lpc-revised-combat-and-assets"
+  ]
+ },
+ {
+  "file": "beards/beard/winter",
+  "notes": "",
+  "authors": [
+   "bluecarrot16"
+  ],
+  "licenses": [
+   "CC0"
+  ],
+  "urls": [
+   "https://opengameart.org/content/lpc-santa"
+  ]
+ },
+ {
+  "file": "body/bodies/child",
+  "notes": "",
+  "authors": [
+   "bluecarrot16",
+   "Benjamin K. Smith (BenCreating)",
+   "ElizaWy",
+   "MuffinElZangano",
+   "Durrani",
+   "Nila122",
+   "kheftel",
+   "Stephen Challener (Redshrike)"
+  ],
+  "licenses": [
+   "OGA-BY 3.0",
+   "CC-BY-SA 3.0",
+   "GPL 3.0"
+  ],
+  "urls": [
+   "https://opengameart.org/content/liberated-pixel-cup-lpc-base-assets-sprites-map-tiles",
+   "https://opengameart.org/content/lpc-child-standing-template",
+   "https://opengameart.org/content/lpc-children-walk-animation",
+   "https://opengameart.org/content/lpc-male-jumping-animation-by-durrani",
+   "https://opengameart.org/content/lpc-male-jumping-animation-by-durrani",
+   "https://opengameart.org/content/lpc-jump-expanded",
+   "https://opengameart.org/content/lpc-jump-expanded"
+  ]
+ },
+ {
+  "file": "body/bodies/female",
+  "notes": "see details at https://opengameart.org/content/lpc-character-bases",
+  "authors": [
+   "Benjamin K. Smith (BenCreating)",
+   "bluecarrot16",
+   "TheraHedwig",
+   "Evert",
+   "MuffinElZangano",
+   "Durrani",
+   "Pierre Vigier (pvigier)",
+   "ElizaWy",
+   "Matthew Krohn (makrohn)",
+   "Johannes Sjölund (wulax)",
+   "Stephen Challener (Redshrike)"
+  ],
+  "licenses": [
+   "OGA-BY 3.0",
+   "CC-BY-SA 3.0",
+   "GPL 3.0"
+  ],
+  "urls": [
+   "https://opengameart.org/content/liberated-pixel-cup-lpc-base-assets-sprites-map-tiles",
+   "https://opengameart.org/content/lpc-medieval-fantasy-character-sprites",
+   "https://opengameart.org/content/lpc-ladies",
+   "https://opengameart.org/content/lpc-7-womens-shirts",
+   "https://opengameart.org/content/lpc-jump-expanded",
+   "https://opengameart.org/content/lpc-be-seated",
+   "https://opengameart.org/content/lpc-revised-character-basics",
+   "https://gitlab.com/vagabondgame/lpc-characters",
+   "https://opengameart.org/content/lpc-male-jumping-animation-by-durrani",
+   "https://opengameart.org/content/lpc-runcycle-and-diagonal-walkcycle"
+  ]
+ },
+ {
+  "file": "body/bodies/male",
+  "notes": "see details at https://opengameart.org/content/lpc-character-bases; 'Thick' Male Revised Run/Climb by JaidynReiman (based on ElizaWy's LPC Revised)",
+  "authors": [
+   "bluecarrot16",
+   "Benjamin K. Smith (BenCreating)",
+   "Evert",
+   "Eliza Wyatt (ElizaWy)",
+   "TheraHedwig",
+   "MuffinElZangano",
+   "Durrani",
+   "Johannes Sj?lund (wulax)",
+   "Stephen Challener (Redshrike)"
+  ],
+  "licenses": [
+   "CC-BY-SA 3.0",
+   "GPL 3.0"
+  ],
+  "urls": [
+   "https://opengameart.org/content/liberated-pixel-cup-lpc-base-assets-sprites-map-tiles",
+   "https://opengameart.org/content/lpc-medieval-fantasy-character-sprites",
+   "https://opengameart.org/content/lpc-male-jumping-animation-by-durrani",
+   "https://opengameart.org/content/lpc-runcycle-and-diagonal-walkcycle",
+   "https://opengameart.org/content/lpc-revised-character-basics",
+   "https://opengameart.org/content/lpc-be-seated",
+   "https://opengameart.org/content/lpc-runcycle-for-male-muscular-and-pregnant-character-bases-with-modular-heads",
+   "https://opengameart.org/content/lpc-jump-expanded",
+   "https://opengameart.org/content/lpc-character-bases"
+  ]
+ },
+ {
+  "file": "body/bodies/muscular",
+  "notes": "see details at https://opengameart.org/content/lpc-character-bases",
+  "authors": [
+   "bluecarrot16",
+   "Evert",
+   "TheraHedwig",
+   "MuffinElZangano",
+   "Durrani",
+   "Sander Frenken (castelonia)",
+   "Benjamin K. Smith (BenCreating)",
+   "Eliza Wyatt (ElizaWy)",
+   "dalonedrau",
+   "Stephen Challener (Redshrike)"
+  ],
+  "licenses": [
+   "CC-BY-SA 3.0",
+   "GPL 3.0"
+  ],
+  "urls": [
+   "https://opengameart.org/content/liberated-pixel-cup-lpc-base-assets-sprites-map-tiles",
+   "https://opengameart.org/content/lpc-barbarian-sprite-base",
+   "https://opengameart.org/content/lpc-muscular-swing-animation",
+   "https://opengameart.org/content/lpc-muscular-hurt-animation",
+   "https://opengameart.org/content/lpc-jump-expanded",
+   "https://opengameart.org/content/lpc-revised-character-basics",
+   "https://opengameart.org/content/lpc-be-seated",
+   "https://opengameart.org/content/lpc-jump-expanded",
+   "https://opengameart.org/content/lpc-character-bases",
+   "https://opengameart.org/content/lpc-male-jumping-animation-by-durrani"
+  ]
+ },
+ {
+  "file": "body/tail/cat",
+  "notes": "",
+  "authors": [
+   "JaidynReiman"
+  ],
+  "licenses": [
+   "OGA-BY 3.0+",
+   "CC-BY 3.0+",
+   "GPL 3.0"
+  ],
+  "urls": [
+   "https://opengameart.org/content/lpc-furry-ears-tails-for-rpg-sprites"
+  ]
+ },
+ {
+  "file": "cape/solid/female",
+  "notes": "",
+  "authors": [
+   "bluecarrot16",
+   "JaidynReiman"
+  ],
+  "licenses": [
+   "OGA-BY 3.0",
+   "CC-BY-SA 3.0",
+   "GPL 3.0"
+  ],
+  "urls": [
+   "https://opengameart.org/content/lpc-curly-hair-elven-ears-white-cape-with-blue-trim-and-more",
+   "https://opengameart.org/content/lpc-roman-armor",
+   "http://opengameart.org/content/lpc-clothing-updates"
+  ]
+ },
+ {
+  "file": "cape/solid_behind",
+  "notes": "",
+  "authors": [
+   "Nila122",
+   "JaidynReiman"
+  ],
+  "licenses": [
+   "OGA-BY 3.0",
+   "CC-BY-SA 3.0",
+   "GPL 3.0"
+  ],
+  "urls": [
+   "https://opengameart.org/content/lpc-curly-hair-elven-ears-white-cape-with-blue-trim-and-more",
+   "https://opengameart.org/content/lpc-roman-armor"
+  ]
+ },
+ {
+  "file": "dress/bodice",
+  "notes": "original princess.xcf by Sharm",
+  "authors": [
+   "extended to all poses by makrohn"
+  ],
+  "licenses": [
+   "edited to v3 bases and animation cleanup by bluecarrot16"
+  ],
+  "urls": [
+   "bluecarrot16, Matthew Krohn (makrohn), Lanea Zimmerman (Sharm)",
+   "OGA-BY 3.0, CC-BY-SA 3.0, GPL 3.0",
+   "https://opengameart.org/content/liberated-pixel-cup-lpc-base-assets-sprites-map-tiles",
+   "https://opengameart.org/content/lpc-dress-in-combat-poses",
+   "http://opengameart.org/content/lpc-clothing-updates"
+  ]
+ },
+ {
+  "file": "eyes/eyebrows/thick",
+  "notes": "",
+  "authors": [
+   "ElizaWy"
+  ],
+  "licenses": [
+   "OGA-BY 3.0"
+  ],
+  "urls": [
+   "https://github.com/ElizaWy/LPC/tree/main/Characters/Hair",
+   "https://opengameart.org/content/expanded-universal-lpc-spritesheet-idle-run-jump-lpc-revised-combat-and-assets"
+  ]
+ },
+ {
+  "file": "eyes/human",
+  "notes": "original by Redshrike, mapped to all frames by Matthew Krohn & JaidynReiman",
+  "authors": [
+   "JaidynReiman",
+   "Matthew Krohn (makrohn)",
+   "Stephen Challener (Redshrike)"
+  ],
+  "licenses": [
+   "OGA-BY 3.0",
+   "CC-BY-SA 3.0",
+   "GPL 3.0"
+  ],
+  "urls": [
+   "https://opengameart.org/content/liberated-pixel-cup-lpc-base-assets-sprites-map-tiles"
+  ]
+ },
+ {
+  "file": "eyes/human/adult/gray.png",
+  "notes": "original by Redshrike, color by Mark Weyer & Wulax, mapped to all frames by Matthew Krohn & JaidynReiman",
+  "authors": [
+   "Mark Weyer",
+   "Johannes Sjölund (wulax)",
+   "Matthew Krohn (makrohn)",
+   "Stephen Challener (Redshrike)"
+  ],
+  "licenses": [
+   "OGA-BY 3.0",
+   "CC-BY-SA 3.0",
+   "GPL 3.0"
+  ],
+  "urls": [
+   "https://opengameart.org/content/liberated-pixel-cup-lpc-base-assets-sprites-map-tiles",
+   "https://opengameart.org/content/lpc-medieval-fantasy-character-sprites"
+  ]
+ },
+ {
+  "file": "feet/boots",
+  "notes": "original by Nila122, edited for male and v3 bases by bluecarrot16",
+  "authors": [
+   "bluecarrot16",
+   "Nila122"
+  ],
+  "licenses": [
+   "OGA-BY 3.0",
+   "CC-BY-SA 3.0",
+   "GPL 2.0",
+   "GPL 3.0"
+  ],
+  "urls": [
+   "https://opengameart.org/content/lpc-clothes-and-hair"
+  ]
+ },
+ {
+  "file": "feet/boots/female",
+  "notes": "original by Nila122, edited for v3 bases by bluecarrot16",
+  "authors": [
+   "bluecarrot16",
+   "Nila122"
+  ],
+  "licenses": [
+   "OGA-BY 3.0",
+   "CC-BY-SA 3.0",
+   "GPL 2.0",
+   "GPL 3.0"
+  ],
+  "urls": [
+   "https://opengameart.org/content/lpc-clothes-and-hair"
+  ]
+ },
+ {
+  "file": "feet/shoes",
+  "notes": "original by wulax, edited for v3 base by bluecarrot16",
+  "authors": [
+   "bluecarrot16",
+   "Johannes Sjölund (wulax)"
+  ],
+  "licenses": [
+   "OGA-BY 3.0",
+   "CC-BY-SA 3.0",
+   "GPL 3.0"
+  ],
+  "urls": [
+   "https://opengameart.org/content/lpc-medieval-fantasy-character-sprites",
+   "http://opengameart.org/content/lpc-clothing-updates"
+  ]
+ },
+ {
+  "file": "feet/shoes/female",
+  "notes": "original by wulax, edited for female base by Joe White, edited for v3 base by bluecarrot16",
+  "authors": [
+   "Joe White",
+   "Johannes Sjölund (wulax)"
+  ],
+  "licenses": [
+   "OGA-BY 3.0",
+   "CC-BY-SA 3.0",
+   "GPL 3.0"
+  ],
+  "urls": [
+   "https://opengameart.org/content/lpc-medieval-fantasy-character-sprites",
+   "http://opengameart.org/content/lpc-clothing-updates"
+  ]
+ },
+ {
+  "file": "hair/balding",
+  "notes": "",
+  "authors": [
+   "ElizaWy"
+  ],
+  "licenses": [
+   "OGA-BY 3.0"
+  ],
+  "urls": [
+   "https://opengameart.org/content/lpc-hair"
+  ]
+ },
+ {
+  "file": "hair/bangs_bun",
+  "notes": "Original by bluecarrot16, animated by ElizaWy.",
+  "authors": [
+   "ElizaWy",
+   "bluecarrot16"
+  ],
+  "licenses": [
+   "CC0"
+  ],
+  "urls": [
+   "https://opengameart.org/content/lpc-hair",
+   "https://github.com/ElizaWy/LPC/blob/main/Characters/Hair",
+   "https://opengameart.org/content/expanded-universal-lpc-spritesheet-idle-run-jump-lpc-revised-combat-and-assets"
+  ]
+ },
+ {
+  "file": "hair/bob",
+  "notes": "Original by bluecarrot16. Edited and animated by ElizaWy.",
+  "authors": [
+   "ElizaWy",
+   "bluecarrot16"
+  ],
+  "licenses": [
+   "CC0"
+  ],
+  "urls": [
+   "https://opengameart.org/content/lpc-hair",
+   "https://github.com/ElizaWy/LPC/blob/main/Characters/Hair",
+   "https://opengameart.org/content/expanded-universal-lpc-spritesheet-idle-run-jump-lpc-revised-combat-and-assets"
+  ]
+ },
+ {
+  "file": "hair/buzzcut",
+  "notes": "",
+  "authors": [
+   "ElizaWy"
+  ],
+  "licenses": [
+   "OGA-BY 3.0"
+  ],
+  "urls": [
+   "https://opengameart.org/content/lpc-hair"
+  ]
+ },
+ {
+  "file": "hair/long",
+  "notes": "",
+  "authors": [
+   "Manuel Riecke (MrBeast)"
+  ],
+  "licenses": [
+   "CC-BY-SA 3.0",
+   "GPL 3.0"
+  ],
+  "urls": [
+   "https://opengameart.org/content/liberated-pixel-cup-lpc-base-assets-sprites-map-tiles"
+  ]
+ },
+ {
+  "file": "hair/long_straight",
+  "notes": "",
+  "authors": [
+   "thecilekli",
+   "bluecarrot16"
+  ],
+  "licenses": [
+   "CC0"
+  ],
+  "urls": [
+   "https://opengameart.org/content/lpc-long-straight-hair-with-12-colors",
+   "https://opengameart.org/content/lpc-hair"
+  ]
+ },
+ {
+  "file": "hair/messy1",
+  "notes": "",
+  "authors": [
+   "Manuel Riecke (MrBeast)"
+  ],
+  "licenses": [
+   "CC-BY-SA 3.0",
+   "GPL 3.0"
+  ],
+  "urls": [
+   "https://opengameart.org/content/liberated-pixel-cup-lpc-base-assets-sprites-map-tiles"
+  ]
+ },
+ {
+  "file": "hair/messy3",
+  "notes": "",
+  "authors": [
+   "Fabzy",
+   "bluecarrot16"
+  ],
+  "licenses": [
+   "CC-BY-SA 3.0"
+  ],
+  "urls": [
+   "https://opengameart.org/content/the-revolution-hair",
+   "https://opengameart.org/content/lpc-hair"
+  ]
+ },
+ {
+  "file": "hair/pixie",
+  "notes": "",
+  "authors": [
+   "Manuel Riecke (MrBeast)"
+  ],
+  "licenses": [
+   "CC-BY-SA 3.0",
+   "GPL 3.0"
+  ],
+  "urls": [
+   "https://opengameart.org/content/liberated-pixel-cup-lpc-base-assets-sprites-map-tiles"
+  ]
+ },
+ {
+  "file": "hair/plain",
+  "notes": "",
+  "authors": [
+   "Manuel Riecke (MrBeast)",
+   "Joe White"
+  ],
+  "licenses": [
+   "CC-BY-SA 3.0",
+   "GPL 3.0"
+  ],
+  "urls": [
+   "https://opengameart.org/content/liberated-pixel-cup-lpc-base-assets-sprites-map-tiles",
+   "https://opengameart.org/content/ponytail-and-plain-hairstyles"
+  ]
+ },
+ {
+  "file": "hair/ponytail",
+  "notes": "",
+  "authors": [
+   "Manuel Riecke (MrBeast)"
+  ],
+  "licenses": [
+   "CC-BY-SA 3.0",
+   "GPL 3.0"
+  ],
+  "urls": [
+   "https://opengameart.org/content/liberated-pixel-cup-lpc-base-assets-sprites-map-tiles"
+  ]
+ },
+ {
+  "file": "hair/shoulderl",
+  "notes": "",
+  "authors": [
+   "JaidynReiman",
+   "Lanea Zimmerman (Sharm)",
+   "Manuel Riecke (MrBeast)"
+  ],
+  "licenses": [
+   "OGA-BY 3.0",
+   "CC-BY-SA 3.0",
+   "GPL 3.0"
+  ],
+  "urls": [
+   "https://opengameart.org/content/liberated-pixel-cup-lpc-base-assets-sprites-map-tiles",
+   "https://github.com/jrconway3/Universal-LPC-spritesheet/commit/c32ce8a7edd9fc7fe7daa62a39cf64e5946020a2"
+  ]
+ },
+ {
+  "file": "hair/spiked",
+  "notes": "",
+  "authors": [
+   "kcilds/Rocetti/Eredah"
+  ],
+  "licenses": [
+   "CC-BY 4.0"
+  ],
+  "urls": [
+   "https://opengameart.org/content/eredah-rpg-character-base-48x64-ongoing",
+   "https://opengameart.org/content/lpc-hair"
+  ]
+ },
+ {
+  "file": "hair/unkempt",
+  "notes": "",
+  "authors": [
+   "Manuel Riecke (MrBeast)"
+  ],
+  "licenses": [
+   "CC-BY-SA 3.0",
+   "GPL 3.0"
+  ],
+  "urls": [
+   "https://opengameart.org/content/liberated-pixel-cup-lpc-base-assets-sprites-map-tiles"
+  ]
+ },
+ {
+  "file": "hair/xlong",
+  "notes": "",
+  "authors": [
+   "Nila122"
+  ],
+  "licenses": [
+   "OGA-BY 3.0",
+   "CC-BY-SA 3.0",
+   "GPL 2.0",
+   "GPL 3.0"
+  ],
+  "urls": [
+   "https://opengameart.org/content/lpc-clothes-and-hair"
+  ]
+ },
+ {
+  "file": "hat/cloth/feather_cap",
+  "notes": "original by Johannes Sjölund (wulax), female by Matthew Krohn, mapped to all frames w/recolors by JaidynReiman",
+  "authors": [
+   "Johannes Sjölund (wulax)",
+   "Matthew Krohn (Makrohn)",
+   "JaidynReiman"
+  ],
+  "licenses": [
+   "OGA-BY 3.0",
+   "CC-BY-SA 3.0",
+   "GPL 3.0"
+  ],
+  "urls": [
+   "https://opengameart.org/content/lpc-medieval-fantasy-character-sprites",
+   "https://opengameart.org/content/expanded-ulpc-head-accessories-facial-assets-hats-helmets"
+  ]
+ },
+ {
+  "file": "hat/cloth/hood",
+  "notes": "Brown hood by Wulax, original black/white recolors by ??, mapped to idle/run/jump/revised combat by JaidynReiman, along with additional recolors.",
+  "authors": [
+   "Johannes Sjölund (wulax)",
+   "JaidynReiman"
+  ],
+  "licenses": [
+   "OGA-BY 3.0",
+   "CC-BY-SA 3.0",
+   "GPL 3.0"
+  ],
+  "urls": [
+   "https://opengameart.org/content/lpc-medieval-fantasy-character-sprites",
+   "https://opengameart.org/content/expanded-ulpc-head-accessories-facial-assets-hats-helmets"
+  ]
+ },
+ {
+  "file": "hat/helmet/barbarian",
+  "notes": "",
+  "authors": [
+   "bluecarrot16"
+  ],
+  "licenses": [
+   "CC-BY 3.0",
+   "CC-BY 4.0",
+   "OGA-BY 3.0",
+   "GPL 2.0",
+   "GPL 3.0"
+  ],
+  "urls": [
+   "https://opengameart.org/content/lpc-helmets",
+   "https://opengameart.org/content/expanded-ulpc-head-accessories-facial-assets-hats-helmets"
+  ]
+ },
+ {
+  "file": "hat/helmet/kettle",
+  "notes": "previously referred to as chain-hat",
+  "authors": [
+   "Johannes Sjölund (wulax)"
+  ],
+  "licenses": [
+   "OGA-BY 3.0",
+   "CC-BY-SA 3.0",
+   "GPL 3.0"
+  ],
+  "urls": [
+   "https://opengameart.org/content/lpc-medieval-fantasy-character-sprites",
+   "https://opengameart.org/content/expanded-ulpc-head-accessories-facial-assets-hats-helmets"
+  ]
+ },
+ {
+  "file": "hat/helmet/nasal",
+  "notes": "",
+  "authors": [
+   "bluecarrot16"
+  ],
+  "licenses": [
+   "CC-BY 3.0",
+   "CC-BY 4.0",
+   "OGA-BY 3.0",
+   "GPL 2.0",
+   "GPL 3.0"
+  ],
+  "urls": [
+   "https://opengameart.org/content/lpc-helmets",
+   "https://opengameart.org/content/expanded-ulpc-head-accessories-facial-assets-hats-helmets"
+  ]
+ },
+ {
+  "file": "head/ears/cat",
+  "notes": "",
+  "authors": [
+   "JaidynReiman"
+  ],
+  "licenses": [
+   "OGA-BY 3.0+",
+   "CC-BY 3.0+",
+   "GPL 3.0"
+  ],
+  "urls": [
+   "https://opengameart.org/content/lpc-furry-ears-tails-for-rpg-sprites"
+  ]
+ },
+ {
+  "file": "head/ears/elven",
+  "notes": "adapted to v3 base by bluecarrot16; expanded to other animations and child by JaidynReiman",
+  "authors": [
+   "JaidynReiman",
+   "bluecarrot16",
+   "Thane Brimhall (pennomi)",
+   "Matthew Krohn (makrohn)",
+   "JaidynReiman"
+  ],
+  "licenses": [
+   "GPL 3.0",
+   "CC-BY-SA 3.0"
+  ],
+  "urls": [
+   "https://opengameart.org/content/lpc-base-character-expressions",
+   "http://opengameart.org/content/lpc-clothing-updates"
+  ]
+ },
+ {
+  "file": "head/heads/goblin",
+  "notes": "original goblin by Redshrike, commisioned by William.Thomsponj; modular head extracted and enlarged by bluecarrot16",
+  "authors": [
+   "bluecarrot16",
+   "Stephen Challener (Redshrike)",
+   "William.Thomsponj"
+  ],
+  "licenses": [
+   "OGA-BY 3.0",
+   "CC-BY 4.0",
+   "GPL 2.0",
+   "GPL 3.0"
+  ],
+  "urls": [
+   "https://opengameart.org/content/lpc-goblin",
+   "https://opengameart.org/content/lpc-folk"
+  ]
+ },
+ {
+  "file": "head/heads/human/child",
+  "notes": "",
+  "authors": [
+   "Stephen Challener (Redshrike)",
+   "kheftel",
+   "bluecarrot16"
+  ],
+  "licenses": [
+   "OGA-BY 3.0",
+   "CC-BY 3.0",
+   "GPL 3.0"
+  ],
+  "urls": [
+   "https://opengameart.org/content/",
+   "https://opengameart.org/content/lpc-child-standing-template",
+   "https://opengameart.org/content/lpc-character-bases"
+  ]
+ },
+ {
+  "file": "head/heads/human/female",
+  "notes": "original head by Redshrike, tweaks by BenCreating, modular version by bluecarrot16",
+  "authors": [
+   "bluecarrot16",
+   "Benjamin K. Smith (BenCreating)",
+   "Stephen Challener (Redshrike)"
+  ],
+  "licenses": [
+   "OGA-BY 3.0",
+   "CC-BY-SA 3.0",
+   "GPL 3.0"
+  ],
+  "urls": [
+   "https://opengameart.org/content/",
+   "https://opengameart.org/content/lpc-character-bases"
+  ]
+ },
+ {
+  "file": "head/heads/human/female_elderly",
+  "notes": "",
+  "authors": [
+   "Benjamin K. Smith (BenCreating)",
+   "Eliza Wyatt (ElizaWy)",
+   "Stephen Challener (Redshrike)"
+  ],
+  "licenses": [
+   "OGA-BY 3.0",
+   "CC-BY 3.0"
+  ],
+  "urls": [
+   "https://opengameart.org/content/liberated-pixel-cup-lpc-base-assets-sprites-map-tiles",
+   "https://opengameart.org/content/lpc-revised-elders",
+   "https://opengameart.org/content/lpc-character-bases"
+  ]
+ },
+ {
+  "file": "head/heads/human/male",
+  "notes": "original head by Redshrike, tweaks by BenCreating, modular version by bluecarrot16",
+  "authors": [
+   "bluecarrot16",
+   "Benjamin K. Smith (BenCreating)",
+   "Stephen Challener (Redshrike)"
+  ],
+  "licenses": [
+   "OGA-BY 3.0",
+   "CC-BY-SA 3.0",
+   "GPL 3.0"
+  ],
+  "urls": [
+   "https://opengameart.org/content/liberated-pixel-cup-lpc-base-assets-sprites-map-tiles",
+   "https://opengameart.org/content/lpc-character-bases"
+  ]
+ },
+ {
+  "file": "head/heads/human/male_elderly",
+  "notes": "",
+  "authors": [
+   "Benjamin K. Smith (BenCreating)",
+   "Eliza Wyatt (ElizaWy)",
+   "Stephen Challener (Redshrike)"
+  ],
+  "licenses": [
+   "OGA-BY 3.0",
+   "CC-BY 3.0"
+  ],
+  "urls": [
+   "https://opengameart.org/content/liberated-pixel-cup-lpc-base-assets-sprites-map-tiles",
+   "https://opengameart.org/content/lpc-revised-elders",
+   "https://opengameart.org/content/lpc-character-bases"
+  ]
+ },
+ {
+  "file": "head/heads/human/male_gaunt",
+  "notes": "original head by Redshrike, gaunt version by bluecarrot16",
+  "authors": [
+   "Stephen Challener (Redshrike)",
+   "bluecarrot16"
+  ],
+  "licenses": [
+   "OGA-BY 3.0",
+   "CC-BY-SA 3.0",
+   "GPL 3.0"
+  ],
+  "urls": [
+   "https://opengameart.org/content/liberated-pixel-cup-lpc-base-assets-sprites-map-tiles",
+   "https://opengameart.org/content/lpc-folk"
+  ]
+ },
+ {
+  "file": "head/heads/human/male_plump",
+  "notes": "original head by Redshrike, plump version by ??",
+  "authors": [
+   "Stephen Challener (Redshrike)",
+   "??"
+  ],
+  "licenses": [
+   "CC-BY-SA 3.0",
+   "GPL 3.0"
+  ],
+  "urls": [
+   "https://opengameart.org/content/liberated-pixel-cup-lpc-base-assets-sprites-map-tiles",
+   "https://opengameart.org/content/lpc-folk"
+  ]
+ },
+ {
+  "file": "legs/armour/plate",
+  "notes": "reduced to 7 colors an adapted to v3 bases by bluecarrot16",
+  "authors": [
+   "bluecarrot16",
+   "Michael Whitlock (bigbeargames)",
+   "Matthew Krohn (makrohn)",
+   "Johannes Sjölund (wulax)"
+  ],
+  "licenses": [
+   "OGA-BY 3.0",
+   "CC-BY-SA 3.0",
+   "GPL 3.0"
+  ],
+  "urls": [
+   "https://opengameart.org/content/lpc-medieval-fantasy-character-sprites"
+  ]
+ },
+ {
+  "file": "legs/pants/child",
+  "notes": "",
+  "authors": [
+   "Nila122"
+  ],
+  "licenses": [
+   "OGA-BY 3.0",
+   "CC-BY-SA 3.0",
+   "GPL 3.0"
+  ],
+  "urls": [
+   "https://opengameart.org/content/lpc-clothes-for-children"
+  ]
+ },
+ {
+  "file": "legs/pants/male",
+  "notes": "original male pants by wulax, recolors and edits to v3 base by bluecarrot16, climb/jump/run/sit/emotes/revised combat by JaidynReiman based on ElizaWy's LPC Revised",
+  "authors": [
+   "bluecarrot16",
+   "JaidynReiman",
+   "ElizaWy",
+   "Matthew Krohn (makrohn)",
+   "Johannes Sjölund (wulax)"
+  ],
+  "licenses": [
+   "OGA-BY 3.0",
+   "GPL 3.0",
+   "CC-BY-SA 3.0"
+  ],
+  "urls": [
+   "https://opengameart.org/content/liberated-pixel-cup-lpc-base-assets-sprites-map-tiles",
+   "https://opengameart.org/content/lpc-medieval-fantasy-character-sprites",
+   "https://opengameart.org/content/lpc-expanded-pants"
+  ]
+ },
+ {
+  "file": "legs/pants/thin",
+  "notes": "original male pants by wulax, edited for female by Joe White, recolors and edits to v3 base by bluecarrot16, teen legs by ElizaWy derived from base, climb/jump/run/sit/emotes/revised combat by JaidynReiman based on ElizaWy's LPC Revised",
+  "authors": [
+   "bluecarrot16",
+   "JaidynReiman",
+   "ElizaWy",
+   "Joe White",
+   "Matthew Krohn (makrohn)",
+   "Johannes Sjölund (wulax)"
+  ],
+  "licenses": [
+   "OGA-BY 3.0",
+   "GPL 3.0",
+   "CC-BY-SA 3.0"
+  ],
+  "urls": [
+   "https://opengameart.org/content/liberated-pixel-cup-lpc-base-assets-sprites-map-tiles",
+   "https://opengameart.org/content/lpc-medieval-fantasy-character-sprites",
+   "http://opengameart.org/content/lpc-clothing-updates",
+   "https://opengameart.org/content/lpc-expanded-pants"
+  ]
+ },
+ {
+  "file": "legs/shorts/short_shorts/male",
+  "notes": "original overalls and shorts by ElizaWy, base animations adapted from v3 overalls by bluecarrot16, shorts by JaidynReiman",
+  "authors": [
+   "JaidynReiman",
+   "ElizaWy",
+   "Bluecarrot16"
+  ],
+  "licenses": [
+   "OGA-BY 3.0",
+   "GPL 3.0"
+  ],
+  "urls": [
+   "https://github.com/ElizaWy/LPC/tree/main/Characters/Clothing",
+   "https://opengameart.org/content/lpc-expanded-pants"
+  ]
+ },
+ {
+  "file": "legs/shorts/shorts/male",
+  "notes": "original overalls and shorts by ElizaWy, base animations adapted from v3 overalls by bluecarrot16, shorts by JaidynReiman",
+  "authors": [
+   "JaidynReiman",
+   "ElizaWy",
+   "Bluecarrot16"
+  ],
+  "licenses": [
+   "OGA-BY 3.0",
+   "GPL 3.0"
+  ],
+  "urls": [
+   "https://github.com/ElizaWy/LPC/tree/main/Characters/Clothing",
+   "https://opengameart.org/content/lpc-expanded-pants"
+  ]
+ },
+ {
+  "file": "legs/skirts/plain",
+  "notes": "original by wulax, edited for female base by pvigier, edited for v3 base by bluecarrot16",
+  "authors": [
+   "bluecarrot16",
+   "Pierre Vigier (pvigier)",
+   "Johannes Sjölund (wulax)"
+  ],
+  "licenses": [
+   "OGA-BY 3.0",
+   "CC-BY-SA 3.0",
+   "GPL 3.0"
+  ],
+  "urls": [
+   "https://opengameart.org/content/lpc-medieval-fantasy-character-sprites"
+  ]
+ },
+ {
+  "file": "tools/smash",
+  "notes": "",
+  "authors": [
+   "bluecarrot16",
+   "Pierre Vigier (pvigier)",
+   "Tuomo Untinen (reemax)",
+   "Johannes Sjölund (wulax)",
+   "and Inboxninja"
+  ],
+  "licenses": [
+   "CC-BY-SA 3.0"
+  ],
+  "urls": [
+   "https://opengameart.org/content/lpc-hand-tools"
+  ]
+ },
+ {
+  "file": "tools/thrust",
+  "notes": "",
+  "authors": [
+   "bluecarrot16",
+   "Pierre Vigier (pvigier)",
+   "Tuomo Untinen (reemax)",
+   "Johannes Sjölund (wulax)",
+   "and Inboxninja"
+  ],
+  "licenses": [
+   "CC-BY-SA 3.0"
+  ],
+  "urls": [
+   "https://opengameart.org/content/lpc-hand-tools"
+  ]
+ },
+ {
+  "file": "torso/aprons/apron",
+  "notes": "",
+  "authors": [
+   "Nila122"
+  ],
+  "licenses": [
+   "OGA-BY 3.0",
+   "CC-BY-SA 3.0",
+   "GPL 2.0",
+   "GPL 3.0"
+  ],
+  "urls": [
+   "https://opengameart.org/content/lpc-aprons"
+  ]
+ },
+ {
+  "file": "torso/armour/leather",
+  "notes": "adapted to v3 bases by bluecarrot16",
+  "authors": [
+   "Johannes Sjölund (wulax)"
+  ],
+  "licenses": [
+   "OGA-BY 3.0",
+   "CC-BY-SA 3.0",
+   "GPL 3.0"
+  ],
+  "urls": [
+   "https://opengameart.org/content/lpc-medieval-fantasy-character-sprites",
+   "http://opengameart.org/content/lpc-clothing-updates"
+  ]
+ },
+ {
+  "file": "torso/armour/leather/female",
+  "notes": "recolor of torso/armour/leather/female/brown.png",
+  "authors": [
+   "adapted to v3 bases by bluecarrot16"
+  ],
+  "licenses": [
+   "Michael Whitlock (bigbeargames)",
+   "Matthew Krohn (makrohn)",
+   "Johannes Sjölund (wulax)"
+  ],
+  "urls": [
+   "OGA-BY 3.0, CC-BY-SA 3.0, GPL 3.0",
+   "https://opengameart.org/content/lpc-medieval-fantasy-character-sprites",
+   "https://opengameart.org/content/lpc-combat-armor-for-women",
+   "http://opengameart.org/content/lpc-clothing-updates"
+  ]
+ },
+ {
+  "file": "torso/armour/plate/male",
+  "notes": "original by wulax",
+  "authors": [
+   "recolor by bigbeargames"
+  ],
+  "licenses": [
+   "color reduced to 7 colors and adapted to v3 bases by bluecarrot16"
+  ],
+  "urls": [
+   "run/jump/sit/climb/revised combat by JaidynReiman",
+   "JaidynReiman, bluecarrot16, Michael Whitlock (bigbeargames), Johannes Sjölund (wulax)",
+   "OGA-BY 3.0, CC-BY-SA 3.0, GPL 3.0",
+   "https://opengameart.org/content/lpc-medieval-fantasy-character-sprites",
+   "https://opengameart.org/content/lpc-combat-armor-for-women"
+  ]
+ },
+ {
+  "file": "torso/chainmail",
+  "notes": "minor edits by bluecarrot16",
+  "authors": [
+   "Johannes Sjölund (wulax)"
+  ],
+  "licenses": [
+   "OGA-BY 3.0",
+   "CC-BY-SA 3.0",
+   "GPL 3.0"
+  ],
+  "urls": [
+   "https://opengameart.org/content/lpc-medieval-fantasy-character-sprites"
+  ]
+ },
+ {
+  "file": "torso/clothes/blouse",
+  "notes": "original princess.xcf by Sharm, edited to blouse by ElizaWy; adapted to v3 bases by bluecarrot16",
+  "authors": [
+   "bluecarrot16",
+   "ElizaWy",
+   "Lanea Zimmerman (Sharm)"
+  ],
+  "licenses": [
+   "CC-BY-SA 3.0",
+   "GPL 3.0"
+  ],
+  "urls": [
+   "https://opengameart.org/content/liberated-pixel-cup-lpc-base-assets-sprites-map-tiles",
+   "https://opengameart.org/content/lpc-7-womens-shirts"
+  ]
+ },
+ {
+  "file": "torso/clothes/longsleeve/longsleeve/male",
+  "notes": "original by wulax, recolors and cleanup by JaidynReiman, further recolors by bluecarrot16",
+  "authors": [
+   "JaidynReiman",
+   "Johannes Sjölund (wulax)"
+  ],
+  "licenses": [
+   "CC-BY-SA 3.0",
+   "GPL 3.0"
+  ],
+  "urls": [
+   "https://opengameart.org/content/lpc-medieval-fantasy-character-sprites",
+   "http://opengameart.org/content/lpc-clothing-updates"
+  ]
+ },
+ {
+  "file": "torso/clothes/robe",
+  "notes": "",
+  "authors": [
+   "Luke Mehl"
+  ],
+  "licenses": [
+   "CC-BY-SA 3.0",
+   "GPL 3.0"
+  ],
+  "urls": [
+   "https://opengameart.org/content/female-mage-clothing-set"
+  ]
+ },
+ {
+  "file": "torso/clothes/shirt/child",
+  "notes": "",
+  "authors": [
+   "Nila122"
+  ],
+  "licenses": [
+   "OGA-BY 3.0",
+   "CC-BY-SA 3.0",
+   "GPL 3.0"
+  ],
+  "urls": [
+   "https://opengameart.org/content/lpc-clothes-for-children"
+  ]
+ },
+ {
+  "file": "torso/clothes/shortsleeve/shortsleeve/female",
+  "notes": "original by ElizaWy walkcycle only; extended to all animations by adapting from longsleeve, edited to v3 bases by bluecarrot16",
+  "authors": [
+   "bluecarrot16",
+   "ElizaWy",
+   "Stephen Challener (Redshrike)"
+  ],
+  "licenses": [
+   "OGA-BY 3.0",
+   "CC-BY-SA 3.0",
+   "GPL 3.0"
+  ],
+  "urls": [
+   "https://opengameart.org/content/liberated-pixel-cup-lpc-base-assets-sprites-map-tiles",
+   "https://opengameart.org/content/lpc-7-womens-shirts",
+   "http://opengameart.org/content/lpc-revised-character-basics",
+   "http://opengameart.org/content/lpc-clothing-updates"
+  ]
+ },
+ {
+  "file": "torso/clothes/shortsleeve/shortsleeve/male",
+  "notes": "original by ElizaWy walkcycle only; extended to all animations by adapting from longsleeve, edited to v3 bases by bluecarrot16",
+  "authors": [
+   "bluecarrot16",
+   "ElizaWy",
+   "Stephen Challener (Redshrike)"
+  ],
+  "licenses": [
+   "OGA-BY 3.0",
+   "CC-BY-SA 3.0",
+   "GPL 3.0"
+  ],
+  "urls": [
+   "https://opengameart.org/content/liberated-pixel-cup-lpc-base-assets-sprites-map-tiles",
+   "http://opengameart.org/content/lpc-revised-character-basics",
+   "http://opengameart.org/content/lpc-clothing-updates"
+  ]
+ },
+ {
+  "file": "torso/clothes/sleeveless/sleeveless/female",
+  "notes": "\"pirate shirt\" by MadMarcel, edited to all poses by makrohn, edited from tube-top/tanktop to sleeveless by JaidynReiman, cleanup and re-drawing by ElizaWy, edits for v3 bases and further cleanup by bluecarrot16",
+  "authors": [
+   "ElizaWy",
+   "JaidynReiman",
+   "Matthew Krohn (makrohn)",
+   "Marcel van de Steeg (MadMarcel)"
+  ],
+  "licenses": [
+   "CC-BY-SA 3.0",
+   "GPL 3.0"
+  ],
+  "urls": [
+   "https://opengameart.org/content/lpc-female-orcogregoblintroll-base-walkcycle",
+   "https://opengameart.org/content/lpc-curly-hair-elven-ears-white-cape-with-blue-trim-and-more",
+   "https://opengameart.org/content/lpc-7-womens-shirts",
+   "http://opengameart.org/content/lpc-clothing-updates"
+  ]
+ },
+ {
+  "file": "torso/clothes/sleeveless/sleeveless/male",
+  "notes": "",
+  "authors": [
+   "bluecarrot16",
+   "Matthew Krohn (makrohn)",
+   "JaidynReiman",
+   "Marcel van de Steeg (MadMarcel)",
+   "Nila122",
+   "Johannes Sjölund (wulax)",
+   "Stephen Challener (Redshrike)"
+  ],
+  "licenses": [
+   "CC-BY-SA 3.0"
+  ],
+  "urls": [
+   "https://opengameart.org/content/lpc-female-orcogregoblintroll-base-walkcycle",
+   "https://opengameart.org/content/lpc-curly-hair-elven-ears-white-cape-with-blue-trim-and-more",
+   "https://opengameart.org/content/more-lpc-clothes-and-hair",
+   "https://opengameart.org/content/lpc-pirates"
+  ]
+ },
+ {
+  "file": "torso/clothes/vest",
+  "notes": "",
+  "authors": [
+   "bluecarrot16",
+   "Thane Brimhall (pennomi)",
+   "laetissima"
+  ],
+  "licenses": [
+   "CC-BY-SA 3.0",
+   "GPL 3.0"
+  ],
+  "urls": [
+   "https://opengameart.org/content/lpc-2-characters",
+   "https://opengameart.org/content/lpc-gentleman",
+   "https://opengameart.org/content/lpc-pirates"
+  ]
+ },
+ {
+  "file": "torso/waist/belt_leather",
+  "notes": "",
+  "authors": [
+   "bluecarrot16",
+   "Johannes Sjölund (wulax)",
+   "Matthew Krohn (makrohn)"
+  ],
+  "licenses": [
+   "OGA-BY 3.0",
+   "CC-BY-SA 3.0",
+   "GPL 3.0"
+  ],
+  "urls": [
+   "https://opengameart.org/content/lpc-combat-armor-for-women",
+   "https://opengameart.org/content/lpc-pirates"
+  ]
+ },
+ {
+  "file": "weapon/polearm/spear",
+  "notes": "original by wulax",
+  "authors": [
+   "walk animations redone by pvigier"
+  ],
+  "licenses": [
+   "split into layers and tweaked for v3 character bases by bluecarrot16"
+  ],
+  "urls": [
+   "Pierre Vigier (pvigier), Johannes Sjölund (wulax), Inboxninja",
+   "CC-BY-SA 3.0",
+   "https://opengameart.org/content/lpc-medieval-fantasy-character-sprites",
+   "https://opengameart.org/content/lpc-spear-and-shovel-reworked"
+  ]
+ },
+ {
+  "file": "weapon/ranged/bow/normal",
+  "notes": "original by wulax",
+  "authors": [
+   "walk animations by pvigier"
+  ],
+  "licenses": [
+   "split into layers and tweaked for v3 character bases by bluecarrot16. pvigier has agreed to license this sheet as OGA-BY 3.0+."
+  ],
+  "urls": [
+   "Johannes Sjölund (wulax), Pierre Vigier (pvigier)",
+   "OGA-BY 3.0+, GPL 3.0, CC-BY 4.0",
+   "https://opengameart.org/content/lpc-medieval-fantasy-character-sprites",
+   "https://opengameart.org/content/lpc-walk-animations-for-bows"
+  ]
+ },
+ {
+  "file": "weapon/sword/dagger",
+  "notes": "",
+  "authors": [
+   "bluecarrot16",
+   "Johannes Sjölund (wulax)",
+   "Matthew Krohn (makrohn)"
+  ],
+  "licenses": [
+   "OGA-BY 3.0",
+   "CC-BY-SA 3.0",
+   "GPL 3.0"
+  ],
+  "urls": [
+   "https://opengameart.org/content/lpc-medieval-fantasy-character-sprites",
+   "https://opengameart.org/content/lpc-extended-weapon-animations"
+  ]
+ }
+]

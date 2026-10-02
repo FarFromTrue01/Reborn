@@ -1,0 +1,127 @@
+{
+ "chars": {
+  "bertram": "bertram.png",
+  "vera": "vera.png",
+  "lina": "lina.png",
+  "celeste": "celeste.png",
+  "smith": "smith.png",
+  "shopkeeper": "shopkeeper.png",
+  "healer": "healer.png",
+  "guard": "guard.png",
+  "guard2": "guard2.png",
+  "gate_captain": "gate_captain.png",
+  "hunter": "hunter.png",
+  "farmer_m1": "farmer_m1.png",
+  "farmer_m2": "farmer_m2.png",
+  "farmer_f1": "farmer_f1.png",
+  "farmer_f2": "farmer_f2.png",
+  "elder_m": "elder_m.png",
+  "elder_f": "elder_f.png",
+  "mother": "mother.png",
+  "child": "child.png",
+  "drunk": "drunk.png",
+  "miller": "miller.png",
+  "adventurer_m": "adventurer_m.png",
+  "adventurer_f": "adventurer_f.png",
+  "goblin": "goblin.png",
+  "goblin_shaman": "goblin_shaman.png",
+  "goblin_chief": "goblin_chief.png",
+  "hero_knight": "hero_knight.png",
+  "hero_mage": "hero_mage.png",
+  "hero_archer": "hero_archer.png"
+ },
+ "joseph": {
+  "body": {
+   "file": "joseph/body.png",
+   "z": 10
+  },
+  "head": {
+   "file": "joseph/head.png",
+   "z": 100
+  },
+  "a_shorts": {
+   "file": "joseph/a_shorts.png",
+   "z": 20.0
+  },
+  "a_shirt": {
+   "file": "joseph/a_shirt.png",
+   "z": 35.0
+  },
+  "a_pants": {
+   "file": "joseph/a_pants.png",
+   "z": 20.0
+  },
+  "a_shoes": {
+   "file": "joseph/a_shoes.png",
+   "z": 15.0
+  },
+  "a_vest": {
+   "file": "joseph/a_vest.png",
+   "z": 45.0
+  },
+  "a_cap": {
+   "file": "joseph/a_cap.png",
+   "z": 130.0
+  },
+  "a_gloves": {
+   "file": "joseph/a_gloves.png",
+   "z": 70.0
+  },
+  "a_belt": {
+   "file": "joseph/a_belt.png",
+   "z": 70.0
+  },
+  "a_boots": {
+   "file": "joseph/a_boots.png",
+   "z": 25.0
+  },
+  "a_cape": {
+   "file": "joseph/a_cape.png",
+   "z": 85.0
+  },
+  "a_cape_bg": {
+   "file": "joseph/a_cape_bg.png",
+   "z": 5
+  },
+  "a_padded": {
+   "file": "joseph/a_padded.png",
+   "z": 60.0
+  },
+  "a_helm": {
+   "file": "joseph/a_helm.png",
+   "z": 130.0
+  },
+  "a_pants_leather": {
+   "file": "joseph/a_pants_leather.png",
+   "z": 20.0
+  },
+  "w_dagger": {
+   "file": "joseph/w_dagger.png",
+   "z": 140.0
+  },
+  "w_dagger_bg": {
+   "file": "joseph/w_dagger_bg.png",
+   "z": 5
+  },
+  "w_spear": {
+   "file": "joseph/w_spear.png",
+   "z": 140.0
+  },
+  "w_spear_bg": {
+   "file": "joseph/w_spear_bg.png",
+   "z": 5
+  },
+  "w_bow": {
+   "file": "joseph/w_bow.png",
+   "z": 140.0
+  },
+  "w_bow_bg": {
+   "file": "joseph/w_bow_bg.png",
+   "z": 5
+  },
+  "w_club": {
+   "file": "joseph/w_club.png",
+   "z": 140.0
+  }
+ }
+}

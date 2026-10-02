@@ -1,0 +1,115 @@
+{
+ "sections": [
+  {
+   "title": "Oyun",
+   "lines": [
+    "Tasarım: FarFromTrue01",
+    "Kod, ses ve müzik: Claude (Anthropic) ile birlikte",
+    "Motor: Phaser 3"
+   ]
+  },
+  {
+   "title": "Karakter Sprite'ları (LPC)",
+   "lines": [
+    "Universal LPC Spritesheet Character Generator",
+    "??, Benjamin K. Smith (BenCreating), Bluecarrot16, Carlo Enrico Victoria (Nemisys), Durrani, Eliza Wyatt (ElizaWy), ElizaWy, Evert, Fabzy, JaidynReiman, Joe White, Johannes Sj?lund (wulax), Johannes Sjölund (wulax), Lanea Zimmerman (Sharm), Luke Mehl, Manuel Riecke (MrBeast), Marcel van de Steeg (MadMarcel), Mark Weyer, Matthew Krohn (Makrohn), Matthew Krohn (makrohn), Michael Whitlock (bigbeargames), MuffinElZangano, Nila122, Pierre Vigier (pvigier), Sander Frenken (castelonia), Stephen Challener (Redshrike), Thane Brimhall (pennomi), TheraHedwig, Tuomo Untinen (reemax), William.Thomsponj, adapted to v3 bases by bluecarrot16, and Inboxninja, bluecarrot16, dalonedrau, extended to all poses by makrohn, kcilds/Rocetti/Eredah, kheftel, laetissima, recolor by bigbeargames, thecilekli, walk animations by pvigier, walk animations redone by pvigier",
+    "Lisanslar: CC-BY-SA 3.0, GPL 3.0, OGA-BY 3.0, CC-BY 3.0"
+   ]
+  },
+  {
+   "title": "LPC Tile Atlas & LPC Tile Atlas 2 (arazi, köy parçaları, kapı/pencere)",
+   "lines": [
+    "Lanea Zimmerman (Sharm), Daniel Eddeland, Casper Nilsson, Johann Charlot, Stephen Challener (Redshrike), Hyptosis, Barbara Rivera, Matthew Nash, Zabin, Jetrel, Bertram, Daniel Armstrong, Guido Bos, ve diğerleri (bkz. assets/licenses/LPC_Tile_Atlas_Attribution*.txt)",
+    "CC-BY-SA 3.0 / GPL 3.0",
+    "https://opengameart.org/content/lpc-tile-atlas"
+   ]
+  },
+  {
+   "title": "[LPC] Thatched-roof Cottage (bina duvar ve çatıları)",
+   "lines": [
+    "bluecarrot16",
+    "CC-BY-SA 3.0 / GPL 3.0",
+    "https://opengameart.org/content/lpc-thatched-roof-cottage"
+   ]
+  },
+  {
+   "title": "[LPC] Trees (ağaçlar)",
+   "lines": [
+    "bluecarrot16 (derleme), Johann Charlot, Lanea Zimmerman (Sharm), Hyptosis, Guido Bos, Ivan Voirol, ve diğerleri",
+    "CC-BY-SA 3.0",
+    "https://opengameart.org/content/lpc-trees"
+   ]
+  },
+  {
+   "title": "[LPC] Medieval Village Decorations (köy eşyaları, tezgâhlar, çadırlar)",
+   "lines": [
+    "bluecarrot16 (derleme), Reemax, Sharm, Xenodora, Casper Nilsson, Nemisys, Jetrel, Guido Bos, ve diğerleri",
+    "CC-BY-SA 4.0 / CC-BY-SA 3.0",
+    "https://opengameart.org/content/lpc-medieval-village-decorations"
+   ]
+  },
+  {
+   "title": "[LPC] House interior and decorations (iç mekân)",
+   "lines": [
+    "Reemax (Tuomo Untinen), Sharm, Hyptosis, daneeklu, William.Thompsonj, wulax, makrohn",
+    "CC-BY-SA 3.0 / GPL 3.0",
+    "https://opengameart.org/content/lpc-house-interior-and-decorations"
+   ]
+  },
+  {
+   "title": "[LPC] Monsters (sümüksü)",
+   "lines": [
+    "bluecarrot16 (derleme); orijinal: bagzie, Stephen Challener (Redshrike)",
+    "CC-BY-SA 3.0 / GPL 3.0",
+    "https://opengameart.org/content/lpc-monsters"
+   ]
+  },
+  {
+   "title": "[LPC] Wolf Animation (yaban kurdu)",
+   "lines": [
+    "Stephen Challener (Redshrike), William.Thompsonj tarafından ısmarlandı",
+    "CC-BY 3.0 / OGA-BY 3.0 / GPL 3.0",
+    "https://opengameart.org/content/lpc-wolf-animation"
+   ]
+  },
+  {
+   "title": "[LPC] Rat, Cat and Dog (fare)",
+   "lines": [
+    "Reemax (Tuomo Untinen)",
+    "CC-BY 3.0 / CC-BY-SA 3.0 / GPL 3.0",
+    "https://opengameart.org/content/lpc-rat-cat-and-dog"
+   ]
+  },
+  {
+   "title": "Bunny Rabbit LPC style / Reorganised LPC rabbit (tavşan)",
+   "lines": [
+    "Stephen Challener (Redshrike); düzenleme: Evert",
+    "CC-BY 3.0 / CC-BY-SA 3.0 / OGA-BY 3.0",
+    "https://opengameart.org/node/114556"
+   ]
+  },
+  {
+   "title": "496 pixel art icons for medieval/fantasy RPG (ikonlar)",
+   "lines": [
+    "Henrique Lazarini (7Soul1)",
+    "CC0",
+    "https://opengameart.org/content/496-pixel-art-icons-for-medievalfantasy-rpg"
+   ]
+  },
+  {
+   "title": "Yazı tipleri: Cinzel, Alegreya, Alegreya Sans, Pixelify Sans",
+   "lines": [
+    "Natanael Gama (Cinzel); Juan Pablo del Peral / Huerta Tipográfica (Alegreya, Alegreya Sans); Stefie Justprince (Pixelify Sans)",
+    "SIL Open Font License 1.1",
+    "https://fonts.google.com"
+   ]
+  },
+  {
+   "title": "Ayrıntılar",
+   "lines": [
+    "Tüm dosya bazlı atıflar CREDITS.md dosyasındadır.",
+    "https://lpc.opengameart.org"
+   ]
+  }
+ ]
+}

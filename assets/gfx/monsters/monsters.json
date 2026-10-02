@@ -1,0 +1,79 @@
+{
+ "m_rat": {
+  "frameW": 64,
+  "frameH": 64,
+  "cols": 4,
+  "anims": {
+   "walk": {
+    "row": 0,
+    "frames": 4,
+    "fps": 10
+   }
+  },
+  "file": "rat.png"
+ },
+ "m_rabbit": {
+  "frameW": 64,
+  "frameH": 64,
+  "cols": 4,
+  "anims": {
+   "walk": {
+    "row": 0,
+    "frames": 4,
+    "fps": 10
+   },
+   "idle": {
+    "row": 4,
+    "frames": 4,
+    "fps": 4
+   }
+  },
+  "file": "rabbit.png"
+ },
+ "m_slime": {
+  "frameW": 64,
+  "frameH": 64,
+  "cols": 8,
+  "anims": {
+   "walk": {
+    "row": 0,
+    "frames": 8,
+    "fps": 9
+   },
+   "attack": {
+    "row": 4,
+    "frames": 6,
+    "fps": 10
+   }
+  },
+  "file": "slime.png"
+ },
+ "m_wolf": {
+  "frameW": 64,
+  "frameH": 64,
+  "cols": 5,
+  "anims": {
+   "walk": {
+    "row": 0,
+    "frames": 5,
+    "fps": 9
+   },
+   "run": {
+    "row": 4,
+    "frames": 5,
+    "fps": 12
+   },
+   "attack": {
+    "row": 8,
+    "frames": 5,
+    "fps": 12
+   },
+   "die": {
+    "row": 12,
+    "frames": 4,
+    "fps": 7
+   }
+  },
+  "file": "wolf.png"
+ }
+}
