@@ -97,17 +97,17 @@ export function planPayment(w: Wallet, price: number): PaymentPlan | null {
 
 /** Bronz cinsinden fiyatı okunur metne çevirir: "1 Gümüş 25 Bronz". */
 export function formatPrice(amount: number, short = false): string {
-  if (amount === 0) return short ? '0 B' : '0 Bronz';
+  if (amount === 0) return short ? '0 Bz' : '0 Bronz';
   const w = canonicalCoins(amount);
   return formatWallet(w, short);
 }
 
 export const COIN_SHORT: Record<Coin, string> = {
-  bronze: 'B',
-  silver: 'G',
-  platinum: 'P',
-  gold: 'A',
-  diamond: 'E',
+  bronze: ' Bz',
+  silver: ' Gm',
+  platinum: ' Pl',
+  gold: ' Al',
+  diamond: ' El',
 };
 
 export function formatWallet(w: Wallet, short = false): string {
@@ -116,7 +116,7 @@ export function formatWallet(w: Wallet, short = false): string {
     const c = COINS[i];
     if (w[c] > 0) parts.push(short ? `${w[c]}${COIN_SHORT[c]}` : `${w[c]} ${COIN_NAMES[c]}`);
   }
-  if (parts.length === 0) return short ? '0B' : '0 Bronz';
+  if (parts.length === 0) return short ? '0 Bz' : '0 Bronz';
   return parts.join(' ');
 }
 

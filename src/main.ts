@@ -62,6 +62,7 @@ async function start() {
     physics: { default: 'arcade', arcade: { gravity: { x: 0, y: 0 }, debug: false } },
   });
   (window as any).__game = game;
+  (window as any).Phaser = Phaser;
   const onResize = () => {
     Display.compute();
     game.scale.setZoom(1 / Display.dpr);

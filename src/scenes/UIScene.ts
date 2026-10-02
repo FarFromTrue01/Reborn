@@ -151,14 +151,10 @@ export class UIScene extends Phaser.Scene {
     drawFrame(mf, W - 180, 10, 164, 164, { alpha: 0, ornate: true });
     this.hud.add(mf);
     // menü ve appraisal butonları
-    const menuB = new Button(this, W - 210, H - 40, '☰', () => this.openMenu(), { w: 58, h: 58, style: 'round', size: 26 });
+    const menuB = new Button(this, W - 52, 216, '☰', () => this.openMenu(), { w: 60, h: 60, style: 'round', size: 26 });
     this.hud.add(menuB);
-    const apB = new Button(this, W - 280, H - 40, '', () => { Input.press('appraise'); }, { w: 58, h: 58, style: 'round', icon: 'sk_appraisal' });
+    const apB = new Button(this, W - 124, 216, '', () => { Input.press('appraise'); }, { w: 60, h: 60, style: 'round', icon: 'sk_appraisal' });
     this.hud.add(apB);
-    if (!this.isTouch) {
-      menuB.setPosition(W - 230, 214).setScale(0.8);
-      apB.setPosition(W - 290, 214).setScale(0.8);
-    }
     this.cdOverlay = this.add.graphics();
     this.buildTouch();
     this.hud.add(this.cdOverlay);
@@ -378,7 +374,7 @@ export class UIScene extends Phaser.Scene {
   }
 
   // ================================================================== joystick
-  onDown(p: Phaser.Input.Pointer, over: any[]) {
+  onDown(p: Phaser.Input.Pointer, over: any[] = []) {
     Sound.unlock();
     if (over.length) return;
     if (this.dialogueOpen()) {
@@ -750,21 +746,23 @@ export class UIScene extends Phaser.Scene {
     lines.push(['Skill', v.skills ? sk.join(', ') : Q]);
     const inv = Object.entries(c.inventory ?? {}).map(([k, q]) => `${ITEMS[k]?.name ?? k} ×${q}`);
     lines.push(['Envanter', v.skills ? (inv.length ? inv.join(', ') : 'Boş') : Q]);
-    const w = 560;
-    const lh = 26;
-    const h = 70 + lines.length * lh + 28;
-    const cont = this.add.container(W / 2 - w / 2, 70).setDepth(60);
+    const w = 600;
+    const cont = this.add.container(W / 2 - w / 2, 64).setDepth(60);
     const g = this.add.graphics();
-    drawBlue(g, 0, 0, w, h, 0.86);
     cont.add(g);
     cont.add(txt(this, w / 2, 14, '【 APPRAISAL 】', { size: 18, font: FONT.title, color: '#e6f6ff', bold: true }).setOrigin(0.5, 0));
     const diffTxt = v.diff >= 2 ? 'Hedef çok üstün: sadece Title okunabiliyor.' : v.diff === 1 ? 'Hedefin direnci senden bir harf yüksek.' : v.diff === 0 ? 'Rütbeleriniz eşit.' : v.diff === -1 ? 'Hedef senden bir harf düşük.' : 'Hedef seninle kıyaslanamayacak kadar düşük.';
     cont.add(txt(this, w / 2, 40, diffTxt, { size: 12, italic: true, color: '#9fc8ff' }).setOrigin(0.5, 0));
-    lines.forEach(([k, val], i) => {
-      cont.add(txt(this, 24, 66 + i * lh, k, { size: 15, bold: true, color: '#cfeaff' }));
-      cont.add(txt(this, 160, 66 + i * lh, val, { size: 15, color: val === Q ? '#6f8fb0' : COLORS.text, wrap: w - 180 }));
-    });
-    cont.add(txt(this, w / 2, h - 24, 'Trait: görülemez', { size: 11, italic: true, color: '#6f8fb0' }).setOrigin(0.5, 0));
+    let yy = 66;
+    for (const [k, val] of lines) {
+      cont.add(txt(this, 24, yy, k, { size: 15, bold: true, color: '#cfeaff' }));
+      const vt = txt(this, 160, yy, val, { size: 15, color: val === Q ? '#6f8fb0' : COLORS.text, wrap: w - 180 });
+      cont.add(vt);
+      yy += Math.max(24, vt.height + 4);
+    }
+    const h = yy + 34;
+    drawBlue(g, 0, 0, w, h, 0.86);
+    cont.add(txt(this, w / 2, h - 26, 'Trait: görülemez', { size: 11, italic: true, color: '#6f8fb0' }).setOrigin(0.5, 0));
     const close = this.add.zone(0, 0, w, h).setOrigin(0, 0).setInteractive();
     close.on('pointerdown', () => this.closeAppraisal());
     cont.addAt(close, 0);

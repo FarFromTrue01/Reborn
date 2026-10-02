@@ -39,3 +39,5 @@ class InputState {
 }
 
 export const Input = new InputState();
+
+(window as any).__IN = Input;
