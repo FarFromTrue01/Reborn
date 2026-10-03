@@ -501,7 +501,11 @@ export class WorldScene extends Phaser.Scene {
           if (p && Math.hypot(a.x - (p.x * TILE + 16), a.y - (p.y * TILE + 16)) < (o.where.radius ?? 1.5) * TILE) {
             if (this.director.onQuestGo(id, i) !== false) Q.advance(id, i);
           }
-        } else if (o.type === 'collect' && o.target) Q.set(id, i, G.p.inventory[o.target] ?? 0);
+        } else if (o.type === 'collect' && o.target) {
+          // teslim edildikten sonra (sonraki amaç bitince) toplama ilerlemesi geri düşmez
+          if (def.objectives.some((_, j) => j > i && Q.objDone(id, j))) return;
+          Q.set(id, i, G.p.inventory[o.target] ?? 0);
+        }
         else if (o.type === 'custom' && o.target === 'silver') Q.set(id, i, total >= 100 ? 1 : 0);
         else if (o.type === 'custom' && o.target === 'silver10') Q.set(id, i, Math.min(1000, total));
       });
@@ -525,7 +529,7 @@ export class WorldScene extends Phaser.Scene {
       return d ? { x: d.x * TILE + 16, y: d.y * TILE + 16, r: 1.2 * TILE } : null;
     };
     let map = t.map;
-    let pt: { x: number; y: number } | null = t.point && t.map === m.id ? m.points[t.point] ?? null : t.x !== undefined && t.y !== undefined ? { x: t.x, y: t.y } : null;
+    let pt: { x: number; y: number } | null = t.map !== m.id ? null : t.point ? m.points[t.point] ?? null : t.x !== undefined && t.y !== undefined ? { x: t.x, y: t.y } : null;
     // NPC haritada değilse: programındaki yer
     if (t.npc && !pt) {
       const def = this.npcDef(t.npc);
@@ -1427,6 +1431,9 @@ export class WorldScene extends Phaser.Scene {
   }
 
   pickBubble(def: NpcDef): string | null {
+    // E4: Vera ve Lina dostluktan sonra başka konuşur
+    const ov = this.director.ch2.bubbleFor(def.id);
+    if (ov) return ov;
     const st = this.josephStatus();
     const h = G.state.time.minute / 60;
     const night = h >= 21 || h < 5;

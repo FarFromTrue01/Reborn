@@ -750,7 +750,7 @@ export class UIScene extends Phaser.Scene {
     this.zoneBanner?.destroy();
     const W = Display.uiW;
     const c = this.add.container(W / 2, 200).setDepth(35);
-    const t = txt(this, 0, 0, name, { size: 30, font: FONT.title, color: COLORS.textGold, stroke: true, shadow: true }).setOrigin(0.5);
+    const t = txt(this, 0, 0, name, { size: 30, font: FONT.title, color: COLORS.textGold, stroke: true }).setOrigin(0.5);
     const g = this.add.graphics();
     g.lineStyle(1.5, COLORS.gold, 0.9);
     g.lineBetween(-t.width / 2 - 60, 26, t.width / 2 + 60, 26);

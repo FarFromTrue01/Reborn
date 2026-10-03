@@ -26,6 +26,7 @@ import { panelChoice } from '../ui/panels';
 import { divineStat, DIVINE_STATS, DIVINE_STAT_NAMES } from '../core/divine';
 import { ensureCG } from '../ui/portraits';
 import { Display } from '../game/display';
+import { Chapter2 } from './chapter2';
 
 const wait = (scene: Phaser.Scene, ms: number) => new Promise<void>((r) => scene.time.delayedCall(ms, r));
 
@@ -39,6 +40,8 @@ const BOARD_EXCUSES = [
 
 export class Director {
   musicOverride = false;
+  /** Bölüm II akışı. */
+  ch2 = new Chapter2(this);
   private busy = false;
   private appraiseWaiter: ((id: string) => void) | null = null;
   private pendingCheck = 0;
@@ -151,6 +154,8 @@ export class Director {
 
   /** Zorunlu yerleşim: [x,y] veya null (bu haritada olmasın) veya undefined (programa göre). */
   npcPlacement(id: string, map: string): [number, number] | null | undefined {
+    const c2 = this.ch2.npcPlacement(id, map);
+    if (c2 !== undefined) return c2;
     if (!G.flag('inn_met') && map === 'inn' && (id === 'vera' || id === 'lina')) {
       const p = this.w.mapData.points[id === 'vera' ? 'table_vera' : 'table_lina'];
       return [p.x, p.y];
@@ -177,12 +182,14 @@ export class Director {
 
   // ============================================================ olaylar
   onWorldReady() {
+    this.ch2.applyEscort();
     if (!G.flag('woke')) this.wakeScene();
     else this.ui.showZone(this.w.zone?.name ?? this.w.mapData.name);
     this.w.updateMusic();
   }
 
   onEnterMap(id: string) {
+    this.ch2.onEnterMap(id);
     if (id === 'inn' && !G.flag('inn_met')) this.innScene();
     if (id === 'guild' && !G.flag('guild_seen')) {
       G.setFlag('guild_seen');
@@ -197,6 +204,7 @@ export class Director {
     G.setFlag('worked_today', 0);
     // C3: "Kayıtlar yarın işlenir." — bekleyen terfi ertesi gün işlenir
     Q.checkPromotion();
+    this.ch2.onNewDay();
   }
 
   onHour(_h: number) {
@@ -214,11 +222,13 @@ export class Director {
   onSleep() {}
 
   /** Bir "git" amacına varıldı. false: amacı şimdilik ilerletme (sahne kendisi yönetir). */
-  onQuestGo(_id: string, _idx: number): boolean | void {
-    return undefined;
+  onQuestGo(id: string, idx: number): boolean | void {
+    return this.ch2.onQuestGo(id, idx);
   }
 
-  onKill(_e: any) {}
+  onKill(e: any) {
+    this.ch2.onKill(e);
+  }
 
   onBossKilled() {
     this.scene(async () => {
@@ -230,9 +240,11 @@ export class Director {
 
   onAppraise(id: string) {
     if (this.appraiseWaiter) this.appraiseWaiter(id);
+    this.ch2.onAppraise(id);
   }
 
   beforeWarp(w: Warp): boolean {
+    if (!this.ch2.beforeWarp(w)) return false;
     if (w.to === 'inn_attic' && !G.flag('bertram_deal') && G.flag('room_day') !== G.state.time.day) {
       this.scene(async () => {
         await this.say('bertram', 'Hey! Yukarısı boş gezenlere değil. Yatak istiyorsan kırk bronz.', 'kizgin');
@@ -245,6 +257,7 @@ export class Director {
   // ============================================================ tetikleyiciler
   onTrigger(id: string) {
     if (this.busy) return;
+    if (this.ch2.onTrigger(id)) return;
     if (id === 'village_enter' && !G.flag('village_entered')) {
       G.setFlag('village_entered');
       if (this.w.josephStatus() === 'naked') this.villageReaction();
@@ -324,6 +337,7 @@ export class Director {
       const touch = navigator.maxTouchPoints > 0;
       this.ui.toastInfo(touch ? 'Sol tarafı sürükle: yürü · kenara it: koş' : 'WASD: yürü · Shift: koş · Esc: menü');
       this.w.time.delayedCall(3000, () => this.ui.toastInfo(touch ? 'Sağdaki butonlar: saldırı, kaçış, etkileşim' : 'J: saldırı · Boşluk: kaçış · E: etkileşim · Q: Appraisal'));
+      Q.start('m_inn');
       G.save('auto');
     });
   }
@@ -332,6 +346,7 @@ export class Director {
   private encounterT = 0;
   /** Düzenli kontrol: kâhya geçerken ilk karşılaşma sahnesi. */
   checkEncounters(dt: number) {
+    if (!this.busy) this.ch2.tick(dt);
     this.encounterT -= dt;
     if (this.encounterT > 0 || this.busy || this.w.cutscene || this.w.mapData.id !== 'world') return;
     this.encounterT = 0.5;
@@ -436,6 +451,7 @@ export class Director {
   innScene() {
     this.scene(async () => {
       G.setFlag('inn_met');
+      Q.complete('m_inn', { silent: true });
       const vera = this.w.npc('vera');
       const lina = this.w.npc('lina');
       const bert = this.w.npc('bertram');
@@ -545,6 +561,7 @@ export class Director {
     await this.say('vera', 'Bulaşıkçı! Ne yakışmış!', 'alayci');
     await this.say('lina', 'Hihi! Bulaşık prensi!', 'gulen');
     await this.think('...Bir iş, bir yatak, bir gömlek. Bu dünyadaki ilk sahip olduklarım.');
+    Q.start('m_bertram', true);
     R.sysmsg('İŞ: YORGUN YABAN DOMUZU HANI', [`${JOBS.bertramShifts} vardiya (günde en fazla 1)`, `Ödeme: ${JOBS.bertramShifts}. günün sonunda {m:${JOBS.bertramPay}}`, 'İlk günün yemeği Bertram\'dan.', 'Tavan arasındaki yatak artık senin (yeniden doğma noktası).']);
     G.save('auto');
   }
@@ -568,6 +585,7 @@ export class Director {
     {
       this.face(n.actor, this.w.player.actor);
       this.face(this.w.player.actor, n.actor);
+      if (await this.ch2.talk(n)) return;
       switch (id) {
         case 'bertram': return this.talkBertram();
         case 'celeste': return this.talkCeleste();
@@ -826,6 +844,7 @@ export class Director {
     R.giveMoney(JOBS.bertramPay, 'Bertram\'ın ücreti');
     Sound.sfx('coin');
     G.setFlag('bertram_done');
+    Q.complete('m_bertram', { money: 0, silent: true });
     await this.say('joseph', 'Teşekkür ederim. Yarın da...');
     await this.say('bertram', 'Yarın yok, evlat. Bu han iki kişiyi doyurur, üçü fazla. Sana verecek işim kalmadı.');
     const c1 = await this.ui.choice(['"Peki ben şimdi ne yapacağım?"', '(Sessizce paraları say.)']);
@@ -857,6 +876,7 @@ export class Director {
     else await this.say('bertram', 'Unutma. Ama bana değil, bir gün kapının önünde aç duran birine öde.');
     G.affinity('bertram', 2);
     await this.say('bertram', 'Hadi. Gün kısa, Haldor sabahları tarlada olur.');
+    Q.start('m_harvest', true);
     R.sysmsg('YENİ İŞ: HALDOR\'UN HASADI', ['Brindlewood\'un kuzeydoğusundaki buğday tarlasında Yaşlı Haldor\'u bul.', `Ödül: {m:${JOBS.harvestPay}} (tek seferlik)`, `Hedef: {m:${FEES.guildRegistration}} → Maceracılar Loncası kaydı`], { big: true });
     G.save('auto');
   }
@@ -870,6 +890,7 @@ export class Director {
       return;
     }
     const first = !G.flag('farm_offered');
+    if (Q.active('m_harvest') && Q.progress('m_harvest', 0) < 1) Q.advance('m_harvest', 0);
     if (first) {
       G.setFlag('farm_offered');
       await this.say('haldor', 'Kimsin sen? Bir dakika... O gömlek. Bertram\'ın eski gömleği bu!');
@@ -929,6 +950,8 @@ export class Director {
     Sound.sfx('coin');
     G.setFlag('farm_done');
     G.affinity('haldor', 2);
+    Q.complete('m_harvest', { money: 0, silent: true });
+    Q.start('m_register', true);
     // 100 bronz → 1 gümüş
     if (G.p.wallet.bronze >= 100 && !G.flag('silver_exchanged')) {
       await this.say('haldor', 'Cebin bozuk parayla şıngırdıyor. Ver şunları, sana bir gümüş vereyim. Lonca bozukluk saymayı sevmez.');
@@ -1029,7 +1052,7 @@ export class Director {
     await this.say('vera', 'Hoş geldin, G- maceracı! Dikkat et, fareler ısırır!', 'alayci');
     this.registering = false;
     for (const n of [vera, lina, dorn]) n.scripted = false;
-    await this.endCard();
+    await this.ch2.onRegistered();
   }
 
   async stoneReveal() {
@@ -1057,31 +1080,6 @@ export class Director {
     this.ui.tweens.add({ targets: c, alpha: 1, duration: 300 });
     await wait(this.w, 4200);
     this.ui.tweens.add({ targets: c, alpha: 0, duration: 400, onComplete: () => c.destroy() });
-  }
-
-  async endCard() {
-    if (G.flag('ending_shown')) return;
-    G.setFlag('ending_shown');
-    await wait(this.w, 600);
-    await this.ui.curtain(1, 1200);
-    Sound.play('title');
-    const t1 = this.ui.overlayText('REBORN IN ELONTH', { size: 46, y: Display.uiH / 2 - 60, color: '#d9b45a', font: 'Cinzel, serif' });
-    const t2 = this.ui.overlayText('Bölüm I — Köksüz', { size: 24, y: Display.uiH / 2, color: '#a89c84' });
-    const t3 = this.ui.overlayText('Devam edecek...', { size: 26, y: Display.uiH / 2 + 60, color: '#efe6d2', font: 'Alegreya, serif' });
-    for (const t of [t1, t2, t3]) {
-      t.setAlpha(0);
-      this.ui.tweens.add({ targets: t, alpha: 1, duration: 1200 });
-    }
-    await wait(this.w, 5200);
-    const t4 = this.ui.overlayText('Brindlewood\'da ve ormanda serbestçe dolaşmaya, avlanmaya ve antrenman yapmaya devam edebilirsin.', { size: 18, y: Display.uiH / 2 + 130, color: '#a89c84' });
-    t4.setAlpha(0);
-    this.ui.tweens.add({ targets: t4, alpha: 1, duration: 800 });
-    await wait(this.w, 3800);
-    for (const t of [t1, t2, t3, t4]) this.ui.tweens.add({ targets: t, alpha: 0, duration: 800, onComplete: () => t.destroy() });
-    await wait(this.w, 900);
-    await this.ui.curtain(0, 1200);
-    this.w.updateMusic();
-    G.save('auto');
   }
 
   async talkCaptain() {
@@ -1263,12 +1261,13 @@ export class Director {
         return this.scene(async () => this.sleepAttic());
       case 'quest_board':
         return this.scene(async () => {
+          if (await this.ch2.board()) return;
           await this.think('Pano... boş. Kenarlarda eski raptiye delikleri. Altta bir not: "Yeni ilanlar yarın."');
           if (this.w.npc('celeste')) await this.say('celeste', BOARD_EXCUSES[(G.state.time.day - 1) % BOARD_EXCUSES.length]);
         });
       case 'rank_table':
         return this.scene(async () => {
-          await this.ui.system('RÜTBE TABLOSU: G → F → E → D → C → B → A → S → X. Görev alabileceğin rütbeler: kendi harfin ve bir üstü. D-\'den itibaren terfi sınavı.');
+          await this.ui.system('RÜTBE TABLOSU: G → F → E → D → C → B → A → S → X. Görev alabileceğin rütbeler: kendi harfin ve bir üstü. G, F ve E içindeki terfiler puanla, sınavsızdır; E-\'den itibaren harf atlamak için terfi sınavı gerekir. Eşikler: G 40, G+ 100, F- 180 puan (ve en az Level 1).');
           await this.think('S rütbede sadece iki üç kişi varmış. X... sadece efsanelerde.');
         });
       case 'appraisal_stone':

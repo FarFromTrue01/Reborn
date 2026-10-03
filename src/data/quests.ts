@@ -126,7 +126,7 @@ export const MAIN_QUESTS: QuestDef[] = [
     desc: 'Kâhya Edric\'in kesesi çalındı. Köksüz olduğum için ilk şüpheli benim. Hırsız düşük rütbeli biriymiş: Appraisal ile okuyabilirim.',
     objectives: [
       { type: 'custom', label: 'Şüphelileri Appraisal ile incele', target: 'suspects', count: 4 },
-      { type: 'custom', label: 'Hırsızı muhafıza göster', target: 'accuse', sequential: true },
+      { type: 'custom', label: 'Hırsızı bir muhafıza göster', target: 'accuse', where: { map: 'world', npc: 'guard_hob', point: 'guardpost' }, sequential: true },
     ],
     reward: { text: 'Birkaç bronz ve bir "Dikkatli ol, köksüz."' },
   },

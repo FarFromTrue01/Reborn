@@ -48,6 +48,8 @@ export class Actor extends Phaser.GameObjects.Container {
   bodyR = 9;
   bob = 0;
   facingLocked = false;
+  /** Çizimi yukarı kaldır (sırtta taşınan yoldaş). */
+  liftY = 0;
 
   constructor(scene: Phaser.Scene, x: number, y: number, sheets: string[], kind: 'lpc' | 'monster' = 'lpc', mmeta?: MonsterSheetMeta) {
     super(scene, x, y);
@@ -206,7 +208,8 @@ export class Actor extends Phaser.GameObjects.Container {
   snap() {
     const ox = Math.floor(this.x) - this.x, oy = Math.floor(this.y) - this.y;
     this.shadow.setPosition(ox, oy);
-    for (const l of this.layers) l.setPosition(ox, oy);
+    this.shadow.setVisible(this.liftY === 0);
+    for (const l of this.layers) l.setPosition(ox, oy - this.liftY);
   }
 
   setAlphaAll(a: number) {

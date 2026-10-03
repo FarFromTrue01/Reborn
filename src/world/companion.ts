@@ -44,6 +44,8 @@ export class Companion {
   /** Savaşa katılır mı (yaralı eşlik sırasında hayır). */
   fights = true;
   saidNoExp = false;
+  /** E3: Joseph'in sırtında taşınıyor. */
+  carried = false;
 
   constructor(public w: WorldScene, id: string, x: number, y: number, hp?: number) {
     this.id = id;
@@ -205,6 +207,22 @@ export class Companion {
       return;
     }
 
+    if (this.carried) {
+      // sırtta: Joseph'le birlikte hareket eder, biraz yukarıda
+      b.setVelocity(0, 0);
+      b.enable = false;
+      a.setPosition(pa.x, pa.y + (pa.dir === 'up' ? 1 : -1));
+      a.face(pa.dir);
+      a.liftY = 26;
+      if (a.anim !== 'idle') a.play('idle');
+      this.post(dt);
+      return;
+    }
+    if (a.liftY) {
+      a.liftY = 0;
+      b.enable = true;
+      b.reset(a.x, a.y);
+    }
     if (this.state === 'scripted') {
       this.post(dt);
       return;
@@ -406,7 +424,7 @@ export class Companion {
     a.setDepth(a.y);
     if (this.bubble) {
       this.bubbleT -= dt;
-      this.bubble.setPosition(a.x, a.y - 60);
+      this.bubble.setPosition(a.x, a.y - 60 - a.liftY);
       this.bubble.setAlpha(Math.min(1, this.bubbleT / 0.4));
       if (this.bubbleT <= 0) {
         this.bubble.destroy();
@@ -416,7 +434,7 @@ export class Companion {
     const g = this.bar;
     g.clear();
     if (this.hp < this.maxHp || this.down) {
-      const bw = 24, top = a.y - 56;
+      const bw = 24, top = a.y - 56 - a.liftY;
       const f = Math.max(0, this.hp / this.maxHp);
       g.fillStyle(0x000000, 0.7);
       g.fillRect(a.x - bw / 2 - 1, top - 1, bw + 2, 5);

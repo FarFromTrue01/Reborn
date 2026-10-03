@@ -74,6 +74,20 @@ def layers_for(defname, variant, body):
         base = base.rstrip('/') + '/'
         cands = [base + norm_variant(variant) + '.png', base + variant + '.png', base.rstrip('/') + '.png']
         im = None
+        if defname == 'eyes' and variant == 'black':
+            # LPC'de siyah göz yok: kahverengi gözün irisini kömür siyahına boya (D3: Joseph'in gözleri siyah)
+            src = fetch('spritesheets/' + base + 'brown.png')
+            if src is not None:
+                record_credit(defname, base + 'brown.png')
+                remap = {(126, 78, 32): (30, 26, 28), (84, 76, 46): (52, 46, 48)}
+                px = src.load()
+                for yy in range(src.height):
+                    for xx in range(src.width):
+                        r, g, b, a = px[xx, yy]
+                        if a and (r, g, b) in remap:
+                            px[xx, yy] = remap[(r, g, b)] + (a,)
+                im = src
+                cands = []
         for c in cands:
             im = fetch('spritesheets/' + c)
             if im is not None:
@@ -295,7 +309,7 @@ CHARS = {
 # 0.3.0: kısa, dağınık siyah saç; koyu (LPC'deki en koyu: brown) gözler; esmerin hafif açığı ten (taupe).
 JOSEPH_SKIN = 'taupe'
 JOSEPH_BODY = ('male', [('body', JOSEPH_SKIN)])
-JOSEPH_HEAD = ('male', [('heads_human_male', JOSEPH_SKIN), ('eyes', 'brown'), ('eyebrows_thick', 'black'), ('hair_bedhead', 'black')])
+JOSEPH_HEAD = ('male', [('heads_human_male', JOSEPH_SKIN), ('eyes', 'black'), ('eyebrows_thick', 'black'), ('hair_bedhead', 'black')])
 JOSEPH_ITEMS = {
     'a_shorts': [('legs_shorts_short', 'tan')],
     'a_shirt': [('torso_clothes_longsleeve', 'white')],

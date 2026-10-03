@@ -40,6 +40,8 @@ async function loadFonts() {
   }
 }
 
+const QA = new URLSearchParams(location.search).has('qa');
+
 async function start() {
   cssFonts();
   setupPWA();
@@ -57,7 +59,8 @@ async function start() {
     antialias: false,
     scale: { mode: Phaser.Scale.NONE, zoom: 1 / Display.dpr },
     input: { activePointers: 4 },
-    fps: { target: 60, smoothStep: true },
+    // ?qa: başsız tarayıcıda (QA) kare süresi kırpılmasın; oyun zamanı gerçek zamana yakın aksın
+    fps: QA ? { target: 60, smoothStep: false, min: 1 } : { target: 60, smoothStep: true },
     render: { powerPreference: 'high-performance', maxLights: 24 } as any,
     scene: [BootScene, TitleScene, PrologueScene, WorldScene, UIScene, MenuScene, MinigameScene, CreditsScene],
     physics: { default: 'arcade', arcade: { gravity: { x: 0, y: 0 }, debug: false } },

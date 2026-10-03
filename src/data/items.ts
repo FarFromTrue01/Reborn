@@ -247,6 +247,9 @@ const list: ItemDef[] = [
 
   // ------------------------------------------------------------------ Görev / özel
   { id: 'guild_card', name: 'Lonca Kartı', kind: 'quest', price: 0, bound: true, icon: 'card', desc: 'Brindlewood şubesinin mühürlü maceracı kartı.' },
+  { id: 'guild_letter', name: 'Mühürlü Mektup', kind: 'quest', price: 0, bound: true, icon: 'scroll', desc: 'Lonca mührüyle kapatılmış bir mektup. Kaptan Roderick\'e.' },
+  { id: 'steward_purse', name: 'Kâhyanın Kesesi', kind: 'quest', price: 0, bound: true, icon: 'trinket', desc: 'Kâhya Edric\'in işlemeli deri kesesi. Ağır.' },
+  { id: 'side_parcel', name: 'Bağlı Paket', kind: 'quest', price: 0, bound: true, icon: 'trinket', desc: 'Sıkı sıkı bağlanmış bir paket. Açmak sana düşmez.' },
   { id: 'map_village', name: 'Brindlewood Haritası', kind: 'quest', price: 60, icon: 'map', desc: 'Köyün elle çizilmiş haritası. Kullanınca haritada köy açılır.' },
   { id: 'map_forest_deep', name: 'Harita Parçası: Orman Derinlikleri', kind: 'quest', price: 0, icon: 'map_piece', desc: 'Goblinlerin çizdiği kaba bir harita. Kullanınca ormanın derinlikleri açılır.' },
 ];

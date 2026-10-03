@@ -266,7 +266,7 @@ export function buildWorld(bmeta: Record<string, BuildingMeta>): MapData {
   place('house_a', 'Ev', 63, 77, null, { locked: 'Kapı kilitli.' });
   place('house_c', 'Ev', 77, 86, null, { locked: 'Kapı kilitli.' });
   place('barn', 'Ahır', 107, 44, null, { locked: 'Ahırın kapısı sürgülü. İçeriden inek sesi geliyor.' });
-  place('mill', 'Değirmen', 62, 90, null, { locked: 'Değirmenci kapıyı içeriden kilitlemiş.' });
+  place('mill', 'Değirmen', 62, 90, { map: 'mill_cellar', x: 4, y: 9 });
   place('guardhouse', 'Karakol', 109, 54, null, { locked: 'Karakolun kapısı muhafızlara ait.' });
   // Haldor'un çiftliği ve avcı kulübesi (kuzeydoğu)
   place('farmhouse', 'Haldor\'un Çiftlik Evi', 130, 43, { map: 'farmhouse', x: 5, y: 7 }, { sign: 'sign_wheat' });
@@ -631,6 +631,7 @@ export function buildWorld(bmeta: Record<string, BuildingMeta>): MapData {
 
   // Hikâye tetikleyicileri
   triggers.push({ id: 'village_enter', x: 61, y: 52, w: 4, h: 12, once: true });
+  triggers.push({ id: 'city_gate', x: BARRIER_X - 1, y: 55, w: 1, h: 5 });
   triggers.push({ id: 'checkpoint_near', x: BARRIER_X - 7, y: 52, w: 5, h: 10 });
   triggers.push({ id: 'camp_near', x: 8, y: 2, w: 22, h: 20 });
   triggers.push({ id: 'forest_edge', x: 46, y: 56, w: 8, h: 10 });

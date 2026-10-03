@@ -336,6 +336,27 @@ const ROOMS: RoomSpec[] = [
       b.wallProp('clock', 7, 1);
     },
   },
+  {
+    // Bölüm II: Değirmen bodrumu (f_cellar). Kapı yalnızca görev sırasında açılır (director.beforeWarp).
+    id: 'mill_cellar', name: 'Değirmen Bodrumu', w: 14, h: 11, floor: 'floor_flag', wall: 'wall_stone', music: 'night', dark: 0.62,
+    exit: { x: 4, to: 'world', tx: 64, ty: 91, facing: 'down' },
+    build: (b) => {
+      b.prop('sacks', 2, 3);
+      b.prop('sacks', 3, 3);
+      b.prop('barrels', 10, 3);
+      b.prop('barrels', 11, 4);
+      b.prop('crate_rack', 7, 3);
+      b.prop('sacks', 11, 8);
+      b.prop('barrels', 1, 8);
+      b.wallProp('torch_wall', 2, 1, { light: { radius: 140, color: 0xffa050, flicker: true } });
+      b.wallProp('torch_wall', 11, 1, { light: { radius: 140, color: 0xffa050, flicker: true } });
+      b.points.rats = { x: 8, y: 6 };
+      b.points.rats2 = { x: 10, y: 6 };
+      b.points.entry = { x: 4, y: 8 };
+      b.points.vera = { x: 5, y: 8 };
+      b.points.lina = { x: 3, y: 8 };
+    },
+  },
 ];
 
 export function buildInteriors(floors: Record<string, number>): Record<string, MapData> {

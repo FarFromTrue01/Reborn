@@ -768,7 +768,7 @@ const RAW_NPCS: Omit<NpcDef, 'schedule' | 'title'>[] = [
   },
   {
     id: 'washer', name: 'Çamaşırcı Wynn', sheet: 'washer', voice: 'female', portrait: 'washer', personality: 'gossip', caste: 'commoner',
-    creature: creature('washer', 'Wynn', 'İnsan', 'Kadın', 41, 1, { VIT: 2, STR: 2 }),
+    creature: creature('washer', 'Wynn', 'İnsan', 'Kadın', 41, 2, { VIT: 2, STR: 1, AGI: 7, DEX: 5 }, { skills: [['stealth', 'F'], ['first_aid', 'G-']] }),
     bubbles: {
       any: ['Kâhyanın gömleği yine şarap lekesi.', 'Herkesin kirli çamaşırı bende. Her anlamda.'],
       naked: ['Sana yıkayacak bir şey bile kalmamış!'],

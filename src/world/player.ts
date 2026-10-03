@@ -30,6 +30,8 @@ export class Player {
   counterT = 0; // mükemmel kaçış sonrası karşı saldırı penceresi
   staminaDelay = 0;
   running = false;
+  /** E3: yük (yaralı taşırken yavaşlar, koşamaz). 1 = yok. */
+  burden = 1;
   /** Dayanıklılık bitince koşu kilidi (A1). */
   runLock: RunLock = { exhausted: false };
   sneaking = false;
@@ -172,10 +174,10 @@ export class Player {
         if (Input.consume('appraise')) this.w.appraiseNearest();
         if (Input.consume('eat')) this.w.eatQuick();
         // hareket
-        const wantRun = (Input.run || (Input.touchMove && mlen > RUN_THRESHOLD)) && mlen > 0.2;
+        const wantRun = (Input.run || (Input.touchMove && mlen > RUN_THRESHOLD)) && mlen > 0.2 && this.burden >= 1;
         this.running = runStep(this.runLock, wantRun, p.stamina);
         // Ayarlardaki "Karakter hızı" yalnızca yürüme/koşmayı çarpar (Divine Hız hesabına dokunmaz)
-        let sp = BASE_SPEED * TILE * d.moveSpeed * mlen * (G.settings.moveSpeed ?? 1);
+        let sp = BASE_SPEED * TILE * d.moveSpeed * mlen * (G.settings.moveSpeed ?? 1) * this.burden;
         if (this.running) {
           sp *= 1.6;
           p.stamina = Math.max(0, p.stamina - 11 * d.runCostMult * dt);
