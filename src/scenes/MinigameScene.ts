@@ -55,22 +55,39 @@ export class MinigameScene extends Phaser.Scene {
   }
 
   init(data: { kind: Kind; done: (p: number) => void; day?: number }) {
-    this.serve = null;
+    this.resetState();
     this.serveDay = data.day ?? 1;
     this.kind = data.kind;
     this.done = data.done;
+    this.dur = data.kind === 'chop' ? 24 : data.kind === 'lift' ? 25 : data.kind === 'harvest' ? 22 : data.kind === 'serve' ? serveDifficulty(this.serveDay).dur : 30;
+  }
+
+  /** Her mini oyun aynı sahne nesnesini kullanır: önceki oyunun sayaçları ve nesneleri burada sıfırlanır. */
+  private resetState() {
+    this.kind = 'chop';
     this.t = 0;
+    this.dur = 25;
     this.running = false;
+    this.marker = 0;
+    this.markerDir = 1;
+    this.zoneC = 0.5;
+    this.zoneW = 0.16;
     this.logs = this.hits = this.attempts = 0;
-    this.inZone = 0;
-    this.dist = this.speed = this.goodSteps = this.steps = 0;
+    this.holding = false;
     this.needle = 0;
     this.vel = 0;
+    this.target = 0.5;
+    this.inZone = 0;
     this.lastSide = null;
+    this.dist = this.speed = this.goodSteps = this.steps = 0;
+    this.lastStepT = 0;
+    this.joeLayers = [];
+    this.prop = undefined;
     this.swingT = -1;
     this.runAnimT = 0;
-    this.dur = data.kind === 'chop' ? 24 : data.kind === 'lift' ? 25 : data.kind === 'harvest' ? 22 : data.kind === 'serve' ? serveDifficulty(this.serveDay).dur : 30;
     this.sheaves = [];
+    this.serve = null;
+    this.serveDay = 1;
   }
 
   create() {

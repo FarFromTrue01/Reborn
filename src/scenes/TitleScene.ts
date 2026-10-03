@@ -21,7 +21,18 @@ export class TitleScene extends Phaser.Scene {
     super('Title');
   }
 
+  /**
+   * scene.restart() (ör. tam ekrana girip çıkınca) alanları sıfırlamaz: kapanmış Ayarlar paneli
+   * yok edilmiş bir container'a işaret etmeye devam eder ve Ayarlar bir daha açılmaz.
+   */
+  private resetState() {
+    this.root = undefined!;
+    this.panel = null;
+    this.stars = [];
+  }
+
   create() {
+    this.resetState();
     Display.uiScaleSetting = G.settings.uiScale;
     Display.compute();
     this.cameras.main.setZoom(Display.uiZoom);

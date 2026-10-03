@@ -1,6 +1,19 @@
 // Izgara üzerinde A* yol bulma (NPC'ler için).
 
+const inside = (W: number, H: number, x: number, y: number) => Number.isInteger(x) && Number.isInteger(y) && x >= 0 && y >= 0 && x < W && y < H;
+
+/**
+ * Harita başına yol arama bütçesi (A* adım sınırı). İç mekânlar küçük (ör. han 21×14):
+ * karo sayısının birkaç katı yeter; dış dünyada uzun yollar için geniş bütçe.
+ */
+export function pathBudget(W: number, H: number, indoor: boolean): number {
+  return indoor ? Math.min(24000, Math.max(400, W * H * 4)) : 24000;
+}
+
 export function findPath(solid: Uint8Array, W: number, H: number, sx: number, sy: number, tx: number, ty: number, maxIter = 6000): [number, number][] | null {
+  // Harita dışı başlangıç/hedef: yol yok. (Eskiden hedef dizinin dışına düşünce from[goal]
+  // undefined oluyor ve yolu geri izleyen döngü sonsuza dek dönüp oyunu donduruyordu.)
+  if (!inside(W, H, sx, sy) || !inside(W, H, tx, ty)) return null;
   if (sx === tx && sy === ty) return [];
   const N = W * H;
   const g = new Float32Array(N).fill(Infinity);
@@ -72,16 +85,20 @@ export function findPath(solid: Uint8Array, W: number, H: number, sx: number, sy
   if (from[goal] === -1) return null;
   const out: [number, number][] = [];
   let c = goal;
-  while (c !== start && c !== -1) {
+  // Yol en fazla N karo olabilir: sınır, beklenmedik bir döngüde bile takılmayı önler.
+  while (c !== start && c >= 0 && out.length <= N) {
     out.push([c % W, Math.floor(c / W)]);
     c = from[c];
   }
+  if (c !== start) return null;
   out.reverse();
   return out;
 }
 
-/** En yakın boş karo. */
+/** En yakın boş karo. Harita dışındaki bir nokta önce kenara çekilir. */
 export function nearestFree(solid: Uint8Array, W: number, H: number, x: number, y: number): [number, number] {
+  x = Math.min(W - 1, Math.max(0, Math.round(x) || 0));
+  y = Math.min(H - 1, Math.max(0, Math.round(y) || 0));
   if (!solid[y * W + x]) return [x, y];
   for (let r = 1; r < 8; r++)
     for (let dy = -r; dy <= r; dy++)

@@ -26,6 +26,7 @@ import { nextTier, rollOffer, type OfferRarity } from '../core/skills';
 import * as R from '../game/rules';
 import { SLOT_KEYS, slotInfo, type SlotKey } from '../core/save';
 import type { UIScene } from './UIScene';
+import { leaveGame } from '../game/sceneFlow';
 import type { WorldScene } from './WorldScene';
 import { getMap, fogOf, clearFogCache } from './WorldScene';
 import { TERRAIN, TILE } from '../world/types';
@@ -76,7 +77,24 @@ export class MenuScene extends Phaser.Scene {
   }
 
   init(data: { tab?: Tab }) {
+    this.resetState();
     if (data.tab) this.tab = data.tab;
+  }
+
+  /**
+   * Menü her açılışta yeniden kurulur ama sahne nesnesi aynı kalır: seçimler ve eski nesnelere
+   * işaret eden alanlar burada sıfırlanır. Sekme (tab), Status bölümü ve envanter kategorisi
+   * bilerek hatırlanır (oyuncu menüyü kapatıp açınca kaldığı yerden devam eder).
+   */
+  private resetState() {
+    this.content = undefined!;
+    this.px = this.py = this.pw = this.ph = this.cx = this.cw = 0;
+    this.selItem = null;
+    this.selSlot = null;
+    this.selQuest = null;
+    this.invIds = [];
+    this.selFrame = null;
+    this.invDetail = null;
   }
 
   create() {
@@ -982,21 +1000,14 @@ export class MenuScene extends Phaser.Scene {
         if (!(await confirmBox(this, 'Bu kayıt yüklensin mi? Kaydedilmemiş ilerleme kaybolur.'))) return;
         if (G.load(k)) {
           clearFogCache();
-          this.scene.stop();
-          this.ui.menuIsOpen = false;
-          this.scene.stop('UI');
-          this.scene.stop('World');
-          this.scene.start('World', {});
+          leaveGame(this.scene, this.ui, 'World');
         }
       }, { w: 150, h: 52 }));
     });
     c.add(new Button(this, w / 2, 80 + 4 * 110 + 40, 'Ana Menüye Dön', async () => {
       if (!(await confirmBox(this, 'Ana menüye dönülsün mü? Oyun otomatik kaydedilecek.'))) return;
       G.save('auto');
-      this.scene.stop();
-      this.scene.stop('UI');
-      this.scene.stop('World');
-      this.scene.start('Title');
+      leaveGame(this.scene, this.ui, 'Title');
     }, { w: 300, h: 56 }));
   }
 }

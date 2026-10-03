@@ -2,6 +2,7 @@ import Phaser from 'phaser';
 import { G } from '../game/G';
 import { Display } from '../game/display';
 import { Input, type Action } from '../game/input';
+import { touchIntent } from '../game/touch';
 import { Sound } from '../audio/audio';
 import { COLORS, FONT, txt, drawFrame, drawBlue, drawBar, Button, uiIcon, rankBadge } from '../ui/kit';
 import { QuestBox, PartyBars } from '../ui/hudQuests';
@@ -35,6 +36,9 @@ interface SayOpts {
   name?: string;
   voice?: string;
 }
+
+/** Sabit joystick tabanının yarıçapı (arayüz birimi). */
+const JOY_FIXED_R = 76;
 
 const SPEAKER_NAMES: Record<string, string> = { joseph: 'Joseph', system: 'Sistem' };
 
@@ -93,7 +97,63 @@ export class UIScene extends Phaser.Scene {
     return this.scene.get('World') as WorldScene;
   }
 
+  /**
+   * Oturum durumunu sıfırla. UI sahnesi stop() + launch() ile yeniden kurulduğunda alanlar eski
+   * değerini korur: "Ana Menüye Dön" sonrası menuIsOpen true kalınca HUD ve dokunmatik butonlar
+   * bir daha görünmüyordu. Yeni alan eklerken buraya da ekle (tests/sceneState.test.ts denetler).
+   */
+  private resetState() {
+    this.hud = undefined!;
+    this.hudG = undefined!;
+    this.hudTexts = {};
+    this.minimap = undefined!;
+    this.minimapTex = undefined!;
+    this.minimapT = 0;
+    this.touch = undefined!;
+    this.touchButtons = {};
+    this.skillBtns = [];
+    this.divBtns = [];
+    this.cdOverlay = undefined!;
+    this.joy = null;
+    this.toasts = [];
+    this.sysQueue = [];
+    this.sysShowing = null;
+    this.dlg = null;
+    this.dlgState = null;
+    this.choiceResolve = null;
+    this.choiceObjs = [];
+    this.appraisalWin = null;
+    this.contextLabel = null;
+    this.contextKind = null;
+    this.moneyRow = null;
+    this.moneyKey = '';
+    this.eatBtn = null;
+    this.eatCount = null;
+    this.joyFixed = null;
+    this.hudPanelH = 150;
+    this.hudBottom = 170;
+    this.questBox = null;
+    this.partyBars = null;
+    this.rankKey = '';
+    this.rankBox = null;
+    this.questT = 0;
+    this.damageFlash = undefined!;
+    this.zoneBanner = null;
+    this.ghostHp = 1;
+    this.fpsText = null;
+    this.menuIsOpen = false;
+    this.overlay = null;
+    this.hideHud = false;
+    this.isTouch = false;
+    this.skillIds = [];
+    this.divIds = [];
+    // önceki oturumda basılı kalmış joystick / tuşlar
+    Input.clear();
+    Input.touchMove = false;
+  }
+
   create() {
+    this.resetState();
     this.cameras.main.setZoom(Display.uiZoom);
     this.cameras.main.setOrigin(0, 0);
     this.isTouch = navigator.maxTouchPoints > 0 || 'ontouchstart' in window;
@@ -245,9 +305,9 @@ export class UIScene extends Phaser.Scene {
       const jx = 150, jy = H - 150;
       const base = this.add.graphics();
       base.fillStyle(0x000000, 0.3);
-      base.fillCircle(0, 0, 76);
+      base.fillCircle(0, 0, JOY_FIXED_R);
       base.lineStyle(2.5, COLORS.gold, 0.75);
-      base.strokeCircle(0, 0, 76);
+      base.strokeCircle(0, 0, JOY_FIXED_R);
       base.lineStyle(1, COLORS.goldDark, 0.8);
       base.strokeCircle(0, 0, 40);
       base.setPosition(jx, jy);
@@ -578,35 +638,39 @@ export class UIScene extends Phaser.Scene {
     if (this.menuIsOpen || this.world?.cutscene) return;
     const x = p.x / Display.uiZoom, y = p.y / Display.uiZoom;
     if (!p.wasTouch && !this.isTouch) return;
-    // Dünyadaki bir NPC'ye ya da canavara dokunmak: Appraisal (joystick/saldırı başlamaz)
-    const target = this.world?.creatureAtScreen(p.x, p.y);
-    if (target) {
-      this.world.tapAppraise(target);
+    // Önce hareket niyeti: sabit joystick tabanı ve ekranın sol yarısı joystick'indir; altında bir
+    // NPC olsa bile Appraisal açılmaz. Sağ yarıda bir NPC'ye/canavara dokunmak Appraisal'dır.
+    const intent = touchIntent({
+      x, y, uiW: Display.uiW, joyActive: !!this.joy,
+      fixed: this.joyFixed ? { x: this.joyFixed.x, y: this.joyFixed.y, r: JOY_FIXED_R * 1.25 } : null,
+    });
+    if (intent === 'world') {
+      const target = this.world?.creatureAtScreen(p.x, p.y);
+      if (target) this.world.tapAppraise(target);
       return;
     }
-    if (x < Display.uiW * 0.45 && !this.joy) {
-      if (this.joyFixed) {
-        // Sabit joystick: taban yerinde kalır, topuz parmağı izler
-        this.joy = { id: p.id, bx: this.joyFixed.x, by: this.joyFixed.y, base: this.joyFixed.base, knob: this.joyFixed.knob };
-        Input.touchMove = true;
-        this.onMove(p);
-        return;
-      }
-      const base = this.add.graphics().setDepth(30);
-      base.fillStyle(0x000000, 0.25);
-      base.fillCircle(0, 0, 70);
-      base.lineStyle(2, COLORS.gold, 0.6);
-      base.strokeCircle(0, 0, 70);
-      base.setPosition(x, y);
-      const knob = this.add.graphics().setDepth(31);
-      knob.fillStyle(0xd9b45a, 0.55);
-      knob.fillCircle(0, 0, 30);
-      knob.lineStyle(2, 0xf3dc95, 0.9);
-      knob.strokeCircle(0, 0, 30);
-      knob.setPosition(x, y);
-      this.joy = { id: p.id, bx: x, by: y, base, knob };
+    if (this.joy) return; // joystick başka bir parmakta
+    if (this.joyFixed) {
+      // Sabit joystick: taban yerinde kalır, topuz parmağı izler
+      this.joy = { id: p.id, bx: this.joyFixed.x, by: this.joyFixed.y, base: this.joyFixed.base, knob: this.joyFixed.knob };
       Input.touchMove = true;
+      this.onMove(p);
+      return;
     }
+    const base = this.add.graphics().setDepth(30);
+    base.fillStyle(0x000000, 0.25);
+    base.fillCircle(0, 0, 70);
+    base.lineStyle(2, COLORS.gold, 0.6);
+    base.strokeCircle(0, 0, 70);
+    base.setPosition(x, y);
+    const knob = this.add.graphics().setDepth(31);
+    knob.fillStyle(0xd9b45a, 0.55);
+    knob.fillCircle(0, 0, 30);
+    knob.lineStyle(2, 0xf3dc95, 0.9);
+    knob.strokeCircle(0, 0, 30);
+    knob.setPosition(x, y);
+    this.joy = { id: p.id, bx: x, by: y, base, knob };
+    Input.touchMove = true;
   }
 
   onMove(p: Phaser.Input.Pointer) {

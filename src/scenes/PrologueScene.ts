@@ -14,7 +14,14 @@ export class PrologueScene extends Phaser.Scene {
     super('Prologue');
   }
 
+  /** Prolog ikinci kez oynanırsa (Yeni Oyun → Ana Menü → Yeni Oyun) eski "geç" bayrağı kalmasın. */
+  private resetState() {
+    this.skipping = false;
+    this.advance = null;
+  }
+
   create() {
+    this.resetState();
     this.cameras.main.setZoom(Display.uiZoom);
     this.cameras.main.setOrigin(0, 0);
     this.cameras.main.setBackgroundColor('#000000');

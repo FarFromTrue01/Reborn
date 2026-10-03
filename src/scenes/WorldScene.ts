@@ -37,6 +37,10 @@ import type { UIScene } from './UIScene';
 import { Director } from '../story/director';
 import { Q } from '../game/questrt';
 import { scheduleAt as schedAt } from '../data/npcs';
+import { PathQueue, ArrivalQueue } from '../world/npcQueue';
+
+/** Görüş alanının kenarından bu kadar karo dışarıdaki NPC'ler hafif güncellenir (oyuncu fark etmez). */
+const NPC_FAR_PAD = 6;
 
 let WORLD_CACHE: MapData | null = null;
 /** Kamera ölü bölgesi (dünya pikseli, yarım genişlik/yükseklik) ve dikey ofset. Tamsayı: yuvarlama tutarlı kalır. */
@@ -91,6 +95,10 @@ export class WorldScene extends Phaser.Scene {
   player!: Player;
   enemies: Enemy[] = [];
   npcs: Npc[] = [];
+  /** Karede en fazla bir NPC yol araması (A*). */
+  pathQueue = new PathQueue();
+  /** Program gereği bu haritaya gelen NPC'ler: kapıdan teker teker, 0,3–1 sn arayla (karede en fazla bir). */
+  npcArrivals = new ArrivalQueue<NpcDef>(0.3, 1);
   fx!: FX;
   lighting!: Lighting;
   ui!: UIScene;
@@ -152,12 +160,65 @@ export class WorldScene extends Phaser.Scene {
     }
   }
 
-  create() {
-    G.inGame = true;
-    // önceki oturumdan kalan durdurma/gizleme durumlarını sıfırla
-    this.freezeReasons.clear();
-    this.frozen = false;
+  /**
+   * Oturum durumunu sıfırla. World sahnesi kayıt yüklerken ve ana menüden dönünce yeniden
+   * başlatılır; alanlar eski değerini korur (ör. 'menu' dondurma nedeni, yok edilmiş oyuncu ve
+   * harita nesneleri, eski saat). Yeni alan eklerken buraya da ekle (tests/sceneState.test.ts denetler).
+   */
+  private resetState() {
+    // önceki çalıştırmanın nesneleri sahne kapanırken yok edildi; loadMap onlara dokunmasın
+    this.mapData = undefined!;
+    this.r = undefined!;
+    this.player = undefined!;
+    this.enemies = [];
+    this.npcs = [];
+    this.pathQueue = new PathQueue();
+    this.npcArrivals = new ArrivalQueue<NpcDef>(0.3, 1);
+    this.cutscene = false;
     this.paused = false;
+    this.frozen = false;
+    this.freezeReasons = new Set<string>();
+    this.darkness = 0;
+    this.timeAcc = 0;
+    this.pickups = [];
+    this.projectiles = [];
+    this.companions = [];
+    this.incoming = [];
+    this.bubbleGlobalCd = 0;
+    this.zone = null;
+    this.inBattle = false;
+    this.battleT = 0;
+    this.fogT = 0;
+    this.ambientT = 0;
+    this.appraiseEventT = 40;
+    this.collider = null;
+    this.propCol = null;
+    this.killsThisCombat = {};
+    this.lowHpWin = false;
+    this.warpCooldown = 0;
+    this.lockedMsgT = 0;
+    this.slowmoT = 0;
+    this.rays = [];
+    this.lastHour = -1;
+    this.transitioning = false;
+    this.zoneNameShown = '';
+    this.playClock = 0;
+    this.eatState = newEatState();
+    this.lastAppraiseAt = null;
+    this.autoSaveT = 0;
+    this.questT = 0;
+    this.assistMarkT = 0;
+    this.assistLast = null;
+    this.camFollow = true;
+    this.viewRect = new Phaser.Geom.Rectangle();
+    this.camX = 0;
+    this.camY = 0;
+    this.casteT = 0;
+  }
+
+  create() {
+    this.resetState();
+    G.inGame = true;
     this.time.paused = false;
     this.sys.setVisible(true);
     this.fx = new FX(this);
@@ -278,6 +339,8 @@ export class WorldScene extends Phaser.Scene {
     for (const r of this.rays) r.destroy();
     this.enemies = [];
     this.npcs = [];
+    this.pathQueue.clear();
+    this.npcArrivals.clear();
     this.pickups = [];
     this.projectiles = [];
     this.rays = [];
@@ -812,7 +875,7 @@ export class WorldScene extends Phaser.Scene {
     }
     this.updateCompanions(dt);
     const hour = G.state.time.minute / 60;
-    for (const n of [...this.npcs]) n.update(dt, hour, G.state.time.day);
+    this.updateNpcs(dt, hour);
     this.updateCaste(dt);
     this.updateProjectiles(dt);
     this.updatePickups(dt);
@@ -883,26 +946,65 @@ export class WorldScene extends Phaser.Scene {
     G.events.emit('time');
   }
 
+  /**
+   * Saat değişince program gereği bu haritaya gelecek NPC'leri sıraya koy. Hepsi aynı karede
+   * eklenmez: updateNpcs() kare başına en fazla birini, aralarında 0,3–1 sn ile kapıdan sokar.
+   */
   refreshNpcPresence() {
-    const hour = hourOf(G.state.time);
     for (const def of NPCS) {
       if (this.npcs.some((n) => n.def.id === def.id)) continue;
-      if (this.director.npcOverride(def.id) === false) continue;
-      const forced = this.director.npcPlacement(def.id, this.mapData.id);
-      if (forced === null || forced) continue;
-      const e = scheduleAt(def, hour, G.state.time.day);
-      if (e.map !== this.mapData.id) continue;
-      // Kapıdan / girişten gelir
-      let start: { x: number; y: number } | null = null;
-      if (this.mapData.indoor) start = this.mapData.points.exit ?? null;
-      else start = this.mapData.points['door_' + this.homeBuildingOf(def)] ?? null;
-      const t = Array.isArray(e.at) ? e.at : this.mapData.points[e.at] ? [this.mapData.points[e.at].x, this.mapData.points[e.at].y] as [number, number] : null;
-      if (!t) continue;
-      const s = start ?? { x: t[0], y: t[1] };
-      const n = this.addNpc(def, s.x, s.y);
-      n.homeTile = t as [number, number];
-      n.walkTo(t[0], t[1]);
+      if (this.npcArrivals.some((d) => d.id === def.id)) continue;
+      if (this.arrivalTarget(def)) this.npcArrivals.push(def);
     }
+  }
+
+  /** Bu NPC şu an program gereği bu haritada olmalı mı? Öyleyse giriş noktası ve hedef karo. */
+  arrivalTarget(def: NpcDef): { start: { x: number; y: number }; at: [number, number] } | null {
+    const hour = hourOf(G.state.time);
+    if (this.director.npcOverride(def.id) === false) return null;
+    const forced = this.director.npcPlacement(def.id, this.mapData.id);
+    if (forced === null || forced) return null;
+    const e = scheduleAt(def, hour, G.state.time.day);
+    if (e.map !== this.mapData.id) return null;
+    // Kapıdan / girişten gelir
+    let start: { x: number; y: number } | null = null;
+    if (this.mapData.indoor) start = this.mapData.points.exit ?? null;
+    else start = this.mapData.points['door_' + this.homeBuildingOf(def)] ?? null;
+    const t = Array.isArray(e.at) ? e.at : this.mapData.points[e.at] ? [this.mapData.points[e.at].x, this.mapData.points[e.at].y] as [number, number] : null;
+    if (!t) return null;
+    return { start: start ?? { x: t[0], y: t[1] }, at: t as [number, number] };
+  }
+
+  /**
+   * NPC güncellemesi. Diziyi her kare kopyalamaz: removeNpc() yeni bir dizi atar, yinelenen
+   * eski dizi bozulmaz; kaldırılanlar `gone` ile atlanır. Görüş alanının dışındakiler (kenardan
+   * 6 karo pay ile) hafif güncellenir (5b). Yol kuyruğu ve kapı girişleri de burada ilerler.
+   */
+  updateNpcs(dt: number, hour: number) {
+    const day = G.state.time.day;
+    const v = this.viewRect;
+    const pad = NPC_FAR_PAD * TILE;
+    const haveView = v.width > 0 && !this.cutscene;
+    const list = this.npcs;
+    for (let i = 0; i < list.length; i++) {
+      const n = list[i];
+      if (n.gone) continue;
+      n.far = haveView && (n.x < v.x - pad || n.x > v.right + pad || n.y < v.y - pad || n.y > v.bottom + pad);
+      if (n.far) n.updateFar(dt, hour, day);
+      else n.update(dt, hour, day);
+    }
+    // kapıdan giriş: kare başına en fazla bir NPC
+    const def = this.cutscene ? null : this.npcArrivals.tick(dt);
+    if (def && !this.npcs.some((n) => n.def.id === def.id)) {
+      const a = this.arrivalTarget(def);
+      if (a) {
+        const n = this.addNpc(def, a.start.x, a.start.y);
+        n.homeTile = a.at;
+        n.walkTo(a.at[0], a.at[1]);
+      }
+    }
+    // karede en fazla bir yol araması
+    this.pathQueue.tick(1);
   }
 
   homeBuildingOf(def: NpcDef) {
@@ -1392,12 +1494,12 @@ export class WorldScene extends Phaser.Scene {
     this.casteT -= dt;
     if (this.casteT > 0 || this.cutscene) return;
     this.casteT = 0.3;
-    const highs = this.npcs.filter((n) => n.prestige >= 4 && !n.scripted);
+    const highs = this.npcs.filter((n) => n.prestige >= 4 && !n.scripted && !n.far);
     if (!highs.length) return;
     for (const h of highs) {
       const moving = h.state === 'walk' || Math.hypot(h.actor.body2.velocity.x, h.actor.body2.velocity.y) > 5;
       for (const b of this.npcs) {
-        if (b === h || b.prestige > 2 || b.scripted) continue;
+        if (b === h || b.prestige > 2 || b.scripted || b.far) continue;
         const d = Math.hypot(b.x - h.x, b.y - h.y) / TILE;
         if (h.prestige >= 5 && d < 4.5) {
           const rude = b.def.personality === 'rude';

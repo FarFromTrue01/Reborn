@@ -735,7 +735,7 @@ export class Chapter2 {
       else {
         n.actor.setPosition(p.x * TILE + 16, p.y * TILE + 22);
         n.actor.body2.reset(n.actor.x, n.actor.y);
-        n.path = [];
+        n.stopWalking();
       }
       n.scripted = true;
     }

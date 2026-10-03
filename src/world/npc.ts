@@ -3,11 +3,14 @@ import Phaser from 'phaser';
 import { Actor, dirFromVec, type Dir } from './actor';
 import { scheduleAt, prestigeOf, type NpcDef, type ScheduleEntry } from '../data/npcs';
 import { TILE } from './types';
-import { findPath, nearestFree } from './path';
+import { findPath, nearestFree, pathBudget } from './path';
 import type { WorldScene } from '../scenes/WorldScene';
 import { derive } from '../core/creature';
 import { npcPrestige } from '../core/prestige';
 import { G } from '../game/G';
+
+/** Geliştirici etiketinin gösterildiği en büyük uzaklık (karo). */
+const DEV_TAG_RANGE = 12;
 
 export class Npc {
   actor: Actor;
@@ -35,6 +38,16 @@ export class Npc {
   /** Bu NPC'nin Saygınlık'ı (C1): konumu + kıyafeti. */
   saygınlık: number;
   devTag: Phaser.GameObjects.Text | null = null;
+  /** Geliştirici etiketinin son metni/rengi ve güncelleme sayacı (yalnızca değişince, saniyede ≤4 kez). */
+  private devText = '';
+  private devColor = '';
+  private devT = 0;
+  /** Yol isteği kuyrukta bekliyor (WorldScene.pathQueue, karede bir arama). */
+  pathPending = false;
+  /** Haritadan kaldırıldı (yok edildi). */
+  gone = false;
+  /** Görüş alanının dışında: hafif güncelleme (WorldScene her kare belirler). */
+  far = false;
 
   constructor(public w: WorldScene, public def: NpcDef, x: number, y: number) {
     this.actor = new Actor(w, x, y, [def.sheet], 'lpc');
@@ -59,7 +72,7 @@ export class Npc {
   bow(target: Npc, line: string | null) {
     if (this.reactCd > 0 || this.scripted) return false;
     this.reactCd = 30;
-    this.path = [];
+    this.stopWalking();
     if (this.state === 'walk') this.state = 'idle';
     this.actor.body2.setVelocity(0, 0);
     this.actor.face(dirFromVec(target.x - this.x, target.y - this.y));
@@ -94,6 +107,8 @@ export class Npc {
   }
 
   destroy() {
+    this.gone = true;
+    this.w.pathQueue?.cancel(this);
     this.actor.destroy();
     this.nameTag.destroy();
     this.devTag?.destroy();
@@ -107,13 +122,93 @@ export class Npc {
     return p ? [p.x, p.y] : null;
   }
 
+  /**
+   * Bir karoya yürü. Yol hemen aranmaz: istek WorldScene.pathQueue'ya girer ve karede en fazla
+   * bir A* araması yapılır (akşam hana 20+ NPC aynı anda girince oyun donuyordu). Yol gelene
+   * kadar NPC yerinde bekler.
+   */
   walkTo(tx: number, ty: number) {
+    this.path = [];
+    this.state = 'walk';
+    const q = this.w.pathQueue;
+    if (!q) {
+      this.computePath(tx, ty);
+      return;
+    }
+    this.pathPending = true;
+    q.request(this, () => this.computePath(tx, ty));
+  }
+
+  /** Yürümeyi bırak (bekleyen yol isteği de iptal). */
+  stopWalking() {
+    this.path = [];
+    this.pathPending = false;
+    this.w.pathQueue?.cancel(this);
+  }
+
+  private computePath(tx: number, ty: number) {
+    this.pathPending = false;
+    if (this.gone) return;
     const m = this.w.mapData;
     const [sx, sy] = nearestFree(m.solid, m.w, m.h, ...this.tile());
     const [gx, gy] = nearestFree(m.solid, m.w, m.h, tx, ty);
-    const p = findPath(m.solid, m.w, m.h, sx, sy, gx, gy, 24000);
+    const p = findPath(m.solid, m.w, m.h, sx, sy, gx, gy, pathBudget(m.w, m.h, !!m.indoor));
     this.path = p ?? [];
-    this.state = this.path.length ? 'walk' : 'idle';
+    if (!this.path.length && this.state === 'walk') this.state = 'idle';
+  }
+
+  /**
+   * Görüş alanının dışındaki NPC (5b): program ve yol takibi sürer, ama animasyon, isim etiketi,
+   * balon, kast tepkisi ve geliştirici etiketi atlanır.
+   */
+  updateFar(dt: number, hour: number, day?: number) {
+    const a = this.actor;
+    const body = a.body2;
+    this.reactCd -= dt;
+    this.bubbleCd -= dt;
+    if (this.devTag) {
+      this.devTag.destroy();
+      this.devTag = null;
+      this.devText = this.devColor = '';
+    }
+    if (this.bubble) {
+      this.bubbleT -= dt;
+      if (this.bubbleT <= 0) {
+        this.bubble.destroy();
+        this.bubble = null;
+      }
+    }
+    if (this.talking) {
+      body.setVelocity(0, 0);
+      return;
+    }
+    if (this.poseT > 0) {
+      this.poseT -= dt;
+      body.setVelocity(0, 0);
+      return;
+    }
+    if (this.scripted) {
+      if (this.state === 'walk') this.followPath(dt, body, true);
+      else body.setVelocity(0, 0);
+      return;
+    }
+    const e = scheduleAt(this.def, hour, day);
+    if (e !== this.entry) {
+      this.entry = e;
+      this.onEntry(e);
+    }
+    if (this.state === 'walk' || this.state === 'leaving') this.followPath(dt, body, true);
+    else {
+      body.setVelocity(0, 0);
+      this.idleT += dt;
+      // devriye konumu önemli (muhafızlar); rastgele dolaşma görünmediği için atlanır
+      if (e.act === 'patrol' && e.patrol && this.idleT > 2) {
+        this.patrolIdx = (this.patrolIdx + 1) % e.patrol.length;
+        const [px, py] = e.patrol[this.patrolIdx];
+        this.walkTo(px, py);
+        this.idleT = 0;
+      }
+    }
   }
 
   update(dt: number, hour: number, day?: number) {
@@ -126,18 +221,30 @@ export class Npc {
     const pd = this.w.player.actor;
     const dist = Math.hypot(pd.x - this.x, pd.y - this.y) / TILE;
     this.nameTag.setPosition(a.x, a.y - 58);
-    // C6: geliştirici modunda NPC'lerin Saygınlık değeri başlarının üstünde
-    if (G.settings.devMode) {
+    // C6: geliştirici modunda NPC'lerin Saygınlık değeri başlarının üstünde.
+    // setText/setColor metni ölçüp dokuyu yeniden çizer ve GPU'ya yükler: yalnızca yakındaki
+    // (12 karo) NPC'lerde, saniyede en fazla 4 kez ve yalnızca değer değişince.
+    if (G.settings.devMode && dist < DEV_TAG_RANGE) {
       if (!this.devTag) {
         this.devTag = this.w.add.text(a.x, a.y, '', { fontFamily: 'AlegreyaSans, sans-serif', fontSize: '9px', fontStyle: 'bold', color: '#9fe08a', stroke: '#000', strokeThickness: 2 }).setOrigin(0.5, 1).setDepth(965500);
         this.devTag.setResolution(this.w.cameras.main.zoom * 1.5);
+        this.devText = this.devColor = '';
+        this.devT = 0;
       }
-      const tone = this.w.toneFor(this);
-      this.devTag.setText(`S ${this.saygınlık} · ${tone === 'scorn' ? 'küçümser' : tone === 'respect' ? 'saygılı' : 'nötr'}`).setPosition(a.x, a.y - 72);
-      this.devTag.setColor(tone === 'scorn' ? '#ff8a7a' : tone === 'respect' ? '#9fe08a' : '#e8dcc0');
+      this.devT -= dt;
+      if (this.devT <= 0) {
+        this.devT = 0.25;
+        const tone = this.w.toneFor(this);
+        const text = `S ${this.saygınlık} · ${tone === 'scorn' ? 'küçümser' : tone === 'respect' ? 'saygılı' : 'nötr'}`;
+        const color = tone === 'scorn' ? '#ff8a7a' : tone === 'respect' ? '#9fe08a' : '#e8dcc0';
+        if (text !== this.devText) this.devTag.setText((this.devText = text));
+        if (color !== this.devColor) this.devTag.setColor((this.devColor = color));
+      }
+      this.devTag.setPosition(a.x, a.y - 72);
     } else if (this.devTag) {
       this.devTag.destroy();
       this.devTag = null;
+      this.devText = this.devColor = '';
     }
     this.nameTag.setAlpha(Phaser.Math.Clamp((4 - dist) / 2, 0, 1) * (this.bubble ? 0 : 1));
     // balon
@@ -237,11 +344,17 @@ export class Npc {
     }
   }
 
-  followPath(dt: number, body: Phaser.Physics.Arcade.Body) {
+  followPath(dt: number, body: Phaser.Physics.Arcade.Body, far = false) {
     const a = this.actor;
+    if (this.pathPending) {
+      // yol kuyrukta: sırası gelene kadar yerinde bekle
+      body.setVelocity(0, 0);
+      if (!far) a.play('idle');
+      return;
+    }
     if (!this.path.length) {
       body.setVelocity(0, 0);
-      a.play('idle');
+      if (!far) a.play('idle');
       if (this.state === 'leaving') {
         this.w.removeNpc(this);
         return;
@@ -263,9 +376,11 @@ export class Npc {
       return;
     }
     body.setVelocity((dx / d) * this.speed, (dy / d) * this.speed);
-    a.face(dirFromVec(dx, dy));
-    a.play('walk');
-    a.animSpeed = this.speed / (2.2 * TILE);
+    if (!far) {
+      a.face(dirFromVec(dx, dy));
+      a.play('walk');
+      a.animSpeed = this.speed / (2.2 * TILE);
+    }
     this.pathT += dt;
     if (this.pathT > 0.6) {
       this.pathT = 0;

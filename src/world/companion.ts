@@ -9,7 +9,7 @@ import { derive, type Derived } from '../core/creature';
 import type { CreatureData } from '../core/types';
 import { COMPANIONS, type CompanionDef } from '../data/companions';
 import { NPC_BY_ID, type NpcDef } from '../data/npcs';
-import { findPath, nearestFree } from './path';
+import { findPath, nearestFree, pathBudget } from './path';
 import { BASE_SPEED } from './player';
 import type { WorldScene } from '../scenes/WorldScene';
 import type { Enemy } from './enemy';
@@ -156,7 +156,7 @@ export class Companion {
       const m = this.w.mapData;
       const [sx, sy] = nearestFree(m.solid, m.w, m.h, Math.floor(this.x / TILE), Math.floor((this.y - 6) / TILE));
       const [ex, ey] = nearestFree(m.solid, m.w, m.h, Math.floor(tx / TILE), Math.floor((ty - 6) / TILE));
-      this.path = findPath(m.solid, m.w, m.h, sx, sy, ex, ey, 5000) ?? [];
+      this.path = findPath(m.solid, m.w, m.h, sx, sy, ex, ey, Math.min(5000, pathBudget(m.w, m.h, !!m.indoor))) ?? [];
     }
   }
 
