@@ -150,8 +150,8 @@ describe('0.2.0 köy fiyatları', () => {
     expect(LESSONS.sword_mastery.price).toBe(750);
     expect(formatPrice(LESSONS.sword_mastery.price)).toBe('7 Gümüş 50 Bronz');
   });
-  it('Bertram (4 gün) + Haldor\'un hasadı = tam 1 gümüş = lonca kaydı', () => {
-    expect(JOBS.bertramShifts).toBe(4);
+  it('Bertram (3 gün) + Haldor\'un hasadı = tam 1 gümüş = lonca kaydı', () => {
+    expect(JOBS.bertramShifts).toBe(3);
     expect(JOBS.bertramPay).toBe(50);
     expect(JOBS.harvestPay).toBe(50);
     expect(JOBS.bertramPay + JOBS.harvestPay).toBe(FEES.guildRegistration);

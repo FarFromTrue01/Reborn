@@ -3,6 +3,9 @@ import { emptyWallet, type Wallet } from './money';
 import type { CreatureData } from './types';
 import type { GameTime } from './time';
 import { newSkill } from './skills';
+import { newGuildState, type GuildState } from './guild';
+import { newQuestLog, type QuestLog } from './quests';
+import type { EntryCard } from './cards';
 
 export interface DivineState {
   level: number;
@@ -54,6 +57,19 @@ export interface GameState {
   gathered: Record<string, number>; // toplama noktası → toplandığı gün
   /** Hızlı Yemek yuvasına atanmış yiyecek (yoksa envanterdeki ilk yiyecek). */
   quickFood: string | null;
+  // ---------------------------------------------------------------- 0.3.0
+  /** Maceracılar Loncası: puan, borç, bekleyen terfi (C3). */
+  guild: GuildState;
+  /** Görev günlüğü (C2). */
+  quests: QuestLog;
+  /** Şehir giriş kartları (C8). */
+  cards: EntryCard[];
+  /** En son uyanılan an (mutlak oyun dakikası) — uyku kuralı (C9). */
+  awakeSince: number;
+  /** Yanındaki yoldaşlar (C4). */
+  party: string[];
+  /** Günün pano görevleri (her sabah yenilenir). */
+  board: { day: number; ids: string[] };
 }
 
 export const START_POINT: Point = { map: 'world', x: 0, y: 0 };
@@ -112,11 +128,20 @@ export function newGameState(): GameState {
     respawns: {},
     gathered: {},
     quickFood: null,
+    guild: newGuildState(),
+    quests: newQuestLog(),
+    cards: [],
+    awakeSince: 7 * 60 + 20,
+    party: [],
+    board: { day: 0, ids: [] },
   };
 }
 
-export const CURRENT_SAVE_VERSION = 3;
+export const CURRENT_SAVE_VERSION = 4;
 
 /** Dünya haritasının 0.1.x boyutları (sis haritası göçü için). */
 export const OLD_WORLD_W = 150;
 export const OLD_WORLD_H = 110;
+/** 0.2.0 dünya boyutu. */
+export const V2_WORLD_W = 230;
+export const V2_WORLD_H = 150;

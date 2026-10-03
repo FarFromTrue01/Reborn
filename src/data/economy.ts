@@ -24,8 +24,8 @@ export const LESSONS = {
 /** Hikâye işleri: tek seferlik, kolay para kaynağı değildir. */
 export const JOBS = {
   /** Bertram'ın hanında çalışılacak vardiya (gün) sayısı. */
-  bertramShifts: 4,
-  /** 4. günün sonunda tek seferde ödenen toplam ücret. */
+  bertramShifts: 3,
+  /** Son (3.) günün sonunda tek seferde ödenen toplam ücret. */
   bertramPay: 50,
   /** Haldor'un hasadı (tek seferlik). */
   harvestPay: 50,

@@ -1,17 +1,22 @@
 // Kayıt: localStorage, sürüm numaralı ve göç (migration) destekli.
 
-import { CURRENT_SAVE_VERSION, newGameState, OLD_WORLD_W, OLD_WORLD_H, type GameState } from './state';
+import { CURRENT_SAVE_VERSION, newGameState, OLD_WORLD_W, OLD_WORLD_H, V2_WORLD_W, V2_WORLD_H, type GameState } from './state';
+import { newGuildState } from './guild';
+import { newQuestLog, type QuestLog } from './quests';
+import { questDef } from '../data/quests';
 
-/** 0.2.0'daki dünya boyutu (worldgen.ts WORLD_W/H ile aynı olmalı; testle doğrulanır). */
-export const NEW_WORLD_W = 230;
-export const NEW_WORLD_H = 150;
+/** 0.3.0'daki dünya boyutu (worldgen.ts WORLD_W/H ile aynı olmalı; testle doğrulanır). */
+export const NEW_WORLD_W = 169;
+export const NEW_WORLD_H = 120;
+/** Orman (köprünün batısı) 0.3.0'da aynı koordinatlarda kaldı; köy yeniden yerleşti. */
+export const FOREST_MAX_X = 56;
 
 /** Bit dizisi olarak saklanan sis haritasını yeni genişliğe taşır (eski kareler aynı koordinatta kalır). */
-export function remapFog(b64: string, oldW: number, oldH: number, newW: number, newH: number): string {
+export function remapFog(b64: string, oldW: number, oldH: number, newW: number, newH: number, maxX = Infinity): string {
   const bin = atob(b64);
   const out = new Uint8Array(Math.ceil((newW * newH) / 8));
   for (let y = 0; y < Math.min(oldH, newH); y++)
-    for (let x = 0; x < Math.min(oldW, newW); x++) {
+    for (let x = 0; x < Math.min(oldW, newW, maxX); x++) {
       const i = y * oldW + x;
       if ((bin.charCodeAt(i >> 3) >> (i & 7)) & 1) {
         const j = y * newW + x;
@@ -71,7 +76,91 @@ const MIGRATIONS: ((d: any) => any)[] = [
     d.saveVersion = 3;
     return d;
   },
+  // v3 → v4 (0.3.0): köy küçüldü (sis: yalnızca orman korunur, köy konumları meydana taşınır),
+  // Bertram'ın işi 3 güne indi, görev sistemi, lonca puanı, giriş kartları, uyku saati, yoldaşlar.
+  (d) => migrateV3toV4(d),
 ];
+
+/** 0.2.0 kaydını 0.3.0'a taşır (testli: tests/save.test.ts). */
+export function migrateV3toV4(d: any): any {
+  d.flags ??= {};
+  d.counters ??= {};
+  const f = d.flags;
+  // --- harita: orman aynı, köy yeni yerleşimde
+  if (d.fog?.world) {
+    try {
+      d.fog.world = remapFog(d.fog.world, V2_WORLD_W, V2_WORLD_H, NEW_WORLD_W, NEW_WORLD_H, FOREST_MAX_X);
+    } catch {
+      delete d.fog.world;
+    }
+  }
+  const PLAZA = { x: 84, y: 62 };
+  if (d.pos?.map === 'world' && (d.pos.x >= FOREST_MAX_X || d.pos.y >= NEW_WORLD_H)) d.pos = { ...d.pos, x: PLAZA.x, y: PLAZA.y };
+  if (d.spawn?.map === 'world' && d.spawn.x && (d.spawn.x >= FOREST_MAX_X || d.spawn.y >= NEW_WORLD_H)) d.spawn = { map: 'world', x: PLAZA.x, y: PLAZA.y };
+  // köy içindeki yeniden doğma ve toplama kayıtları geçersiz (koordinatlar değişti)
+  d.respawns = Object.fromEntries(Object.entries(d.respawns ?? {}).filter(([k]) => !/^rat5|^rabbit[356]/.test(k)));
+  d.gathered = Object.fromEntries(Object.entries(d.gathered ?? {}).filter(([k]) => k.startsWith('herb')));
+  // --- Bertram'ın işi: 4 vardiya → 3 vardiya. Son vardiyayı (ödeme) kaçırmasın: 3/4 bitirdiyse 2/3 sayılır.
+  const work = d.counters.workDays ?? 0;
+  if (!f.bertram_done && f.bertram_deal) d.counters.workDays = Math.min(work, 2);
+  // --- yeni alanlar
+  d.guild ??= newGuildState();
+  if (f.guild_registered) {
+    d.guild.member = true;
+    d.player.guildRank ??= 0;
+  }
+  d.cards ??= [];
+  d.party ??= [];
+  d.board ??= { day: 0, ids: [] };
+  d.awakeSince ??= ((d.time?.day ?? 1) - 1) * 1440 + (d.time?.minute ?? 420);
+  // --- görev günlüğü: bayraklardan hikâyenin neresinde olduğunu çıkar
+  d.quests = questsFromFlags(f, d.counters, d.time?.day ?? 1, d.player);
+  // 0.2.0'daki bitiş kartı kaldırıldı: hikâye Bölüm II ile sürüyor
+  if (f.ending_shown || f.guild_registered) {
+    f.ch2_start_day = d.time?.day ?? 1;
+    delete f.ending_shown;
+  }
+  d.saveVersion = 4;
+  return d;
+}
+
+/** Bayraklardan görev günlüğü kurar (0.2.0 → 0.3.0). */
+export function questsFromFlags(f: Record<string, any>, counters: Record<string, number>, day: number, player?: any): QuestLog {
+  const log = newQuestLog();
+  const put = (id: string, status: 'active' | 'done', progress?: number[]) => {
+    const def = questDef(id);
+    if (!def) return;
+    log.quests[id] = { id, status, progress: progress ?? def.objectives.map((o) => (status === 'done' ? o.count ?? 1 : 0)), startedDay: day, endedDay: status === 'done' ? day : undefined };
+    log.order.push(id);
+    if (status === 'active' && (!log.tracked || def.kind === 'main')) log.tracked = id;
+  };
+  if (!f.woke) return log;
+  if (!f.inn_met) {
+    put('m_inn', 'active');
+    return log;
+  }
+  put('m_inn', 'done');
+  if (!f.bertram_deal) return log;
+  if (!f.bertram_done) {
+    put('m_bertram', 'active', [Math.min(2, counters.workDays ?? 0)]);
+    return log;
+  }
+  put('m_bertram', 'done');
+  if (!f.farm_done) {
+    put('m_harvest', 'active', [f.farm_offered ? 1 : 0, 0]);
+    return log;
+  }
+  put('m_harvest', 'done');
+  if (!f.guild_registered) {
+    const money = player?.wallet ? player.wallet.bronze + player.wallet.silver * 100 + player.wallet.platinum * 10000 : 0;
+    put('m_register', 'active', [money >= 100 ? 1 : 0, 0]);
+    return log;
+  }
+  put('m_register', 'done');
+  // Bölüm II başlangıcı: kayıttan sonraki sabah pano açılır, Bertram silah verir
+  put('m_weapon', 'active');
+  return log;
+}
 
 export function migrate(raw: any, fromVersion: number): GameState {
   let d = raw;
@@ -88,7 +177,7 @@ export function migrate(raw: any, fromVersion: number): GameState {
 }
 
 export function summaryOf(s: GameState): string {
-  return `Joseph · Lv${s.player.level} · ${s.time.day}. gün`;
+  return `Joseph · Level ${s.player.level} · ${s.time.day}. gün`;
 }
 
 export function writeSave(storage: StorageLike, slot: SlotKey, s: GameState): void {

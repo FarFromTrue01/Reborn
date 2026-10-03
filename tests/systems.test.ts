@@ -6,7 +6,7 @@ import { createMonster, monsterExp, rollDrops, splitExp } from '../src/core/mons
 import { MONSTERS } from '../src/data/monsters';
 import { derive } from '../src/core/creature';
 import { MemoryStorage, readSave, writeSave, latestSlot, migrate } from '../src/core/save';
-import { newGameState } from '../src/core/state';
+import { newGameState, CURRENT_SAVE_VERSION } from '../src/core/state';
 import { advance, nextMorning, clockLabel } from '../src/core/time';
 
 describe('Rütbeler', () => {
@@ -150,7 +150,7 @@ describe('Kayıt', () => {
     g.saveVersion = 1;
     const m = migrate(JSON.parse(JSON.stringify(g)), 1);
     expect(m.gathered).toEqual({});
-    expect(m.saveVersion).toBe(3);
+    expect(m.saveVersion).toBe(CURRENT_SAVE_VERSION);
   });
   it('Bozuk kayıt null döner', () => {
     const st = new MemoryStorage();
@@ -216,7 +216,7 @@ describe('Kayıt göçü v2 → v3', () => {
     delete old.quickFood;
     old.flags = { guild_registered: true };
     const m = migrate(old, 2);
-    expect(m.saveVersion).toBe(3);
+    expect(m.saveVersion).toBe(CURRENT_SAVE_VERSION);
     expect(m.quickFood).toBeNull();
     expect(m.flags.bertram_done).toBe(true);
     expect(m.flags.farm_done).toBe(true);

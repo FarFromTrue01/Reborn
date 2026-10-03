@@ -1,3 +1,15 @@
+/**
+ * EXP gösterimi (B1): en fazla bir ondalık, virgülle; uzun ondalıklar kısaltılır (aşağı), tam sayılar ondalıksız.
+ * 0.5 → "0,5" · 2.5 → "2,5" · 3.3555 → "3,3" · 3 → "3"
+ */
+export function fmtExp(n: number): string {
+  if (!isFinite(n)) return '0';
+  const neg = n < 0;
+  const v = Math.floor(Math.abs(n) * 10 + 1e-6) / 10;
+  const s = Number.isInteger(v) ? String(v) : v.toFixed(1).replace('.', ',');
+  return neg && v !== 0 ? '−' + s : s;
+}
+
 import { ITEMS } from '../data/items';
 import { STAT_KEYS } from '../core/formulas';
 

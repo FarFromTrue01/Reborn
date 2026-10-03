@@ -47,6 +47,8 @@ export interface ItemDef {
   /** Kuşanılabilir eşyanın slot türü; yüzükler 'ring'. */
   slot?: Exclude<EquipSlot, 'ring1' | 'ring2'> | 'ring';
   rank?: Letter;
+  /** Saygınlık katkısı (C1): kaliteli eşya artı, paçavra eksi. Yalnızca kuşanılınca sayılır. */
+  saygınlık?: number;
   /** Bronz cinsinden alış fiyatı (dükkân). */
   price: number;
   /** Tüccarın ödediği sabit tutar (malzemeler için). Yoksa fiyatın %30–40'ı. */

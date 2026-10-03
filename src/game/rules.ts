@@ -10,6 +10,7 @@ import { ITEMS } from '../data/items';
 import { canonicalCoins } from '../core/money';
 import { eat as eatRule, type EatState } from '../core/eating';
 import { TITLES } from '../data/titles';
+import { equipmentPrestige } from '../core/prestige';
 
 export type ToastKind = 'item' | 'exp' | 'divine' | 'money' | 'info' | 'warn' | 'skill';
 
@@ -238,9 +239,32 @@ export function giveMoney(bronze: number, label: string, silent = false): boolea
   return r.ok;
 }
 
+/**
+ * E3: harcama kilidi (G3'ün ödülünden şifacıya varana kadar). Kilitliyse Joseph'in düşüncesi döner.
+ * allow: kilide rağmen izin verilen ödeme (şifacının tedavisi).
+ */
+export function spendBlocked(allow = false): string | null {
+  if (!G.flag('spend_lock') || allow) return null;
+  return 'Bu paraya şimdi dokunamam.';
+}
+
 export function buy(id: string, qty: number, unitPrice: number, label: string) {
+  const blocked = spendBlocked();
+  if (blocked) {
+    G.events.emit('think', blocked);
+    return { ok: false, reason: blocked };
+  }
   const r = transact(G.p as any, { label, pay: unitPrice * qty, give: [{ id, qty }] });
   return r;
+}
+
+export function takeItem(id: string, qty = 1, label = 'Teslim') {
+  return transact(G.p as any, { label, take: [{ id, qty }] });
+}
+
+/** Joseph'in Saygınlık'ı (C1): giydiklerinin toplamı. */
+export function josephPrestige(): number {
+  return equipmentPrestige(G.p.equipment);
 }
 
 export function sell(id: string, qty: number, unitPrice: number, label: string) {
@@ -248,7 +272,12 @@ export function sell(id: string, qty: number, unitPrice: number, label: string) 
   return r;
 }
 
-export function pay(amount: number, label: string) {
+export function pay(amount: number, label: string, allowWhenLocked = false) {
+  const blocked = spendBlocked(allowWhenLocked || label === 'Lonca cezası');
+  if (blocked) {
+    G.events.emit('think', blocked);
+    return { ok: false, reason: blocked };
+  }
   return transact(G.p as any, { label, pay: amount });
 }
 
