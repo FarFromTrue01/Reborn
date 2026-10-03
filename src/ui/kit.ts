@@ -290,3 +290,27 @@ export function iconImage(scene: Phaser.Scene, x: number, y: number, icon: strin
   im.setScale(size / 34);
   return im;
 }
+
+/** Renkli arayüz simgesi (uiicons atlası, 72 px kaynak). Bilinmeyen anahtar → boş. */
+export function uiIcon(scene: Phaser.Scene, x: number, y: number, key: string, size = 24) {
+  const tex = scene.textures.get('uiicons');
+  const im = scene.add.image(x, y, 'uiicons', tex.has(key) ? key : 'check');
+  im.setScale(size / 72);
+  if (!tex.has(key)) im.setAlpha(0);
+  return im;
+}
+
+/** Lonca rütbe rozeti: harf rozeti + alt kademe işareti (−/+) küçük yazıyla. */
+export function rankBadge(scene: Phaser.Scene, x: number, y: number, subRank: number, size = 32): Phaser.GameObjects.Container {
+  const L = 'GFEDCBASX'[Math.min(8, Math.floor(subRank / 3))];
+  const sub = subRank - Math.min(8, Math.floor(subRank / 3)) * 3;
+  const c = scene.add.container(x, y);
+  c.add(uiIcon(scene, 0, 0, 'rank_' + L, size));
+  if (sub !== 1) {
+    const t = txt(scene, size * 0.36, size * 0.18, sub === 0 ? '−' : '+', { size: Math.max(11, Math.round(size * 0.42)), bold: true, color: '#ffffff', stroke: true });
+    t.setOrigin(0.5);
+    c.add(t);
+  }
+  c.setSize(size, size);
+  return c;
+}

@@ -34,6 +34,8 @@ export class BootScene extends Phaser.Scene {
     if (idx?.audio) for (const f of idx.audio) G.audioFiles.add(f);
     G.credits = this.cache.json.get('credits');
     this.makeTextures();
+    // Emoji tarzı simgeler küçültülerek çizilir: yumuşak filtre (piksel sanat değil)
+    this.textures.get('uiicons').setFilter(Phaser.Textures.FilterMode.LINEAR);
     makeCoinTextures(this);
     const boot = document.getElementById('boot');
     if (boot) {

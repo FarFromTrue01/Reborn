@@ -107,6 +107,8 @@ export const BUILDINGS = ['inn', 'guild', 'smithy', 'shop', 'healer', 'house_a',
 export const ATLASES: Record<string, { image: string; json: string }> = {
   props: { image: 'assets/gfx/props.png', json: 'assets/gfx/props.json' },
   icons: { image: 'assets/gfx/icons.png', json: 'assets/gfx/icons.json' },
+  /** Renkli arayüz simgeleri (Twemoji, CC-BY 4.0) ve lonca rütbe rozetleri — tools/build_uiicons.py */
+  uiicons: { image: 'assets/gfx/uiicons.png', json: 'assets/gfx/uiicons.json' },
 };
 
 export const JSONS: Record<string, string> = {

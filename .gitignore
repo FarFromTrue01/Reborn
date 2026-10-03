@@ -5,3 +5,4 @@ dist
 /tools/.cache
 /test-results
 /screens
+__pycache__

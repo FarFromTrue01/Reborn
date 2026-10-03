@@ -95,6 +95,8 @@ Kaynak: https://github.com/sanderfrenken/Universal-LPC-Spritesheet-Character-Gen
   - https://opengameart.org/content/lpc-hair
   - https://github.com/ElizaWy/LPC/blob/main/Characters/Hair
   - https://opengameart.org/content/expanded-universal-lpc-spritesheet-idle-run-jump-lpc-revised-combat-and-assets
+- **hair/bedhead** — Manuel Riecke (MrBeast) — CC-BY-SA 3.0 / GPL 3.0
+  - https://opengameart.org/content/liberated-pixel-cup-lpc-base-assets-sprites-map-tiles
 - **hair/bob** — ElizaWy, bluecarrot16 — CC0
   - https://opengameart.org/content/lpc-hair
   - https://github.com/ElizaWy/LPC/blob/main/Characters/Hair
@@ -120,6 +122,8 @@ Kaynak: https://github.com/sanderfrenken/Universal-LPC-Spritesheet-Character-Gen
   - https://opengameart.org/content/lpc-hair
 - **hair/longhawk** — Manuel Riecke (MrBeast) — CC-BY-SA 3.0 / GPL 3.0
   - https://opengameart.org/content/liberated-pixel-cup-lpc-base-assets-sprites-map-tiles
+- **hair/messy** — Nila122 — OGA-BY 3.0 / CC-BY-SA 3.0 / GPL 3.0
+  - https://opengameart.org/content/lpc-clothes-for-children
 - **hair/messy1** — Manuel Riecke (MrBeast) — CC-BY-SA 3.0 / GPL 3.0
   - https://opengameart.org/content/liberated-pixel-cup-lpc-base-assets-sprites-map-tiles
 - **hair/messy2** — Manuel Riecke (MrBeast) — CC-BY-SA 3.0 / GPL 3.0
@@ -136,6 +140,9 @@ Kaynak: https://github.com/sanderfrenken/Universal-LPC-Spritesheet-Character-Gen
 - **hair/parted2** — Skorpio, bluecarrot16 — CC-BY-SA 3.0 / GPL 3.0
   - https://opengameart.org/content/lpc-skorpios-scifi-sprite-pack
   - https://opengameart.org/content/lpc-hair
+- **hair/parted_side_bangs** — JaidynReiman — OGA-BY 3.0+ / CC-BY 3.0+ / CC-BY-SA 3.0 / GPL 3.0
+  - https://opengameart.org/content/lpc-1-hairstyle-2-hair-extensions-3-previously-unofficially-released-hairstyles
+  - https://github.com/jrconway3/Universal-LPC-spritesheet/commit/46ddcf05a0e43e7aa6ffd47d350eef0eb529ac24
 - **hair/pigtails** — Radomir Dopieralski, bluecarrot16 — CC-BY-SA 3.0 / GPL 3.0
   - https://opengameart.org/content/one-more-lpc-alternate-character
   - https://opengameart.org/content/lpc-hair
@@ -372,6 +379,8 @@ Kaynak: https://github.com/sanderfrenken/Universal-LPC-Spritesheet-Character-Gen
 - **[LPC] Rat, Cat and Dog (fare)** — Reemax (Tuomo Untinen) — CC-BY 3.0 / CC-BY-SA 3.0 / GPL 3.0 — https://opengameart.org/content/lpc-rat-cat-and-dog
 - **Bunny Rabbit LPC style / Reorganised LPC rabbit (tavşan)** — Stephen Challener (Redshrike); düzenleme: Evert — CC-BY 3.0 / CC-BY-SA 3.0 / OGA-BY 3.0 — https://opengameart.org/node/114556
 - **496 pixel art icons for medieval/fantasy RPG (ikonlar)** — Henrique Lazarini (7Soul1) — CC0 — https://opengameart.org/content/496-pixel-art-icons-for-medievalfantasy-rpg
+- **Twemoji (arayüz simgeleri: Appraisal, Status, envanter, görevler, harita işaretleri, Saygınlık)** — Twitter, Inc. ve diğer katkıda bulunanlar (jdecked/twemoji) — CC-BY 4.0 — https://github.com/jdecked/twemoji
+- **Lonca rütbe rozetleri (G → X)** — Bu proje için tools/build_uiicons.py ile çizildi — Proje lisansı — https://github.com/FarFromTrue01/Reborn
 - **Yazı tipleri: Cinzel, Alegreya, Alegreya Sans, Pixelify Sans** — Natanael Gama (Cinzel); Juan Pablo del Peral / Huerta Tipográfica (Alegreya, Alegreya Sans); Stefie Justprince (Pixelify Sans) — SIL Open Font License 1.1 — https://fonts.google.com
 
 Ayrıntılı lisans/atıf dosyaları: `assets/licenses/` ve `assets/fonts/OFL-*.txt`.

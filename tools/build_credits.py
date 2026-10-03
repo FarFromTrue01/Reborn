@@ -19,6 +19,8 @@ packs = [
     {'title': '[LPC] Rat, Cat and Dog (fare)', 'authors': 'Reemax (Tuomo Untinen)', 'license': 'CC-BY 3.0 / CC-BY-SA 3.0 / GPL 3.0', 'url': 'https://opengameart.org/content/lpc-rat-cat-and-dog'},
     {'title': 'Bunny Rabbit LPC style / Reorganised LPC rabbit (tavşan)', 'authors': 'Stephen Challener (Redshrike); düzenleme: Evert', 'license': 'CC-BY 3.0 / CC-BY-SA 3.0 / OGA-BY 3.0', 'url': 'https://opengameart.org/node/114556'},
     {'title': '496 pixel art icons for medieval/fantasy RPG (ikonlar)', 'authors': 'Henrique Lazarini (7Soul1)', 'license': 'CC0', 'url': 'https://opengameart.org/content/496-pixel-art-icons-for-medievalfantasy-rpg'},
+    {'title': 'Twemoji (arayüz simgeleri: Appraisal, Status, envanter, görevler, harita işaretleri, Saygınlık)', 'authors': 'Twitter, Inc. ve diğer katkıda bulunanlar (jdecked/twemoji)', 'license': 'CC-BY 4.0', 'url': 'https://github.com/jdecked/twemoji', 'files': []},
+    {'title': 'Lonca rütbe rozetleri (G → X)', 'authors': 'Bu proje için tools/build_uiicons.py ile çizildi', 'license': 'Proje lisansı', 'url': 'https://github.com/FarFromTrue01/Reborn', 'files': []},
     {'title': 'Yazı tipleri: Cinzel, Alegreya, Alegreya Sans, Pixelify Sans', 'authors': 'Natanael Gama (Cinzel); Juan Pablo del Peral / Huerta Tipográfica (Alegreya, Alegreya Sans); Stefie Justprince (Pixelify Sans)', 'license': 'SIL Open Font License 1.1', 'url': 'https://fonts.google.com', 'files': []},
 ]
 

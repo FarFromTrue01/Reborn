@@ -88,6 +88,18 @@ def layers_for(defname, variant, body):
     return out
 
 
+def check_parts(cid, body, parts):
+    """Çocuk gövdesine yalnızca çocuk gövdesini açıkça destekleyen katmanlar takılabilir
+    (yetişkin kafasına göre çizilmiş bir saç çocuğun başında havada durur)."""
+    if body != 'child':
+        return
+    for defname, _ in parts:
+        d = load_def(defname)
+        for k in d:
+            if k.startswith('layer_') and not d[k].get('custom_animation') and 'child' not in d[k]:
+                raise SystemExit(f'HATA: {cid}: {defname} çocuk gövdesini desteklemiyor (layer {k})')
+
+
 def compose(body, parts):
     layers = []
     for defname, variant in parts:
@@ -167,7 +179,7 @@ CHARS = {
                           ('hair_long', 'chestnut'), ('torso_clothes_blouse', 'rose'), ('legs_skirts_plain', 'walnut'),
                           ('feet_shoes', 'brown')]),
     'child': ('child', [('body', 'amber'), ('heads_human_child', 'amber'), ('eyes', 'brown'),
-                        ('hair_messy1', 'chestnut'), ('torso_clothes_child_shirt', 'blue'), ('legs_childpants', 'brown')]),
+                        ('hair_messed', 'brown'), ('torso_clothes_child_shirt', 'blue'), ('legs_childpants', 'brown')]),
     'drunk': ('male', [('body', 'light'), ('heads_human_male_plump', 'light'), ('eyes', 'blue'),
                        ('hair_unkempt', 'ginger'), ('beards_5oclock_shadow', 'ginger'), ('torso_clothes_longsleeve', 'maroon'),
                        ('legs_pants', 'brown'), ('feet_shoes', 'black')]),
@@ -245,9 +257,9 @@ CHARS = {
                            ('hair_messy2', 'light brown'), ('beards_beard', 'light brown'), ('torso_clothes_longsleeve', 'walnut'),
                            ('torso_aprons_apron', 'leather'), ('legs_pants', 'tan'), ('feet_boots', 'brown'), ('tool_smash', 'hammer')]),
     'child_girl': ('child', [('body', 'light'), ('heads_human_child', 'light'), ('eyes', 'blue'),
-                             ('hair_bob', 'blonde'), ('torso_clothes_child_shirt', 'pink'), ('legs_childskirts', 'blue')]),
+                             ('hair_parted_side_bangs', 'blonde'), ('torso_clothes_child_shirt', 'pink'), ('legs_childskirts', 'blue')]),
     'child_boy': ('child', [('body', 'taupe'), ('heads_human_child', 'taupe'), ('eyes', 'brown'),
-                            ('hair_messy1', 'black'), ('torso_clothes_child_shirt', 'red'), ('legs_childpants', 'brown')]),
+                            ('hair_messed', 'black'), ('torso_clothes_child_shirt', 'red'), ('legs_childpants', 'brown')]),
     'washer': ('female', [('body', 'amber'), ('heads_human_female', 'amber'), ('eyes', 'brown'),
                           ('hair_shoulderr', 'redhead'), ('torso_clothes_blouse', 'sky'), ('torso_aprons_apron', 'white'),
                           ('legs_skirts_plain', 'blue'), ('feet_shoes', 'brown')]),
@@ -280,8 +292,10 @@ CHARS = {
 }
 
 # Joseph: dinamik katmanlar (ekipmana göre)
-JOSEPH_BODY = ('male', [('body', 'light')])
-JOSEPH_HEAD = ('male', [('heads_human_male', 'light'), ('eyes', 'brown'), ('eyebrows_thick', 'black'), ('hair_unkempt', 'black')])
+# 0.3.0: kısa, dağınık siyah saç; koyu (LPC'deki en koyu: brown) gözler; esmerin hafif açığı ten (taupe).
+JOSEPH_SKIN = 'taupe'
+JOSEPH_BODY = ('male', [('body', JOSEPH_SKIN)])
+JOSEPH_HEAD = ('male', [('heads_human_male', JOSEPH_SKIN), ('eyes', 'brown'), ('eyebrows_thick', 'black'), ('hair_bedhead', 'black')])
 JOSEPH_ITEMS = {
     'a_shorts': [('legs_shorts_short', 'tan')],
     'a_shirt': [('torso_clothes_longsleeve', 'white')],
@@ -320,6 +334,8 @@ def main():
             for c in json.load(open(cp)):
                 credits_used[c['file']] = c
     for cid, (body, parts) in CHARS.items():
+        check_parts(cid, body, parts)
+    for cid, (body, parts) in CHARS.items():
         if only and cid not in only:
             continue
         print('karakter', cid)
@@ -327,7 +343,7 @@ def main():
         manifest['chars'][cid] = cid + '.png'
     jd = os.path.join(OUT, 'joseph')
     os.makedirs(jd, exist_ok=True)
-    if only:
+    if only and 'joseph' not in only:
         with open(os.path.join(OUT, 'chars.json'), 'w') as f:
             json.dump(manifest, f, indent=1, ensure_ascii=False)
         with open(os.path.join(ROOT, 'tools', 'credits_lpc_chars.json'), 'w') as f:
