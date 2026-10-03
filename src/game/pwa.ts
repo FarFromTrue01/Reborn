@@ -55,3 +55,28 @@ export async function goFullscreen() {
     /* desteklenmiyor */
   }
 }
+
+/** Tam ekrandan çık. */
+export async function exitFullscreen() {
+  try {
+    if (document.fullscreenElement) await document.exitFullscreen();
+  } catch {
+    /* */
+  }
+}
+
+export function isFullscreen(): boolean {
+  return !!document.fullscreenElement;
+}
+
+/** Tarayıcı tam ekranı destekliyor mu? (iPhone Safari desteklemez.) */
+export function fullscreenSupported(): boolean {
+  const el = document.documentElement as any;
+  const ios = /iPhone|iPod/.test(navigator.userAgent) || (/iPad|Macintosh/.test(navigator.userAgent) && navigator.maxTouchPoints > 1 && !el.requestFullscreen);
+  return !ios && !!(el.requestFullscreen || el.webkitRequestFullscreen) && (document as any).fullscreenEnabled !== false;
+}
+
+/** Ana ekrandan (PWA) mı açıldı? */
+export function isStandalone(): boolean {
+  return window.matchMedia?.('(display-mode: standalone)').matches || (navigator as any).standalone === true;
+}

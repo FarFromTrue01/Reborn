@@ -2,7 +2,13 @@ import Phaser from 'phaser';
 import { G } from '../game/G';
 import { Display } from '../game/display';
 import { Sound } from '../audio/audio';
-import { COLORS, FONT, txt, drawFrame, drawBlue, Button, iconImage } from '../ui/kit';
+import { COLORS, FONT, txt, drawFrame, drawBlue, Button, iconImage, uiIcon, rankBadge } from '../ui/kit';
+import { renderDevPanel } from '../ui/devPanel';
+import { renderQuestsTab } from '../ui/questsTab';
+import { fmtExp } from '../ui/format';
+import { prestigeLabel, itemPrestige } from '../core/prestige';
+import { pointsToNext } from '../core/guild';
+import { daysLeft, CITY_NAMES } from '../core/cards';
 import { ScrollList, panelChoice, confirmBox } from '../ui/panels';
 import { buildSettings } from '../ui/settingsPanel';
 import { itemLabel, itemEffectsText } from '../ui/format';
@@ -25,20 +31,22 @@ import { getMap, fogOf, clearFogCache } from './WorldScene';
 import { TERRAIN, TILE } from '../world/types';
 import { VILLAGE_X0, BARRIER_X, WORLD_H } from '../world/worldgen';
 
-type Tab = 'status' | 'inventory' | 'equipment' | 'map' | 'history' | 'settings' | 'save';
-const TABS: [Tab, string][] = [
-  ['status', 'Status'],
-  ['inventory', 'Envanter'],
-  ['equipment', 'Ekipman'],
-  ['map', 'Harita'],
-  ['history', 'Konuşma Geçmişi'],
-  ['settings', 'Ayarlar'],
-  ['save', 'Kaydet / Yükle'],
+type Tab = 'status' | 'inventory' | 'equipment' | 'quests' | 'map' | 'history' | 'settings' | 'save' | 'dev';
+const TABS: [Tab, string, string][] = [
+  ['status', 'Status', 'status'],
+  ['inventory', 'Envanter', 'inventory'],
+  ['equipment', 'Ekipman', 'equipment'],
+  ['quests', 'Görevler', 'quests'],
+  ['map', 'Harita', 'map'],
+  ['history', 'Konuşmalar', 'history'],
+  ['settings', 'Ayarlar', 'settings'],
+  ['save', 'Kaydet / Yükle', 'save'],
+  ['dev', 'Geliştirici', 'dev'],
 ];
 const SECTIONS = ['all', 'status', 'stats', 'skills', 'traits', 'titles', 'equipment', 'inventory'] as const;
 const SECTION_NAMES: Record<string, string> = { all: 'Tümü', status: 'Status', stats: 'Stats', skills: 'Skills', traits: 'Traits', titles: 'Titles', equipment: 'Equipment', inventory: 'Inventory' };
-type InvCat = 'all' | 'equip' | 'food' | 'material' | 'other';
-const INV_CATS: [InvCat, string][] = [['all', 'Tümü'], ['equip', 'Ekipman'], ['food', 'Yiyecek ve İksir'], ['material', 'Malzeme'], ['other', 'Diğer']];
+type InvCat = 'all' | 'equip' | 'food' | 'material' | 'other' | 'cards';
+const INV_CATS: [InvCat, string, string][] = [['all', 'Tümü', 'inv_all'], ['equip', 'Ekipman', 'inv_equip'], ['food', 'Yiyecek', 'inv_food'], ['material', 'Malzeme', 'inv_material'], ['other', 'Diğer', 'inv_other'], ['cards', 'Giriş Kartları', 'inv_cards']];
 const CAT_NAME: Record<string, string> = { weapon: 'Silah', armor: 'Zırh', food: 'Yiyecek', consumable: 'İksir / sarf', material: 'Malzeme', book: 'Kitap', quest: 'Görev eşyası', junk: 'Değersiz' };
 
 export class MenuScene extends Phaser.Scene {
@@ -54,6 +62,7 @@ export class MenuScene extends Phaser.Scene {
   selItem: string | null = null;
   selSlot: EquipSlot | null = null;
   invCat: InvCat = 'all';
+  selQuest: string | null = null;
 
   constructor() {
     super('Menu');
@@ -83,16 +92,21 @@ export class MenuScene extends Phaser.Scene {
     drawFrame(g, this.px, this.py, this.pw, this.ph);
     // sekmeler
     const tw = 210;
-    TABS.forEach(([t, label], i) => {
-      const b = new Button(this, this.px + 22 + tw / 2, this.py + 60 + i * 66, label, () => {
+    const tabs = TABS.filter(([t]) => t !== 'dev' || G.settings.devMode);
+    if (this.tab === 'dev' && !G.settings.devMode) this.tab = 'status';
+    const step = Math.min(66, (this.ph - 140) / tabs.length);
+    tabs.forEach(([t, label, icon], i) => {
+      const b = new Button(this, this.px + 22 + tw / 2, this.py + 52 + i * step, '   ' + label, () => {
         this.tab = t;
         this.selItem = null;
         this.selSlot = null;
+        this.selQuest = null;
         this.render();
-      }, { w: tw, h: 56, size: 18 });
+      }, { w: tw, h: step - 8, size: 17 });
+      b.add(uiIcon(this, -tw / 2 + 26, 0, icon, 26));
       b.setName('tab_' + t);
     });
-    new Button(this, this.px + 22 + tw / 2, this.py + this.ph - 50, 'Oyuna Dön', () => this.close(), { w: tw, h: 56, size: 18, textColor: COLORS.textGold });
+    new Button(this, this.px + 22 + tw / 2, this.py + this.ph - 46, 'Oyuna Dön', () => this.close(), { w: tw, h: 52, size: 18, textColor: COLORS.textGold });
     this.cx = this.px + tw + 50;
     this.cw = this.pw - tw - 74;
     this.content = this.add.container(this.cx, this.py + 24);
@@ -113,6 +127,8 @@ export class MenuScene extends Phaser.Scene {
       if (b) b.setAlpha(t === this.tab ? 1 : 0.62);
     }
     this.content.removeAll(true);
+    this.invDetail = null;
+    this.selFrame = null;
     switch (this.tab) {
       case 'status': return this.renderStatus();
       case 'inventory': return this.renderInventory();
@@ -121,12 +137,14 @@ export class MenuScene extends Phaser.Scene {
       case 'history': return this.renderHistory();
       case 'settings': return buildSettings(this, this.content, this.cw);
       case 'save': return this.renderSave();
+      case 'quests': return this.renderQuests();
+      case 'dev': return renderDevPanel(this, this.content, this.cw, this.ph - 48);
     }
   }
 
   // ================================================================ ortak çizim yardımcıları
   /** Çerçeveli kart: başlık şeridi + gövde. Gövdenin başladığı y'yi döndürür. */
-  card(parent: Phaser.GameObjects.Container, x: number, y: number, w: number, h: number, title: string, style: 'blue' | 'gold' | 'divine' = 'blue', right?: string) {
+  card(parent: Phaser.GameObjects.Container, x: number, y: number, w: number, h: number, title: string, style: 'blue' | 'gold' | 'divine' = 'blue', right?: string, icon?: string) {
     const g = this.add.graphics();
     const edge = style === 'blue' ? 0x7cc8ff : style === 'gold' ? COLORS.gold : 0xffd56a;
     const fill = style === 'blue' ? 0x0c2148 : style === 'gold' ? 0x1c1626 : 0x2a2008;
@@ -143,7 +161,8 @@ export class MenuScene extends Phaser.Scene {
       g.strokeRoundedRect(x + 4, y + 4, w - 8, h - 8, 8);
     }
     parent.add(g);
-    parent.add(txt(this, x + 14, y + 7, title, { size: 17, bold: true, font: FONT.title, color: style === 'blue' ? '#e6f6ff' : '#ffe9a0' }));
+    if (icon) parent.add(uiIcon(this, x + 26, y + 17, icon, 24));
+    parent.add(txt(this, x + (icon ? 44 : 14), y + 7, title, { size: 17, bold: true, font: FONT.title, color: style === 'blue' ? '#e6f6ff' : '#ffe9a0' }));
     if (right) parent.add(txt(this, x + w - 14, y + 9, right, { size: 14, bold: true, color: style === 'blue' ? '#bfe4ff' : '#f3dc95' }).setOrigin(1, 0));
     return y + 44;
   }
@@ -213,7 +232,7 @@ export class MenuScene extends Phaser.Scene {
     // ---------------------------------------------------------- STATUS kartı
     if (show('status')) {
       const ch = 196;
-      const by = this.card(inner, 0, y, W, ch, '⚙️ STATUS', 'blue', 'Elonth Sistemi');
+      const by = this.card(inner, 0, y, W, ch, 'STATUS', 'blue', 'Elonth Sistemi', 'status');
       const pg = this.add.graphics();
       pg.fillStyle(0x061230, 1);
       pg.fillRoundedRect(14, by, 110, 138, 8);
@@ -226,25 +245,47 @@ export class MenuScene extends Phaser.Scene {
       inner.add(txt(this, x0 + 120, by + 7, 'İnsan · Erkek · 18 yaş', { size: 14, color: '#9fc8ff' }));
       let cx = x0;
       cx = this.chip(inner, cx, by + 36, `Level ${p.level}`, 0x2a4a8a);
-      cx = this.chip(inner, cx, by + 36, `Rütbe: ${p.guildRank !== null ? subRankToString(p.guildRank) : 'Yok'}`, 0x3a2e1a);
+      const member = G.state.guild.member && p.guildRank !== null;
+      if (member) inner.add(rankBadge(this, cx + 12, by + 47, p.guildRank!, 24));
+      cx = this.chip(inner, cx + (member ? 26 : 0), by + 36, `Rütbe: ${member ? subRankToString(p.guildRank!) : 'Yok'}`, 0x3a2e1a);
       cx = this.chip(inner, cx, by + 36, 'Kast: Köksüz', 0x4a2020, '#ffd0c0');
+      inner.add(uiIcon(this, cx + 12, by + 47, 'prestige', 22));
+      cx = this.chip(inner, cx + 26, by + 36, `Saygınlık ${prestigeLabel(R.josephPrestige())}`, 0x4a3a10, '#ffe9a0');
       const bw = W - x0 - 20;
       const half = (bw - 12) / 2;
       this.progress(inner, x0, by + 68, half, 20, p.hp / d.maxHp, COLORS.hp, `HP ${Math.ceil(p.hp)} / ${d.maxHp}`);
       this.progress(inner, x0 + half + 12, by + 68, half, 20, d.maxMp ? p.mp / d.maxMp : 0, COLORS.mp, `MP ${Math.floor(p.mp)} / ${d.maxMp}`);
       this.progress(inner, x0, by + 94, half, 16, p.stamina / d.maxStamina, COLORS.st, `Dayanıklılık ${Math.floor(p.stamina)} / ${d.maxStamina}`);
       const need = expToNext(p.level);
-      this.progress(inner, x0 + half + 12, by + 94, half, 16, p.exp / need, 0x9a6ae8, `EXP ${Math.floor(p.exp)} / ${need}`);
-      inner.add(txt(this, x0, by + 122, 'Para', { size: 14, bold: true, color: '#cfeaff' }));
-      inner.add(coinRow(this, x0 + 48, by + 131, p.wallet, { size: 20, font: 17 }));
+      this.progress(inner, x0 + half + 12, by + 94, half, 16, p.exp / need, 0x9a6ae8, `EXP ${fmtExp(p.exp)} / ${need}`);
+      inner.add(uiIcon(this, x0 + 10, by + 131, 'money', 20));
+      inner.add(txt(this, x0 + 24, by + 122, 'Para', { size: 14, bold: true, color: '#cfeaff' }));
+      inner.add(coinRow(this, x0 + 72, by + 131, p.wallet, { size: 20, font: 17 }));
       y += ch + gap;
+      // Lonca kartı (C3/B6): rütbe, Lonca Puanı, bir sonraki rütbeye kalan
+      const gs = G.state.guild;
+      const lh = 110;
+      const lb = this.card(inner, 0, y, W, lh, 'LONCA KARTI', 'gold', gs.member ? 'Maceracılar Loncası — Brindlewood Şubesi' : 'Kayıtlı değil', 'card');
+      if (gs.member && p.guildRank !== null) {
+        inner.add(rankBadge(this, 52, lb + 26, p.guildRank, 56));
+        inner.add(txt(this, 92, lb - 2, subRankToString(p.guildRank), { size: 30, bold: true, font: FONT.title, color: COLORS.textGold }));
+        const nxt = pointsToNext(gs.points, p.guildRank);
+        inner.add(uiIcon(this, 190, lb + 10, 'points', 22));
+        inner.add(txt(this, 206, lb, `Lonca Puanı: ${gs.points}`, { size: 17, bold: true, color: '#ffffff' }));
+        inner.add(txt(this, 206, lb + 26, nxt === null ? 'En yüksek rütbe' : `Bir sonraki rütbeye: ${nxt} puan${gs.pending ? ' · Terfi yarın işlenecek' : ''}`, { size: 14, color: '#d8c890' }));
+        if (gs.debt) {
+          inner.add(uiIcon(this, W - 170, lb + 10, 'debt', 20));
+          inner.add(txt(this, W - 154, lb, `Borç: ${gs.debt} bronz`, { size: 15, bold: true, color: COLORS.textRed }));
+        }
+      } else inner.add(txt(this, 20, lb + 4, gs.revoked ? 'Kartın alındı. Yeniden kayıt 1 gümüş; G-\'den ve 0 puandan başlarsın.' : 'Maceracılar Loncası\'na kayıt bir gümüş.', { size: 15, color: COLORS.textDim, wrap: W - 40 }));
+      y += lh + gap;
     }
 
     // ---------------------------------------------------------- STATS kartı
     if (show('stats')) {
       const rowH = 54;
       const ch = 44 + 34 + STAT_KEYS.length * rowH + 44;
-      const by = this.card(inner, 0, y, W, ch, '📊 STATS', 'blue', `Dağıtılmamış: ${p.unspent}  ·  SP: ${p.sp}`);
+      const by = this.card(inner, 0, y, W, ch, 'STATS', 'blue', `Dağıtılmamış: ${p.unspent}  ·  SP: ${p.sp}`, 'stats');
       let cx = 14;
       cx = this.chip(inner, cx, by, `Fiziksel hasar ×${(1 + 0.05 * d.stats.STR).toFixed(2)}`, 0x1a3a6a, '#dff0ff');
       cx = this.chip(inner, cx, by, `Kritik %${(d.crit * 100).toFixed(1)}`, 0x1a3a6a, '#dff0ff');
@@ -287,7 +328,7 @@ export class MenuScene extends Phaser.Scene {
     if (show('skills')) {
       const cardH = 92;
       const ch = 44 + Math.max(1, p.skills.length) * (cardH + 8) + (p.sp > 0 ? 60 : 4);
-      const by = this.card(inner, 0, y, W, ch, '⭐ SKILLS', 'blue', `${p.skills.length} skill`);
+      const by = this.card(inner, 0, y, W, ch, 'SKILLS', 'blue', `${p.skills.length} skill`, 'skills');
       let ry = by;
       for (const s of p.skills) {
         const def = SKILLS[s.id];
@@ -306,7 +347,7 @@ export class MenuScene extends Phaser.Scene {
         this.chip(inner, cx, ry + 9, RARITY_NAMES[def.rarity], def.rarity === 'legendary' ? 0x5a4410 : def.rarity === 'rare' ? 0x3a2a60 : 0x2a3040);
         const max = s.rank >= SUBRANK_MAX;
         const th = skillThreshold(s.rank);
-        this.progress(inner, 94, ry + 38, Math.min(300, W - 140), 14, max ? 1 : s.exp / th, 0x3ab8e0, max ? 'MAX' : `${Math.floor(s.exp)} / ${th}`);
+        this.progress(inner, 94, ry + 38, Math.min(300, W - 140), 14, max ? 1 : s.exp / th, 0x3ab8e0, max ? 'MAX' : `${fmtExp(s.exp)} / ${th}`);
         const techs = def.tiers.filter((t) => t.technique && parseRank(t.at) <= s.rank).map((t) => TECHNIQUES[t.technique!]?.name);
         inner.add(txt(this, 94, ry + 60, def.desc + (techs.length ? `  ·  Teknikler: ${techs.join(', ')}` : ''), { size: 13, color: '#9fc8ff', wrap: W - 130 }));
         const nt = nextTier(s);
@@ -325,7 +366,7 @@ export class MenuScene extends Phaser.Scene {
       for (const t of p.traits) {
         if (t === 'divine_paladin') {
           const ch = 44 + 34 + 30 + 76 + Math.max(1, dv.skills.length) * 24 + 40;
-          const by = this.card(inner, 0, y, W, ch, '🔮 TRAIT · Divine Paladin (X)', 'divine', `Level ${dv.level}`);
+          const by = this.card(inner, 0, y, W, ch, 'TRAIT · Divine Paladin (X)', 'divine', `Level ${dv.level}`, 'traits');
           inner.add(txt(this, 14, by - 2, 'Sadece sen görebilirsin. Appraisal ve lonca taşı bu trait\'i göremez.', { size: 13, italic: true, color: '#d8c890' }));
           this.progress(inner, 14, by + 24, W - 28, 18, dv.exp / divineExpToNext(dv.level), 0xd9a530, `Divine EXP ${dv.exp} / ${divineExpToNext(dv.level)}`, '#fff6d0');
           const bw = (W - 28 - 4 * 10) / 5;
@@ -356,7 +397,7 @@ export class MenuScene extends Phaser.Scene {
           y += ch + gap;
         } else {
           const tn = TRAIT_NAMES[t];
-          const by = this.card(inner, 0, y, W, 80, `🔮 TRAIT · ${tn?.name ?? t} (${tn?.rank ?? '?'})`, 'gold');
+          const by = this.card(inner, 0, y, W, 80, `TRAIT · ${tn?.name ?? t} (${tn?.rank ?? '?'})`, 'gold', undefined, 'traits');
           void by;
           y += 80 + gap;
         }
@@ -367,7 +408,7 @@ export class MenuScene extends Phaser.Scene {
     if (show('titles')) {
       const cardH = 64;
       const ch = 44 + Math.max(1, p.titles.length) * (cardH + 8) + 4;
-      const by = this.card(inner, 0, y, W, ch, '🏆 TITLES', 'gold', `${p.titles.length} title`);
+      const by = this.card(inner, 0, y, W, ch, 'TITLES', 'gold', `${p.titles.length} title`, 'title');
       let ry = by;
       if (!p.titles.length) inner.add(txt(this, 14, ry + 6, 'Henüz bir title yok. Title\'lar zor başarılarla kazanılır.', { size: 14, color: COLORS.textDim }));
       for (const t of p.titles) {
@@ -400,7 +441,7 @@ export class MenuScene extends Phaser.Scene {
     // ---------------------------------------------------------- EQUIPMENT
     if (show('equipment')) {
       const ch = 44 + 420;
-      const by = this.card(inner, 0, y, W, ch, '🛡️ EQUIPMENT', 'gold', `DEF ${d.def} · ${d.weaponName} [${d.weaponDmg[0]}-${d.weaponDmg[1]}]`);
+      const by = this.card(inner, 0, y, W, ch, 'EQUIPMENT', 'gold', `DEF ${d.def} · ${d.weaponName} [${d.weaponDmg[0]}-${d.weaponDmg[1]}] · Saygınlık ${prestigeLabel(R.josephPrestige())}`, 'equipment');
       this.paperDoll(inner, W / 2, by, (slot) => {
         this.tab = 'equipment';
         this.selSlot = slot;
@@ -415,7 +456,7 @@ export class MenuScene extends Phaser.Scene {
       const cols = Math.max(1, Math.floor((W - 28) / 84));
       const rows = Math.max(1, Math.ceil(ids.length / cols));
       const ch = 44 + 50 + rows * 84 + 10;
-      const by = this.card(inner, 0, y, W, ch, '🎒 INVENTORY', 'gold', `${Object.keys(p.inventory).length} çeşit`);
+      const by = this.card(inner, 0, y, W, ch, 'INVENTORY', 'gold', `${Object.keys(p.inventory).length} çeşit`, 'inventory');
       this.catTabs(inner, 14, by, (cat) => {
         this.invCat = cat;
         this.render();
@@ -482,6 +523,7 @@ export class MenuScene extends Phaser.Scene {
         case 'food': return k === 'food' || k === 'consumable';
         case 'material': return k === 'material';
         case 'other': return k === 'book' || k === 'quest' || k === 'junk';
+        case 'cards': return false;
       }
       return true;
     });
@@ -489,14 +531,15 @@ export class MenuScene extends Phaser.Scene {
 
   catTabs(parent: Phaser.GameObjects.Container, x: number, y: number, onPick: (c: InvCat) => void) {
     let bx = x;
-    for (const [cat, label] of INV_CATS) {
-      const n = this.inventoryIds(cat).length;
-      const text = `${label} (${n})`;
-      const bw = text.length * 8.5 + 26;
-      const b = new Button(this, bx + bw / 2, y + 20, text, () => onPick(cat), { w: bw, h: 40, size: 14 });
+    for (const [cat, label, icon] of INV_CATS) {
+      const n = cat === 'cards' ? G.state.cards.length : this.inventoryIds(cat).length;
+      const text = `${label} ${n}`;
+      const bw = text.length * 7.6 + 46;
+      const b = new Button(this, bx + bw / 2, y + 20, '    ' + text, () => onPick(cat), { w: bw, h: 40, size: 13 });
+      b.add(uiIcon(this, -bw / 2 + 18, 0, icon, 22));
       b.setAlpha(this.invCat === cat ? 1 : 0.55);
       parent.add(b);
-      bx += bw + 6;
+      bx += bw + 5;
     }
   }
 
@@ -508,7 +551,7 @@ export class MenuScene extends Phaser.Scene {
       const cx = x + (i % cols) * S, cy = y + Math.floor(i / cols) * S;
       const cell = this.add.container(cx, cy);
       const g = this.add.graphics();
-      const sel = this.selItem === id;
+      const sel = !list && this.selItem === id;
       const quick = G.state.quickFood === id;
       g.fillStyle(sel ? 0x3a2e1a : 0x1a1622, 0.92);
       g.fillRoundedRect(2, 2, S - 8, S - 8, 8);
@@ -518,7 +561,7 @@ export class MenuScene extends Phaser.Scene {
       cell.add(iconImage(this, (S - 4) / 2, (S - 4) / 2 - 2, it.icon, 46));
       cell.add(txt(this, S - 10, S - 26, `${G.p.inventory[id]}`, { size: 14, bold: true, stroke: true }).setOrigin(1, 0));
       if (it.rank) cell.add(txt(this, 8, 6, it.rank, { size: 12, bold: true, color: COLORS.textGold, stroke: true }));
-      if (quick) cell.add(txt(this, S - 10, 6, '⚡', { size: 13, stroke: true, color: '#ffe080' }).setOrigin(1, 0));
+      if (quick) cell.add(uiIcon(this, S - 18, 14, 'stamina', 18));
       const z = this.add.zone(2, 2, S - 8, S - 8).setOrigin(0, 0).setInteractive({ useHandCursor: true });
       z.on('pointerup', () => {
         if (list?.wasDrag()) return;
@@ -569,27 +612,65 @@ export class MenuScene extends Phaser.Scene {
   renderInventory() {
     const c = this.content;
     const w = this.cw, h = this.ph - 48;
-    c.add(txt(this, 0, 0, 'Envanter', { size: 24, font: FONT.title, color: COLORS.textGold }));
+    c.add(uiIcon(this, 16, 16, 'inventory', 30));
+    c.add(txt(this, 38, 0, 'Envanter', { size: 24, font: FONT.title, color: COLORS.textGold }));
+    // Saygınlık (C1) ve para
+    c.add(uiIcon(this, 196, 16, 'prestige', 24));
+    c.add(txt(this, 212, 4, `Saygınlık ${prestigeLabel(R.josephPrestige())}`, { size: 16, bold: true, color: '#ffe9a0' }));
     const wr = coinRow(this, 0, 16, G.p.wallet, { size: 22, font: 18 });
     wr.x = w - wr.rowWidth;
     c.add(wr);
+    c.add(uiIcon(this, wr.x - 18, 16, 'money', 22));
     const lw = Math.floor(w * 0.58);
     this.catTabs(c, 0, 40, (cat) => {
       this.invCat = cat;
       this.render();
     });
+    const dx = lw + 20, dw = w - lw - 20;
+    if (this.invCat === 'cards') {
+      this.renderCards(c, 0, 92, w, h - 100);
+      return;
+    }
     const list = new ScrollList(this, 0, 92, lw, h - 100);
     c.add(list);
     list.updateMask();
     const ids = this.inventoryIds(this.invCat);
     const cols = Math.max(1, Math.floor((lw - 10) / 84));
+    // Seçim çerçevesi ayrı: bir eşya seçmek yalnızca ayrıntı panelini yeniden çizer (A3)
     this.itemGrid(list.inner, 0, 0, cols, ids, list, (id) => {
       this.selItem = id;
-      this.render();
+      this.renderInvDetail(dx, dw, h);
+      this.placeSelFrame(cols);
     });
+    this.invIds = ids;
+    this.selFrame = this.add.graphics();
+    list.inner.add(this.selFrame);
+    this.placeSelFrame(cols);
     list.setContentHeight(Math.ceil(ids.length / cols) * 84 + 10);
-    // ayrıntı kartı
-    const dx = lw + 20, dw = w - lw - 20;
+    this.renderInvDetail(dx, dw, h);
+  }
+
+  invIds: string[] = [];
+  selFrame: Phaser.GameObjects.Graphics | null = null;
+  invDetail: Phaser.GameObjects.Container | null = null;
+
+  placeSelFrame(cols: number) {
+    const g = this.selFrame;
+    if (!g) return;
+    g.clear();
+    const i = this.selItem ? this.invIds.indexOf(this.selItem) : -1;
+    if (i < 0) return;
+    const S = 84;
+    g.lineStyle(3, COLORS.goldLight, 1);
+    g.strokeRoundedRect((i % cols) * S + 2, Math.floor(i / cols) * S + 2, S - 8, S - 8, 8);
+  }
+
+  /** Envanter ayrıntı kartı (yalnızca bu bölüm yeniden çizilir). */
+  renderInvDetail(dx: number, dw: number, h: number) {
+    this.invDetail?.destroy();
+    const c = this.add.container(0, 0);
+    this.invDetail = c;
+    this.content.add(c);
     const id = this.selItem && G.p.inventory[this.selItem] ? this.selItem : null;
     const g = this.add.graphics();
     g.fillStyle(0x1a1622, 0.9);
@@ -598,7 +679,7 @@ export class MenuScene extends Phaser.Scene {
     g.strokeRoundedRect(dx, 92, dw, h - 100, 10);
     c.add(g);
     if (!id) {
-      c.add(txt(this, dx + 16, 110, 'Bir eşya seç.\n\nYiyecekleri Hızlı Yemek yuvasına atayabilirsin (⚡).', { size: 15, color: COLORS.textDim, wrap: dw - 32 }));
+      c.add(txt(this, dx + 16, 110, 'Bir eşya seç.\n\nYiyecekleri Hızlı Yemek yuvasına atayabilirsin.', { size: 15, color: COLORS.textDim, wrap: dw - 32 }));
       return;
     }
     const it = ITEMS[id];
@@ -606,12 +687,22 @@ export class MenuScene extends Phaser.Scene {
     c.add(txt(this, dx + 94, 110, it.name, { size: 20, bold: true, color: COLORS.textGold, font: FONT.title, wrap: dw - 110 }));
     c.add(txt(this, dx + 94, 140, `${CAT_NAME[it.kind] ?? ''}${it.rank ? ` · Rütbe ${it.rank}` : ''} · Elinde ${G.p.inventory[id]}`, { size: 13, color: COLORS.textDim, wrap: dw - 110 }));
     c.add(txt(this, dx + 16, 186, itemLabel(id), { size: 15, color: COLORS.textBlue, wrap: dw - 32 }));
+    let ty = 214;
+    if (it.slot) {
+      // Saygınlık katkısı (C1/B6)
+      const sv = itemPrestige(id);
+      c.add(uiIcon(this, dx + 26, ty + 10, 'prestige', 20));
+      c.add(txt(this, dx + 42, ty, `Saygınlık katkısı: ${prestigeLabel(sv)}`, { size: 15, bold: true, color: sv > 0 ? '#cfe6b8' : sv < 0 ? COLORS.textRed : COLORS.textDim }));
+      ty += 28;
+    }
     const eff = itemEffectsText(id);
-    const desc = txt(this, dx + 16, 216, it.desc + (eff ? '\n' + eff : '') + (it.special ? '\nÖzel: ' + it.special : ''), { size: 15, wrap: dw - 32, lineSpacing: 3 });
+    const desc = txt(this, dx + 16, ty, it.desc + (eff ? '\n' + eff : '') + (it.special ? '\nÖzel: ' + it.special : ''), { size: 15, wrap: dw - 32, lineSpacing: 3 });
     c.add(desc);
-    let by = Math.max(330, 226 + desc.height + 20);
-    const act = (label: string, fn: () => void) => {
-      c.add(new Button(this, dx + dw / 2, by, label, fn, { w: dw - 30, h: 52, size: 17 }));
+    let by = Math.max(340, ty + 10 + desc.height + 20);
+    const act = (label: string, fn: () => void, icon?: string) => {
+      const b = new Button(this, dx + dw / 2, by, (icon ? '   ' : '') + label, fn, { w: dw - 30, h: 52, size: 17 });
+      if (icon) b.add(uiIcon(this, -(dw - 30) / 2 + 26, 0, icon, 24));
+      c.add(b);
       by += 60;
     };
     if (it.slot) act('Kuşan', () => {
@@ -623,20 +714,51 @@ export class MenuScene extends Phaser.Scene {
       } else R.toast(r.reason ?? 'Olmadı', 'warn');
       this.selItem = null;
       this.render();
-    });
+    }, 'equipment');
     if (it.kind === 'food') {
-      act('Ye', () => this.useItem(id));
-      if (G.state.quickFood !== id) act('⚡ Hızlı yemeğe ata', () => {
+      act('Ye', () => this.useItem(id), 'inv_food');
+      if (G.state.quickFood !== id) act('Hızlı yemeğe ata', () => {
         G.state.quickFood = id;
         G.scheduleSave();
         Sound.sfx('click');
         R.toast(`Hızlı yemek: ${it.name}`, 'info', it.icon);
         this.render();
-      });
-      else c.add(txt(this, dx + dw / 2, by - 12, '⚡ Hızlı yemek yuvasında (F)', { size: 14, color: '#ffe080', bold: true }).setOrigin(0.5, 0));
+      }, 'stamina');
+      else {
+        c.add(uiIcon(this, dx + 40, by - 2, 'stamina', 20));
+        c.add(txt(this, dx + 56, by - 12, 'Hızlı yemek yuvasında (F)', { size: 14, color: '#ffe080', bold: true }));
+      }
     } else if (it.effects && it.kind === 'consumable') act('Kullan', () => this.useItem(id));
     if (it.kind === 'book') act('Oku', () => this.useItem(id));
-    if (id === 'map_village' || id === 'map_forest_deep') act('Haritaya işle', () => this.useItem(id));
+    if (id === 'map_village' || id === 'map_forest_deep') act('Haritaya işle', () => this.useItem(id), 'map');
+  }
+
+  /** Giriş Kartları sekmesi (C8): her şehrin kartları, kalan süreleriyle. */
+  renderCards(c: Phaser.GameObjects.Container, x: number, y: number, w: number, h: number) {
+    const cards = G.state.cards;
+    const today = G.state.time.day;
+    if (!cards.length) {
+      c.add(uiIcon(this, x + 40, y + 40, 'card', 48));
+      c.add(txt(this, x + 76, y + 20, 'Henüz bir giriş kartın yok.\nDuvarlı şehre girmek için kontrol noktasında Kaptan Roderick\'ten 3 aylık giriş kartı alınır (10 gümüş).', { size: 15, color: COLORS.textDim, wrap: w - 100 }));
+      return;
+    }
+    let yy = y;
+    for (const cd of [...cards].sort((a, b) => a.from - b.from)) {
+      const left = daysLeft(cd, today);
+      const g = this.add.graphics();
+      const active = cd.from <= today && left > 0;
+      g.fillStyle(active ? 0x2a2210 : 0x1a1622, 0.95);
+      g.fillRoundedRect(x, yy, w, 76, 10);
+      g.lineStyle(active ? 2 : 1, active ? COLORS.gold : COLORS.goldDark, 1);
+      g.strokeRoundedRect(x, yy, w, 76, 10);
+      c.add(g);
+      c.add(uiIcon(this, x + 40, yy + 38, 'card', 44));
+      c.add(txt(this, x + 76, yy + 10, `Giriş Kartı — ${CITY_NAMES[cd.city] ?? cd.city}`, { size: 18, bold: true, font: FONT.title, color: COLORS.textGold }));
+      const status = left <= 0 ? 'Süresi doldu' : cd.from > today ? `${cd.from}. günde başlar · ${left} gün` : `Kalan: ${left} gün`;
+      c.add(txt(this, x + 76, yy + 42, `${cd.from}. gün – ${cd.until}. gün  ·  ${status}`, { size: 15, color: left > 0 ? '#cfe6b8' : COLORS.textRed }));
+      yy += 86;
+      if (yy > y + h - 80) break;
+    }
   }
 
   useItem(id: string) {
@@ -729,6 +851,14 @@ export class MenuScene extends Phaser.Scene {
     }
   }
 
+  // ================================================================ GÖREVLER
+  renderQuests() {
+    renderQuestsTab(this, this.content, this.cw, this.ph - 48, this.selQuest, (id) => {
+      this.selQuest = id;
+      this.render();
+    });
+  }
+
   // ================================================================ HARİTA
   renderMap() {
     const c = this.content;
@@ -764,24 +894,33 @@ export class MenuScene extends Phaser.Scene {
     c.add([img, frame]);
     const bmeta = this.cache.json.get('buildingsMeta');
     const icons: [string, number, number, string][] = [];
+    const B_ICON: Record<string, string> = {
+      inn: 'm_inn', guild: 'm_guild', smithy: 'm_smithy', shop: 'm_shop', healer: 'm_healer', mill: 'm_mill', guardhouse: 'm_guard',
+      bakery: 'm_bakery', tailor: 'm_tailor', tannery: 'm_tannery', lodge: 'm_lodge', farmhouse: 'm_farm', manor: 'm_manor', house_f: 'm_house',
+    };
     for (const b of m.buildings) {
-      if (!b.enter && b.id !== 'mill' && b.id !== 'guardhouse') continue;
+      const ic = B_ICON[b.id];
+      if (!ic) continue;
       const bx = b.tx + bmeta[b.id].w / TILE / 2, by = b.tyBottom - 2;
       if (!fog[Math.floor(by) * m.w + Math.floor(bx)]) continue;
-      const icon = { inn: '🍺', guild: '⚔', smithy: '⚒', shop: '🛍', healer: '✚', mill: '⚙', guardhouse: '🛡' }[b.id] ?? '⌂';
-      icons.push([icon, bx, by, b.name]);
+      icons.push([ic, bx, by, b.name]);
     }
     const P = m.points;
     const fogAt = (x: number, y: number) => fog[y * m.w + x];
-    if (P.training && fogAt(P.training.x, P.training.y)) icons.push(['🏋', P.training.x, P.training.y, 'Antrenman Alanı']);
-    if (P.checkpoint && fogAt(P.checkpoint.x, P.checkpoint.y)) icons.push(['⛩', P.checkpoint.x, P.checkpoint.y, 'Kontrol Noktası']);
-    if (P.goblin_camp && fogAt(P.goblin_camp.x, P.goblin_camp.y)) icons.push(['☠', P.goblin_camp.x, P.goblin_camp.y, 'Goblin Kampı']);
-    if (P.wake && fogAt(P.wake.x, P.wake.y)) icons.push(['✧', P.wake.x, P.wake.y, 'Uyandığın Yer']);
-    if (P.well && fogAt(P.well.x, P.well.y)) icons.push(['◎', P.well.x, P.well.y, 'Meydan']);
+    const pts: [string, string, string][] = [['training', 'm_training', 'Antrenman Alanı'], ['checkpoint', 'm_checkpoint', 'Kontrol Noktası'], ['goblin_camp', 'm_camp', 'Goblin Kampı'],
+      ['wake', 'm_wake', 'Uyandığın Yer'], ['well', 'm_plaza', 'Meydan'], ['fountain', 'm_plaza', 'Çeşme Meydanı'], ['oak', 'm_oak', 'Yaşlı Meşe'], ['pasture', 'm_pasture', 'Mera'], ['pond', 'm_pond', 'Çamaşır Göleti']];
+    for (const [k, ic, name] of pts) if (P[k] && fogAt(P[k].x, P[k].y)) icons.push([ic, P[k].x, P[k].y, name]);
     for (const [ic, x, y, name] of icons) {
       const tx = ox + x * scale, ty = oy + y * scale;
-      c.add(txt(this, tx, ty, ic, { size: 16, stroke: true, color: '#fff2c0' }).setOrigin(0.5));
-      c.add(txt(this, tx, ty + 12, name, { size: 10, stroke: true, color: COLORS.textDim }).setOrigin(0.5, 0));
+      c.add(uiIcon(this, tx, ty, ic, 22));
+      c.add(txt(this, tx, ty + 12, name, { size: 11, stroke: true, color: COLORS.textDim }).setOrigin(0.5, 0));
+    }
+    // takip edilen görevin hedefi
+    const qt = world.questTargetPx?.() as { x: number; y: number } | null;
+    if (qt && !world.mapData.indoor) {
+      const mk = uiIcon(this, ox + (qt.x / TILE) * scale, oy + (qt.y / TILE) * scale - 10, 'm_quest', 30);
+      c.add(mk);
+      this.tweens.add({ targets: mk, y: mk.y - 4, yoyo: true, repeat: -1, duration: 500 });
     }
     // oyuncu
     const pp = world.mapData.indoor ? (() => {

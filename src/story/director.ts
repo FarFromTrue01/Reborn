@@ -1,4 +1,5 @@
 // Hikâye yönetmeni: tetikleyiciler, sahneler ve NPC konuşmaları.
+import { Q } from '../game/questrt';
 import Phaser from 'phaser';
 import { G } from '../game/G';
 import { Input } from '../game/input';
@@ -7,13 +8,14 @@ import type { WorldScene } from '../scenes/WorldScene';
 import type { Npc } from '../world/npc';
 import type { PropPlacement, Warp } from '../world/types';
 import { TILE } from '../world/types';
-import { NPC_BY_ID } from '../data/npcs';
+import { NPC_BY_ID, TONE_LINES } from '../data/npcs';
 import { SHOPS, shopOpen } from '../data/shops';
 import { FEES, LESSONS, JOBS } from '../data/economy';
 import * as R from '../game/rules';
 import { transact, equip } from '../core/transactions';
 import { walletTotal, emptyWallet, formatPrice } from '../core/money';
-import { nextMorning, hourOf } from '../core/time';
+import { nextMorning, hourOf, clockLabel } from '../core/time';
+import { canSleep, absMinute } from '../core/sleep';
 import { dirFromVec } from '../world/actor';
 import { openShop } from '../ui/shop';
 import { DIVINE_BY_ID, divineOffer } from '../data/divine';
@@ -193,6 +195,8 @@ export class Director {
 
   onNewDay() {
     G.setFlag('worked_today', 0);
+    // C3: "Kayıtlar yarın işlenir." — bekleyen terfi ertesi gün işlenir
+    Q.checkPromotion();
   }
 
   onHour(_h: number) {
@@ -208,6 +212,13 @@ export class Director {
   }
 
   onSleep() {}
+
+  /** Bir "git" amacına varıldı. false: amacı şimdilik ilerletme (sahne kendisi yönetir). */
+  onQuestGo(_id: string, _idx: number): boolean | void {
+    return undefined;
+  }
+
+  onKill(_e: any) {}
 
   onBossKilled() {
     this.scene(async () => {
@@ -575,6 +586,12 @@ export class Director {
     const pool = [...(n.def.talk[st] ?? []), ...(n.def.talk.any ?? [])];
     const line = pool.length ? pool[Math.floor(Math.random() * pool.length)] : '...';
     const expr = n.def.personality === 'rude' ? 'kizgin' : n.def.personality === 'gossip' ? 'gulen' : n.def.personality === 'drunk' ? 'gulen' : 'normal';
+    // C1: Saygınlık tonu: ara sıra küçümseyen ya da saygılı bir giriş
+    const tone = this.w.toneFor(n);
+    if (tone !== 'neutral' && st !== 'naked' && Math.random() < 0.4) {
+      const op = TONE_LINES[n.def.caste]?.[tone]?.open ?? [];
+      if (op.length) await this.say(id(n), op[Math.floor(Math.random() * op.length)], tone === 'scorn' ? 'alayci' : 'normal');
+    }
     await this.say(id(n), line, expr);
     if (n.def.id === 'hilda' && st === 'naked' && !G.flag('hilda_apple')) {
       G.setFlag('hilda_apple');
@@ -1264,18 +1281,29 @@ export class Director {
       await this.think('Bu yatak benim değil.');
       return;
     }
-    const h = G.state.time.minute / 60;
-    if (h > 6 && h < 17) {
-      const c = await this.ui.choice(['Akşama kadar dinlen', 'Vazgeç']);
-      if (c !== 0) return;
-    }
-    await this.ui.curtain(1, 900);
-    Sound.play('night');
+    // C9: her "Uyu"da yeniden doğma noktası ve kayıt; gerçek uyku 20:00 sonrası ya da 8 saat uyanıklıktan sonra
     const bed = this.w.mapData.points.bed;
     this.w.sleep({ map: 'inn_attic', x: bed.x, y: bed.y });
     const t = G.state.time;
-    if (h > 6 && h < 17) G.state.time = { day: t.day, minute: 18 * 60 };
-    else G.state.time = nextMorning(t);
+    const now = absMinute(t.day, t.minute);
+    if (!canSleep(t.minute, now, G.state.awakeSince)) {
+      G.save('auto');
+      G.events.emit('saved');
+      R.sysmsg('YENİDEN DOĞMA NOKTASI', ['Tavan arasındaki yatak. Oyun kaydedildi.'], { sound: 'system' });
+      await this.think('Uykum yok. Daha gün bitmedi.');
+      return;
+    }
+    await this.ui.curtain(1, 900);
+    Sound.play('night');
+    const late = t.minute >= 20 * 60 || t.minute < 4 * 60;
+    const morning = nextMorning(t);
+    const wake = late ? morning : (() => {
+      const a = absMinute(morning.day, morning.minute), b = now + 8 * 60;
+      const m = Math.min(a, b);
+      return { day: Math.floor(m / 1440) + 1, minute: m % 1440 };
+    })();
+    G.state.time = wake;
+    G.state.awakeSince = absMinute(wake.day, wake.minute);
     R.onNewDay();
     this.onNewDay();
     G.p.hp = G.d.maxHp;
@@ -1286,9 +1314,15 @@ export class Director {
     await wait(this.w, 1600);
     msg.destroy();
     G.save('auto');
-    R.sysmsg('KAYDEDİLDİ', ['Yeniden doğma noktası: tavan arası.', `${G.state.time.day}. gün, sabah.`]);
+    G.events.emit('saved');
+    R.sysmsg('UYKU · KAYDEDİLDİ', ['Yeniden doğma noktası: tavan arası.', `${G.state.time.day}. gün, ${clockLabel(G.state.time)}.`]);
     await this.ui.curtain(0, 900);
     this.w.updateMusic();
+    await this.afterSleep();
+  }
+
+  /** Uyandıktan sonra (hikâye kancası). */
+  async afterSleep() {
     if (G.state.time.minute / 60 < 8 && G.flag('bertram_deal') && !G.flag('bertram_done') && G.flag('worked_today') !== G.state.time.day) await this.think('Sabah. Bertram aşağıda bekliyordur.');
   }
 

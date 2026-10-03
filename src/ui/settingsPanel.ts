@@ -3,7 +3,8 @@ import Phaser from 'phaser';
 import { G } from '../game/G';
 import { COLORS, FONT, txt, Button } from './kit';
 import { Sound } from '../audio/audio';
-import { MOVE_SPEED_MIN, MOVE_SPEED_MAX } from '../game/settings';
+import { MOVE_SPEED_MIN, MOVE_SPEED_MAX, isTouchDevice } from '../game/settings';
+import { goFullscreen, exitFullscreen, isFullscreen, fullscreenSupported, isStandalone } from '../game/pwa';
 
 function slider(scene: Phaser.Scene, c: Phaser.GameObjects.Container, x: number, y: number, w: number, label: string, get: () => number, set: (v: number) => void, fmt: (v: number) => string, min: number, max: number) {
   c.add(txt(scene, x, y, label, { size: 17, bold: true }));
@@ -81,9 +82,25 @@ export function buildSettings(scene: Phaser.Scene, c: Phaser.GameObjects.Contain
     s.quality = s.quality === 'high' ? 'medium' : s.quality === 'medium' ? 'low' : 'high';
   }).setName('set_quality');
   y += 58;
-  cycler(scene, c, bx0, y, () => `Joystick: ${s.joystick === 'fixed' ? 'Sol altta sabit' : 'Dokunduğun yerde'}`, () => {
+  cycler(scene, c, bx0, y, () => `Joystick: ${s.joystick === 'fixed' ? 'Sol altta sabit' : 'Hareketli'}`, () => {
     s.joystick = s.joystick === 'fixed' ? 'float' : 'fixed';
+    s.joyChosen = true;
   }).setName('set_joy');
+  toggle(scene, c, bx1, y, 'Yardımlı savaş', () => s.assistCombat, (v) => (s.assistCombat = v)).setName('set_assist');
+  y += 58;
+  // Tam ekran: iPhone tarayıcısı desteklemez → ipucu
+  if (fullscreenSupported()) {
+    const b: Button = new Button(scene, bx0, y, isFullscreen() ? 'Tam ekrandan çık' : 'Tam ekran', async () => {
+      if (isFullscreen()) await exitFullscreen();
+      else await goFullscreen();
+      setTimeout(() => b.setText(isFullscreen() ? 'Tam ekrandan çık' : 'Tam ekran'), 300);
+    }, { w: 300, h: 50, size: 17 });
+    b.setName('set_fullscreen');
+    c.add(b);
+  } else if (!isStandalone()) {
+    c.add(txt(scene, 0, y - 18, 'Tam ekran için oyunu ana ekrana ekle: Paylaş → "Ana Ekrana Ekle".', { size: 15, color: COLORS.textGold, wrap: col + 40 }).setName('set_fs_hint'));
+  }
+  if (G.settings.devMode) toggle(scene, c, bx1, y, 'Geliştirici modu', () => s.devMode, (v) => (s.devMode = v)).setName('set_dev');
   y += 40;
-  c.add(txt(scene, 0, y, 'Arayüz boyutu değişikliği menü kapanınca uygulanır. Karakter hızı yalnızca yürüme ve koşmayı etkiler.', { size: 13, italic: true, color: COLORS.textDim, wrap: w }));
+  c.add(txt(scene, 0, y, `Arayüz boyutu değişikliği menü kapanınca uygulanır. Karakter hızı yalnızca yürüme ve koşmayı etkiler.${isTouchDevice() ? '' : ' Yardımlı savaş: saldırınca menzildeki en yakın düşmana döner.'}`, { size: 13, italic: true, color: COLORS.textDim, wrap: w }));
 }

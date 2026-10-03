@@ -41,6 +41,8 @@ export interface NpcDef {
   creature: CreatureData;
   guildLabel?: string; // lonca rütbesi yerine görünen (ör. Görevli)
   schedule: ScheduleEntry[];
+  /** B4: meslek ya da tanım (diyalog isim satırında; ör. "Hancı", "Muhafız"). */
+  title: string;
   /** Günden güne değişen alternatif gün planları (data/schedules.ts). */
   plans?: ScheduleEntry[][];
   planKey?: string;
@@ -93,6 +95,33 @@ export const CASTE_BUBBLES: Record<Caste, Partial<Record<JosephStatus, string[]>
   },
 };
 
+/**
+ * C1: Saygınlık'a göre tonun hafif kayması. Kast farkı kalır; ton küçümseme ↔ saygı arasında kayar.
+ * Balonlarda ve konuşmaların başında ara sıra kullanılır.
+ */
+export const TONE_LINES: Record<Caste, Record<'scorn' | 'respect', { bubble: string[]; open: string[] }>> = {
+  noble: {
+    scorn: { bubble: ['Paçavralar içinde bir köksüz. Ne manzara.', '(Mendilini burnuna götürüyor.)'], open: ['(Seni baştan aşağı süzüp yüzünü buruşturuyor.)', 'Kokunu buradan alıyorum.'] },
+    respect: { bubble: ['Hm. En azından düzgün giyinmiş.', '(Kısa bir baş selamı veriyor.)'], open: ['(Kıyafetine bir an bakıyor. Bugün seni kovmuyor.)', 'Köksüz olsan da üstüne başına özen göstermişsin.'] },
+  },
+  elite: {
+    scorn: { bubble: ['Şu paçavralara bak.', 'Çaylak bile değil bu.'], open: ['(Gülümsemesi küçümser.)', 'O kılıkla mı maceracı olacaksın?'] },
+    respect: { bubble: ['Zırhın fena değil, çaylak.', '(Başıyla seni selamlıyor.)'], open: ['(Ekipmanını tartar gibi bakıyor.)', 'Donanımın en azından ciddi.'] },
+  },
+  burgher: {
+    scorn: { bubble: ['Dükkânımın önünü kirletme.', 'Paçavralı müşteri, kötü müşteri.'], open: ['(Kesesini sıkıca tutuyor.)', 'Ne istiyorsan çabuk söyle.'] },
+    respect: { bubble: ['Hoş geldin, maceracı!', 'İyi kumaş bu. Nereden aldın?'], open: ['(Seni daha nazik karşılıyor.)', 'Buyur, buyur. Ne lazımdı?'] },
+  },
+  commoner: {
+    scorn: { bubble: ['Yine o köksüz.', 'Üstüne bir şey giysene.'], open: ['(Burun kıvırıyor.)', 'Ne var yine?'] },
+    respect: { bubble: ['Maceracı efendi!', '(Saygıyla başını eğiyor.)'], open: ['(Biraz çekinerek konuşuyor.)', 'Buyurun... efendim?'] },
+  },
+  rootless: {
+    scorn: { bubble: ['Kardeş, sen de mi düştün?'], open: ['(Paçavralarına bakıp iç çekiyor.)'] },
+    respect: { bubble: ['Sen bizden çıktın ama bizden değilsin artık.'], open: ['(Kıyafetine imrenerek bakıyor.)'] },
+  },
+};
+
 function creature(id: string, name: string, race: string, gender: string, age: number, level: number, stats: Partial<Stats>, opts: Omit<Partial<CreatureData>, 'skills'> & { appraisal?: string; skills?: [string, string, number?][] } = {}): CreatureData {
   const skills = [{ id: 'appraisal', rank: parseSubRank(opts.appraisal ?? 'G-'), exp: 0 }];
   for (const [sid, r, e] of opts.skills ?? []) skills.push({ id: sid, rank: parseSubRank(r), exp: e ?? 0 });
@@ -109,7 +138,7 @@ function creature(id: string, name: string, race: string, gender: string, age: n
   };
 }
 
-const RAW_NPCS: Omit<NpcDef, 'schedule'>[] = [
+const RAW_NPCS: Omit<NpcDef, 'schedule' | 'title'>[] = [
   // ======================================================================= ANA KARAKTERLER
   {
     id: 'bertram', name: 'Bertram', sheet: 'bertram', voice: 'bertram', portrait: 'bertram', personality: 'neutral', caste: 'burgher', shop: 'inn', role: 'inn',
@@ -841,10 +870,25 @@ const RAW_NPCS: Omit<NpcDef, 'schedule'>[] = [
   },
 ];
 
+/** B4: her NPC'nin mesleği ya da tanımı. */
+export const NPC_TITLES: Record<string, string> = {
+  bertram: 'Hancı', vera: 'Maceracı', lina: 'Maceracı', celeste: 'Lonca Görevlisi', smith: 'Demirci', shopkeeper: 'Dükkâncı',
+  healer: 'Şifacı', hunter: 'Avcı', guard_hob: 'Muhafız', guard_wil: 'Muhafız', captain: 'Kontrol Noktası Kaptanı',
+  tobin: 'Çiftçi', ulric: 'Çiftçi', hilda: 'Çiftçi', greta: 'Çiftçi', edwin: 'Köyün İhtiyarı', berta: 'Köylü', anna: 'Köylü',
+  pip: 'Çocuk', fenn: 'Ayyaş', oswin: 'Değirmenci', dorn: 'Maceracı', sira: 'Büyücü', haldor: 'Çiftçi', baker: 'Fırıncı',
+  tailor: 'Terzi', tanner: 'Tabakçı', apprentice: 'Demirci Çırağı', carpenter: 'Marangoz', bard: 'Ozan', innmaid: 'Han Hizmetçisi',
+  merchant: 'Tüccar', merc_guard: 'Paralı Asker', steward: 'Baronun Kâhyası', knight: 'Şövalye', adv_thorne: 'Maceracı',
+  adv_kael: 'Maceracı', headman: 'Muhtar', headwife: 'Muhtarın Karısı', farmer_m3: 'Çiftçi', farmer_f3: 'Çiftçi', shepherd: 'Çoban',
+  milkmaid: 'Sütçü', washer: 'Çamaşırcı', gerda: 'Köylü', child_girl: 'Çocuk', child_boy: 'Çocuk', woodcutter: 'Oduncu',
+  guard_pell: 'Muhafız', vagrant: 'Köksüz', beggar: 'Dilenci',
+};
+
 export const NPCS: NpcDef[] = RAW_NPCS.map((n) => {
   const sc = SCHEDULES[n.id];
   if (!sc) throw new Error('Programı olmayan NPC: ' + n.id);
-  return { ...n, schedule: sc.base, plans: sc.plans, planKey: sc.planKey };
+  const title = NPC_TITLES[n.id];
+  if (!title) throw new Error('Tanımı olmayan NPC: ' + n.id);
+  return { ...n, title, schedule: sc.base, plans: sc.plans, planKey: sc.planKey };
 });
 
 export const NPC_BY_ID: Record<string, NpcDef> = Object.fromEntries(NPCS.map((n) => [n.id, n]));

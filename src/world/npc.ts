@@ -6,6 +6,8 @@ import { TILE } from './types';
 import { findPath, nearestFree } from './path';
 import type { WorldScene } from '../scenes/WorldScene';
 import { derive } from '../core/creature';
+import { npcPrestige } from '../core/prestige';
+import { G } from '../game/G';
 
 export class Npc {
   actor: Actor;
@@ -30,6 +32,9 @@ export class Npc {
   prestige: number;
   /** A8: konuşma sırasında yaptığı işi bırakır, Joseph'e döner; bitince kaldığı yerden devam eder. */
   talking = false;
+  /** Bu NPC'nin Saygınlık'ı (C1): konumu + kıyafeti. */
+  saygınlık: number;
+  devTag: Phaser.GameObjects.Text | null = null;
 
   constructor(public w: WorldScene, public def: NpcDef, x: number, y: number) {
     this.actor = new Actor(w, x, y, [def.sheet], 'lpc');
@@ -47,6 +52,7 @@ export class Npc {
     this.nameTag = w.add.container(x, y, [plate, t]).setDepth(965000).setAlpha(0);
     this.hp = derive(def.creature).maxHp;
     this.prestige = prestigeOf(def);
+    this.saygınlık = npcPrestige(this.prestige, def.creature.equipment);
   }
 
   /** Bir soylu geçerken eğil. */
@@ -90,6 +96,7 @@ export class Npc {
   destroy() {
     this.actor.destroy();
     this.nameTag.destroy();
+    this.devTag?.destroy();
     this.bubble?.destroy();
   }
 
@@ -119,6 +126,19 @@ export class Npc {
     const pd = this.w.player.actor;
     const dist = Math.hypot(pd.x - this.x, pd.y - this.y) / TILE;
     this.nameTag.setPosition(a.x, a.y - 58);
+    // C6: geliştirici modunda NPC'lerin Saygınlık değeri başlarının üstünde
+    if (G.settings.devMode) {
+      if (!this.devTag) {
+        this.devTag = this.w.add.text(a.x, a.y, '', { fontFamily: 'AlegreyaSans, sans-serif', fontSize: '9px', fontStyle: 'bold', color: '#9fe08a', stroke: '#000', strokeThickness: 2 }).setOrigin(0.5, 1).setDepth(965500);
+        this.devTag.setResolution(this.w.cameras.main.zoom * 1.5);
+      }
+      const tone = this.w.toneFor(this);
+      this.devTag.setText(`S ${this.saygınlık} · ${tone === 'scorn' ? 'küçümser' : tone === 'respect' ? 'saygılı' : 'nötr'}`).setPosition(a.x, a.y - 72);
+      this.devTag.setColor(tone === 'scorn' ? '#ff8a7a' : tone === 'respect' ? '#9fe08a' : '#e8dcc0');
+    } else if (this.devTag) {
+      this.devTag.destroy();
+      this.devTag = null;
+    }
     this.nameTag.setAlpha(Phaser.Math.Clamp((4 - dist) / 2, 0, 1) * (this.bubble ? 0 : 1));
     // balon
     if (this.bubble) {

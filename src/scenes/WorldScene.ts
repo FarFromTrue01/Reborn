@@ -12,7 +12,8 @@ import { Player } from '../world/player';
 import { Enemy } from '../world/enemy';
 import { Npc } from '../world/npc';
 import { TILE, type MapData, type Zone, type PropPlacement } from '../world/types';
-import { NPCS, scheduleAt, CASTE_BUBBLES, type NpcDef, type JosephStatus } from '../data/npcs';
+import { NPCS, scheduleAt, CASTE_BUBBLES, TONE_LINES, type NpcDef, type JosephStatus } from '../data/npcs';
+import { josephStatusOf, toneOf, type Tone } from '../core/prestige';
 import { nearestFree } from '../world/path';
 import { PropCollision, blockedAt } from '../world/collision';
 import { daylight, hourOf, advance } from '../core/time';
@@ -24,6 +25,7 @@ import { ITEMS } from '../data/items';
 import { DIVINE_BY_ID } from '../data/divine';
 import { LIGHT_MAX, LIGHT_ON_HIT, LIGHT_ON_PERFECT_DODGE } from '../core/divine';
 import { loseMoneyPercent } from '../core/transactions';
+import { walletTotal } from '../core/money';
 import { appraisalBaseExp, noticesAppraisal, appraisalReady, claimAppraisalExp } from '../core/appraisal';
 import { newEatState, type EatState } from '../core/eating';
 import { spellPowerMult } from '../core/formulas';
@@ -31,6 +33,8 @@ import { dirFromVec, dirVec, type Dir } from '../world/actor';
 import * as R from '../game/rules';
 import type { UIScene } from './UIScene';
 import { Director } from '../story/director';
+import { Q } from '../game/questrt';
+import { scheduleAt as schedAt } from '../data/npcs';
 
 let WORLD_CACHE: MapData | null = null;
 /** Kamera ölü bölgesi (dünya pikseli, yarım genişlik/yükseklik) ve dikey ofset. Tamsayı: yuvarlama tutarlı kalır. */
@@ -123,6 +127,13 @@ export class WorldScene extends Phaser.Scene {
   playClock = 0;
   eatState: EatState = newEatState();
   private lastAppraiseAt: number | null = null;
+  /** C7: otomatik kayıt sayacı (gerçek saniye, oyun açıkken). */
+  autoSaveT = 0;
+  private questT = 0;
+  questArrow!: Phaser.GameObjects.Graphics;
+  assistMark!: Phaser.GameObjects.Graphics;
+  assistMarkT = 0;
+  assistLast: Enemy | null = null;
 
   constructor() {
     super('World');
@@ -159,6 +170,8 @@ export class WorldScene extends Phaser.Scene {
     this.events.on('postupdate', () => {
       if (!this.paused && !this.frozen) this.updateCamera();
       this.snapActors();
+      this.drawQuestArrow();
+      this.drawAssistMark();
       // kaydırmadan (worldView bir kare geride kalabilir) görünen alanı hesapla
       const cam = this.cameras.main, z = cam.zoom;
       const b = cam.getBounds();
@@ -187,7 +200,7 @@ export class WorldScene extends Phaser.Scene {
       else if (p.leftButtonDown()) {
         // Fareyle bir NPC'ye tıklamak: Appraisal (saldırı değil)
         const t = this.creatureAtScreen(p.x, p.y);
-        if (t && t.kind === 'npc') {
+        if (t && (t.kind === 'npc' || t.kind === 'self')) {
           this.tapAppraise(t);
           return;
         }
@@ -199,6 +212,8 @@ export class WorldScene extends Phaser.Scene {
     const onSettings = () => (this.lighting.quality = G.settings.quality);
     G.events.on('settings', onSettings);
     this.events.once('shutdown', () => G.events.off('settings', onSettings));
+    this.questArrow = this.add.graphics().setDepth(966000);
+    this.assistMark = this.add.graphics().setDepth(-40500);
     this.time.delayedCall(50, () => this.director.onWorldReady());
   }
 
@@ -343,6 +358,133 @@ export class WorldScene extends Phaser.Scene {
   /** Yoldaşlar gibi ek aktörler (yoldaş sistemi doldurur). */
   extraActors(): import('../world/actor').Actor[] {
     return [];
+  }
+
+  /** C7: savaşta, ara sahnede, diyalogda, menüde ve mini oyunda değilken her 3 dakikada bir kayıt. */
+  tickAutoSave(dt: number) {
+    this.autoSaveT += dt;
+    if (this.autoSaveT < 180) return;
+    if (this.inBattle || this.cutscene || this.ui.dialogueOpen() || this.ui.menuOpen() || this.paused || this.frozen || this.transitioning || this.player.dead) return;
+    this.autoSaveT = 0;
+    if (G.save('auto')) G.events.emit('saved');
+  }
+
+  /** Görev amaçlarının otomatik denetimi: git (yakınlık), topla (envanter), para hedefleri. */
+  questTick() {
+    const log = G.state.quests;
+    const a = this.player.actor;
+    const total = walletTotal(G.p.wallet);
+    for (const id of Object.keys(log.quests)) {
+      const st = log.quests[id];
+      if (st.status !== 'active') continue;
+      const def = Q.def(id);
+      if (!def) continue;
+      def.objectives.forEach((o, i) => {
+        if (Q.objDone(id, i) && o.type !== 'collect') return;
+        if (o.sequential && i > 0 && !Q.objDone(id, i - 1)) return;
+        if (o.type === 'go' && o.where && o.where.map === this.mapData.id) {
+          const p = o.where.point ? this.mapData.points[o.where.point] : o.where.x !== undefined ? { x: o.where.x, y: o.where.y! } : null;
+          if (p && Math.hypot(a.x - (p.x * TILE + 16), a.y - (p.y * TILE + 16)) < (o.where.radius ?? 1.5) * TILE) {
+            if (this.director.onQuestGo(id, i) !== false) Q.advance(id, i);
+          }
+        } else if (o.type === 'collect' && o.target) Q.set(id, i, G.p.inventory[o.target] ?? 0);
+        else if (o.type === 'custom' && o.target === 'silver') Q.set(id, i, total >= 100 ? 1 : 0);
+        else if (o.type === 'custom' && o.target === 'silver10') Q.set(id, i, Math.min(1000, total));
+      });
+    }
+  }
+
+  /** Takip edilen görevin bu haritadaki hedefi (piksel). İç mekânda yalnızca hedef aynı mekândaysa. */
+  questTargetPx(): { x: number; y: number; r: number } | null {
+    const tg = Q.target();
+    if (!tg) return null;
+    const t = tg.t;
+    const m = this.mapData;
+    const r = (t.radius ?? 1.5) * TILE;
+    if (t.npc) {
+      const n = this.npc(t.npc);
+      if (n) return { x: n.x, y: n.y - 10, r: 1.6 * TILE };
+    }
+    const doorOf = (map: string) => {
+      const b = m.buildings.find((b) => b.enter?.map === map || (map === 'inn_attic' && b.id === 'inn') || (map === 'mill_cellar' && b.id === 'mill'));
+      const d = b && m.points['door_' + b.id];
+      return d ? { x: d.x * TILE + 16, y: d.y * TILE + 16, r: 1.2 * TILE } : null;
+    };
+    let map = t.map;
+    let pt: { x: number; y: number } | null = t.point && t.map === m.id ? m.points[t.point] ?? null : t.x !== undefined && t.y !== undefined ? { x: t.x, y: t.y } : null;
+    // NPC haritada değilse: programındaki yer
+    if (t.npc && !pt) {
+      const def = this.npcDef(t.npc);
+      if (def) {
+        const e = schedAt(def, G.state.time.minute / 60, G.state.time.day);
+        if (e.map !== 'hidden') {
+          map = e.map;
+          if (e.map === m.id) pt = Array.isArray(e.at) ? { x: e.at[0], y: e.at[1] } : m.points[e.at] ?? null;
+        }
+      }
+    }
+    if (map === m.id && pt) return { x: pt.x * TILE + 16, y: pt.y * TILE + 16, r };
+    if (!m.indoor && map !== 'world') return doorOf(map);
+    return null;
+  }
+
+  /** Dünya haritasındaki adlandırılmış nokta (geliştirici ışınlanması, hikâye). */
+  getWorldPoint(name: string): { x: number; y: number } | null {
+    return getMap(this, 'world').points[name] ?? null;
+  }
+
+  npcDef(id: string) {
+    return NPCS.find((n) => n.id === id) ?? null;
+  }
+
+  /** C5: hedeflenen (ya da menzildeki en yakın) düşmanın altında küçük bir işaret. */
+  drawAssistMark() {
+    const g = this.assistMark;
+    if (!g || !this.player) return;
+    g.clear();
+    if (!G.settings.assistCombat || this.cutscene || this.frozen) return;
+    this.assistMarkT -= this.game.loop.delta / 1000;
+    let t: Enemy | null = this.assistMarkT > 0 && this.assistLast?.alive ? this.assistLast : null;
+    if (!t && this.player.inCombat) t = this.assistTarget(this.player.weaponReach());
+    if (!t) return;
+    const k = 0.6 + Math.sin(this.time.now / 120) * 0.25;
+    const rw = (t.actor.bodyR + 7) * (t.def.scale ?? 1);
+    g.lineStyle(2, 0xff5a3c, 0.55 + 0.35 * k);
+    g.strokeEllipse(Math.floor(t.x), Math.floor(t.y + 2), rw * 2, rw * 0.9);
+    g.fillStyle(0xff5a3c, 0.75);
+    for (const sx of [-1, 1]) g.fillTriangle(t.x + sx * (rw + 6), t.y + 2, t.x + sx * (rw + 1), t.y - 1, t.x + sx * (rw + 1), t.y + 5);
+  }
+
+  drawQuestArrow() {
+    const g = this.questArrow;
+    if (!g || !this.player) return;
+    g.clear();
+    if (this.cutscene || this.frozen) return;
+    const tp = this.questTargetPx();
+    if (!tp) return;
+    const a = this.player.actor;
+    const dx = tp.x - a.x, dy = tp.y - (a.y - 20);
+    const d = Math.hypot(dx, dy);
+    if (d < tp.r) {
+      // hedefte: küçük nabız halkası
+      const k = 0.5 + Math.sin(this.time.now / 180) * 0.5;
+      g.lineStyle(2, 0xffd75e, 0.5 + 0.4 * k);
+      g.strokeCircle(tp.x, tp.y + 6, 10 + 4 * k);
+      return;
+    }
+    const ang = Math.atan2(dy, dx);
+    const R0 = 46 + Math.sin(this.time.now / 220) * 3;
+    const cx = Math.floor(a.x + Math.cos(ang) * R0), cy = Math.floor(a.y - 20 + Math.sin(ang) * R0);
+    const p = (r: number, da: number) => [cx + Math.cos(ang + da) * r, cy + Math.sin(ang + da) * r] as [number, number];
+    const tip = p(11, 0), l = p(9, 2.4), rr = p(9, -2.4), back = p(4, Math.PI);
+    g.fillStyle(0x1a0e06, 0.75);
+    g.fillTriangle(tip[0] + 1, tip[1] + 2, l[0] + 1, l[1] + 2, rr[0] + 1, rr[1] + 2);
+    g.fillStyle(0xffd75e, 0.95);
+    g.fillTriangle(tip[0], tip[1], l[0], l[1], back[0], back[1]);
+    g.fillStyle(0xf0a830, 0.95);
+    g.fillTriangle(tip[0], tip[1], rr[0], rr[1], back[0], back[1]);
+    g.lineStyle(1, 0x3a2410, 0.9);
+    g.strokeTriangle(tip[0], tip[1], l[0], l[1], rr[0], rr[1]);
   }
 
   /** Kamerayı (ör. bir sahne sonrası) yeniden Joseph'e bağla. */
@@ -556,6 +698,12 @@ export class WorldScene extends Phaser.Scene {
       this.director.checkEncounters(dt);
     }
     this.bubbleGlobalCd -= dt;
+    this.tickAutoSave(dt);
+    this.questT -= dt;
+    if (this.questT <= 0 && !this.cutscene) {
+      this.questT = 0.5;
+      this.questTick();
+    }
     // ışık
     this.updateLighting(dt);
     // konum kaydı
@@ -966,23 +1114,39 @@ export class WorldScene extends Phaser.Scene {
 
   // ================================================================= Appraisal
   /** Ekran koordinatındaki (piksel) NPC ya da canavar. */
-  creatureAtScreen(sx: number, sy: number): { kind: 'npc' | 'enemy'; ref: Npc | Enemy } | null {
+  creatureAtScreen(sx: number, sy: number): { kind: 'npc' | 'enemy' | 'self'; ref: any } | null {
     if (!this.player) return null;
     const wp = this.cameras.main.getWorldPoint(sx, sy);
-    let best: { kind: 'npc' | 'enemy'; ref: Npc | Enemy; d: number } | null = null;
-    const test = (x: number, y: number, h: number, kind: 'npc' | 'enemy', ref: Npc | Enemy) => {
+    let best: { kind: 'npc' | 'enemy' | 'self'; ref: any; d: number } | null = null;
+    const test = (x: number, y: number, h: number, kind: 'npc' | 'enemy' | 'self', ref: any) => {
       if (wp.x < x - 16 || wp.x > x + 16 || wp.y < y - h || wp.y > y + 6) return;
       const d = Math.hypot(wp.x - x, wp.y - (y - h / 2));
       if (!best || d < best.d) best = { kind, ref, d };
     };
     for (const n of this.npcs) test(n.x, n.y, 52, 'npc', n);
     for (const e of this.enemies) if (e.alive) test(e.x, e.y, e.actor.kind === 'lpc' ? 52 : 34, 'enemy', e);
+    // Kendine Appraisal: Joseph'e dokunmak (yalnızca başka kimse yoksa)
+    if (!best) test(this.player.actor.x, this.player.actor.y, 52, 'self', this.player);
     const b = best as any;
     return b ? { kind: b.kind, ref: b.ref } : null;
   }
 
+  /** Kendine Appraisal: kendi bilgilerini gösterir, EXP vermez. */
+  appraiseSelf() {
+    if (!appraisalReady(this.time.now, this.lastAppraiseAt, !!this.ui.appraisalWin)) return;
+    this.lastAppraiseAt = this.time.now;
+    Sound.sfx('appraise');
+    const c = { ...G.p, alloc: G.p.alloc, hp: G.p.hp, mp: G.p.mp, guildRank: G.state.guild.member ? G.p.guildRank : null };
+    this.fx.glow(this.player.actor.x, this.player.actor.y - 24, 0x7cc8ff, 30, 400);
+    this.ui.showAppraisal(c, null, true);
+  }
+
   /** Dokunarak Appraisal. */
-  tapAppraise(t: { kind: 'npc' | 'enemy'; ref: Npc | Enemy }) {
+  tapAppraise(t: { kind: 'npc' | 'enemy' | 'self'; ref: any }) {
+    if (t.kind === 'self') {
+      this.appraiseSelf();
+      return;
+    }
     if (t.kind === 'npc') {
       const n = t.ref as Npc;
       this.appraise(n.def.creature, n.def, n);
@@ -1115,10 +1279,14 @@ export class WorldScene extends Phaser.Scene {
   }
 
   // ================================================================= durum / balon
+  /** Joseph'in toplumdaki görünümü: Saygınlık (kıyafet) ve lonca kaydı birlikte (C1). */
   josephStatus(): JosephStatus {
-    if (G.p.inventory.guild_card || G.flag('guild_registered')) return 'adventurer';
-    if (G.p.equipment.chest) return 'rootless';
-    return 'naked';
+    return josephStatusOf(R.josephPrestige(), G.state.guild.member || !!G.p.inventory.guild_card);
+  }
+
+  /** Bir NPC'nin Joseph'e tonu: Saygınlık karşılaştırması. */
+  toneFor(n: Npc): Tone {
+    return toneOf(R.josephPrestige(), n.saygınlık);
   }
 
   canBubble() {
@@ -1136,15 +1304,30 @@ export class WorldScene extends Phaser.Scene {
     const pool = [...(night && def.bubbles.night ? def.bubbles.night : []), ...(def.bubbles[st] ?? []), ...(def.bubbles.any ?? [])];
     // Kasta göre ek tepkiler: kendi replikleri azsa ya da arada bir
     const caste = CASTE_BUBBLES[def.caste]?.[st] ?? [];
+    // C1: Saygınlık tonu hafifçe kaydırır
+    const n = this.npc(def.id);
+    const tone = n ? this.toneFor(n) : 'neutral';
+    if (tone !== 'neutral' && st !== 'naked' && Math.random() < 0.3) {
+      const tl = TONE_LINES[def.caste]?.[tone]?.bubble ?? [];
+      if (tl.length) return tl[Math.floor(Math.random() * tl.length)];
+    }
     if (caste.length && (pool.length < 2 || Math.random() < 0.25)) return caste[Math.floor(Math.random() * caste.length)];
     if (!pool.length) return null;
     return pool[Math.floor(Math.random() * pool.length)];
   }
 
-  bubbleAt(actor: any, text: string, dur = 2) {
-    const t = this.add.text(actor.x, actor.y - 60, text, { fontFamily: 'AlegreyaSans, sans-serif', fontSize: '10px', color: '#fff6e0', stroke: '#1a0e06', strokeThickness: 3, fontStyle: 'bold' }).setOrigin(0.5, 1).setDepth(970000);
-    t.setResolution(this.cameras.main.zoom);
+  bubbleAt(actor: any, text: string, dur = 2, think = false) {
+    const t = this.add.text(actor.x, actor.y - 60, text, {
+      fontFamily: 'AlegreyaSans, sans-serif', fontSize: '12px', color: think ? '#cfe2ff' : '#fff6e0', stroke: '#1a0e06', strokeThickness: 3,
+      fontStyle: think ? 'italic bold' : 'bold', wordWrap: { width: 180, useAdvancedWrap: true }, align: 'center',
+    }).setOrigin(0.5, 1).setDepth(970000);
+    t.setResolution(this.cameras.main.zoom * 1.5);
     this.tweens.add({ targets: t, y: t.y - 10, alpha: 0, delay: dur * 700, duration: dur * 300, onComplete: () => t.destroy() });
+  }
+
+  /** HUD'daki yoldaş çubukları için (yoldaş sistemi doldurur). */
+  partyStatus(): { name: string; hp: number; max: number; down: boolean }[] {
+    return [];
   }
 
   // ================================================================= dövüş
@@ -1178,8 +1361,35 @@ export class WorldScene extends Phaser.Scene {
   }
 
   /** Hedef yardımı: saldırı yönünü yakındaki düşmana ~20° düzeltir. */
+  /** C5: yardımlı savaşta hedeflenecek düşman: menzildeki en yakın (tüm yönler). */
+  assistTarget(reach: number): Enemy | null {
+    const a = this.player.actor;
+    let best: Enemy | null = null;
+    let bd = Infinity;
+    for (const e of this.enemies) {
+      if (!e.alive) continue;
+      const d = Math.hypot(e.x - a.x, e.y - a.y) / TILE;
+      if (d > reach + 1.2) continue;
+      if (d < bd) {
+        bd = d;
+        best = e;
+      }
+    }
+    return best;
+  }
+
   aimAssist(reach: number): Phaser.Math.Vector2 {
     const a = this.player.actor;
+    // C5: Yardımlı savaş açıkken en yakın düşmana dön ve ona vur (sırtı dönük olsa bile)
+    if (G.settings.assistCombat) {
+      const t = this.assistTarget(reach);
+      if (t) {
+        Input.aim = null;
+        this.assistMarkT = 0.8;
+        this.assistLast = t;
+        return new Phaser.Math.Vector2(t.x - a.x, t.y - 10 - (a.y - 14)).normalize();
+      }
+    }
     let base: Phaser.Math.Vector2;
     if (Input.aim) {
       base = new Phaser.Math.Vector2(Input.aim.x - a.x, Input.aim.y - (a.y - 16)).normalize();
@@ -1329,6 +1539,8 @@ export class WorldScene extends Phaser.Scene {
     this.fx.number(e.x, e.y - 52, `+${share.joseph ?? 0} EXP`, 'exp');
     R.divineVictory(e.level, !!e.def.boss);
     G.state.killed[e.def.id] = (G.state.killed[e.def.id] ?? 0) + 1;
+    Q.notify('kill', e.def.id);
+    this.director.onKill(e);
     // başarı EXP'si
     if (skill) {
       const ach = achievementExp(e.level, G.p.level, 1, !!e.def.boss);

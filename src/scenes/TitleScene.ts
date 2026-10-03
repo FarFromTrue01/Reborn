@@ -85,10 +85,34 @@ export class TitleScene extends Phaser.Scene {
       const info = slotInfo(localStorage, SLOT_KEYS.find((k) => slotInfo(localStorage, k)) ?? 'auto');
       if (info) this.root.add(txt(this, W / 2, H * 0.5 - 44, `Son kayıt: ${info.summary}`, { size: 14, color: COLORS.textDim, italic: true }).setOrigin(0.5));
     }
-    this.root.add(txt(this, W - 16, H - 12, `v${__APP_VERSION__}`, { size: 12, color: COLORS.textDim }).setOrigin(1, 1));
+    // C6: sürüm numarasına 7 kez dokununca geliştirici modu açılır
+    const ver = txt(this, W - 16, H - 12, `v${__APP_VERSION__}`, { size: 14, color: COLORS.textDim }).setOrigin(1, 1);
+    ver.setPadding(16, 12, 4, 4);
+    ver.setInteractive();
+    let taps = 0;
+    let lastTap = 0;
+    ver.on('pointerdown', () => {
+      const now = this.time.now;
+      taps = now - lastTap < 1200 ? taps + 1 : 1;
+      lastTap = now;
+      if (taps >= 7) {
+        taps = 0;
+        G.settings.devMode = !G.settings.devMode;
+        G.saveSettings();
+        Sound.sfx('skillup', 0.6);
+        this.notice(G.settings.devMode ? 'Geliştirici modu açıldı (Menü → Geliştirici)' : 'Geliştirici modu kapandı');
+      }
+    });
+    this.root.add(ver);
     const fs = new Button(this, 60, H - 40, '⛶', () => goFullscreen(), { w: 56, h: 56, style: 'round', size: 24 });
     this.root.add(fs);
     this.root.add(txt(this, 100, H - 50, 'Tam ekran', { size: 13, color: COLORS.textDim }));
+  }
+
+  notice(text: string) {
+    const W = Display.uiW, H = Display.uiH;
+    const t = txt(this, W / 2, H - 70, text, { size: 18, bold: true, color: COLORS.textGold, stroke: true }).setOrigin(0.5).setDepth(80);
+    this.tweens.add({ targets: t, alpha: 0, delay: 1800, duration: 500, onComplete: () => t.destroy() });
   }
 
   drawBackdrop(W: number, H: number) {

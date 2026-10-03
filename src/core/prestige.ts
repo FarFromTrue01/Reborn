@@ -41,8 +41,8 @@ export type Tone = 'scorn' | 'neutral' | 'respect';
  */
 export function regard(joseph: number, npc: number): number {
   const sens = 1 / (1 + Math.max(0, npc) / 8);
-  // Joseph köksüzdür: nötr çizgi NPC'nin biraz altında (kast farkı tonu tamamen silmez)
-  const diff = joseph - (npc * 0.6 + 2);
+  // Nötr çizgi NPC'nin Saygınlık'ının yarısı: üst kastlar köksüzden daha fazlasını bekler
+  const diff = joseph - (npc * 0.5 - 2);
   return Math.max(-1, Math.min(1, (diff * sens) / 6));
 }
 

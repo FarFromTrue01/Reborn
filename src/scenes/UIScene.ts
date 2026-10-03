@@ -3,7 +3,9 @@ import { G } from '../game/G';
 import { Display } from '../game/display';
 import { Input, type Action } from '../game/input';
 import { Sound } from '../audio/audio';
-import { COLORS, FONT, txt, drawFrame, drawBlue, drawBar, Button } from '../ui/kit';
+import { COLORS, FONT, txt, drawFrame, drawBlue, drawBar, Button, uiIcon, rankBadge } from '../ui/kit';
+import { QuestBox, PartyBars } from '../ui/hudQuests';
+import { buildAppraisalPanel } from '../ui/appraisalPanel';
 import { clockLabel, dateLabel } from '../core/time';
 import { formatPrice } from '../core/money';
 import { coinRow, richLine, plainMoney } from '../ui/coins';
@@ -21,7 +23,7 @@ import { ITEMS } from '../data/items';
 import { TITLES } from '../data/titles';
 import { STAT_KEYS } from '../core/formulas';
 import { EQUIP_SLOTS, EQUIP_SLOT_NAMES } from '../core/types';
-import { itemLabel } from '../ui/format';
+import { itemLabel, fmtExp } from '../ui/format';
 import type { WorldScene } from './WorldScene';
 import { fogOf } from './WorldScene';
 import { TERRAIN, TILE } from '../world/types';
@@ -65,6 +67,13 @@ export class UIScene extends Phaser.Scene {
   eatCount: Phaser.GameObjects.Text | null = null;
   joyFixed: { base: Phaser.GameObjects.Graphics; knob: Phaser.GameObjects.Graphics; x: number; y: number } | null = null;
   hudPanelH = 150;
+  /** HUD'un alt kenarı (görev kutusu ve yoldaş çubukları dahil): bildirimler bunun altına dizilir. */
+  hudBottom = 170;
+  questBox: QuestBox | null = null;
+  partyBars: PartyBars | null = null;
+  private rankKey = '';
+  private rankBox: Phaser.GameObjects.Container | null = null;
+  private questT = 0;
   damageFlash!: Phaser.GameObjects.Rectangle;
   zoneBanner: Phaser.GameObjects.Container | null = null;
   ghostHp = 1;
@@ -101,6 +110,9 @@ export class UIScene extends Phaser.Scene {
       ['stats', () => this.refreshButtons()],
       ['skills', () => this.refreshButtons()],
       ['settings', () => this.applySettings()],
+      ['quests', () => this.questBox?.refresh(true)],
+      ['think', (t: string) => this.thinkBubble(t)],
+      ['saved', () => this.showSaved()],
     ];
     for (const [k, h] of handlers) G.events.on(k, h);
     this.events.once('shutdown', () => {
@@ -149,7 +161,12 @@ export class UIScene extends Phaser.Scene {
     };
     // Sol üst: kimlik ve barlar
     T('name', 22, 12, { size: 19, font: FONT.title, color: COLORS.textGold, bold: true, stroke: true });
-    T('lv', 0, 15, { size: 15, font: FONT.ui, bold: true, color: '#fff2c0', stroke: true });
+    // B3: Level ve rütbe ayrı kutucuklarda
+    T('lvLabel', 0, 16, { size: 14, font: FONT.ui, bold: true, color: '#e8dcc0', stroke: true });
+    T('lvNum', 0, 11, { size: 21, font: FONT.ui, bold: true, color: '#ffd75e', stroke: true });
+    this.hudTexts.lvLabel.setText('Level:');
+    this.rankKey = '';
+    this.rankBox = null;
     T('hp', 28, 43, { size: 14, font: FONT.ui, bold: true, stroke: true });
     T('mp', 28, 67, { size: 12, font: FONT.ui, bold: true, stroke: true });
     T('st', 296, 84, { size: 11, font: FONT.ui, bold: true, stroke: true, color: '#cfeac0' }).setOrigin(1, 0);
@@ -174,6 +191,12 @@ export class UIScene extends Phaser.Scene {
     this.hud.add(menuB);
     const apB = new Button(this, W - 124, 216, '', () => { Input.press('appraise'); }, { w: 60, h: 60, style: 'round', icon: 'sk_appraisal' });
     this.hud.add(apB);
+    // Görevler kutusu ve yoldaş HP çubukları (HP panelinin altında)
+    this.questBox = new QuestBox(this, 8, 166);
+    this.hud.add(this.questBox);
+    this.questBox.refresh(true);
+    this.partyBars = new PartyBars(this, 8, 200);
+    this.hud.add(this.partyBars);
     this.buildTouch();
     // Bekleme ve parlama göstergeleri butonların ÜSTÜNDE çizilir
     this.cdOverlay = this.add.graphics().setDepth(21);
@@ -309,13 +332,35 @@ export class UIScene extends Phaser.Scene {
     this.hudPanelH = panelH;
     drawFrame(g, 8, 6, 300, panelH, { alpha: 0.8, ornate: false });
     this.hudTexts.name.setText('Joseph');
-    const lvX = 22 + this.hudTexts.name.width + 12;
-    const rank = p.guildRank !== null ? `  ·  ${srs(p.guildRank)}` : '';
-    this.hudTexts.lv.setText(`Lv ${p.level}${rank}`).setPosition(lvX + 8, 15);
-    g.fillStyle(0x3a2e1a, 0.9);
-    g.fillRoundedRect(lvX, 13, this.hudTexts.lv.width + 16, 22, 6);
+    // Level kutusu: "Level:" + farklı renkte, kalın sayı
+    const lvX = 22 + this.hudTexts.name.width + 10;
+    this.hudTexts.lvLabel.setPosition(lvX + 8, 15);
+    this.hudTexts.lvNum.setText(String(p.level)).setPosition(lvX + 12 + this.hudTexts.lvLabel.width, 10);
+    const lvW = this.hudTexts.lvLabel.width + this.hudTexts.lvNum.width + 22;
+    g.fillStyle(0x3a2e1a, 0.92);
+    g.fillRoundedRect(lvX, 11, lvW, 26, 6);
     g.lineStyle(1, COLORS.gold, 0.9);
-    g.strokeRoundedRect(lvX, 13, this.hudTexts.lv.width + 16, 22, 6);
+    g.strokeRoundedRect(lvX, 11, lvW, 26, 6);
+    // Rütbe kutusu: rozet + kademe
+    const rkX = lvX + lvW + 6;
+    const rk = p.guildRank !== null && G.state.guild.member ? srs(p.guildRank) : '';
+    const rkKey = rk + ':' + rkX;
+    if (rkKey !== this.rankKey) {
+      this.rankKey = rkKey;
+      this.rankBox?.destroy();
+      const c = this.add.container(rkX, 11);
+      if (rk) {
+        c.add(rankBadge(this, 15, 13, p.guildRank!, 26));
+        c.add(txt(this, 31, 4, rk, { size: 15, bold: true, font: FONT.title, color: COLORS.textGold, stroke: true }));
+      } else c.add(txt(this, 8, 5, 'Rütbesiz', { size: 13, italic: true, color: COLORS.textDim, stroke: true }));
+      this.rankBox = c;
+      this.hud.add(c);
+    }
+    const rkW = rk ? 31 + rk.length * 11 + 10 : 76;
+    g.fillStyle(0x1a1622, 0.92);
+    g.fillRoundedRect(rkX, 11, rkW, 26, 6);
+    g.lineStyle(1, rk ? COLORS.gold : COLORS.goldDark, 0.9);
+    g.strokeRoundedRect(rkX, 11, rkW, 26, 6);
     const hpF = p.hp / d.maxHp;
     this.ghostHp = Math.max(hpF, this.ghostHp - dt * 0.5);
     drawBar(g, 20, 42, 276, 18, hpF, COLORS.hp, 0x180808, this.ghostHp);
@@ -331,7 +376,7 @@ export class UIScene extends Phaser.Scene {
     this.hudTexts.st.setText(`Dayanıklılık ${Math.floor(p.stamina)}`);
     const need = expToNext(p.level);
     drawBar(g, 20, 102, 186, 9, p.exp / need, 0x9a6ae8, 0x140a20);
-    this.hudTexts.exp.setText(`EXP ${Math.floor(p.exp)} / ${need}`);
+    this.hudTexts.exp.setText(`EXP ${fmtExp(p.exp)} / ${need}`);
     let y = 120;
     if (hasLight) {
       drawBar(g, 20, 120, 276, 9, G.state.divine.light / LIGHT_MAX, COLORS.light, 0x1a1404);
@@ -345,6 +390,23 @@ export class UIScene extends Phaser.Scene {
       this.moneyRow?.destroy();
       this.moneyRow = coinRow(this, 22, y + 2 + 13, p.wallet, { size: 20, font: 17, stroke: true });
       this.hud.add(this.moneyRow);
+    }
+    // görev kutusu ve yoldaşlar
+    if (this.questBox) {
+      this.questBox.y = panelH + 12;
+      this.questT -= dt;
+      if (this.questT <= 0) {
+        this.questT = 0.5;
+        this.questBox.refresh();
+      }
+      let yb = this.questBox.y + this.questBox.boxH;
+      const members = this.world?.partyStatus?.() ?? [];
+      if (this.partyBars) {
+        this.partyBars.y = yb + 6;
+        this.partyBars.draw(members);
+        if (members.length) yb = this.partyBars.y + this.partyBars.h;
+      }
+      this.hudBottom = yb;
     }
     // sağ üst: okunur saat, tarih ve bölge (arkasında koyu zemin)
     this.hudTexts.clock.setText(clockLabel(G.state.time));
@@ -594,7 +656,7 @@ export class UIScene extends Phaser.Scene {
 
   // ================================================================== bildirimler
   toast(text: string, kind = 'info', icon?: string) {
-    const y0 = this.hudPanelH + 18;
+    const y0 = this.hudBottom + 10;
     const c = this.add.container(16, y0).setDepth(40);
     const color = kind === 'exp' ? COLORS.textBlue : kind === 'divine' ? '#ffe9a0' : kind === 'money' ? '#f3dc95' : kind === 'warn' ? COLORS.textRed : COLORS.text;
     const hasIcon = !!icon && this.textures.get('icons').has(icon);
@@ -620,6 +682,23 @@ export class UIScene extends Phaser.Scene {
     this.time.delayedCall(2600, () => {
       this.tweens.add({ targets: c, alpha: 0, duration: 400, onComplete: () => { c.destroy(); this.toasts = this.toasts.filter((x) => x !== c); } });
     });
+  }
+
+  /** Kısa iç ses (ör. "Bu paraya şimdi dokunamam."): Joseph'in başının üstünde. */
+  thinkBubble(text: string) {
+    const w = this.world;
+    if (w?.player) w.bubbleAt(w.player.actor, text, 2.6, true);
+    else this.toast(text, 'warn');
+  }
+
+  /** C7: köşede kısa süre "Kaydedildi" simgesi. */
+  showSaved() {
+    const W = Display.uiW, H = Display.uiH;
+    const c = this.add.container(W - 24, H - 22).setDepth(55);
+    const t = txt(this, -34, 0, 'Kaydedildi', { size: 14, bold: true, color: COLORS.textGold, stroke: true }).setOrigin(1, 0.5);
+    c.add([uiIcon(this, -14, 0, 'save', 24), t]);
+    c.setAlpha(0);
+    this.tweens.add({ targets: c, alpha: 1, duration: 250, hold: 1400, yoyo: true, onComplete: () => c.destroy() });
   }
 
   toastInfo(text: string) {
@@ -727,15 +806,37 @@ export class UIScene extends Phaser.Scene {
       const glyph = EXPR_GLYPH[opts.expr ?? 'normal'];
       if (glyph && !key.startsWith('uportrait')) c.add(txt(this, px + ps - 10, py + 6, glyph.ch, { size: 26, bold: true, color: glyph.color, stroke: true }).setOrigin(1, 0));
       textX = px + ps + 26;
-      // isim plakası
+      // isim plakası (B4): ad + lonca rütbe rozeti + meslek/tanım
       const name = opts.name ?? SPEAKER_NAMES[speaker] ?? npc?.name ?? speaker;
       const nt = txt(this, textX, y - 16, name, { size: 19, font: FONT.title, bold: true, color: COLORS.textGold });
       const ng = this.add.graphics();
+      const parts: Phaser.GameObjects.GameObject[] = [];
+      let px2 = textX + nt.width + 10;
+      const rank = speaker === 'joseph' ? (G.state.guild.member ? G.p.guildRank : null) : npc?.creature.guildRank ?? null;
+      if (rank !== null && rank !== undefined) {
+        parts.push(rankBadge(this, px2 + 12, y - 6, rank, 26));
+        const lab = npc?.guildLabel?.includes('emekli') ? `${srs(rank)} (emekli)` : srs(rank);
+        const rt = txt(this, px2 + 28, y - 14, lab, { size: 14, bold: true, color: '#f3dc95' });
+        parts.push(rt);
+        px2 += 34 + rt.width;
+      }
+      const title = speaker === 'joseph' ? (G.state.guild.member ? 'Maceracı · Köksüz' : 'Köksüz') : npc?.title;
+      if (title) {
+        if (rank !== null && rank !== undefined) px2 += 4;
+        const tt = txt(this, px2 + 4, y - 13, title, { size: 14, italic: true, color: '#cfc3a6' });
+        parts.push(tt);
+        px2 += tt.width + 8;
+      }
+      const pw2 = px2 - textX + 12;
       ng.fillStyle(0x16121f, 1);
-      ng.fillRoundedRect(textX - 12, y - 22, nt.width + 24, 32, 6);
+      ng.fillRoundedRect(textX - 12, y - 22, pw2, 32, 6);
       ng.lineStyle(1.5, COLORS.gold, 1);
-      ng.strokeRoundedRect(textX - 12, y - 22, nt.width + 24, 32, 6);
-      c.add([ng, nt]);
+      ng.strokeRoundedRect(textX - 12, y - 22, pw2, 32, 6);
+      if (parts.length) {
+        ng.lineStyle(1, COLORS.goldDark, 1);
+        ng.lineBetween(textX + nt.width + 5, y - 16, textX + nt.width + 5, y + 4);
+      }
+      c.add([ng, nt, ...parts]);
     } else if (kind === 'system') {
       c.add(txt(this, x + 24, y + 12, '【 SİSTEM 】', { size: 15, font: FONT.title, color: '#e6f6ff', bold: true }));
     }
@@ -874,62 +975,37 @@ export class UIScene extends Phaser.Scene {
   }
 
   // ================================================================== Appraisal penceresi
-  showAppraisal(c: any, npc: NpcDef | null) {
+  showAppraisal(c: any, npc: NpcDef | null, self = false) {
     this.appraisalWin?.destroy();
-    const W = Display.uiW;
+    const W = Display.uiW, H = Display.uiH;
     const mine = G.p.skills.find((s) => s.id === 'appraisal')!.rank;
-    const theirs = c.skills.find((s: any) => s.id === 'appraisal')?.rank ?? 0;
-    const v = appraisalView(mine, theirs);
-    const d = derive(c);
-    const lines: [string, string][] = [];
-    const Q = '???';
-    lines.push(['İsim', v.identity ? c.name : Q]);
-    lines.push(['Title', c.titles.length ? c.titles.map((t: string) => `${TITLES[t]?.name} (${TITLES[t]?.rank})`).join(', ') : 'Yok']);
-    lines.push(['Irk', v.identity ? c.race : Q]);
-    lines.push(['Cinsiyet', v.identity ? c.gender : Q]);
-    lines.push(['Yaş', v.identity ? (c.age ?? '—') + '' : Q]);
-    lines.push(['Lonca Rütbesi', v.identity ? (npc?.guildLabel ?? (c.guildRank !== null ? subRankToString(c.guildRank) : 'Yok')) : Q]);
-    lines.push(['Level', v.identity ? String(c.level) : Q]);
-    lines.push(['HP', v.stats ? `${npc ? d.maxHp : c.hp}/${d.maxHp}` : Q]);
-    lines.push(['MP', v.stats ? `${d.maxMp}/${d.maxMp}` : Q]);
-    lines.push(['Statlar', v.stats ? STAT_KEYS.map((k) => `${k} ${d.stats[k]}`).join(' · ') : Q]);
-    const eq = EQUIP_SLOTS.filter((s) => c.equipment[s]).map((s) => itemLabel(c.equipment[s]));
-    if (c.natural) eq.unshift(`${c.natural.name} [DMG: ${c.natural.dmg[0]}-${c.natural.dmg[1]}]`);
-    lines.push(['Ekipman', v.stats ? (eq.length ? eq.join(', ') : 'Yok') : Q]);
-    const sk = c.skills.map((s: any) => `${SKILLS[s.id]?.name ?? s.id} (${subRankToString(s.rank)})${v.skillExp ? ` [${Math.floor(s.exp)}/${skillThreshold(s.rank)}]` : ''}`);
-    lines.push(['Skill', v.skills ? sk.join(', ') : Q]);
-    const inv = Object.entries(c.inventory ?? {}).map(([k, q]) => `${ITEMS[k]?.name ?? k} ×${q}`);
-    lines.push(['Envanter', v.skills ? (inv.length ? inv.join(', ') : 'Boş') : Q]);
-    const w = 600;
-    const cont = this.add.container(W / 2 - w / 2, 64).setDepth(60);
-    const g = this.add.graphics();
-    cont.add(g);
-    cont.add(txt(this, w / 2, 14, '【 APPRAISAL 】', { size: 18, font: FONT.title, color: '#e6f6ff', bold: true }).setOrigin(0.5, 0));
-    const diffTxt = v.diff >= 2 ? 'Hedef çok üstün: sadece Title okunabiliyor.' : v.diff === 1 ? 'Hedefin direnci senden bir harf yüksek.' : v.diff === 0 ? 'Rütbeleriniz eşit.' : v.diff === -1 ? 'Hedef senden bir harf düşük.' : 'Hedef seninle kıyaslanamayacak kadar düşük.';
-    cont.add(txt(this, w / 2, 40, diffTxt, { size: 12, italic: true, color: '#9fc8ff' }).setOrigin(0.5, 0));
-    let yy = 66;
-    for (const [k, val] of lines) {
-      cont.add(txt(this, 24, yy, k, { size: 15, bold: true, color: '#cfeaff' }));
-      const vt = txt(this, 160, yy, val, { size: 15, color: val === Q ? '#6f8fb0' : COLORS.text, wrap: w - 180 });
-      cont.add(vt);
-      yy += Math.max(24, vt.height + 4);
-    }
-    const h = yy + 34;
-    drawBlue(g, 0, 0, w, h, 0.86);
-    cont.add(txt(this, w / 2, h - 26, 'Trait: görülemez', { size: 11, italic: true, color: '#6f8fb0' }).setOrigin(0.5, 0));
-    const close = this.add.zone(0, 0, w, h).setOrigin(0, 0).setInteractive();
-    close.on('pointerdown', () => this.closeAppraisal());
-    cont.addAt(close, 0);
-    cont.setAlpha(0);
-    this.tweens.add({ targets: cont, alpha: 1, duration: 200 });
-    this.appraisalWin = cont;
-    this.time.delayedCall(7000, () => {
-      if (this.appraisalWin === cont) this.closeAppraisal();
+    const root = this.add.container(0, 0).setDepth(60);
+    // Ekranın herhangi bir yerine dokununca kapanır (B1). Otomatik kapanma yok.
+    const shade = this.add.rectangle(0, 0, W, H, 0x000000, 0.35).setOrigin(0, 0).setInteractive();
+    shade.on('pointerdown', () => this.closeAppraisal());
+    root.add(shade);
+    const panel = buildAppraisalPanel(this, c, npc, { self, mineRank: mine });
+    const pw = (panel as any).panelW, ph = (panel as any).panelH;
+    const sc = Math.min(1, (H - 30) / ph, (W - 30) / pw);
+    panel.setScale(sc);
+    panel.setPosition((W - pw * sc) / 2, Math.max(12, (H - ph * sc) / 2));
+    const pz = this.add.zone(0, 0, pw, ph).setOrigin(0, 0).setInteractive();
+    pz.on('pointerdown', () => this.closeAppraisal());
+    panel.addAt(pz, 0);
+    root.add(panel);
+    root.setAlpha(0);
+    this.tweens.add({ targets: root, alpha: 1, duration: 160 });
+    this.appraisalWin = root;
+    this.input.keyboard?.once('keydown', () => {
+      if (this.appraisalWin === root) this.closeAppraisal();
     });
+    // A4: Appraisal açıkken dünya durur (ara sahnelerde yönetmen kapatır, dünya akmaya devam eder)
+    if (!this.world?.cutscene) this.world?.freeze('appraisal');
   }
 
   closeAppraisal() {
     const c = this.appraisalWin;
+    this.world?.unfreeze('appraisal');
     if (!c) return;
     this.appraisalWin = null;
     this.tweens.add({ targets: c, alpha: 0, duration: 200, onComplete: () => c.destroy() });

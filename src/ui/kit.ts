@@ -301,12 +301,12 @@ export function uiIcon(scene: Phaser.Scene, x: number, y: number, key: string, s
 }
 
 /** Lonca rütbe rozeti: harf rozeti + alt kademe işareti (−/+) küçük yazıyla. */
-export function rankBadge(scene: Phaser.Scene, x: number, y: number, subRank: number, size = 32): Phaser.GameObjects.Container {
+export function rankBadge(scene: Phaser.Scene, x: number, y: number, subRank: number, size = 32, showSub = false): Phaser.GameObjects.Container {
   const L = 'GFEDCBASX'[Math.min(8, Math.floor(subRank / 3))];
   const sub = subRank - Math.min(8, Math.floor(subRank / 3)) * 3;
   const c = scene.add.container(x, y);
   c.add(uiIcon(scene, 0, 0, 'rank_' + L, size));
-  if (sub !== 1) {
+  if (showSub && sub !== 1) {
     const t = txt(scene, size * 0.36, size * 0.18, sub === 0 ? '−' : '+', { size: Math.max(11, Math.round(size * 0.42)), bold: true, color: '#ffffff', stroke: true });
     t.setOrigin(0.5);
     c.add(t);

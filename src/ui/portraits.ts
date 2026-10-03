@@ -33,7 +33,7 @@ function josephCanvas(scene: Phaser.Scene, layers: string[]): HTMLCanvasElement 
     const fr = scene.textures.getFrame(k, 130);
     if (!fr) continue;
     const src = fr.source.image as HTMLImageElement;
-    ctx.drawImage(src, fr.cutX + 16, fr.cutY + 6, 32, 32, 0, 0, 32, 32);
+    ctx.drawImage(src, fr.cutX + 16, fr.cutY + 10, 32, 32, 0, 0, 32, 32);
   }
   return c;
 }
@@ -73,7 +73,7 @@ export function lpcPortraitKey(scene: Phaser.Scene, id: string, josephLayers?: s
       if (fr) {
         src = fr.source.image as HTMLImageElement;
         sx = fr.cutX + 16;
-        sy = fr.cutY + 6;
+        sy = fr.cutY + 10;
       }
     }
     if (src) {
@@ -134,7 +134,7 @@ export function ensureCG(scene: Phaser.Scene, name: string): Promise<string | nu
 export const EXPR_GLYPH: Record<string, { ch: string; color: string } | null> = {
   normal: null,
   gulen: { ch: '♪', color: '#ffe48a' },
-  kizgin: { ch: '💢', color: '#ff5a4a' },
+  kizgin: { ch: '!!', color: '#ff5a4a' },
   saskin: { ch: '!?', color: '#ffffff' },
   uzgun: { ch: '…', color: '#9fc8ff' },
   alayci: { ch: '~', color: '#ffb0d0' },
