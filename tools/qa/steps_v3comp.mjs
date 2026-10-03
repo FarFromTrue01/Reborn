@@ -3,7 +3,7 @@ export default async ({ page, wait, shot, evalG }) => {
   await evalG(() => {
     const G = window.__G;
     G.newGame();
-    for (const f of ['woke', 'inn_met', 'village_entered', 'bertram_deal', 'bertram_done', 'farm_done', 'guild_registered']) G.setFlag(f);
+    for (const f of ['woke', 'inn_met', 'village_entered', 'bertram_deal', 'bertram_done', 'farm_done', 'guild_registered', 'steward_met', 'checkpoint_seen']) G.setFlag(f);
     G.p.equipment = { chest: 'linen_shirt', pants: 'linen_pants', boots: 'cloth_shoes', weapon: 'cracked_stick' };
     G.state.party = ['vera', 'lina'];
     G.state.time = { day: 6, minute: 10 * 60 };

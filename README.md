@@ -94,7 +94,14 @@ Sadece G ilanlarıyla: (1.000 − 100 − 330) / 34 ≈ **17 oyun günü (~2,5 h
 
 Ölçüm: `node tools/qa/shot.mjs perf` (başsız Chromium, SwiftShader yazılım GPU, 1280×854, DPR 1). Mutlak FPS gerçek tabletten çok düşüktür; önce/sonra kıyası içindir.
 
-PERF_TABLE
+| Sahne | 0.2.0 FPS | 0.3.0 FPS | CPU kare süresi 0.2.0 → 0.3.0 | Çizilen nesne 0.2.0 → 0.3.0 |
+| --- | --- | --- | --- | --- |
+| Köy meydanı | 5,5 | 5,3 | 15,3 → 11,6 ms | 3.931 → 393 |
+| Orman | 4,2 | 4,4 | 16,5 → 13,1 ms | 3.938 → 750 |
+| Han (iç mekân) | 4,1 | 3,6 | 9,1 → 7,7 ms | 59 → 60 |
+| Han + menü açık | 2,9 | 4,7 | 28,1 → 32,3 ms | Dünya ve HUD gizli/duraklatılmış |
+
+Başsız tarayıcıda FPS'i yazılım GPU'nun ekran doldurma hızı sınırlıyor; asıl kazanç çizilen nesne sayısında (köyde ~10 kat az) ve CPU kare süresinde. Menüde CPU süresinin biraz artması Status sekmesinin yeni içeriğinden (Lonca Kartı, simgeler): bir sekmenin baştan çizilmesi 49 → 89 ms sürüyor, ama bu yalnızca sekme değişince olur; envanterde seçim değişince yalnızca ayrıntı paneli yeniden çizilir.
 
 Yapılanlar: 256 px'lik parçalarla ekran dışı ayıklama (dekor, ağaç, çatı; yalnızca kameranın çevresindeki parçalar çizilir), menü opak olduğu için menü açıkken Dünya ve HUD sahnelerinin duraklatılıp gizlenmesi, envanterde seçim değişince yalnızca değişen kısmın yeniden çizilmesi, gereksiz bulanık yazı gölgesinin (bölge başlığı) kaldırılması.
 
