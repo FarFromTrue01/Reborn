@@ -200,7 +200,7 @@ Yeni bina eklerken: `tools/build_buildings.py` içinde tarif, `src/data/manifest
 
 ## Varsayılan dal
 
-Oyun `main` dalından yayınlanır (GitHub Actions → Pages; `claude/vigilant-darwin-hcoqh5` de hâlâ tetikler). Deponun varsayılan dalı bu oturumdaki araçlarla değiştirilemedi. Değiştirmek için: GitHub'da depo → **Settings → General → Default branch** → ⇄ simgesi → `main` → **Update** → onayla. Sonra eski dalı silmek istersen workflow'daki `branches` satırından da çıkar.
+Oyun yalnızca `main` dalından yayınlanır (GitHub Actions → `github-pages` ortamı → Pages). Eski `claude/vigilant-darwin-hcoqh5` dalı artık workflow'u tetiklemez; o daldan yapılan eski dağıtım denemeleri ortam koruma kuralına takıldığı için ("Branch … is not allowed to deploy to github-pages") kırmızı görünür, siteyi etkilemez. Deponun varsayılan dalı hâlâ o eski dal ve bu oturumdaki araçlarla değiştirilemiyor. Değiştirmek için: GitHub'da depo → **Settings → General → Default branch** → ⇄ simgesi → `main` → **Update** → onayla. Sonra eski dalı silebilirsin.
 
 ## Sürüm notları
 

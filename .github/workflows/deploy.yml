@@ -2,7 +2,7 @@ name: Build ve GitHub Pages
 
 on:
   push:
-    branches: [main, claude/vigilant-darwin-hcoqh5]
+    branches: [main]
   workflow_dispatch:
 
 permissions:
@@ -33,6 +33,9 @@ jobs:
   deploy:
     needs: build
     runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - id: deployment
         uses: actions/deploy-pages@v4
