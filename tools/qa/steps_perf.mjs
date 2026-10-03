@@ -45,10 +45,12 @@ export default async ({ page, wait, shot, evalG }) => {
     const Text = window.Phaser.GameObjects.Text.prototype;
     const np = w.npcs[0]?.constructor.prototype;
     let frames = 0, npcMs = 0, texUpd = 0, walks = 0;
-    const oUpd = Text.updateText, oNpc = np?.update, oWalk = np?.walkTo;
+    const oUpd = Text.updateText, oNpc = np?.update, oFar = np?.updateFar, oWalk = np?.walkTo;
     Text.updateText = function (...a) { texUpd++; return oUpd.apply(this, a); };
+    const timed = (fn) => function (...a) { const t = performance.now(); const r = fn.apply(this, a); npcMs += performance.now() - t; return r; };
     if (np) {
-      np.update = function (...a) { const t = performance.now(); const r = oNpc.apply(this, a); npcMs += performance.now() - t; return r; };
+      np.update = timed(oNpc);
+      if (oFar) np.updateFar = timed(oFar); // 0.3.1: uzaktaki NPC'lerin hafif güncellemesi de sayılsın
       np.walkTo = function (...a) { walks++; return oWalk.apply(this, a); };
     }
     const f = () => frames++;
@@ -56,7 +58,7 @@ export default async ({ page, wait, shot, evalG }) => {
     setTimeout(() => {
       g.events.off('postrender', f);
       Text.updateText = oUpd;
-      if (np) { np.update = oNpc; np.walkTo = oWalk; }
+      if (np) { np.update = oNpc; if (oFar) np.updateFar = oFar; np.walkTo = oWalk; }
       const k = Math.max(1, frames);
       res({ npcMsPerFrame: Math.round((npcMs / k) * 100) / 100, textRedrawsPerFrame: Math.round((texUpd / k) * 10) / 10, walkToCalls: walks });
     }, ms);

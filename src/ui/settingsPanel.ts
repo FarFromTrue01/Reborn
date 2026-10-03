@@ -109,5 +109,5 @@ export function buildSettings(scene: Phaser.Scene, c: Phaser.GameObjects.Contain
     toggle(scene, c, bx0, y, 'Geliştirici modu', () => s.devMode, (v) => (s.devMode = v)).setName('set_dev');
   }
   y += 38;
-  c.add(txt(scene, 0, y, `Grafik kalitesi çözünürlüğü de belirler (Düşük 1x, Orta 1,5x, Yüksek 2x); arayüz boyutu ve kalite menü kapanınca uygulanır. Yüksek FPS sınırı daha akıcı ama pili hızlı tüketir. Karakter hızı yalnızca yürüme ve koşmayı etkiler.${isTouchDevice() ? '' : ' Yardımlı savaş: saldırınca menzildeki en yakın düşmana döner.'}`, { size: 13, italic: true, color: COLORS.textDim, wrap: w }));
+  c.add(txt(scene, 0, y, `Grafik kalitesi çözünürlüğü de belirler (Düşük 1x, Orta 1,5x, Yüksek 2x). Arayüz boyutu ve kalite menü kapanınca uygulanır.${isTouchDevice() ? '' : ' Yardımlı savaş: saldırınca menzildeki en yakın düşmana döner.'}`, { size: 13, italic: true, color: COLORS.textDim, wrap: w }));
 }

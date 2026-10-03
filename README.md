@@ -10,9 +10,11 @@ Bu sürüm (0.3.0) iki bölümdür. **Bölüm I — *Köksüz*:** prologdan lonc
 
 1. Chrome'da oyunun adresini aç.
 2. Menü → **Ana ekrana ekle** (veya "Uygulamayı yükle").
-3. Ana ekrandaki **Elonth** simgesinden aç: tam ekran ve yatay çalışır, çevrimdışı da açılır.
+3. Ana ekrandaki **Elonth** simgesinden aç: yatay çalışır, **Devam** ya da **Yeni Oyun**'a basınca tam ekrana geçer; çevrimdışı da açılır.
 
-Yeni sürüm yayınlandığında oyun `version.json` üzerinden bunu fark eder, yeni dosyaları indirir ve kendini bir kez yeniler.
+Kurulumda yalnızca açılış için gerekenler (sayfa, oyun paketi, yazı tipleri, simgeler; ~4 MB) indirilir; karakter ve bina görselleri ilk açılışta önbelleğe girer. Yeni sürüm yayınlandığında oyun `version.json` üzerinden bunu fark eder, yeni dosyaları arka planda indirir ve **oyun dışındayken** (başlık ekranında) kendini bir kez yeniler; oyun ortasında yenilemez.
+
+Başka bir uygulamaya geçince oyun durur, ses susar ve otomatik kaydedilir. Tarayıcı arka planda grafik bağlamını bırakırsa ya da sekmeyi kapatırsa, geri dönünce kısa bir "Oyun yeniden yükleniyor…" perdesinden sonra son kayıttan devam edilir.
 
 ## Kontroller
 
@@ -44,7 +46,7 @@ Yeni sürüm yayınlandığında oyun `version.json` üzerinden bunu fark eder, 
 - Yemekler bekleme süresine tabidir: her yemekten sonra 10 sn, art arda 3. yemekten sonra 60 sn. Son yemekten 60 sn geçince zincir sıfırlanır.
 - Dayanıklılık biterse Joseph **nefes nefese** kalır: joystick'i eşiğin altına çekene ya da bırakana (klavyede Shift'i bırakana) kadar koşamaz.
 - **Yardımlı savaş** (varsayılan açık): saldırı tuşu menzildeki en yakın düşmana döner ve vurur (arkandaki dahil); hedefin altında bir işaret belirir. Kapalıyken eski davranış: baktığın yöne, küçük bir nişan düzeltmesiyle.
-- Ayarlar: arayüz boyutu, metin hızı, sesler, **karakter hızı** (0.75x–2.0x, yalnızca yürüme/koşma), otomatik ilerleme, ekran sarsıntısı, FPS, grafik kalitesi, joystick modu (dokunmatikte varsayılan: sol altta sabit), **tam ekran** (iPhone'da: "Tam ekran için oyunu ana ekrana ekle"), yardımlı savaş.
+- Ayarlar: arayüz boyutu, metin hızı, sesler, **karakter hızı** (0.75x–2.0x, yalnızca yürüme/koşma), otomatik ilerleme, ekran sarsıntısı, FPS göstergesi, **FPS sınırı** (60 / 120 / 144 / Sınırsız; varsayılan 60 — yüksek değer daha akıcı ama pili hızlı tüketir), **grafik kalitesi** (çözünürlüğü de belirler: Yüksek en fazla 2x, Orta 1,5x, Düşük 1x cihaz pikseli; ayrıca ışık geçişi, orman sisi ve parçacıklar; menü kapanınca uygulanır), joystick modu (dokunmatikte varsayılan: sol altta sabit), **tam ekran** (iPhone'da: "Tam ekran için oyunu ana ekrana ekle"), yardımlı savaş.
 - Menü ve Appraisal paneli açıkken oyun zamanı durur (müzik sürer). Mini oyunlar ve konuşmalar eski davranışını korur.
 - **Geliştirici modu:** başlık ekranında sürüm numarasına 7 kez dokun. Menüde *Geliştirici* sekmesi açılır (Level/stat/HP/MP/para, skill rütbesi ve EXP, saat/gün, ışınlanma, görev ilerletme, Lonca Puanı); NPC'lerin başında Saygınlık değerleri görünür. Ayarlar'dan kapatılır. Normal oyuncu hiçbirini görmez.
 
@@ -105,6 +107,32 @@ Başsız tarayıcıda FPS'i yazılım GPU'nun ekran doldurma hızı sınırlıyo
 
 Yapılanlar: 256 px'lik parçalarla ekran dışı ayıklama (dekor, ağaç, çatı; yalnızca kameranın çevresindeki parçalar çizilir), menü opak olduğu için menü açıkken Dünya ve HUD sahnelerinin duraklatılıp gizlenmesi, envanterde seçim değişince yalnızca değişen kısmın yeniden çizilmesi, gereksiz bulanık yazı gölgesinin (bölge başlığı) kaldırılması.
 
+### 0.3.1 ölçümü
+
+**DPR 1, 1280×854** (önce = 0.3.0, sonra = 0.3.1):
+
+| Sahne | FPS önce → sonra | NPC güncelleme ms/kare | Metin dokusu yeniden çizimi /kare |
+| --- | --- | --- | --- |
+| Köy meydanı (25 NPC) | 8,9 → 9,7 | 0,19 → 0,06 | 0,1 → 0,2 |
+| Açık dünya (orman) | 6,8 → 6,7 | 0,07 → 0,04 | 0,2 → 0,1 |
+| Han (gündüz) | 6,3 → 5,7 | — | — |
+| Han, akşam 18→19→20 | **dondu** (sonsuz döngü) → 6,4 | — → 0,09 | — |
+| Köy meydanı, geliştirici modu | 8,5 → 9,1 | **1,66 → 0,08** | **25,1 → 0,1** |
+| Açık dünya, geliştirici modu | 6,8 → 6,8 | **1,82 → 0,02** | **25,2 → 0,2** |
+| Han, geliştirici modu | 4,0 → 6,2 | — | — |
+
+Saat başı NPC girişi: eskiden tek karede herkes + A*; şimdi `refreshNpcPresence` 0,1 ms (yalnızca sıraya koyar), karede ≤1 giriş ve ≤1 yol araması.
+
+**DPR 3, köy meydanı** (çizim çözünürlüğü, 5c):
+
+| Kalite | 0.3.0 canvas / FPS | 0.3.1 canvas / FPS |
+| --- | --- | --- |
+| Yüksek | 3840×2562 (9,8 MP) / 1,4 | 2560×1708 (4,4 MP) / 3,1 |
+| Orta | aynı (9,8 MP) / 1,4 | 1920×1281 (2,5 MP) / 4,3 |
+| Düşük | aynı (9,8 MP) / 1,4 | 1280×854 (1,1 MP) / 8,9 |
+
+Başsız tarayıcıda FPS'i yazılım GPU'nun doldurma hızı sınırlıyor; DPR 1 FPS farkları gürültü düzeyinde. Asıl kazançlar kare başına iş (geliştirici modunda NPC maliyeti ~20–90 kat az, doku yüklemesi 25 → ~0), akşam hanındaki donmanın kalkması ve yüksek dpr'li ekranlarda piksel sayısı. dpr 2'lik bir tablette Yüksek kalite eskisiyle aynı çözünürlükte kalır; Orta/Düşük artık gerçekten fark yaratır.
+
 ## Kararlar
 
 Belirsiz kalan yerlerde verilen kararlar (her biri bir satır):
@@ -142,6 +170,11 @@ Belirsiz kalan yerlerde verilen kararlar (her biri bir satır):
 - 0.2.0 kayıtları: Bertram işinin ortasındaki kayıtlar yeni 3 günlük işe taşınır (yapılmış vardiya en fazla 2 sayılır, son vardiya ödemeyle biter); lonca kaydı yapılmışsa Bölüm II "Eli Boş Maceracı" ile başlar ve pano ertesi sabah açılır; bitiş kartı bayrağı silinir.
 - Divine Paladin dengesi (başlangıç çarpanları, hız/hasar cezaları, 5 kat zor level) değişmedi.
 - QA: `?qa=1` adresinde Phaser kare süresi kırpması kapalıdır (başsız tarayıcıda 5 FPS altındaki kareler 16 ms sayılıyor, oyun zamanı sürünüyordu). Oyuncu sürümünü etkilemez.
+- 0.3.1: FPS sınırının varsayılanı 60 (önceden ekranın yenileme hızıydı; 120 Hz tablette pil ve ısı için). `?qa` modunda sınır yok.
+- 0.3.1: WebGL bağlamı kaybolunca Phaser'ın yerinde onarımı yerine kayıt + tek yenileme + otomatik devam (dinamik dokular onarımdan sonra boş kalabiliyor). 30 sn içinde ikinci kayıpta otomatik yenilenmez, oyuncu dokunarak yeniler.
+- 0.3.1: Yeni sürüm oyun ortasında uygulanmaz; başlık ekranına dönünce (ya da uygulama yeniden açılınca) uygulanır.
+- 0.3.1: Menüdeki sekme, Status bölümü ve envanter kategorisi menü kapanıp açılınca bilerek hatırlanır; diğer tüm sahne alanları her açılışta sıfırlanır.
+- 0.3.1: Görüş alanının dışındaki NPC'ler rastgele dolaşmaz (görünmez), program ve devriye sürer.
 
 ## Kendi görsellerini ekleme
 
@@ -168,7 +201,10 @@ DPR=2.5 node tools/qa/shot.mjs v3comp    # yoldaşlar: izleme, savaş, yere dü�
 DPR=2.5 node tools/qa/shot.mjs v3serve   # Servis Koşturmacası (1. ve 3. gün)
 DPR=2.5 node tools/qa/shot.mjs v3world   # yeni köy, orman, kamera titremesi ölçümü, konuşan NPC
 URL='http://localhost:4173/?qa=1' node tools/qa/shot.mjs v3ch2   # Bölüm II uçtan uca
-node tools/qa/shot.mjs perf              # FPS ve çizilen nesne sayıları
+node tools/qa/shot.mjs perf              # FPS, çizilen nesne, kare başına iş (DEV=1: geliştirici modu açık)
+node tools/qa/shot.mjs g1flow            # Ana Menüye Dön → Devam (HUD), yeniden boyutlanma → Ayarlar, tek dokunuşta açılış
+node tools/qa/shot.mjs g1leak            # iç mekân turu (doku sızıntısı) ve WebGL bağlam kaybı → yenileme → devam
+node tools/qa/shot.mjs g1pwa             # SW: ilk kurulumda yenileme yok, önbellek, çevrimdışı açılış
 ```
 
 Görseller önceden üretilmiş olarak depodadır (`assets/gfx`). Yeniden üretmek için:
@@ -204,6 +240,11 @@ Oyun yalnızca `main` dalından yayınlanır (GitHub Actions → `github-pages` 
 
 ## Sürüm notları
 
+- **0.3.1** — Çökme, bug ve altyapı (Grup 1, bkz. `PLAN.md`).
+  - *Düzeltmeler:* Ana menüye dönüp Devam deyince HUD ve dokunmatik butonların kaybolması; tam ekrana girip çıkınca başlık ekranında Ayarlar'ın açılmaması; akşam hanında oyunun donup çökmesi (kenara çekilen NPC'nin harita dışı yol hedefi sonsuz döngüye sokuyordu); joystick'in altındaki NPC'nin Appraisal açması; başka uygulamaya geçip dönünce çökme; ana ekran uygulamasının bazen ilk dokunuşta açılmaması ve kurulumun yarıda kalması.
+  - *Yenilikler:* Grafik kalitesi çözünürlüğü de belirliyor (Yüksek 2x, Orta 1,5x, Düşük 1x); FPS sınırı ayarı (60/120/144/Sınırsız); uygulamadan çıkınca otomatik kayıt ve dönüşte kaldığın yerden devam; NPC'ler hana teker teker giriyor.
+  - *Performans:* Geliştirici modu etiketleri yalnızca yakındaki NPC'lerde ve değişince yenileniyor; uzaktaki NPC'ler hafif güncelleniyor; yol aramaları karede bire sınırlı.
+  - *Altyapı:* GitHub Pages yalnızca `main`'den, `github-pages` ortamıyla; service worker kurulumda yalnızca 15 çekirdek dosya indiriyor.
 - **0.3.0** — Büyük güncelleme.
   - *Bölüm II — G- Rütbe:* Bertram'ın çatlak sopası; ertesi sabah açılan pano ve üç G görevi (Ahırdaki Fareler — Dorn son kanıtı çalar; Şifacıya Ot — Celeste "kayıt masrafı" keser; Kontrol Noktasına Mektup); kâhyaya yol verme ve ceza; handa "dolu" masalar; Vera ve Lina'nın goblin ilanı. "Biraz hava": yaralı Vera ve Lina, ceza kuralları onların ağzından, Lina sırtta yavaş eşlik, şifacıya otuz bronz. Ertesi gün dostluk ve ilk ortak F görevi (Otlaktaki Kurtlar, Vera'nın savaş dersi), G rütbesi ertesi gün, handa ilk kadeh. Kâhyanın kesesi (Appraisal ile hırsız avı), değirmen bodrumundaki dev fareler, On Gümüş, Bertram'a veda, giriş kartı ve kraliyet şehrinin manzarası. 10 yan görev, her sabah değişen pano.
   - *Sistemler:* Veriyle tanımlı görev sistemi, Lonca Puanı (terfi, ceza, borç, kart kaybı, yeniden kayıt), Saygınlık, yeniden kullanılabilir yoldaş sistemi, yardımlı savaş, giriş kartları, uyku kuralı, otomatik kayıt, geliştirici modu.

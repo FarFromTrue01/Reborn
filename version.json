@@ -1,1 +1,1 @@
-{"version": "0.3.0", "build": 5, "notes": "0.3.0: Bölüm II (G- Rütbe), görev sistemi, Lonca Puanı, Saygınlık, yoldaşlar, Servis Koşturmacası, yeni HUD ve Appraisal paneli, daha küçük köy."}
+{"version": "0.3.1", "build": 6, "notes": "0.3.1: Ana menüden dönünce kaybolan arayüz, açılmayan Ayarlar, handa donma/çökme, joystick altındaki NPC, başka uygulamaya geçince çökme ve güvenilmez PWA kurulumu düzeltildi; grafik kalitesi çözünürlüğü belirliyor, FPS sınırı ayarı eklendi."}

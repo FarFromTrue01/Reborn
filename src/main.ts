@@ -93,11 +93,14 @@ async function start() {
     unmute: () => Sound.resume(),
   });
   (window as any).__R = R;
+  (window as any).__Display = Display;
   (window as any).Phaser = Phaser;
   const onResize = () => {
     Display.compute();
-    game.scale.setZoom(1 / Display.dpr);
+    // Önce boyut, sonra zoom: setZoom CSS boyutunu o anki tampon boyutuyla yazar; resize() ise
+    // zoom 1 iken CSS boyutuna hiç dokunmaz (Düşük kaliteye geçince canvas eski boyutta kalıyordu).
     game.scale.resize(Display.w, Display.h);
+    game.scale.setZoom(1 / Display.dpr);
     Display.emit();
   };
   Display.refresh = onResize;
