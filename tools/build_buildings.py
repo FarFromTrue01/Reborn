@@ -115,7 +115,7 @@ def roof_layer(w_px, h_px, style, seed):
         # saman katmanları (dalgalı koyu çizgiler)
         for y in range(14, h_px - 10, 13):
             for x in range(0, w_px, 2):
-                yy = y + int(2 * __import__('math').sin((x + seed.__hash__() % 7) / 7.0))
+                yy = y + int(2 * __import__("math").sin((x + __import__("zlib").crc32(seed.encode()) % 7) / 7.0))
                 d.point((x, yy), fill=(60, 35, 10, 110))
                 d.point((x, yy + 1), fill=(255, 235, 170, 40))
         img = Image.alpha_composite(img, ov)
@@ -233,6 +233,18 @@ BUILDINGS = [
     {'id': 'mill', 'w': 4, 'wall': 4, 'roof': 3, 'style': 'stone', 'roofStyle': 'thatch_dark', 'doors': [1], 'windows': [2]},
     {'id': 'barn', 'w': 8, 'wall': 3, 'roof': 4, 'style': 'tan', 'roofStyle': 'thatch_dark', 'doors': [3, 4], 'windows': []},
     {'id': 'guardhouse', 'w': 5, 'wall': 3, 'roof': 2, 'style': 'stone', 'roofStyle': 'slate', 'doors': [2], 'windows': [0, 4]},
+    # 0.2.0: büyüyen köy
+    {'id': 'bakery', 'w': 6, 'wall': 3, 'roof': 3, 'style': 'cream', 'roofStyle': 'thatch', 'doors': [2], 'windows': [0, 4, 5], 'chimney': 4.4},
+    {'id': 'tailor', 'w': 6, 'wall': 3, 'roof': 3, 'style': 'tan', 'roofStyle': 'slate', 'doors': [3], 'windows': [1, 4]},
+    {'id': 'tannery', 'w': 7, 'wall': 3, 'roof': 3, 'style': 'stone', 'roofStyle': 'thatch_dark', 'doors': [2], 'windows': [5], 'chimney': 0.6},
+    {'id': 'lodge', 'w': 5, 'wall': 3, 'roof': 3, 'style': 'tan', 'roofStyle': 'thatch_dark', 'doors': [2], 'windows': [0, 4]},
+    {'id': 'farmhouse', 'w': 7, 'wall': 3, 'roof': 3, 'style': 'tan', 'roofStyle': 'thatch', 'doors': [3], 'windows': [1, 5], 'chimney': 5.3},
+    {'id': 'farmhouse2', 'w': 6, 'wall': 3, 'roof': 3, 'style': 'cream', 'roofStyle': 'thatch_dark', 'doors': [2], 'windows': [0, 4], 'chimney': 4.5},
+    {'id': 'manor', 'w': 9, 'wall': 3, 'roof': 4, 'style': 'stone', 'roofStyle': 'slate', 'doors': [4], 'windows': [1, 2, 6, 7], 'chimney': 7.5},
+    {'id': 'house_f', 'w': 5, 'wall': 3, 'roof': 3, 'style': 'stone', 'roofStyle': 'slate', 'doors': [2], 'windows': [0, 4]},
+    {'id': 'house_g', 'w': 4, 'wall': 3, 'roof': 3, 'style': 'cream', 'roofStyle': 'thatch', 'doors': [1], 'windows': [3]},
+    {'id': 'house_h', 'w': 6, 'wall': 3, 'roof': 3, 'style': 'tan', 'roofStyle': 'thatch_dark', 'doors': [1], 'windows': [3, 4], 'chimney': 4.6},
+    {'id': 'stable', 'w': 7, 'wall': 3, 'roof': 3, 'style': 'tan', 'roofStyle': 'thatch_dark', 'doors': [3], 'windows': []},
 ]
 
 

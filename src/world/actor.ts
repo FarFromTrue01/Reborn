@@ -4,7 +4,7 @@ import Phaser from 'phaser';
 import { LPC_ROWS, DIR_INDEX } from '../data/manifest';
 
 export type Dir = 'up' | 'left' | 'down' | 'right';
-export type AnimName = 'idle' | 'walk' | 'run' | 'slash' | 'thrust' | 'shoot' | 'hurt' | 'die' | 'cast' | 'attack';
+export type AnimName = 'idle' | 'walk' | 'run' | 'slash' | 'thrust' | 'shoot' | 'hurt' | 'die' | 'cast' | 'attack' | 'bow';
 
 export interface MonsterSheetMeta {
   frameW: number;
@@ -110,6 +110,7 @@ export class Actor extends Phaser.GameObjects.Container {
         case 'cast': return { row: LPC_ROWS.spellcast.row, frames: 7, fps: 14, start: 0, perDir: true };
         case 'hurt': return { row: LPC_ROWS.hurt.row, frames: 3, fps: 14, start: 0, perDir: false };
         case 'die': return { row: LPC_ROWS.hurt.row, frames: 6, fps: 9, start: 0, perDir: false };
+        case 'bow': return { row: LPC_ROWS.hurt.row, frames: 3, fps: 8, start: 0, perDir: false };
       }
     }
     const m = this.mmeta!;

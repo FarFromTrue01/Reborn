@@ -10,6 +10,10 @@ export interface Settings {
   shake: boolean;
   quality: 'low' | 'medium' | 'high';
   showFps: boolean;
+  /** Joystick: dokunulan yerde belirir ya da sol altta sabit durur. */
+  joystick: 'float' | 'fixed';
+  /** Joseph'in yürüme/koşma hızı çarpanı (0.75–2.0). */
+  moveSpeed: number;
 }
 
 const KEY = 'elonth.settings';
@@ -24,13 +28,27 @@ export const DEFAULT_SETTINGS: Settings = {
   shake: true,
   quality: 'high',
   showFps: false,
+  joystick: 'float',
+  moveSpeed: 1,
 };
+
+export const MOVE_SPEED_MIN = 0.75;
+export const MOVE_SPEED_MAX = 2;
+
+/** Ayar değerlerini geçerli aralığa çeker (bozuk/eski kayıtlar için). */
+export function sanitizeSettings(s: Settings): Settings {
+  const r = { ...DEFAULT_SETTINGS, ...s };
+  if (r.joystick !== 'fixed') r.joystick = 'float';
+  if (typeof r.moveSpeed !== 'number' || !isFinite(r.moveSpeed)) r.moveSpeed = 1;
+  r.moveSpeed = Math.min(MOVE_SPEED_MAX, Math.max(MOVE_SPEED_MIN, r.moveSpeed));
+  return r;
+}
 
 export function loadSettings(): Settings {
   try {
     const raw = localStorage.getItem(KEY);
     if (!raw) return { ...DEFAULT_SETTINGS };
-    return { ...DEFAULT_SETTINGS, ...JSON.parse(raw) };
+    return sanitizeSettings(JSON.parse(raw));
   } catch {
     return { ...DEFAULT_SETTINGS };
   }

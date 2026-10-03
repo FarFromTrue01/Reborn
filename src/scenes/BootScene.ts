@@ -30,6 +30,7 @@ export class BootScene extends Phaser.Scene {
   create() {
     const idx = this.cache.json.get('artIndex');
     if (idx?.files) for (const f of idx.files) G.artFiles.add(f);
+    if (idx?.audio) for (const f of idx.audio) G.audioFiles.add(f);
     G.credits = this.cache.json.get('credits');
     this.makeTextures();
     const boot = document.getElementById('boot');

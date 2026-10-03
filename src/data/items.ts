@@ -1,48 +1,50 @@
 import type { ItemDef } from '../core/types';
 
 // Tüm eşyalar. Fiyatlar bronz cinsindendir (1 Gümüş = 100 Bronz).
+// Köy fiyatları (0.2.0): yiyecek ve iksirler yaklaşık ×3, silah/zırh ×2.5, kitaplar ×2.
+// Canavar drop'larının satış değerleri (sell) sabittir; fiyat artışı drop satışını artırmaz.
 // Yeni eşya eklemek için bu listeye bir kayıt eklemek yeterli.
 
 const list: ItemDef[] = [
   // ------------------------------------------------------------------ Silahlar
   {
     id: 'rusty_shortsword', name: 'Paslı Kısa Kılıç', kind: 'weapon', slot: 'weapon', rank: 'G',
-    price: 60, dmg: [1, 2], weaponType: 'sword', icon: 'sword_rusty', visual: 'w_dagger',
+    price: 150, dmg: [1, 2], weaponType: 'sword', icon: 'sword_rusty', visual: 'w_dagger',
     desc: 'Kenarları körelmiş, pası kazınmamış bir kısa kılıç. Hiç yoktan iyidir.',
   },
   {
     id: 'wooden_club', name: 'Budaklı Sopa', kind: 'weapon', slot: 'weapon', rank: 'G',
-    price: 22, dmg: [1, 2], weaponType: 'club', icon: 'club', visual: 'w_club',
+    price: 55, dmg: [1, 2], weaponType: 'club', icon: 'club', visual: 'w_club',
     desc: 'Meşe dalından yontulmuş sopa. Ucuz ama sağlam.',
   },
   {
     id: 'hunting_knife', name: 'Av Bıçağı', kind: 'weapon', slot: 'weapon', rank: 'G',
-    price: 55, dmg: [1, 2], weaponType: 'dagger', stats: { DEX: 1 }, icon: 'dagger', visual: 'w_dagger',
+    price: 140, dmg: [1, 2], weaponType: 'dagger', stats: { DEX: 1 }, icon: 'dagger', visual: 'w_dagger',
     desc: 'Avcıların deri yüzmekte kullandığı bıçak. Elde hafif durur.',
   },
   {
     id: 'short_bow', name: 'Kısa Yay', kind: 'weapon', slot: 'weapon', rank: 'G',
-    price: 70, dmg: [1, 2], weaponType: 'bow', icon: 'bow', visual: 'w_bow',
+    price: 175, dmg: [1, 2], weaponType: 'bow', icon: 'bow', visual: 'w_bow',
     desc: 'Tavşan avı için yapılmış basit bir yay. Ok sınırsız sayılır (köylü idareliği).',
   },
   {
     id: 'iron_shortsword', name: 'Demir Kısa Kılıç', kind: 'weapon', slot: 'weapon', rank: 'F',
-    price: 220, dmg: [2, 5], weaponType: 'sword', icon: 'sword_iron', visual: 'w_dagger',
+    price: 550, dmg: [2, 5], weaponType: 'sword', icon: 'sword_iron', visual: 'w_dagger',
     desc: 'Brindlewood demircisinin elinden çıkmış dengeli bir kılıç.',
   },
   {
     id: 'iron_spear', name: 'Demir Mızrak', kind: 'weapon', slot: 'weapon', rank: 'F',
-    price: 190, dmg: [2, 5], weaponType: 'spear', icon: 'spear', visual: 'w_spear',
+    price: 475, dmg: [2, 5], weaponType: 'spear', icon: 'spear', visual: 'w_spear',
     desc: 'Uzun saplı mızrak. Düşmanı uzakta tutar.',
   },
   {
     id: 'hunter_bow', name: 'Avcı Yayı', kind: 'weapon', slot: 'weapon', rank: 'F',
-    price: 240, dmg: [2, 4], weaponType: 'bow', stats: { DEX: 1 }, icon: 'bow_good', visual: 'w_bow',
+    price: 600, dmg: [2, 4], weaponType: 'bow', stats: { DEX: 1 }, icon: 'bow_good', visual: 'w_bow',
     desc: 'Porsuk ağacından, iyi gerilmiş bir yay.',
   },
   {
     id: 'goblin_cleaver', name: 'Goblin Satırı', kind: 'weapon', slot: 'weapon', rank: 'F',
-    price: 180, dmg: [2, 5], weaponType: 'sword', stats: { STR: 1 }, icon: 'cleaver', visual: 'w_dagger',
+    price: 450, sell: 63, dmg: [2, 5], weaponType: 'sword', stats: { STR: 1 }, icon: 'cleaver', visual: 'w_dagger',
     special: 'Kaba ama ağır.',
     desc: 'Bir goblinin sırtında taşıdığı çentikli satır. Kimden çaldığı belli değil.',
   },
@@ -50,128 +52,154 @@ const list: ItemDef[] = [
   // ------------------------------------------------------------------ Zırhlar
   {
     id: 'torn_shorts', name: 'Yırtık Şort', kind: 'armor', slot: 'pants', rank: 'G',
-    price: 2, sell: 0, def: 0, icon: 'shorts', visual: 'a_shorts',
+    price: 5, sell: 0, def: 0, icon: 'shorts', visual: 'a_shorts',
     desc: 'Ormanda uyandığında üzerindeki tek şey. Utanç verici derecede kısa.',
   },
   {
     id: 'linen_shirt', name: 'Keten Gömlek', kind: 'armor', slot: 'chest', rank: 'G',
-    price: 30, def: 0, icon: 'shirt', visual: 'a_shirt',
+    price: 75, def: 0, icon: 'shirt', visual: 'a_shirt',
     desc: 'Bertram\'ın eski gömleklerinden biri. Biraz bol ama temiz.',
   },
   {
     id: 'linen_pants', name: 'Keten Pantolon', kind: 'armor', slot: 'pants', rank: 'G',
-    price: 26, def: 1, icon: 'pants', visual: 'a_pants',
+    price: 65, def: 1, icon: 'pants', visual: 'a_pants',
     desc: 'Kaba dokunmuş keten pantolon. Dizleri yamalı.',
   },
   {
     id: 'cloth_shoes', name: 'Bez Ayakkabı', kind: 'armor', slot: 'boots', rank: 'G',
-    price: 20, def: 0, icon: 'shoes', visual: 'a_shoes',
+    price: 50, def: 0, icon: 'shoes', visual: 'a_shoes',
     desc: 'Taban yerine kalın keçe. En azından ayaklar kanamıyor.',
   },
   {
     id: 'leather_vest', name: 'Deri Yelek', kind: 'armor', slot: 'chest', rank: 'G',
-    price: 70, def: 1, stats: { AGI: 1 }, icon: 'vest', visual: 'a_vest',
+    price: 175, def: 1, stats: { AGI: 1 }, icon: 'vest', visual: 'a_vest',
     desc: 'Hafif, hareketi kısıtlamayan deri yelek.',
   },
   {
     id: 'leather_cap', name: 'Deri Başlık', kind: 'armor', slot: 'helmet', rank: 'G',
-    price: 42, def: 1, icon: 'cap', visual: 'a_cap',
+    price: 105, def: 1, icon: 'cap', visual: 'a_cap',
     desc: 'Kafayı taşa çarpmaktan korur. Kılıçtan pek değil.',
   },
   {
     id: 'leather_gloves', name: 'Deri Eldiven', kind: 'armor', slot: 'gloves', rank: 'G',
-    price: 28, def: 0, stats: { DEX: 1 }, icon: 'gloves', visual: 'a_gloves',
+    price: 70, def: 0, stats: { DEX: 1 }, icon: 'gloves', visual: 'a_gloves',
     desc: 'İnce deri. Kavrayışı iyileştirir.',
   },
   {
     id: 'rope_belt', name: 'Örgü Kemer', kind: 'armor', slot: 'belt', rank: 'G',
-    price: 22, def: 0, stats: { VIT: 1 }, icon: 'belt', visual: 'a_belt',
+    price: 55, def: 0, stats: { VIT: 1 }, icon: 'belt', visual: 'a_belt',
     desc: 'Sıkı örülmüş kenevir kemer. Karın kaslarına destek.',
   },
   {
     id: 'leather_boots', name: 'Deri Çizme', kind: 'armor', slot: 'boots', rank: 'G',
-    price: 38, def: 1, icon: 'boots', visual: 'a_boots',
+    price: 95, def: 1, icon: 'boots', visual: 'a_boots',
     desc: 'Çamura ve dikene dayanıklı çizmeler.',
   },
   {
     id: 'traveler_cape', name: 'Yolcu Pelerini', kind: 'armor', slot: 'cape', rank: 'G',
-    price: 32, def: 1, icon: 'cape', visual: 'a_cape',
+    price: 80, def: 1, icon: 'cape', visual: 'a_cape',
     desc: 'Rüzgâra ve çiseleyen yağmura karşı yün pelerin.',
   },
   {
     id: 'copper_ring', name: 'Bakır Yüzük', kind: 'armor', slot: 'ring', rank: 'G',
-    price: 25, def: 0, stats: { LUK: 1 }, icon: 'ring_copper',
+    price: 65, def: 0, stats: { LUK: 1 }, icon: 'ring_copper',
     desc: 'Basit bir bakır halka. Pazarcı "uğurludur" diyor.',
   },
   {
+    id: 'wool_vest', name: 'Yün Yelek', kind: 'armor', slot: 'chest', rank: 'G',
+    price: 160, def: 1, stats: { VIT: 1 }, icon: 'vest_wool', visual: 'a_vest',
+    desc: 'Terzi Mirelle\'in diktiği kalın yün yelek. Soğuğu keser.',
+  },
+  {
+    id: 'felt_hat', name: 'Keçe Başlık', kind: 'armor', slot: 'helmet', rank: 'G',
+    price: 85, def: 1, icon: 'hat_felt', visual: 'a_cap',
+    desc: 'Sıkıştırılmış yünden başlık. Yağmuru tutar, kılıcı pek tutmaz.',
+  },
+  {
     id: 'padded_armor', name: 'Kapitone Zırh', kind: 'armor', slot: 'chest', rank: 'F',
-    price: 230, def: 3, icon: 'armor_padded', visual: 'a_padded',
+    price: 575, def: 3, icon: 'armor_padded', visual: 'a_padded',
     desc: 'Kat kat dikilmiş keten ve yün. Bir kılıç darbesini yutabilir.',
   },
   {
     id: 'iron_cap', name: 'Demir Miğfer', kind: 'armor', slot: 'helmet', rank: 'F',
-    price: 150, def: 2, icon: 'helm_iron', visual: 'a_helm',
+    price: 375, def: 2, icon: 'helm_iron', visual: 'a_helm',
     desc: 'Basit dövme demir miğfer.',
   },
   {
     id: 'sturdy_pants', name: 'Sağlam Deri Pantolon', kind: 'armor', slot: 'pants', rank: 'F',
-    price: 140, def: 2, icon: 'pants_leather', visual: 'a_pants_leather',
+    price: 350, def: 2, icon: 'pants_leather', visual: 'a_pants_leather',
     desc: 'Kalın deri, dizlerde takviye.',
   },
   {
     id: 'hobnail_boots', name: 'Nalçalı Çizme', kind: 'armor', slot: 'boots', rank: 'F',
-    price: 105, def: 2, icon: 'boots_iron', visual: 'a_boots',
+    price: 265, def: 2, icon: 'boots_iron', visual: 'a_boots',
     desc: 'Tabanına demir çivi çakılmış çizme.',
   },
   {
     id: 'rabbit_charm', name: 'Tavşan Ayağı Tılsımı', kind: 'armor', slot: 'necklace', rank: 'G',
-    price: 60, def: 0, stats: { LUK: 2 }, icon: 'charm', special: 'Şans getirdiğine inanılır.',
+    price: 150, sell: 20, def: 0, stats: { LUK: 2 }, icon: 'charm', special: 'Şans getirdiğine inanılır.',
     desc: 'Bir ipe geçirilmiş tavşan ayağı. Tavşan için pek şanslı olmamış.',
   },
   {
     id: 'wolf_fang_necklace', name: 'Kurt Dişi Kolye', kind: 'armor', slot: 'necklace', rank: 'F',
-    price: 160, def: 0, stats: { STR: 1, AGI: 1 }, icon: 'fang_necklace', special: 'Yırtıcının cesareti.',
+    price: 400, sell: 55, def: 0, stats: { STR: 1, AGI: 1 }, icon: 'fang_necklace', special: 'Yırtıcının cesareti.',
     desc: 'Sürü liderinin dişinden yapılmış kolye.',
   },
   {
     id: 'gnawed_ring', name: 'Kemirilmiş Bakır Yüzük', kind: 'armor', slot: 'ring', rank: 'G',
-    price: 30, def: 0, stats: { LUK: 1, AGI: 1 }, icon: 'ring_gnawed',
+    price: 75, sell: 10, def: 0, stats: { LUK: 1, AGI: 1 }, icon: 'ring_gnawed',
     desc: 'Bir farenin yuvasından çıktı. Diş izleri hâlâ belli.',
   },
   {
     id: 'slime_gloves', name: 'Yapışkan Eldiven', kind: 'armor', slot: 'gloves', rank: 'G',
-    price: 45, def: 0, stats: { DEX: 2 }, icon: 'gloves_slime', special: 'Kavrayış mükemmel, temizlik berbat.',
+    price: 115, sell: 15, def: 0, stats: { DEX: 2 }, icon: 'gloves_slime', special: 'Kavrayış mükemmel, temizlik berbat.',
     desc: 'Sümüksünün içinde erimemiş bir eldiven. Hâlâ yapış yapış.',
   },
 
   // ------------------------------------------------------------------ Tüketilebilir
   {
-    id: 'bread', name: 'Ekmek', kind: 'food', price: 1, sell: 0, stack: true, icon: 'bread',
+    id: 'bread', name: 'Ekmek', kind: 'food', price: 4, sell: 0, stack: true, icon: 'bread',
     effects: [{ type: 'heal', amount: 2 }], desc: 'Kepekli köy ekmeği. 2 HP iyileştirir.',
   },
   {
-    id: 'hot_stew', name: 'Sıcak Güveç', kind: 'food', price: 4, sell: 1, stack: true, icon: 'stew',
+    id: 'hot_stew', name: 'Sıcak Güveç', kind: 'food', price: 12, sell: 1, stack: true, icon: 'stew',
     effects: [{ type: 'heal', amount: 6 }, { type: 'stamina', amount: 30 }],
     desc: 'Bertram\'ın mutfağından. 6 HP ve 30 dayanıklılık verir.',
   },
   {
-    id: 'apple', name: 'Elma', kind: 'food', price: 1, sell: 0, stack: true, icon: 'apple',
+    id: 'apple', name: 'Elma', kind: 'food', price: 3, sell: 0, stack: true, icon: 'apple',
     effects: [{ type: 'heal', amount: 1 }, { type: 'stamina', amount: 10 }], desc: 'Ekşi bir yabani elma.',
   },
   {
-    id: 'hp_potion_s', name: 'Küçük HP İksiri', kind: 'consumable', price: 20, stack: true, icon: 'potion_red',
+    id: 'honey_bun', name: 'Ballı Çörek', kind: 'food', price: 9, sell: 0, stack: true, icon: 'bread',
+    effects: [{ type: 'heal', amount: 3 }, { type: 'stamina', amount: 20 }], desc: 'Brunhild\'in fırınından, üstü bal parlak. 3 HP ve 20 dayanıklılık.',
+  },
+  {
+    id: 'meat_pie', name: 'Etli Börek', kind: 'food', price: 18, sell: 1, stack: true, icon: 'pie',
+    effects: [{ type: 'heal', amount: 8 }, { type: 'stamina', amount: 25 }], desc: 'Kıyır kıyır hamur, içi baharatlı et. 8 HP ve 25 dayanıklılık.',
+  },
+  {
+    id: 'cheese', name: 'Köy Peyniri', kind: 'food', price: 10, sell: 0, stack: true, icon: 'cheese',
+    effects: [{ type: 'heal', amount: 4 }, { type: 'stamina', amount: 10 }], desc: 'Rosa\'nın sağdığı sütten. 4 HP ve 10 dayanıklılık.',
+  },
+  {
+    id: 'dried_meat', name: 'Kuru Et', kind: 'food', price: 10, sell: 0, stack: true, icon: 'jerky',
+    effects: [{ type: 'heal', amount: 3 }, { type: 'stamina', amount: 15 }], desc: 'Garrick\'in tütsülediği av eti. Sert ama dayanıklı. 3 HP ve 15 dayanıklılık.',
+  },
+  {
+    id: 'hp_potion_s', name: 'Küçük HP İksiri', kind: 'consumable', price: 60, stack: true, icon: 'potion_red',
     effects: [{ type: 'heal', amount: 10 }], desc: 'Kırmızı, acı bir sıvı. 10 HP iyileştirir.',
   },
   {
-    id: 'mp_potion_s', name: 'Küçük MP İksiri', kind: 'consumable', price: 30, stack: true, icon: 'potion_blue',
+    id: 'mp_potion_s', name: 'Küçük MP İksiri', kind: 'consumable', price: 90, stack: true, icon: 'potion_blue',
     effects: [{ type: 'mana', amount: 8 }], desc: 'Mavi ve soğuk. 8 MP yeniler.',
   },
   {
-    id: 'bandage', name: 'Bez Sargı', kind: 'consumable', price: 5, stack: true, icon: 'bandage',
+    id: 'bandage', name: 'Bez Sargı', kind: 'consumable', price: 15, stack: true, icon: 'bandage',
     effects: [{ type: 'regen', amount: 4, duration: 6 }], desc: '6 saniyede 4 HP iyileştirir. İlk Yardım ile daha etkili.',
   },
   {
-    id: 'antidote', name: 'Panzehir', kind: 'consumable', price: 15, stack: true, icon: 'potion_green',
+    id: 'antidote', name: 'Panzehir', kind: 'consumable', price: 45, stack: true, icon: 'potion_green',
     effects: [{ type: 'cure' }], desc: 'Zehri ve yanmayı söndürür.',
   },
 
@@ -192,29 +220,29 @@ const list: ItemDef[] = [
 
   // ------------------------------------------------------------------ Kitap / parşömen
   {
-    id: 'book_fire', name: 'Ateş Büyüsü: İlk Kıvılcım', kind: 'book', price: 450, stack: true, icon: 'book_red',
+    id: 'book_fire', name: 'Ateş Büyüsü: İlk Kıvılcım', kind: 'book', price: 900, stack: true, icon: 'book_red',
     effects: [{ type: 'learnSkill', skill: 'fire_magic' }],
     desc: 'Okununca Ateş Büyüsü (Nadir) öğrenilir. Haftalık skill sınırına tabidir.',
   },
   {
-    id: 'scroll_spark', name: 'Kıvılcım Parşömeni', kind: 'book', price: 300, stack: true, icon: 'scroll',
+    id: 'scroll_spark', name: 'Kıvılcım Parşömeni', kind: 'book', price: 600, sell: 100, stack: true, icon: 'scroll',
     effects: [{ type: 'learnSkill', skill: 'fire_magic' }],
     desc: 'Goblin şamanının sakladığı yanık kenarlı parşömen. Okununca Ateş Büyüsü öğrenilir.',
   },
   {
-    id: 'book_archery', name: 'Okçunun El Kitabı', kind: 'book', price: 90, stack: true, icon: 'book_green',
+    id: 'book_archery', name: 'Okçunun El Kitabı', kind: 'book', price: 180, stack: true, icon: 'book_green',
     effects: [{ type: 'learnSkill', skill: 'archery' }],
     desc: 'Okununca Okçuluk (Sıradan) öğrenilir.',
   },
   {
-    id: 'book_firstaid', name: 'Sargı ve Merhem', kind: 'book', price: 60, stack: true, icon: 'book_white',
+    id: 'book_firstaid', name: 'Sargı ve Merhem', kind: 'book', price: 120, stack: true, icon: 'book_white',
     effects: [{ type: 'learnSkill', skill: 'first_aid' }],
     desc: 'Okununca İlk Yardım (Sıradan) öğrenilir.',
   },
 
   // ------------------------------------------------------------------ Görev / özel
   { id: 'guild_card', name: 'Lonca Kartı', kind: 'quest', price: 0, bound: true, icon: 'card', desc: 'Brindlewood şubesinin mühürlü maceracı kartı.' },
-  { id: 'map_village', name: 'Brindlewood Haritası', kind: 'quest', price: 10, icon: 'map', desc: 'Köyün elle çizilmiş haritası. Kullanınca haritada köy açılır.' },
+  { id: 'map_village', name: 'Brindlewood Haritası', kind: 'quest', price: 60, icon: 'map', desc: 'Köyün elle çizilmiş haritası. Kullanınca haritada köy açılır.' },
   { id: 'map_forest_deep', name: 'Harita Parçası: Orman Derinlikleri', kind: 'quest', price: 0, icon: 'map_piece', desc: 'Goblinlerin çizdiği kaba bir harita. Kullanınca ormanın derinlikleri açılır.' },
 ];
 

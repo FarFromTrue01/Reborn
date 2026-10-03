@@ -112,7 +112,6 @@ PROPS = {
     'ladder': ('terrain', (288, 128, 320, 224)),
     # ------------------------------------------------ köy
     'sign_sword': ('deco', (226, 4, 254, 32)),
-    'sign_inn': ('deco', (257, 37, 286, 65)),
     'sign_mug': ('deco', (226, 37, 254, 65)),
     'sign_book': ('deco', (194, 37, 222, 65)),
     'sign_tools': ('deco', (321, 37, 352, 65)),
@@ -192,6 +191,78 @@ ANIMS = {
 }
 
 
+# ------------------------------------------------ özel tabelalar (boş tabela + piksel çizim)
+GOLD = (183, 140, 65, 255)
+GOLD_D = (104, 68, 21, 255)
+GLYPHS = {
+    'H': ['101', '101', '111', '101', '101'],
+    'A': ['010', '101', '111', '101', '101'],
+    'N': ['1001', '1101', '1011', '1001', '1001'],
+}
+# 1 = altın, 2 = koyu gölge
+ICONS = {
+    'bread': ['..1111111..', '.111111111.', '11211211211', '11111111111', '11111111111', '.111111111.', '..2222222..'],
+    'scissors': ['1.....1', '1....1.', '.1..1..', '..11...', '..11...', '.1..1..', '11..11.', '11..11.'],
+    'hide': ['.1.....1.', '111111111', '.1111111.', '.1111111.', '.1111111.', '111111111', '.1.....1.'],
+    'bow': ['..11....', '.1..1...', '1....1..', '1.....1.', '1......1', '1.....1.', '1....1..', '.1..1...', '..11....'],
+    'wheat': ['.1.1.1.', '.1.1.1.', '..111..', '1.111.1', '.1.1.1.', '..111..', '...1...', '...1...', '...1...'],
+    'coin': ['..111..', '.12221.', '1211121', '1211121', '1211121', '.12221.', '..111..'],
+}
+
+
+def blank_sign():
+    return src('deco').crop((194, 4, 222, 32)).copy()
+
+
+def draw_bitmap(img, rows, ox, oy, scale=1):
+    px = img.load()
+    for y, r in enumerate(rows):
+        for x, ch in enumerate(r):
+            if ch in '12':
+                for sy in range(scale):
+                    for sx in range(scale):
+                        X, Y = ox + x * scale + sx, oy + y * scale + sy
+                        # gölge
+                        if ch == '1' and 0 <= X + 1 < img.width and 0 <= Y + 1 < img.height and px[X + 1, Y + 1][3] and px[X + 1, Y + 1] != GOLD:
+                            px[X + 1, Y + 1] = GOLD_D
+                        px[X, Y] = GOLD if ch == '1' else GOLD_D
+
+
+def text_sign(word):
+    img = blank_sign()
+    bb = img.getbbox()
+    widths = [len(GLYPHS[c][0]) for c in word]
+    total = sum(widths) + len(word) - 1
+    x = bb[0] + (bb[2] - bb[0] - total) // 2
+    y = 13
+    for c, wdt in zip(word, widths):
+        draw_bitmap(img, GLYPHS[c], x, y)
+        x += wdt + 1
+    return img
+
+
+def icon_sign(name):
+    img = blank_sign()
+    bb = img.getbbox()
+    rows = ICONS[name]
+    w = len(rows[0])
+    x = bb[0] + (bb[2] - bb[0] - w) // 2
+    y = 11 + (9 - len(rows)) // 2
+    draw_bitmap(img, rows, x, y)
+    return img
+
+
+CUSTOM = {
+    'sign_inn': lambda: text_sign('HAN'),
+    'sign_bread': lambda: icon_sign('bread'),
+    'sign_scissors': lambda: icon_sign('scissors'),
+    'sign_hide': lambda: icon_sign('hide'),
+    'sign_bow': lambda: icon_sign('bow'),
+    'sign_wheat': lambda: icon_sign('wheat'),
+    'sign_coin': lambda: icon_sign('coin'),
+}
+
+
 def pack(images):
     """Basit raf paketleme."""
     items = sorted(images.items(), key=lambda kv: -kv[1].height)
@@ -224,6 +295,8 @@ def main():
             imgs[k] = tight(s, box)
         except Exception as e:
             print('!', k, e)
+    for k, fn in CUSTOM.items():
+        imgs[k] = fn()
     for k, (s, boxes) in ANIMS.items():
         frames = [raw(s, b) for b in boxes]
         # ortak sınır

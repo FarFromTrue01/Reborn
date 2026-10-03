@@ -358,7 +358,7 @@ export class MenuScene extends Phaser.Scene {
     if (id === 'map_village' || id === 'map_forest_deep') {
       const r = transact(G.p as any, { label: 'Harita', take: [{ id, qty: 1 }] });
       if (!r.ok) return;
-      if (id === 'map_village') this.world.revealArea('world', 60, 18, 142, 104);
+      if (id === 'map_village') this.world.revealArea('world', 60, 18, 212, 142);
       else this.world.revealArea('world', 0, 0, 56, 24);
       R.sysmsg('HARİTA', [id === 'map_village' ? 'Brindlewood haritaya işlendi.' : 'Ormanın derinlikleri haritaya işlendi.']);
       this.render();

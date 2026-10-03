@@ -108,6 +108,28 @@ export interface Gather {
   kind: 'herb' | 'wood' | 'apple';
 }
 
+/** Kapı/geçiş görselleri. Testler (tests/doors.test.ts) her geçişin bunlardan birine sahip olduğunu doğrular. */
+export const DOOR_SPRITES = ['building', 'exit', 'side', 'ladder'] as const;
+export type DoorSprite = (typeof DOOR_SPRITES)[number];
+
+/**
+ * Bir kapı ya da geçiş. (x, y) geçilen açıklık karosu; h dikey kapılarda açıklığın yüksekliği.
+ * dir: kapıdan geçerken bakılan yön (dünyadaki bina kapıları 'up', iç mekân çıkışları 'down',
+ * yan duvardaki kapılar 'left' / 'right').
+ */
+export interface DoorDef {
+  x: number;
+  y: number;
+  h?: number;
+  dir: 'up' | 'down' | 'left' | 'right';
+  sprite: DoorSprite;
+  /** Bir warp'a (harita geçişine) mı bağlı, yoksa aynı harita içinde bir geçit mi? */
+  warp: boolean;
+  /** 'building' kapıları için binanın kimliği. */
+  building?: string;
+  label?: string;
+}
+
 export interface MapData {
   id: string;
   name: string;
@@ -123,6 +145,7 @@ export interface MapData {
   zones: Zone[];
   spawns: SpawnDef[];
   warps: Warp[];
+  doors: DoorDef[];
   triggers: Trigger[];
   gathers: Gather[];
   music: string;

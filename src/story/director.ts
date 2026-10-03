@@ -8,9 +8,11 @@ import type { Npc } from '../world/npc';
 import type { PropPlacement, Warp } from '../world/types';
 import { TILE } from '../world/types';
 import { NPC_BY_ID } from '../data/npcs';
+import { SHOPS, shopOpen } from '../data/shops';
+import { FEES, LESSONS, JOBS } from '../data/economy';
 import * as R from '../game/rules';
 import { transact, equip } from '../core/transactions';
-import { walletTotal, emptyWallet } from '../core/money';
+import { walletTotal, emptyWallet, formatPrice } from '../core/money';
 import { nextMorning, hourOf } from '../core/time';
 import { dirFromVec } from '../world/actor';
 import { openShop } from '../ui/shop';
@@ -169,6 +171,7 @@ export class Director {
   }
 
   private registering = false;
+  private goodTableWarnAt = 0;
 
   // ============================================================ olaylar
   onWorldReady() {
@@ -221,7 +224,7 @@ export class Director {
   beforeWarp(w: Warp): boolean {
     if (w.to === 'inn_attic' && !G.flag('bertram_deal') && G.flag('room_day') !== G.state.time.day) {
       this.scene(async () => {
-        await this.say('bertram', 'Hey! Yukarısı boş gezenlere değil. Yatak istiyorsan on beş bronz.', 'kizgin');
+        await this.say('bertram', 'Hey! Yukarısı boş gezenlere değil. Yatak istiyorsan kırk bronz.', 'kizgin');
       });
       return false;
     }
@@ -238,12 +241,18 @@ export class Director {
     if (id === 'checkpoint_near' && !G.flag('checkpoint_seen')) {
       G.setFlag('checkpoint_seen');
       this.scene(async () => {
-        await this.pan(146 * TILE, 50 * TILE, 1600);
+        await this.pan(this.w.mapData.points.city.x * TILE, this.w.mapData.points.city.y * TILE, 1600);
         await this.think('Yol bir kontrol noktasında bitiyor. Ötesinde... o surlar. Kuzeydeki kraliyet şehri.');
         await this.think('Muhafızlar yolu tutmuş. Öyle elini kolunu sallayarak geçilecek gibi değil.');
         await this.pan(this.w.player.actor.x, this.w.player.actor.y, 900);
         this.follow();
       });
+    }
+    if (id === 'inn_good_tables' && this.w.time.now > this.goodTableWarnAt) {
+      this.goodTableWarnAt = this.w.time.now + 45000;
+      const warner = this.w.npc('innmaid') ?? this.w.npc('bertram');
+      const elite = this.w.npcs.find((n) => n.prestige >= 4);
+      if (warner) warner.say(elite ? `Oralar ${elite.def.name.split(' ').pop()} Efendi gibilere ayrılır! Sen arkaya, mutfak kapısının yanına.` : 'O masalar efendilerin. Boş olsa bile. Sen arkaya otur, köksüz.', 3.6);
     }
     if (id === 'camp_near' && !G.flag('camp_seen')) {
       G.setFlag('camp_seen');
@@ -295,7 +304,7 @@ export class Director {
         this.ui.tweens.add({ targets: vImg, alpha: 1, duration: 900 });
       }
       await this.think('Ağaçların arasından... bir köy görünüyor. Çatılardan duman yükseliyor.');
-      await this.pan(146 * TILE, 50 * TILE, 2200);
+      await this.pan(this.w.mapData.points.city.x * TILE, this.w.mapData.points.city.y * TILE, 2200);
       await this.think('Ve çok uzakta, surlarla çevrili koca bir şehir. Kuleleri sisin içinde mavi.');
       if (vImg) this.ui.tweens.add({ targets: vImg, alpha: 0, duration: 800, onComplete: () => vImg!.destroy() });
       await this.pan(a.x, a.y, 1800);
@@ -374,7 +383,7 @@ export class Director {
       await this.say('vera', 'İş mi? Önce bir gömlek bulsana. Lonca bile böyle adamı kapıdan çevirir. Kayıt bir gümüş, biliyor musun?', 'alayci');
       await this.say('lina', 'Hihi! Bir gümüşü olsa üstüne bir şey alırdı!', 'gulen');
       await this.think('Bu ikisi... Üzerlerinde bir şey var. Sanki bir şeyleri okuyabilirim.');
-      await this.ui.system('Appraisal kullanılabilir. Q tuşuna ya da sağ alttaki göz simgesine dokunarak önündeki kişiyi incele. Vera\'ya bak.');
+      await this.ui.system('Appraisal kullanılabilir. Vera\'ya dokun (ya da 🔍 butonuna bas / Q tuşu) ve onu incele.');
       this.ui.closeDialogue();
       // oyuncunun Appraisal kullanmasını bekle
       this.w.cutscene = false;
@@ -428,28 +437,17 @@ export class Director {
   }
 
   async bertramDeal() {
-    await this.say('bertram', 'İş istiyorsun demek. Görünüşe bakılırsa paran da yok, adın da yok.');
+    await this.say('bertram', 'İş istiyorsun demek. Görünüşe bakılırsa ne paran var ne de adın.');
     await this.say('joseph', 'Adım Joseph. Ama gerisi... doğru.');
-    await this.say('bertram', 'Bulaşık, odun, masa. Ağır iş. Sızlanmak yok. Hırsızlık hiç yok.');
-    const c = await this.ui.choice(['"Ne kadar ödersin?"', '"Kabul. Ne olursa."']);
-    if (c === 0) {
-      await this.say('bertram', 'Günde elli bronz. Yemek benden. Tavan arasında bir yatak var.');
-      const c2 = await this.ui.choice(['"Biraz daha olmaz mı?"', '"Bir de... kıyafet lazım."', '"Anlaştık."']);
-      if (c2 === 0) {
-        await this.say('bertram', 'Daha mı? Seni giydireceğim, besleyeceğim, yatıracağım. Elli. O kadar.', 'kizgin');
-        await this.say('bertram', 'Ama haklısın, üstüne bir şey lazım. Öyle çalışamazsın.');
-      } else if (c2 === 1) {
-        G.affinity('bertram', 1);
-        await this.say('bertram', 'Gözüm var, görüyorum. Eski gömleğim, bir pantolon, bez ayakkabı. Maaşından kesmem.');
-        await this.say('bertram', 'Ama çalarsan, bacağımın sağlam olanıyla tekmelerim.');
-      } else {
-        await this.say('bertram', 'Akıllıca. Ama üstüne bir şey lazım. Öyle çalışamazsın.');
-      }
-    } else {
-      G.affinity('bertram', 1);
-      await this.say('bertram', 'Hah. Pazarlık bile etmedin. Ya çok akıllısın ya çok aç.');
-      await this.say('bertram', 'Günde elli bronz. Yemek benden. Tavan arasında bir yatak. Bir de şu hâlini düzeltelim.');
-    }
+    await this.say('bertram', 'Joseph. İyi. Bak, sana açık konuşacağım. Ben lafı dolandırmam.');
+    await this.say('bertram', 'Dört gün çalışırsın. Bulaşık, odun, masa. Günde bir vardiya, sabahtan akşama.');
+    await this.say('bertram', 'Karşılığı dördüncü günün akşamı, hepsi birden: elli bronz. Üstüne seni giydiririm. Bu hâlde ne iş görürsün ne adam yüzü.');
+    await this.say('bertram', 'İlk günün yemeği benden. Tavan arasında bir yatak var, o da senin. Sonraki günlerin yemeğini herkes gibi parayla yersin.');
+    const c = await this.ui.choice(['"Kabul. Elimden geleni yaparım."', '"Dört gün. Söz veriyorum."']);
+    G.affinity('bertram', 1);
+    if (c === 0) await this.say('bertram', 'Elinden geleni değil, işin gerektirdiğini yapacaksın. Ama niyetin iyi.');
+    else await this.say('bertram', 'Söz mü? Hah. Bu dünyada söz bronzdan ucuzdur. Seninki öyle olmasın.');
+    await this.say('bertram', 'Hırsızlık yok, sızlanmak yok. Gerisini konuşmaya gerek yok.');
     // Kıyafet işlemi
     const r = transact(G.p as any, { label: 'Bertram\'ın kıyafetleri', give: [{ id: 'linen_shirt', qty: 1 }, { id: 'linen_pants', qty: 1 }, { id: 'cloth_shoes', qty: 1 }] });
     if (r.ok) {
@@ -468,12 +466,13 @@ export class Director {
       R.sysmsg('EKİPMAN', ['Keten Gömlek (G) [DEF: +0]', 'Keten Pantolon (G) [DEF: +1]', 'Bez Ayakkabı (G) [DEF: +0]', 'Yırtık Şort envantere kaldırıldı.']);
     }
     G.setFlag('bertram_deal');
+    G.setFlag('deal_day', G.state.time.day);
     await this.say('bertram', 'Biraz büyük ama idare eder. Tavan arasındaki yatak artık senin. Merdiven arkada.');
     await this.say('bertram', 'İşe hazır olunca bana söyle. Sabah erken gelirsen tam gün çalışırsın.');
     await this.say('vera', 'Bulaşıkçı! Ne yakışmış!', 'alayci');
     await this.say('lina', 'Hihi! Bulaşık prensi!', 'gulen');
     await this.think('...Bir iş, bir yatak, bir gömlek. Bu dünyadaki ilk sahip olduklarım.');
-    R.sysmsg('BİLGİ', ['Tavan arasındaki yatakta uyuduğunda orası yeniden doğma noktan olur.', 'Bertram\'la konuşarak çalışabilirsin (günde 50 bronz).']);
+    R.sysmsg('İŞ: YORGUN YABAN DOMUZU HANI', [`${JOBS.bertramShifts} vardiya (günde en fazla 1)`, `Ödeme: ${JOBS.bertramShifts}. günün sonunda {m:${JOBS.bertramPay}}`, 'İlk günün yemeği Bertram\'dan.', 'Tavan arasındaki yatak artık senin (yeniden doğma noktası).']);
     G.save('auto');
   }
 
@@ -488,11 +487,11 @@ export class Director {
         case 'bertram': return this.talkBertram();
         case 'celeste': return this.talkCeleste();
         case 'captain': return this.talkCaptain();
-        case 'smith': return this.talkShop(n, 'smith');
-        case 'shopkeeper': return this.talkShop(n, 'shop');
-        case 'healer': return this.talkShop(n, 'healer');
+        case 'haldor': return this.talkHaldor(n);
         case 'hunter': return this.talkHunter(n);
-        default: return this.talkGeneric(n);
+        default:
+          if (n.def.shop) return this.talkShop(n, n.def.shop);
+          return this.talkGeneric(n);
       }
     });
   }
@@ -509,19 +508,25 @@ export class Director {
       G.affinity('hilda', 1);
       await this.think('Bu dünyada ilk iyilik. Bir elma.');
     }
-    if (n.def.id === 'healer' && st === 'naked' && G.p.hp < G.d.maxHp) {
-      G.p.hp = G.d.maxHp;
-      Sound.sfx('heal');
-      await this.think('Yaralarım sızlamıyor artık.');
-    }
     function id(x: Npc) {
       return x.def.id;
     }
   }
 
+  /** Bertram'ın hanında kalan vardiya sayısı. */
+  shiftsDone() {
+    return G.state.counters.workDays ?? 0;
+  }
+
+  /** Bugün handa yemek bedava mı? (Sadece ilk çalışma günü.) */
+  static freeMealToday() {
+    return G.flag('free_meal_day') === G.state.time.day && G.flag('meal_day') !== G.state.time.day;
+  }
+
   async talkBertram() {
     const st = this.w.josephStatus();
     const deal = !!G.flag('bertram_deal');
+    const done = !!G.flag('bertram_done');
     const h = G.state.time.minute / 60;
     if (!G.flag('inn_met')) {
       await this.say('bertram', 'Ne istiyorsun?');
@@ -529,24 +534,35 @@ export class Director {
     }
     const opts: string[] = [];
     const acts: (() => Promise<void>)[] = [];
-    if (deal) {
+    if (deal && !done) {
       const worked = G.flag('worked_today') === G.state.time.day;
-      if (!worked) {
-        opts.push(h < 15 ? 'Çalışmaya hazırım.' : 'Çalışmaya hazırım. (geç oldu)');
-        acts.push(async () => {
-          if (h >= 15) {
-            await this.say('bertram', 'Bu saatte mi? Gün bitti sayılır. Yarın sabah gel.');
-            return;
-          }
-          await this.workMontage();
-        });
-      }
+      const n = this.shiftsDone();
+      opts.push(worked ? 'Yarın da çalışabilir miyim?' : `Çalışmaya hazırım. (Gün ${n + 1}/${JOBS.bertramShifts})${h >= 15 ? ' — geç oldu' : ''}`);
+      acts.push(async () => {
+        if (worked) {
+          await this.say('bertram', 'Günde bir vardiya, evlat. Yarın sabah gel. Şimdi ye ve uyu.');
+          return;
+        }
+        if (h >= 15) {
+          await this.say('bertram', 'Bu saatte mi? Gün bitti sayılır. Yarın sabah gel.');
+          return;
+        }
+        await this.workMontage();
+      });
+    } else if (done) {
+      opts.push('İş var mı?');
+      acts.push(async () => {
+        await this.say('bertram', 'Sana verecek işim kalmadı, evlat. Söz sözdür: dört gündü, dört gün oldu.');
+        if (!G.flag('farm_done')) await this.say('bertram', 'Haldor\'a gittin mi? Kuzeydoğudaki buğday tarlası. Elli bronz, unutma.');
+        else if (!G.flag('guild_registered')) await this.say('bertram', 'Bir gümüşün var. Daha ne bekliyorsun? Lonca seni bekliyor.');
+        else await this.say('bertram', 'Artık maceracısın. Para avda, evlat. Fare kuyruğu bile para eder. Az, ama eder.');
+      });
     } else {
       opts.push('İş var mı?');
       acts.push(async () => this.bertramDeal());
-      opts.push('Yatak kirala (15 bronz)');
+      opts.push(`Yatak kirala ({m:${FEES.innBed}})`);
       acts.push(async () => {
-        const r = R.pay(15, 'Han yatağı');
+        const r = R.pay(FEES.innBed, 'Han yatağı');
         if (!r.ok) {
           await this.say('bertram', 'Paran yok. Yatak da yok.');
           return;
@@ -558,27 +574,29 @@ export class Director {
     }
     opts.push('Yiyecek ve içecek');
     acts.push(async () => {
-      await this.say('bertram', deal ? 'Çalışanıma yemek bedava. Ama fazlası için para.' : 'Sıcak güveç dört bronz. Ekmek bir.');
+      if (Director.freeMealToday()) await this.say('bertram', 'Bugünün yemeği benden, söz verdim. Güveci al. Yarından sonra parasını ödersin.');
+      else await this.say('bertram', 'Sıcak güveç on iki bronz. Ekmek dört. Elma üç. Bedava yemek ilk gündü, evlat.');
       this.ui.closeDialogue();
       await openShop(this.ui, 'inn');
     });
     if (G.flag('guild_registered') && !R.hasSkill('sword_mastery')) {
-      opts.push('Bana kılıç öğretir misin?');
+      const L = LESSONS.sword_mastery;
+      opts.push(`Bana kılıç öğretir misin? ({m:${L.price}})`);
       acts.push(async () => {
-        await this.say('bertram', 'Kılıç mı? Hmm. Eski alışkanlıklar... Bir gümüş elli bronz. Ve üç saat terlersin.');
-        const c = await this.ui.choice(['Öde (1 Gümüş 50 Bronz)', 'Vazgeç']);
+        await this.say('bertram', 'Kılıç mı? Hmm. Eski alışkanlıklar... Yedi gümüş elli bronz. Ve üç saat terlersin. Pazarlık yok, ders benim emekliliğim.');
+        const c = await this.ui.choice([`Öde ({m:${L.price}})`, 'Vazgeç']);
         if (c !== 0) return;
         const can = R.canLearnSkill();
         if (!can.ok) {
           await this.say('bertram', 'Kafan dolu gibi. Bu hafta başka bir şey öğrenmişsin. Haftaya gel.');
           return;
         }
-        const r = R.pay(150, 'Kılıç dersi');
+        const r = R.pay(L.price, 'Kılıç dersi');
         if (!r.ok) {
-          await this.say('bertram', 'Para yoksa ders de yok.');
+          await this.say('bertram', 'Para yoksa ders de yok. Yedi buçuk gümüş, evlat. Avlan, biriktir, gel.');
           return;
         }
-        await this.trainingTime(180, 'Bertram seni arka bahçede bir sopayla saatlerce koşturuyor.');
+        await this.trainingTime(L.minutes, 'Bertram seni arka bahçede bir sopayla saatlerce koşturuyor.');
         R.learnSkill('sword_mastery', 'Öğretmen: Bertram');
       });
     }
@@ -589,6 +607,7 @@ export class Director {
         'Lonca kartı bir kâğıttır, evlat. Asıl rütbe bacaklarında, ellerinde ve kafandadır.',
         'Brindlewood küçük ama dürüst bir köy. Çoğu. Wilmer hariç.',
         'Kuzeydeki şehre mi? Orası soylularla dolu. Senin gibi köksüz birini kapıdan sokmazlar.',
+        'Ön masalar mı? Ben koymadım o kuralı. Ama müşteri ön masaya göre bahşiş bırakır. Han da böyle döner.',
       ];
       await this.say('bertram', lines[Math.floor(Math.random() * lines.length)]);
     });
@@ -614,63 +633,215 @@ export class Director {
 
   async workMontage() {
     const day = G.state.time.day;
-    const workCount = (G.state.counters.workDays ?? 0) + 1;
-    await this.say('bertram', workCount === 1 ? 'Güzel. Önce bulaşıklar. Mutfak arkada. Sonra odun.' : 'Aynı iş. Bulaşık, odun, masa. Hadi.');
+    const shift = this.shiftsDone() + 1;
+    const total = JOBS.bertramShifts;
+    const intro = [
+      'Güzel. Önce bulaşıklar. Mutfak arkada, sağdaki kapı. Sonra odun.',
+      'Aynı iş. Bulaşık, odun, masa. Hadi.',
+      'Üçüncü gün. Bugün ekmek teknesini de sen taşırsın.',
+      'Son gün. Bugün akşama kadar dayan, sonra konuşacağız.',
+    ];
+    await this.say('bertram', intro[Math.min(shift, 4) - 1]);
     await this.ui.curtain(1, 700);
     Sound.play('inn');
-    const scenes = workCount === 1
-      ? [
-          ['Bulaşıklar. Tabak, tabak, tabak... Suyun soğuğu parmaklarıma işliyor.', 'click', 12],
-          ['Odun taşımak. Her kütük bir öncekinden ağır. Kollarım titriyor.', 'chop', 13],
-          ['Sarhoş Fenn masaya devrildi. "Hık! Sen iyi çocuksun!" Bertram onu kapı dışarı taşıyor.', 'laugh', 12],
-          ['Masaları silmek. Bira lekeleri, ekmek kırıntıları, bir yerde... bir diş?', 'click', 13],
-        ]
-      : [
-          ['Bulaşıklar yine. Bu sefer daha hızlıyım. Biraz.', 'click', 12],
-          ['Avcı Garrick bir tavşan getirdi. Derisini yüzmeyi seyrettim. Mide bulandırıcı ve... öğretici.', 'chop', 13],
-          ['Vera ve Lina akşam yemeğinde. "Bulaşıkçı! Bira!" Getirdim. Döktüm. Gülüştüler.', 'laugh', 12],
-          ['Kapanış. Bertram tek kelime etmeden omzuma vurdu.', 'click', 13],
-        ];
-    let coins = 0;
-    const counter = this.ui.overlayText('0 Bronz', { size: 30, y: Display.uiH * 0.72, color: '#f3dc95', font: 'Cinzel, serif' });
-    for (const [text, sfx, add] of scenes as [string, string, number][]) {
+    const SCENES: [string, string][][] = [
+      [
+        ['Bulaşıklar. Tabak, tabak, tabak... Suyun soğuğu parmaklarıma işliyor.', 'click'],
+        ['Odun taşımak. Her kütük bir öncekinden ağır. Kollarım titriyor.', 'chop'],
+        ['Sarhoş Fenn masaya devrildi. "Hık! Sen iyi çocuksun!" Bertram onu kapı dışarı taşıyor.', 'laugh'],
+        ['Masaları silmek. Bira lekeleri, ekmek kırıntıları, bir yerde... bir diş?', 'click'],
+      ],
+      [
+        ['Bulaşıklar yine. Bu sefer daha hızlıyım. Biraz.', 'click'],
+        ['Avcı Garrick bir tavşan getirdi. Derisini yüzmeyi seyrettim. Mide bulandırıcı ve... öğretici.', 'chop'],
+        ['Vera ve Lina akşam yemeğinde. "Bulaşıkçı! Bira!" Getirdim. Döktüm. Gülüştüler.', 'laugh'],
+        ['Kapanış. Bertram tek kelime etmeden omzuma vurdu.', 'click'],
+      ],
+      [
+        ['Sabah ekmek teknesini taşıdım. Bertram ocağı yakmayı gösterdi: "Önce kuru dal, sonra sabır."', 'chop'],
+        ['Tüccar Aurelio\'nun adamları geldi. Şöminenin önündeki masayı boşalttık; köylüler ayakta kaldı.', 'click'],
+        ['Vera masaya bir bronz fırlattı. "Bulaşıkçıya." Bertram bronzu kasaya attı: "Hanın parası."', 'laugh'],
+        ['Arka masada Köksüz Nim uyuyakalmış. Bertram üstüne bir battaniye örttü. Kimse görmedi. Ben gördüm.', 'click'],
+      ],
+      [
+        ['Son gün. Bulaşık kulesi bile daha kısa görünüyor.', 'click'],
+        ['Garrick\'in kurt postlarını tabakhaneye taşıdım. Gorm burnunu bile kaldırmadı.', 'chop'],
+        ['Akşam han doldu taştı. Thorne iyi masaya oturdu, Ozan Fennick şarkı söyledi. Ben tabak taşıdım.', 'laugh'],
+        ['Kapanış. Bertram bu kez omzuma vurmadı. "Otur," dedi.', 'click'],
+      ],
+    ];
+    const scenes = SCENES[Math.min(shift, 4) - 1];
+    // İlerleme göstergesi: ekranın üstünde, konuşma kutusundan uzakta
+    const prog = this.ui.add.container(Display.uiW / 2, Display.uiH * 0.16).setDepth(96);
+    const pg = this.ui.add.graphics();
+    const pw = 64 * total + 10 * (total - 1);
+    for (let i = 0; i < total; i++) {
+      const x = -pw / 2 + i * 74;
+      pg.fillStyle(i < shift - 1 ? 0xd9b45a : 0x2a2235, 1);
+      pg.fillRoundedRect(x, 34, 64, 10, 4);
+      pg.lineStyle(1, 0x6b5426, 1);
+      pg.strokeRoundedRect(x, 34, 64, 10, 4);
+    }
+    const label = this.ui.overlayText(`Gün ${shift}/${total}`, { size: 28, y: 0, color: '#f3dc95', font: 'Cinzel, serif' });
+    label.setPosition(0, 0).setOrigin(0.5, 0);
+    prog.add([pg, label]);
+    const fill = this.ui.add.rectangle(-pw / 2 + (shift - 1) * 74, 34, 0, 10, 0xf3dc95).setOrigin(0, 0);
+    prog.add(fill);
+    for (const [text, sfx] of scenes) {
       const t = this.ui.overlayText(text, { size: 23 });
       t.setAlpha(0);
       this.ui.tweens.add({ targets: t, alpha: 1, duration: 400 });
       Sound.sfx(sfx, 0.7);
-      await wait(this.w, 2300);
-      for (let k = 0; k < add; k++) {
-        coins++;
-        counter.setText(`${coins} Bronz`);
-        if (k % 3 === 0) Sound.sfx('coin', 0.4);
-        await wait(this.w, 45);
-      }
-      await wait(this.w, 500);
+      this.ui.tweens.add({ targets: fill, width: fill.width + 64 / scenes.length, duration: 2300 });
+      await wait(this.w, 2800);
       this.ui.tweens.add({ targets: t, alpha: 0, duration: 300, onComplete: () => t.destroy() });
       await wait(this.w, 350);
     }
-    counter.destroy();
-    // Ödeme işlemi
-    R.giveMoney(50, 'Han ücreti');
-    G.state.counters.workDays = workCount;
+    prog.destroy();
+    G.state.counters.workDays = shift;
     G.setFlag('worked_today', day);
     G.state.time.minute = Math.max(G.state.time.minute, 18 * 60);
     G.p.hp = G.d.maxHp;
     G.p.stamina = G.d.maxStamina;
+    if (shift === 1) G.setFlag('free_meal_day', day);
     await this.ui.curtain(0, 700);
     this.w.updateMusic();
-    await this.say('bertram', workCount === 1 ? 'Fena değildi. Elli bronz. Say istersen.' : 'Elli bronz daha.');
-    if (workCount >= 2 && G.p.wallet.bronze >= 100 && !G.flag('silver_exchanged')) {
-      await this.say('bertram', 'Yüz bronz cebinde şıngırdıyor. Ver şunları, bir gümüşe çevireyim. Taşıması kolay olur.');
+    if (shift < total) {
+      const after = [
+        'Fena değildi. Ödemen dördüncü akşam, sözleştiğimiz gibi. Bugünün yemeği benden, güveci al.',
+        'İki gün. Yarısı bitti. Yemek artık parayla, haberin olsun.',
+        'Üç gün. Yarın son gün. Erken gel.',
+      ];
+      await this.say('bertram', after[shift - 1]);
+      await this.say('bertram', 'Yemeğini ye, sonra yukarı çık ve uyu.');
+      G.save('auto');
+      return;
+    }
+    await this.bertramSpeech();
+  }
+
+  /** Dördüncü günün sonunda: ödeme ve dünyanın düzeni üzerine uzun konuşma. */
+  async bertramSpeech() {
+    await this.say('bertram', 'Dört gün. Bir kere bile sızlanmadın. Bir tabak da kırmadın... Fenn\'in kırdığını saymazsak.');
+    await this.say('bertram', 'Al. Elli bronz, sözleştiğimiz gibi. Gömlek, pantolon, ayakkabı da senin.');
+    R.giveMoney(JOBS.bertramPay, 'Bertram\'ın ücreti');
+    Sound.sfx('coin');
+    G.setFlag('bertram_done');
+    await this.say('joseph', 'Teşekkür ederim. Yarın da...');
+    await this.say('bertram', 'Yarın yok, evlat. Bu han iki kişiyi doyurur, üçü fazla. Sana verecek işim kalmadı.');
+    const c1 = await this.ui.choice(['"Peki ben şimdi ne yapacağım?"', '(Sessizce paraları say.)']);
+    if (c1 === 1) await this.say('bertram', 'Say, say. Elli tane. Ben kimseyi kandırmam. Ama otur, sana bir şey anlatacağım. Bir kez anlatacağım.');
+    else await this.say('bertram', 'İşte onu konuşacağız. Otur. Bir kez anlatacağım, iyi dinle.');
+    await this.say('bertram', 'Bu dünyada herkes sıfırdan doğar. Level 0. Kral da, fare de. Ama herkes aynı yerden başlamaz.');
+    await this.say('bertram', 'En tepede soylular. Toprak, vergi, yasa onların. Baron Valmont\'un kâhyası köye gelince herkes yolun kenarına çekilir, şapkasını çıkarır. Gördün mü daha?');
+    await this.say('bertram', 'Sonra yüksek rütbeli maceracılar. C, B, A... Kılıçları soyluların bile işine yarar. O yüzden şöminenin önündeki masa onlarındır.');
+    await this.say('bertram', 'Sonra tüccarlar ve zanaatkârlar. Gunnar, Marta, Brunhild, ben. Bir dükkânın, bir adın varsa insanlar sana selam verir.');
+    await this.say('bertram', 'Sonra köylüler. Tarla, hayvan, vergi. Ve en altta...');
+    await this.say('bertram', '...köksüzler. Ailesi, toprağı, adı olmayanlar. Sen, evlat.');
+    await this.think('Köksüz. Wilmer de öyle demişti. Ve han ön masaları hiç bana göstermedi.');
+    await this.say('bertram', 'Darılma, gerçek bu. Ama köksüzün de bir kapısı var: Maceracılar Loncası. Lonca kimin oğlu olduğuna bakmaz. Rütbene bakar.');
+    await this.say('bertram', 'G\'den başlarsın. Sonra F, E, D, C, B, A, S. Bir de X var, ama X\'i sadece ozanlar söyler. Masal.');
+    await this.say('bertram', 'S rütbe mi? Koca dünyada iki, belki üç tane. Ejderha avlarlar, krallarla aynı masaya otururlar. Onların adını çocuklar ezberler.');
+    await this.say('bertram', 'Ben E rütbeydim. Emekli E. Bu köyde bu bile bir şey. Kurtlar bacağımı almadan önce bir ayda kazandığımı bu han bir yılda kazandırmaz.');
+    await this.say('bertram', 'Para orada döner, evlat. Avda, görevde, lonca panosunda. Bulaşıkta değil.');
+    const c2 = await this.ui.choice(['"Ben de bir gün S rütbe olabilir miyim?"', '"Lonca kaydı ne kadar?"']);
+    if (c2 === 0) {
+      await this.say('bertram', 'Hah! Önce G-\'yi gör, sonra hayal kur. Ama hayal kurmak bedava. Ona bir şey demem.');
+      await this.say('bertram', 'Kayıt bir gümüş, bu arada. Yüz bronz.');
+    } else await this.say('bertram', 'Bir gümüş. Yüz bronz. Celeste bozuk parayı iki parmağıyla alır, gümüş verirsen yüzü biraz daha az ekşir.');
+    await this.say('bertram', 'Benim verdiğim elli bronz yetmez, biliyorum. O yüzden bir çare buldum.');
+    await this.say('bertram', 'Köyün kuzeydoğusunda bir buğday tarlası var. Sahibi Haldor, eski dostum. Dizleri artık tutmuyor, başaklar biçilmeyi bekliyor.');
+    await this.say('bertram', 'Git, Bertram gönderdi de. Hasada yardım edersen o da elli bronz verir. İkisi bir gümüş eder. Sonra loncaya git, kaydol.');
+    await this.say('bertram', 'Tavan arasındaki yatak hâlâ senin. Kira istemem. Ama yemeğini artık kendin ödersin.');
+    const c3 = await this.ui.choice(['"Bertram... neden bu kadar yardım ediyorsun?"', '"Teşekkür ederim. Unutmayacağım."']);
+    if (c3 === 0) await this.say('bertram', 'Çünkü ben de bir zamanlar bir kapının önünde aç durdum. Biri bana da iş verdi. Borcumu ödüyorum, o kadar.');
+    else await this.say('bertram', 'Unutma. Ama bana değil, bir gün kapının önünde aç duran birine öde.');
+    G.affinity('bertram', 2);
+    await this.say('bertram', 'Hadi. Gün kısa, Haldor sabahları tarlada olur.');
+    R.sysmsg('YENİ İŞ: HALDOR\'UN HASADI', ['Brindlewood\'un kuzeydoğusundaki buğday tarlasında Yaşlı Haldor\'u bul.', `Ödül: {m:${JOBS.harvestPay}} (tek seferlik)`, `Hedef: {m:${FEES.guildRegistration}} → Maceracılar Loncası kaydı`], { big: true });
+    G.save('auto');
+  }
+
+  // ============================================================ Haldor'un tarlası
+  async talkHaldor(n: Npc) {
+    if (!G.flag('bertram_done')) return this.talkGeneric(n);
+    if (G.flag('farm_done')) {
+      const lines = ['Hasat ambarda, evlat. Sana verecek işim kalmadı. Ama bir gün yine uğra, bir kâse çorba her zaman var.', 'Bertram\'a selam söyle. O ihtiyar kurt beni hâlâ yener.', 'Loncada nasıl gidiyor? Fareler mi? Hah. Herkes farelerle başlar.'];
+      await this.say('haldor', lines[Math.floor(Math.random() * lines.length)]);
+      return;
+    }
+    const first = !G.flag('farm_offered');
+    if (first) {
+      G.setFlag('farm_offered');
+      await this.say('haldor', 'Kimsin sen? Bir dakika... O gömlek. Bertram\'ın eski gömleği bu!');
+      await this.say('joseph', 'Bertram gönderdi. Hasada yardım edeceğim.');
+      await this.say('haldor', 'Gönderdi demek! O inatçı ihtiyar, dizlerimi hâlâ dert ediyor demek.');
+      await this.say('haldor', 'Bak evlat: buğdayı biçersin, demetleri bağlarsın, arabaya yüklersin. Birkaç saat sürer. Karşılığı elli bronz. Pazarlık yok, ben de köylüyüm, kesem bu kadar.');
+    } else await this.say('haldor', 'Geldin mi? Başaklar seni bekliyor.');
+    const h = G.state.time.minute / 60;
+    const c = await this.ui.choice(['Hasada başla (birkaç saat sürer)', 'Sonra gelirim.']);
+    if (c !== 0) {
+      await this.say('haldor', 'Çok bekletme. Başak beklemez, dizlerim hiç beklemez.');
+      return;
+    }
+    if (h < 6 || h >= 16) {
+      await this.say('haldor', 'Bu saatte mi? Karanlıkta orakla ancak kendi ayağını biçersin. Sabah gel.');
+      return;
+    }
+    await this.harvest();
+  }
+
+  async harvest() {
+    await this.say('haldor', 'Orak şurada. Yerden kes, bilekten çevir. Kendini değil, başağı kes.');
+    this.ui.closeDialogue();
+    const perf = await new Promise<number>((resolve) => {
+      this.w.scene.launch('Minigame', { kind: 'harvest', done: resolve });
+      this.w.scene.bringToTop('Minigame');
+      this.w.paused = true;
+    });
+    this.w.paused = false;
+    await this.ui.curtain(1, 600);
+    const lines = [
+      'Saatler geçiyor. Demet, demet, demet. Sırtım iki büklüm.',
+      'Haldor her demette bir hikâye anlatıyor. Çoğu Bertram\'ın gençliği hakkında. Çoğu yalan olabilir.',
+      'Öğlen Elke ekmek ve peynir getirdi. Benimle göz göze gelmedi ama payımı da ayırdı.',
+      'Güneş eğilirken son demeti arabaya yükledik.',
+    ];
+    for (const l of lines) {
+      const t = this.ui.overlayText(l, { size: 23 });
+      t.setAlpha(0);
+      this.ui.tweens.add({ targets: t, alpha: 1, duration: 400 });
+      Sound.sfx('chop', 0.4);
+      await wait(this.w, 2500);
+      this.ui.tweens.add({ targets: t, alpha: 0, duration: 300, onComplete: () => t.destroy() });
+      await wait(this.w, 350);
+    }
+    G.state.time.minute += JOBS.harvestMinutes;
+    while (G.state.time.minute >= 1440) {
+      G.state.time.minute -= 1440;
+      G.state.time.day++;
+    }
+    G.p.stamina = Math.max(0, G.p.stamina - 30);
+    await this.ui.curtain(0, 600);
+    this.w.updateMusic();
+    await this.say('haldor', perf > 0.6 ? 'Vay be! Bertram\'ın çırağı dediğin böyle olur. Bu kadar temiz biçeni yıllardır görmedim.' : perf > 0.3 ? 'Fena değil. Biraz eğri ama tarla senden şikâyetçi değil.' : 'Başakların yarısı yerde kaldı... Neyse. Emek emektir.');
+    await this.say('haldor', 'Al bakalım. Elli bronz. Söz sözdür.');
+    R.giveMoney(JOBS.harvestPay, 'Haldor\'un hasadı');
+    Sound.sfx('coin');
+    G.setFlag('farm_done');
+    G.affinity('haldor', 2);
+    // 100 bronz → 1 gümüş
+    if (G.p.wallet.bronze >= 100 && !G.flag('silver_exchanged')) {
+      await this.say('haldor', 'Cebin bozuk parayla şıngırdıyor. Ver şunları, sana bir gümüş vereyim. Lonca bozukluk saymayı sevmez.');
       const r = transact(G.p as any, { label: 'Bozdurma', pay: 100, receive: { ...emptyWallet(), silver: 1 } });
       if (r.ok) {
         G.setFlag('silver_exchanged');
         Sound.sfx('coin');
-        R.toast('100 Bronz → 1 Gümüş', 'money', 'coin_silver');
+        R.toast('{w:bronze:100} → {w:silver:1}', 'money');
         await this.think('Bir gümüş. Avucumda soğuk ve ağır. Lonca kaydı tam bu kadar tutuyor.');
       }
-    }
-    await this.say('bertram', 'Yemeğini ye, sonra yukarı çık ve uyu. Yarın da aynı saatte.');
+    } else if (walletTotal(G.p.wallet) >= FEES.guildRegistration) await this.think('Bertram\'ın ellisi, Haldor\'un ellisi. Lonca kaydı için yetiyor.');
+    await this.say('haldor', 'Bundan sonrası senin işin, evlat. Kolay para yok bu köyde; ne buldunsa kılıcınla bulacaksın.');
     G.save('auto');
   }
 
@@ -689,7 +860,7 @@ export class Director {
       }
       await this.say('celeste', 'Kayıt.', 'saskin');
       await this.say('celeste', 'Kayıt ücreti bir gümüş. Gerçekten bir gümüşün var mı?', 'alayci');
-      if (walletTotal(G.p.wallet) < 100) {
+      if (walletTotal(G.p.wallet) < FEES.guildRegistration) {
         await this.say('joseph', '...Şu an yok.');
         await this.say('celeste', 'Sanmıştım. Kapı arkanda.', 'alayci');
         return;
@@ -715,7 +886,7 @@ export class Director {
         this.w.addNpc(NPC_BY_ID[id], p.x, p.y, true);
       } else this.w.npc(id)!.scripted = true;
     }
-    const r = R.pay(100, 'Lonca kaydı');
+    const r = R.pay(FEES.guildRegistration, 'Lonca kaydı');
     if (!r.ok) {
       this.registering = false;
       return;
@@ -824,7 +995,7 @@ export class Director {
     await this.say('captain', 'Lonca kartı... G-. Hm. Geçiş ücreti beş gümüş. Ve şehir yolu G- biri için bir haftalık ölüm yürüyüşüdür.');
     const c = await this.ui.choice(['"Ücreti ödemek istiyorum." ', '"Anladım. Dönüyorum."']);
     if (c === 0) {
-      if (walletTotal(G.p.wallet) < 500) {
+      if (walletTotal(G.p.wallet) < FEES.gatePass) {
         await this.say('captain', 'Beş gümüş dedim. Cebindekiyle bu kapıdan bir tavuk bile geçmez.');
       } else {
         await this.say('captain', 'Paran var ama rütben yok. Şehre en az E rütbe maceracılar alınıyor bu aralar. Kral emri. Geri dön, evlat.');
@@ -833,60 +1004,143 @@ export class Director {
   }
 
   async talkHunter(n: Npc) {
+    const shop = SHOPS.lodge;
+    const hour = G.state.time.minute / 60;
+    const open = shopOpen(shop, this.w.mapData.id, hour);
     await this.say('hunter', n.def.talk.any![Math.floor(Math.random() * n.def.talk.any!.length)]);
-    if (G.flag('guild_registered') || this.w.josephStatus() !== 'naked') {
-      if (!R.hasSkill('archery')) {
-        const c = await this.ui.choice(['"Bana okçuluk öğretir misin?" (40 bronz, 2 saat)', '"Teşekkürler."']);
-        if (c === 0) {
-          const can = R.canLearnSkill();
-          if (!can.ok) {
-            await this.say('hunter', 'Bu hafta kafan başka şeylerle dolu gibi. Haftaya.');
-            return;
-          }
-          const r = R.pay(40, 'Okçuluk dersi');
-          if (!r.ok) {
-            await this.say('hunter', '...Kırk bronz. Ok ucu bedava değil.');
-            return;
-          }
-          await this.trainingTime(120, 'Garrick sana yayı nasıl gereceğini, nefesini nasıl tutacağını gösteriyor. Parmakların kanıyor.');
-          R.learnSkill('archery', 'Öğretmen: Garrick');
-          await this.say('hunter', 'Yayın yok ama. Demircide kısa yay var. Ya da kendi yolunu bul.');
-        }
-      }
+    if (!open) {
+      await this.say('hunter', `Ders mi, yay mı? Kulübemdeyken gel. Kuzeydoğuda, korunun kenarında. Öğleden sonra ${shop.hours[0]}:00–${shop.hours[1]}:00 oradayım.`);
+      return;
     }
+    if (this.w.josephStatus() === 'naked') {
+      await this.say('hunter', '...Önce bir şey giy. Ormanda bile böyle gezilmez.');
+      return;
+    }
+    await this.serveCustomersFirst(n, shop.id);
+    const opts = ['Alışveriş', 'Bir şey satmak istiyorum'];
+    const acts: (() => Promise<void>)[] = [async () => openShop(this.ui, 'lodge', 'buy'), async () => openShop(this.ui, 'lodge', 'sell')];
+    if (!R.hasSkill('archery')) {
+      const L = LESSONS.archery;
+      opts.push(`Okçuluk öğret ({m:${L.price}}, 2 saat)`);
+      acts.push(async () => {
+        const can = R.canLearnSkill();
+        if (!can.ok) {
+          await this.say('hunter', 'Bu hafta kafan başka şeylerle dolu gibi. Haftaya.');
+          return;
+        }
+        const r = R.pay(L.price, 'Okçuluk dersi');
+        if (!r.ok) {
+          await this.say('hunter', '...İki gümüş. Ok ucu bedava değil, benim vaktim hiç değil.');
+          return;
+        }
+        await this.trainingTime(L.minutes, 'Garrick sana yayı nasıl gereceğini, nefesini nasıl tutacağını gösteriyor. Parmakların kanıyor.');
+        R.learnSkill('archery', 'Öğretmen: Garrick');
+        await this.say('hunter', 'Yayın yok ama. Burada kısa yay var. Ya da kendi yolunu bul.');
+      });
+    }
+    opts.push('Teşekkürler.');
+    acts.push(async () => {});
+    const c = await this.ui.choice(opts);
+    this.ui.closeDialogue();
+    await acts[c]();
   }
 
-  async talkShop(n: Npc, kind: 'smith' | 'shop' | 'healer') {
+  /** Dükkânda Joseph'ten üst kasttan bir müşteri varsa önce ona bakılır. */
+  async serveCustomersFirst(keeper: Npc, shopId: string) {
+    const stamp = `${G.state.time.day}:${Math.floor(G.state.time.minute / 60)}`;
+    const customers = this.w.npcs.filter((c) => c !== keeper && !c.def.shop && c.def.id !== 'merc_guard' && c.def.id !== 'apprentice' && c.def.id !== 'innmaid' && c.prestige >= 2 && (c as any).servedAt !== stamp);
+    if (!customers.length) return;
+    customers.sort((a, b) => b.prestige - a.prestige);
+    const cust = customers[0];
+    (cust as any).servedAt = stamp;
+    const title = cust.def.caste === 'noble' || cust.prestige >= 4 ? 'Efendi' : cust.def.creature.gender === 'Kadın' ? 'Hanım' : 'Usta';
+    const short = cust.def.name.split(' ').pop();
+    await this.say(keeper.def.id, `Bekle. Önce ${short} ${title}.`);
+    this.ui.closeDialogue();
+    const a = this.w.player.actor;
+    const cf = this.w.mapData.points.counter_front;
+    if (cf) {
+      await this.walk(a, cf.x + 2, cf.y + 1);
+      a.face('left');
+      cust.scripted = true;
+      await this.walk(cust.actor, cf.x, cf.y, 2);
+      cust.actor.face('up');
+      this.face(keeper.actor, cust.actor);
+    }
+    const asks: Record<string, string> = {
+      merchant: 'En iyisinden. Hesabıma yaz, ay sonunda öderim. Belki.',
+      headwife: 'Sıra mı? Muhtar karısı sıra beklemez. Çabuk ol.',
+      steward: 'Baron adına alıyorum. Fiyatı sen değil, ben söylerim.',
+    };
+    cust.say(asks[cust.def.id] ?? 'Her zamankinden, lütfen.', 2.6);
+    await wait(this.w, 1500);
+    keeper.say(cust.prestige >= 4 ? 'Hemen, efendim! Başüstüne!' : 'Hemen geliyor.', 2.2);
+    Sound.sfx('coin', 0.5);
+    await wait(this.w, 1900);
+    if (cf) {
+      const q = this.w.mapData.points.queue ?? { x: cf.x + 3, y: cf.y };
+      await this.walk(cust.actor, q.x, q.y, 2);
+      await this.walk(a, cf.x, cf.y);
+      a.face('up');
+    }
+    cust.scripted = false;
+    this.face(keeper.actor, a);
+    if (!G.flag('queue_seen')) {
+      G.setFlag('queue_seen');
+      await this.think('Ben önce gelmiştim. Ama burada sıra gelişle değil, kimin ne olduğuyla belirleniyor.');
+    }
+    await this.say(keeper.def.id, 'Evet, sen. Ne istiyordun?');
+  }
+
+  async talkShop(n: Npc, shopId: string) {
+    const shop = SHOPS[shopId];
     const st = this.w.josephStatus();
     const pool = [...(n.def.talk[st] ?? []), ...(n.def.talk.any ?? [])];
+    const hour = G.state.time.minute / 60;
+    const kind = shopId;
+    // Hizmet sadece kendi dükkânında ve çalışma saatinde
+    if (!shopOpen(shop, this.w.mapData.id, hour)) {
+      await this.say(n.def.id, pool[Math.floor(Math.random() * pool.length)] ?? 'Hm?');
+      if (this.w.mapData.id === shop.map) await this.say(n.def.id, `Dükkân kapandı. Yarın gel; ${shop.hours[0]}:00 ile ${shop.hours[1]}:00 arası açığım.`);
+      else await this.say(n.def.id, shopId === 'healer' ? 'Yara sarmak, ilaç satmak... Bunlar şifa evinde olur, yavrum. Dükkânımdayken gel.' : 'Alışveriş mi? Burada değil. Dükkânımdayken gel.');
+      if (shopId === 'healer' && st === 'naked' && G.p.hp < G.d.maxHp && !G.flag('healer_free')) {
+        G.setFlag('healer_free');
+        G.p.hp = G.d.maxHp;
+        Sound.sfx('heal');
+        await this.think('Yine de yaralarıma bir merhem sürdü. Bedava.');
+      }
+      return;
+    }
     if (st === 'naked' && kind !== 'healer') {
       await this.say(n.def.id, pool[0] ?? 'Önce bir şey giy.', 'kizgin');
       return;
     }
     await this.say(n.def.id, pool[Math.floor(Math.random() * pool.length)] ?? 'Buyur.');
+    await this.serveCustomersFirst(n, shopId);
     const opts = ['Alışveriş', 'Bir şey satmak istiyorum'];
     const acts: (() => Promise<void>)[] = [async () => openShop(this.ui, kind, 'buy'), async () => openShop(this.ui, kind, 'sell')];
     if (kind === 'healer' && !R.hasSkill('first_aid')) {
-      opts.push('İlk yardım öğret (30 bronz, 1 saat)');
+      const L = LESSONS.first_aid;
+      opts.push(`İlk yardım öğret ({m:${L.price}}, 1 saat)`);
       acts.push(async () => {
         const can = R.canLearnSkill();
         if (!can.ok) {
           await this.say('healer', 'Bir haftada bir şey öğrenmek yeter, yavrum. Haftaya gel.');
           return;
         }
-        const r = R.pay(30, 'İlk yardım dersi');
+        const r = R.pay(L.price, 'İlk yardım dersi');
         if (!r.ok) {
-          await this.say('healer', 'Otuz bronz, yavrum. Otlar kendiliğinden yetişmiyor.');
+          await this.say('healer', 'Bir gümüş elli bronz, yavrum. Otlar kendiliğinden yetişmiyor, ben de kendiliğimden yaşlanmadım.');
           return;
         }
-        await this.trainingTime(60, 'Ilse Nine sana sargı sarmayı, yarayı temizlemeyi ve merhem yapmayı gösteriyor.');
+        await this.trainingTime(L.minutes, 'Ilse Nine sana sargı sarmayı, yarayı temizlemeyi ve merhem yapmayı gösteriyor.');
         R.learnSkill('first_aid', 'Öğretmen: Ilse Nine');
       });
     }
     if (kind === 'healer' && G.p.hp < G.d.maxHp) {
-      opts.push('Yaralarımı sar (5 bronz)');
+      opts.push(`Yaralarımı sar ({m:${FEES.healerWrap}})`);
       acts.push(async () => {
-        const r = R.pay(5, 'Şifacı');
+        const r = R.pay(FEES.healerWrap, 'Şifacı');
         if (!r.ok) {
           await this.say('healer', 'Paran yoksa otur, yine de sararım. Ama söyleme kimseye.');
         } else Sound.sfx('coin');
@@ -961,7 +1215,7 @@ export class Director {
     R.sysmsg('KAYDEDİLDİ', ['Yeniden doğma noktası: tavan arası.', `${G.state.time.day}. gün, sabah.`]);
     await this.ui.curtain(0, 900);
     this.w.updateMusic();
-    if (G.state.time.minute / 60 < 8 && !G.flag('worked_today')) await this.think('Sabah. Bertram aşağıda bekliyordur.');
+    if (G.state.time.minute / 60 < 8 && G.flag('bertram_deal') && !G.flag('bertram_done') && G.flag('worked_today') !== G.state.time.day) await this.think('Sabah. Bertram aşağıda bekliyordur.');
   }
 
   async training(kind: 'chop' | 'lift' | 'run') {

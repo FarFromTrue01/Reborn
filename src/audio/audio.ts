@@ -279,6 +279,82 @@ class AudioEngine {
     }
   }
 
+  // ------------------------------------------------------------ prolog: araba kazası
+  /**
+   * Yaklaşık 1 saniyelik araba kazası: lastik sürtünmesi + çarpma.
+   * assets/audio/car_crash.(ogg|mp3|wav) varsa o dosya çalınır.
+   * Ses bitince çözülür.
+   */
+  async carCrash(): Promise<void> {
+    if (!this.ctx) return;
+    const file = G.audioFile('car_crash');
+    if (file) {
+      const dur = await this.playFile(file, this.sfxBus);
+      if (dur > 0) {
+        await new Promise((r) => setTimeout(r, Math.min(3000, dur * 1000)));
+        return;
+      }
+    }
+    const c = this.ctx;
+    const t = c.currentTime + 0.02;
+    const B = this.sfxBus;
+    const hit = 0.62;
+    // Lastik sürtünmesi: titreşen iki testere dalgası + dar bant gürültü
+    for (const [f0, det] of [[1480, 0], [1530, 7]] as [number, number][]) {
+      const o = c.createOscillator();
+      o.type = 'sawtooth';
+      o.frequency.setValueAtTime(f0, t);
+      o.frequency.linearRampToValueAtTime(f0 * 0.86, t + hit);
+      o.detune.value = det;
+      const lfo = c.createOscillator();
+      lfo.frequency.value = 27;
+      const lg = c.createGain();
+      lg.gain.value = 55;
+      lfo.connect(lg).connect(o.frequency);
+      const bp = c.createBiquadFilter();
+      bp.type = 'bandpass';
+      bp.frequency.value = 1500;
+      bp.Q.value = 4;
+      const g = c.createGain();
+      g.gain.setValueAtTime(0.0001, t);
+      g.gain.exponentialRampToValueAtTime(0.16, t + 0.08);
+      g.gain.setValueAtTime(0.16, t + hit - 0.06);
+      g.gain.exponentialRampToValueAtTime(0.0001, t + hit + 0.02);
+      o.connect(bp).connect(g).connect(B);
+      o.start(t);
+      lfo.start(t);
+      o.stop(t + hit + 0.05);
+      lfo.stop(t + hit + 0.05);
+    }
+    this.noise(t, hit, 0.3, B, { type: 'bandpass', f: 2400, f2: 1700, q: 6 });
+    // Çarpma: gövde, metal ve cam
+    const T = t + hit;
+    this.noise(T, 0.36, 0.95, B, { type: 'lowpass', f: 1400, f2: 140 });
+    this.osc('sine', 72, T, 0.42, 0.85, B, { glide: -0.55, attack: 0.002 });
+    this.osc('square', 140, T, 0.12, 0.25, B, { glide: -0.6, attack: 0.002 });
+    for (const [f, d] of [[383, 0.42], [596, 0.34], [1171, 0.3], [1693, 0.22]] as [number, number][]) this.osc('triangle', f, T + 0.01, d, 0.09, this.reverbSend, { attack: 0.002, release: d * 0.9 });
+    this.noise(T + 0.03, 0.3, 0.32, B, { type: 'highpass', f: 5200 });
+    for (let i = 0; i < 6; i++) this.osc('sine', 3000 + this.rand() * 2400, T + 0.05 + i * 0.045, 0.12, 0.05, this.reverbSend, { attack: 0.001 });
+    await new Promise((r) => setTimeout(r, (hit + 0.42) * 1000));
+  }
+
+  /** Bir ses dosyasını bir kez çalar; süresini (sn) döndürür, olmazsa 0. */
+  async playFile(url: string, dest: AudioNode): Promise<number> {
+    if (!this.ctx) return 0;
+    try {
+      const res = await fetch(url);
+      if (!res.ok) return 0;
+      const buf = await this.ctx.decodeAudioData(await res.arrayBuffer());
+      const s = this.ctx.createBufferSource();
+      s.buffer = buf;
+      s.connect(dest);
+      s.start();
+      return buf.duration;
+    } catch {
+      return 0;
+    }
+  }
+
   // ------------------------------------------------------------ konuşma sesi
   /** Bir harf için dıt sesi. Boşluk/noktalama sessiz. */
   blip(voice: string, ch: string) {

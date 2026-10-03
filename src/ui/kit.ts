@@ -2,6 +2,7 @@
 import Phaser from 'phaser';
 import { Display } from '../game/display';
 import { Sound } from '../audio/audio';
+import { richLine, hasMoneyTokens } from './coins';
 
 export const COLORS = {
   gold: 0xd9b45a,
@@ -138,7 +139,7 @@ export interface ButtonOpts {
 
 export class Button extends Phaser.GameObjects.Container {
   bg: Phaser.GameObjects.Graphics;
-  label: Phaser.GameObjects.Text | null = null;
+  label: (Phaser.GameObjects.Text | (Phaser.GameObjects.Container & { rowWidth: number })) | null = null;
   iconImg: Phaser.GameObjects.Image | null = null;
   w: number;
   h: number;
@@ -162,10 +163,7 @@ export class Button extends Phaser.GameObjects.Container {
       this.iconImg.setScale(Math.min(s, 1.6));
       this.add(this.iconImg);
     }
-    if (text) {
-      this.label = txt(scene, opts.icon ? 12 : 0, 0, text, { size: opts.size ?? 20, font: FONT.ui, bold: true, color: opts.textColor ?? COLORS.text, align: 'center' }).setOrigin(0.5);
-      this.add(this.label);
-    }
+    if (text) this.makeLabel(text);
     this.setSize(this.w, this.h);
     this.setInteractive({ useHandCursor: true });
     this.on('pointerover', () => { this.hover = true; this.redraw(); });
@@ -197,8 +195,33 @@ export class Button extends Phaser.GameObjects.Container {
     return this;
   }
 
+  private labelText = '';
+
+  /** Etiketi oluşturur; para işaretleri ({m:150}) varsa simgeli satır kullanılır. */
+  private makeLabel(s: string) {
+    this.labelText = s;
+    const o = { size: this.opts.size ?? 20, font: FONT.ui, bold: true, color: this.opts.textColor ?? COLORS.text, align: 'center' as const };
+    if (hasMoneyTokens(s)) this.label = richLine(this.scene, this.opts.icon ? 12 : 0, 0, s, { ...o, originX: 0.5 });
+    else this.label = txt(this.scene, this.opts.icon ? 12 : 0, 0, s, o).setOrigin(0.5);
+    this.label.setAlpha(this.disabled ? 0.5 : 1);
+    this.add(this.label);
+  }
+
   setText(s: string) {
-    this.label?.setText(s);
+    if (s === this.labelText && this.label) return this;
+    if (!this.label) {
+      // Etiket yoksa şimdi oluştur (boş metinle yaratılmış butonlar için).
+      if (s) this.makeLabel(s);
+      return this;
+    }
+    if (this.label instanceof Phaser.GameObjects.Text && !hasMoneyTokens(s)) {
+      this.labelText = s;
+      this.label.setText(s);
+      return this;
+    }
+    this.label.destroy();
+    this.label = null;
+    if (s) this.makeLabel(s);
     return this;
   }
 

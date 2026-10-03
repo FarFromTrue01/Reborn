@@ -1,6 +1,6 @@
 // Açık dünya haritası: başlangıç ormanı + Brindlewood köyü.
 // Deterministik (tohumlu) üretim + elle yerleştirilmiş önemli yerler.
-import { TERRAIN, TILE, type MapData, type PropPlacement, type BuildingPlacement, type SpawnDef, type Zone, type Gather, type Warp, type Trigger } from './types';
+import { TERRAIN, TILE, type MapData, type PropPlacement, type BuildingPlacement, type SpawnDef, type Zone, type Gather, type Warp, type Trigger, type DoorDef } from './types';
 import { PROP_INFO, TREE_KEYS_FOREST, TREE_KEYS_LIGHT, BUSH_KEYS } from '../data/props';
 
 export function mulberry32(a: number) {
@@ -13,8 +13,10 @@ export function mulberry32(a: number) {
   };
 }
 
-export const WORLD_W = 150;
-export const WORLD_H = 110;
+export const WORLD_W = 230;
+export const WORLD_H = 150;
+/** Kontrol noktası bariyeri: bu x'ten doğusu kraliyet şehrine giden yol (geçilmez). */
+export const BARRIER_X = 213;
 
 export interface BuildingMeta {
   w: number;
@@ -35,6 +37,7 @@ export function buildWorld(bmeta: Record<string, BuildingMeta>): MapData {
   const zones: Zone[] = [];
   const spawns: SpawnDef[] = [];
   const warps: Warp[] = [];
+  const doors: DoorDef[] = [];
   const triggers: Trigger[] = [];
   const gathers: Gather[] = [];
   const points: Record<string, { x: number; y: number }> = {};
@@ -138,7 +141,7 @@ export function buildWorld(bmeta: Record<string, BuildingMeta>): MapData {
   path(TERRAIN.dirt, [[40, 60], [41, 70], [40, 77]], 0, 0.5);
   // Köy içi
   path(TERRAIN.dirt, [[62, 58], [70, 58], [80, 57], [88, 58]], 1, 0.4);
-  path(TERRAIN.dirt, [[102, 58], [112, 58], [122, 57], [132, 57], [142, 57], [149, 57]], 1, 0.4);
+  path(TERRAIN.dirt, [[102, 58], [112, 58], [122, 57], [132, 57], [142, 57], [160, 57], [180, 57], [200, 57], [214, 57]], 1, 0.4);
   path(TERRAIN.dirt, [[95, 52], [95, 44], [96, 34], [100, 30]], 1, 0.3); // kuzey tarlalara
   path(TERRAIN.dirt, [[95, 64], [92, 72], [86, 80], [76, 88], [69, 92]], 1, 0.4); // güney, değirmen
   path(TERRAIN.dirt, [[100, 64], [103, 71], [118, 71]], 0, 0.3);
@@ -164,9 +167,11 @@ export function buildWorld(bmeta: Record<string, BuildingMeta>): MapData {
   field(113, 22, 126, 30, 'crop_corn');
   field(78, 90, 90, 98, 'crop_carrot');
   field(93, 90, 102, 97, 'crop_tomato');
-  // Buğday tarlası (çimen üstünde buğday öbekleri)
-  for (let y = 36; y <= 42; y += 2) for (let x = 128; x <= 140; x += 4) props.push({ key: 'wheat', x: x * TILE, y: y * TILE + 30, sway: true });
-  reserve(126, 34, 142, 44);
+  // Haldor'un buğday tarlası
+  rect(TERRAIN.farm, 128, 37, 141, 44);
+  for (let y = 38; y <= 44; y += 2) for (let x = 130; x <= 141; x += 4) props.push({ key: 'wheat', x: x * TILE, y: y * TILE + 30, sway: true });
+  reserve(126, 35, 142, 46);
+  points.haldor_field = { x: 134, y: 46 };
 
   // ============================================================ binalar
   const place = (id: string, name: string, tx: number, tyBottom: number, enter: BuildingPlacement['enter'], extra: Partial<BuildingPlacement> = {}) => {
@@ -184,7 +189,8 @@ export function buildWorld(bmeta: Record<string, BuildingMeta>): MapData {
       const dx = Math.floor((px + d.x) / TILE);
       if (enter) warps.push({ x: dx, y: tyBottom, w: 1, h: 1, to: enter.map, tx: enter.x, ty: enter.y, facing: 'up', label: name, hours: extra.hours });
       else warps.push({ x: dx, y: tyBottom, w: 1, h: 1, to: '', tx: 0, ty: 0, facing: 'up', label: name, closedMsg: extra.locked ?? 'Kapı kilitli.' });
-      points['door_' + id] = { x: dx, y: tyBottom };
+      doors.push({ x: dx, y: tyBottom, dir: 'up', sprite: 'building', warp: true, building: id, label: name });
+      if (!points['door_' + id]) points['door_' + id] = { x: dx, y: tyBottom };
     }
   };
 
@@ -204,6 +210,26 @@ export function buildWorld(bmeta: Record<string, BuildingMeta>): MapData {
   place('barn', 'Ahır', 116, 41, null, { locked: 'Ahırın kapısı sürgülü. İçeriden inek sesi geliyor.' });
   place('mill', 'Değirmen', 63, 98, null, { locked: 'Değirmenci kapıyı içeriden kilitlemiş.' });
   place('guardhouse', 'Karakol', 135, 54, null, { locked: 'Karakolun kapısı muhafızlara ait.' });
+  // ---- 0.2.0: büyüyen köy
+  // Haldor'un çiftliği ve avcı kulübesi (kuzeydoğu)
+  place('farmhouse', 'Haldor\'un Çiftlik Evi', 143, 36, { map: 'farmhouse', x: 5, y: 7 }, { sign: 'sign_wheat' });
+  place('lodge', 'Avcı Kulübesi', 131, 26, { map: 'lodge', x: 4, y: 6 }, { sign: 'sign_bow', hours: [6, 21] });
+  // Doğu Mahallesi
+  place('manor', 'Tüccar Konağı', 150, 54, null, { locked: 'Kapıdaki hizmetkâr başını sallıyor: "Efendi Aurelio köksüz misafir kabul etmez."' });
+  place('bakery', 'Fırın', 156, 69, { map: 'bakery', x: 4, y: 7 }, { sign: 'sign_bread', hours: [5, 18] });
+  place('tailor', 'Terzi', 182, 69, { map: 'tailor', x: 5, y: 7 }, { sign: 'sign_scissors', hours: [9, 18] });
+  place('house_a', 'Ev', 190, 72, null, { locked: 'Kapı kilitli. İçeride biri şarkı söylüyor.' });
+  place('house_f', 'Muhtarın Evi', 156, 82, null, { locked: 'Muhtar Godric\'in evi. Kapı tokmağı bile cilalı.' });
+  place('house_g', 'Ev', 183, 82, null, { locked: 'Kapı kilitli.' });
+  place('house_h', 'Ev', 160, 96, null, { locked: 'Kapı kilitli. Bir bebek ağlıyor.' });
+  place('house_e', 'Ev', 176, 100, null, { locked: 'Kapı kilitli. Pencerede kuruyan çamaşırlar.' });
+  place('tannery', 'Tabakhane', 192, 92, { map: 'tannery', x: 4, y: 7 }, { sign: 'sign_hide', hours: [8, 18] });
+  // Güney Çiftlikleri
+  place('farmhouse2', 'Jonas\'ın Çiftliği', 112, 120, null, { locked: 'Kapı kilitli. İçeriden süt kokusu geliyor.' });
+  place('stable', 'Ahır', 150, 120, null, { locked: 'Ahırın kapısı sürgülü. İçeride atlar kişniyor.' });
+  place('barn', 'Samanlık', 182, 112, null, { locked: 'Samanlığın kapısı zincirli.' });
+  place('house_c', 'Ev', 92, 120, null, { locked: 'Kapı kilitli.' });
+  place('house_g', 'Ev', 76, 114, null, { locked: 'Kapı kilitli. Bir köpek hırlıyor.' });
 
   // ============================================================ köy dekorları
   prop('well', 95, 58);
@@ -220,7 +246,7 @@ export function buildWorld(bmeta: Record<string, BuildingMeta>): MapData {
   prop('signpost', 103, 57);
   points.board = { x: 104, y: 57 };
   // fenerler (gece ışık)
-  for (const [x, y] of [[84, 57], [104, 55], [88, 51], [102, 51], [92, 65], [98, 65], [70, 57], [112, 57], [124, 56], [80, 64], [110, 69], [96, 47]] as [number, number][])
+  for (const [x, y] of [[84, 57], [104, 55], [90, 52], [102, 51], [92, 65], [98, 65], [70, 57], [112, 57], [124, 56], [80, 64], [110, 69], [96, 47]] as [number, number][])
     prop('lantern', x, y, { light: { radius: 120, color: 0xffc070, flicker: true, night: true } });
   // han çevresi
   prop('barrels', 83, 50);
@@ -233,7 +259,7 @@ export function buildWorld(bmeta: Record<string, BuildingMeta>): MapData {
   prop('logpile', 73, 67);
   // ev bahçeleri
   prop('clothesline', 79, 46);
-  prop('woodshed', 120, 50);
+  prop('woodshed', 125, 50);
   prop('outhouse', 69, 80);
   prop('hay_roll', 114, 39);
   prop('hay_bales', 126, 42);
@@ -252,6 +278,81 @@ export function buildWorld(bmeta: Record<string, BuildingMeta>): MapData {
     gathers.push({ id, x, y: y + 1, item: 'apple', kind: 'apple' });
   }
 
+  // ============================================================ 0.2.0: yeni mahalleler
+  // Yollar
+  path(TERRAIN.dirt, [[146, 37], [146, 46], [146, 56]], 0, 0.2); // Haldor'un evi → ana yol
+  path(TERRAIN.dirt, [[133, 27], [141, 28], [152, 29], [152, 38], [147, 41]], 0, 0.3); // avcı kulübesi
+  path(TERRAIN.dirt, [[172, 58], [172, 64]], 1, 0.2);
+  path(TERRAIN.dirt, [[172, 76], [172, 88], [172, 104]], 1, 0.3);
+  path(TERRAIN.dirt, [[172, 86], [184, 90], [194, 93]], 0, 0.3);
+  path(TERRAIN.dirt, [[158, 70], [164, 70]], 0, 0.1);
+  path(TERRAIN.dirt, [[185, 70], [180, 70]], 0, 0.1);
+  path(TERRAIN.dirt, [[154, 55], [154, 57]], 0, 0.1);
+  path(TERRAIN.dirt, [[103, 86], [108, 96], [110, 106], [130, 108], [150, 108], [172, 104]], 1, 0.4); // güney yolu
+  path(TERRAIN.dirt, [[110, 106], [96, 114], [82, 120], [72, 128]], 1, 0.4);
+  path(TERRAIN.dirt, [[114, 121], [116, 110]], 0, 0.2);
+  path(TERRAIN.dirt, [[153, 121], [152, 110]], 0, 0.2);
+  path(TERRAIN.dirt, [[185, 113], [178, 108], [172, 104]], 0, 0.3);
+  path(TERRAIN.dirt, [[93, 121], [96, 114]], 0, 0.2);
+  // Çeşme Meydanı
+  for (let y = 63; y <= 77; y++)
+    for (let x = 163; x <= 181; x++) {
+      const dx = (x - 172) / 8.5, dy = (y - 70) / 6.5;
+      if (dx * dx + dy * dy <= 1.05) set(x, y, TERRAIN.cobble);
+    }
+  reserve(160, 60, 184, 79);
+  prop('fountain', 172, 70);
+  points.fountain = { x: 172, y: 72 };
+  points.east_plaza = { x: 172, y: 73 };
+  prop('stall_orange', 167, 66);
+  prop('stall_blue', 177, 66);
+  prop('bench', 168, 75);
+  prop('bench', 177, 75);
+  prop('barrels', 155, 70);
+  prop('firewood', 163, 64);
+  prop('clothesline', 189, 66);
+  prop('cart', 180, 61);
+  prop('trough', 197, 93);
+  prop('hay_pile', 199, 89);
+  prop('barrels', 190, 93);
+  prop('signpost', 170, 58);
+  // Yaşlı Meşe: güneyde buluşma yeri
+  prop('tree_huge', 131, 113);
+  reserve(124, 108, 138, 118);
+  prop('bench', 127, 116);
+  prop('bench', 136, 116);
+  points.oak = { x: 131, y: 116 };
+  // Tarlalar ve mera
+  field(140, 126, 158, 134, 'crop_cabbage');
+  field(160, 126, 172, 134, 'crop_corn');
+  field(84, 103, 100, 109, 'crop_carrot');
+  for (let x = 176; x <= 202; x += 4) { prop('fence_h', x, 116); prop('fence_h', x, 138); }
+  prop('hay_roll', 182, 121);
+  prop('hay_bales', 192, 125);
+  prop('trough', 196, 132);
+  prop('scarecrow', 150, 130);
+  prop('scarecrow', 92, 106);
+  points.pasture = { x: 188, y: 128 };
+  reserve(174, 114, 204, 140);
+  // Çamaşır göleti
+  disc(TERRAIN.water, 100, 130, 3, 0.3);
+  disc(TERRAIN.sand, 100, 130, 4.2, 0.3, (c) => c !== TERRAIN.water);
+  reserve(94, 124, 106, 136);
+  points.pond = { x: 100, y: 125 };
+  // Oduncu
+  prop('woodshed', 122, 137);
+  prop('logpile', 126, 138);
+  prop('chop_block', 128, 139);
+  points.woodcut = { x: 127, y: 136 };
+  // Meyve ağaçları
+  for (const [x, y, id] of [[146, 103, 'apple4'], [197, 75, 'apple5']] as [number, number, string][]) {
+    prop('tree_round', x, y);
+    gathers.push({ id, x, y: y + 1, item: 'apple', kind: 'apple' });
+  }
+  // Fenerler
+  for (const [x, y] of [[150, 56], [162, 56], [176, 59], [166, 63], [178, 63], [166, 77], [178, 77], [174, 88], [190, 56], [202, 56], [112, 107], [140, 109], [160, 107], [100, 113], [146, 39], [136, 28]] as [number, number][])
+    prop('lantern', x, y, { light: { radius: 120, color: 0xffc070, flicker: true, night: true } });
+
   // Antrenman alanı (meydanın batısı, nehre yakın)
   points.training = { x: 70, y: 52 };
   prop('chop_block', 66, 53, { interact: 'train_chop' });
@@ -269,18 +370,21 @@ export function buildWorld(bmeta: Record<string, BuildingMeta>): MapData {
   const bx0 = Math.floor(riverX(58) - 2.2), bx1 = Math.ceil(riverX(58) + 2.2);
   points.bridge = { x: Math.round(riverX(58)), y: 58 };
 
-  // Kontrol noktası
-  prop('fence_h', 141, 55);
-  prop('fence_h', 141, 59);
-  prop('lantern', 139, 55, { light: { radius: 140, color: 0xffc070, flicker: true, night: true } });
-  prop('lantern', 139, 60, { light: { radius: 140, color: 0xffc070, flicker: true, night: true } });
-  points.checkpoint = { x: 140, y: 57 };
-  // Bariyer: x=143 boyunca geçilmez
-  solidRect(143, 0, 149, H - 1);
-  zones.push({ id: 'checkpoint', x: 132, y: 50, w: 12, h: 14, name: 'Şehir Yolu Kontrol Noktası', safe: true });
+  // Kontrol noktası (köyün doğu ucu)
+  const CX = BARRIER_X - 3;
+  prop('fence_h', CX + 1, 55);
+  prop('fence_h', CX + 1, 59);
+  prop('lantern', CX - 1, 55, { light: { radius: 140, color: 0xffc070, flicker: true, night: true } });
+  prop('lantern', CX - 1, 60, { light: { radius: 140, color: 0xffc070, flicker: true, night: true } });
+  points.checkpoint = { x: CX, y: 57 };
+  points.door_checkpoint = { x: CX - 2, y: 57 };
+  // Bariyer: BARRIER_X boyunca geçilmez
+  solidRect(BARRIER_X, 0, W - 1, H - 1);
+  zones.push({ id: 'checkpoint', x: CX - 8, y: 50, w: 12, h: 14, name: 'Şehir Yolu Kontrol Noktası', safe: true, music: 'village' });
   // Uzaktaki şehir (görsel, yarı saydam, mavimsi)
-  prop('fence_h', 144, 57);
-  props.push({ key: '__city', x: 146.5 * TILE, y: 51 * TILE, flat: false, alpha: 0.8, scale: 0.35, tint: 0xb8c8e8, depthOffset: -4000 });
+  prop('fence_h', BARRIER_X + 1, 57);
+  props.push({ key: '__city', x: (BARRIER_X + 3.5) * TILE, y: 51 * TILE, flat: false, alpha: 0.8, scale: 0.35, tint: 0xb8c8e8, depthOffset: -4000 });
+  points.city = { x: BARRIER_X + 3, y: 50 };
 
   // Goblin kampı
   points.goblin_camp = { x: 18, y: 13 };
@@ -303,11 +407,14 @@ export function buildWorld(bmeta: Record<string, BuildingMeta>): MapData {
   prop('rocks_tiny', 22, 66);
 
   // ============================================================ bölgeler
-  zones.push({ id: 'village', x: 62, y: 30, w: 80, h: 72, name: 'Brindlewood', safe: true, music: 'village' });
+  zones.push({ id: 'village', x: 62, y: 28, w: BARRIER_X - 62, h: 115, name: 'Brindlewood', safe: true, music: 'village' });
+  zones.push({ id: 'east_quarter', x: 148, y: 59, w: 58, h: 44, name: 'Doğu Mahallesi', safe: true, music: 'village' });
+  zones.push({ id: 'south_farms', x: 62, y: 101, w: 148, h: 42, name: 'Güney Çiftlikleri', safe: true, music: 'village' });
+  zones.push({ id: 'haldor_farm', x: 126, y: 29, w: 26, h: 18, name: 'Haldor\'un Çiftliği', safe: true, music: 'village' });
   zones.push({ id: 'forest_deep', x: 0, y: 0, w: 54, h: 22, name: 'Ormanın Derinlikleri', danger: 2, music: 'forest' });
   zones.push({ id: 'forest_mid', x: 0, y: 22, w: 56, h: 24, name: 'Orman (Orta)', danger: 1, music: 'forest' });
   zones.push({ id: 'forest_outer', x: 0, y: 46, w: 56, h: 64, name: 'Ormanın Kenarı', danger: 0, music: 'forest' });
-  zones.push({ id: 'north_woods', x: 62, y: 0, w: 88, h: 18, name: 'Kuzey Korusu', music: 'forest' });
+  zones.push({ id: 'north_woods', x: 62, y: 0, w: BARRIER_X - 62, h: 18, name: 'Kuzey Korusu', music: 'forest' });
 
   // ============================================================ canavarlar
   const sp = (id: string, monster: string, x: number, y: number, radius: number, count: number, respawn = 360) =>
@@ -326,6 +433,8 @@ export function buildWorld(bmeta: Record<string, BuildingMeta>): MapData {
   sp('rabbit2', 'rabbit', 36, 96, 5, 2, 240);
   sp('rabbit3', 'rabbit', 100, 10, 8, 3, 240);
   sp('rabbit4', 'rabbit', 46, 48, 4, 1, 240);
+  sp('rabbit5', 'rabbit', 150, 138, 6, 2, 240); // güney tarlalarının kenarı
+  sp('rabbit6', 'rabbit', 170, 10, 8, 2, 240);
   // Orta orman: kurt sürüleri
   sp('wolves1', 'wolf', 31, 31, 5, 3, 600);
   sp('wolves2', 'wolf', 12, 36, 4, 2, 600);
@@ -360,14 +469,14 @@ export function buildWorld(bmeta: Record<string, BuildingMeta>): MapData {
     for (let yy = y - r; yy <= y + r; yy++) for (let xx = x - r; xx <= x + r; xx++) if (inb(xx, yy)) occ[idx(xx, yy)] = 1;
   };
   // Harita kenarı: sık orman
-  const border = (x: number, y: number) => x < 3 || y < 2 || y > H - 4 || (x > W - 4 && x < 143);
-  for (let i = 0; i < 26000; i++) {
+  const border = (x: number, y: number) => x < 3 || y < 2 || y > H - 4;
+  for (let i = 0; i < 52000; i++) {
     const x = Math.floor(rnd() * W), y = Math.floor(rnd() * H);
     const t = get(x, y);
     if (t === TERRAIN.water || t === TERRAIN.dirt || t === TERRAIN.cobble || t === TERRAIN.farm || t === TERRAIN.sand) continue;
-    if (x >= 143) continue;
+    if (x >= BARRIER_X) continue;
     const forest = t === TERRAIN.forest || border(x, y);
-    const villageArea = x > 62 && x < 142 && y > 16 && y < 104;
+    const villageArea = x > 62 && x < BARRIER_X - 6 && y > 16 && y < H - 8;
     if (villageArea && !border(x, y) && rnd() > 0.012) continue;
     if (!forest && rnd() > 0.06) continue;
     const big = forest && rnd() < 0.45;
@@ -380,13 +489,13 @@ export function buildWorld(bmeta: Record<string, BuildingMeta>): MapData {
     markTree(x, y, r);
   }
   // çalılar, mantarlar, kayalar
-  for (let i = 0; i < 9000; i++) {
+  for (let i = 0; i < 18000; i++) {
     const x = Math.floor(rnd() * W), y = Math.floor(rnd() * H);
     const t = get(x, y);
     if (t !== TERRAIN.forest && t !== TERRAIN.grass && t !== TERRAIN.flowers) continue;
-    if (occ[idx(x, y)] || solid[idx(x, y)] || x >= 143) continue;
+    if (occ[idx(x, y)] || solid[idx(x, y)] || x >= BARRIER_X) continue;
     if (reserved[idx(x, y)] && rnd() < 0.85) continue;
-    const villageArea = x > 62 && x < 142 && y > 16 && y < 104;
+    const villageArea = x > 62 && x < BARRIER_X - 6 && y > 16 && y < H - 8;
     if (villageArea && rnd() < 0.85) continue;
     const roll = rnd();
     let key = BUSH_KEYS[Math.floor(rnd() * 5)];
@@ -419,11 +528,11 @@ export function buildWorld(bmeta: Record<string, BuildingMeta>): MapData {
 
   // Hikâye tetikleyicileri
   triggers.push({ id: 'village_enter', x: 61, y: 52, w: 4, h: 12, once: true });
-  triggers.push({ id: 'checkpoint_near', x: 136, y: 52, w: 5, h: 10 });
+  triggers.push({ id: 'checkpoint_near', x: BARRIER_X - 7, y: 52, w: 5, h: 10 });
   triggers.push({ id: 'camp_near', x: 8, y: 2, w: 22, h: 20 });
 
   return {
-    id: 'world', name: 'Elonth', w: W, h: H, indoor: false, terrain, solid, props, buildings, zones, spawns, warps, triggers, gathers,
+    id: 'world', name: 'Elonth', w: W, h: H, indoor: false, terrain, solid, props, buildings, zones, spawns, warps, doors, triggers, gathers,
     music: 'forest', points,
     bridge: { x0: bx0, x1: bx1, y0: bridgeY0, y1: bridgeY1 },
   } as MapData & { bridge: any };

@@ -15,6 +15,8 @@ class GameContext {
   private derivedCache: Derived | null = null;
   private saveTimer: any = null;
   artFiles = new Set<string>();
+  /** assets/audio altındaki dosyalar (kullanıcının eklediği sesler). */
+  audioFiles = new Set<string>();
   credits: any = null;
 
   constructor() {
@@ -106,6 +108,12 @@ class GameContext {
 
   hasArt(path: string) {
     return this.artFiles.has(path);
+  }
+
+  /** assets/audio/<ad>.(ogg|mp3|wav|m4a) varsa yolunu döndürür. */
+  audioFile(name: string): string | null {
+    for (const ext of ['ogg', 'mp3', 'wav', 'm4a']) if (this.audioFiles.has(`${name}.${ext}`)) return `assets/audio/${name}.${ext}`;
+    return null;
   }
 }
 

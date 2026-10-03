@@ -28,12 +28,37 @@ export const CHAR_SHEETS: Record<string, string> = {
   miller: 'assets/gfx/chars/miller.png',
   adventurer_m: 'assets/gfx/chars/adventurer_m.png',
   adventurer_f: 'assets/gfx/chars/adventurer_f.png',
+  haldor: 'assets/gfx/chars/haldor.png',
+  baker: 'assets/gfx/chars/baker.png',
+  tailor: 'assets/gfx/chars/tailor.png',
+  tanner: 'assets/gfx/chars/tanner.png',
+  merchant: 'assets/gfx/chars/merchant.png',
+  merc_guard: 'assets/gfx/chars/merc_guard.png',
+  steward: 'assets/gfx/chars/steward.png',
+  knight: 'assets/gfx/chars/knight.png',
+  vagrant: 'assets/gfx/chars/vagrant.png',
+  beggar: 'assets/gfx/chars/beggar.png',
+  farmer_m3: 'assets/gfx/chars/farmer_m3.png',
+  farmer_f3: 'assets/gfx/chars/farmer_f3.png',
+  shepherd: 'assets/gfx/chars/shepherd.png',
+  milkmaid: 'assets/gfx/chars/milkmaid.png',
+  headman: 'assets/gfx/chars/headman.png',
+  headwife: 'assets/gfx/chars/headwife.png',
+  carpenter: 'assets/gfx/chars/carpenter.png',
+  child_girl: 'assets/gfx/chars/child_girl.png',
+  child_boy: 'assets/gfx/chars/child_boy.png',
+  washer: 'assets/gfx/chars/washer.png',
+  adv_kael: 'assets/gfx/chars/adv_kael.png',
+  adv_thorne: 'assets/gfx/chars/adv_thorne.png',
+  gerda: 'assets/gfx/chars/gerda.png',
+  guard3: 'assets/gfx/chars/guard3.png',
+  bard: 'assets/gfx/chars/bard.png',
+  apprentice: 'assets/gfx/chars/apprentice.png',
+  innmaid: 'assets/gfx/chars/innmaid.png',
+  woodcutter: 'assets/gfx/chars/woodcutter.png',
   goblin: 'assets/gfx/chars/goblin.png',
   goblin_shaman: 'assets/gfx/chars/goblin_shaman.png',
   goblin_chief: 'assets/gfx/chars/goblin_chief.png',
-  hero_knight: 'assets/gfx/chars/hero_knight.png',
-  hero_mage: 'assets/gfx/chars/hero_mage.png',
-  hero_archer: 'assets/gfx/chars/hero_archer.png',
 };
 
 /** Joseph'in ekipmana göre değişen katmanları. */
@@ -76,7 +101,8 @@ export const IMAGES: Record<string, string> = {
   city_wall: 'assets/gfx/buildings/city_wall.png',
 };
 
-export const BUILDINGS = ['inn', 'guild', 'smithy', 'shop', 'healer', 'house_a', 'house_b', 'house_c', 'house_d', 'house_e', 'mill', 'barn', 'guardhouse'];
+export const BUILDINGS = ['inn', 'guild', 'smithy', 'shop', 'healer', 'house_a', 'house_b', 'house_c', 'house_d', 'house_e', 'mill', 'barn', 'guardhouse',
+  'bakery', 'tailor', 'tannery', 'lodge', 'farmhouse', 'farmhouse2', 'manor', 'house_f', 'house_g', 'house_h', 'stable'];
 
 export const ATLASES: Record<string, { image: string; json: string }> = {
   props: { image: 'assets/gfx/props.png', json: 'assets/gfx/props.json' },
@@ -94,7 +120,7 @@ export const JSONS: Record<string, string> = {
 /** Kullanıcının kendi görselleri (varsa). */
 export const PORTRAIT_EXPRESSIONS = ['normal', 'gulen', 'kizgin', 'saskin', 'uzgun', 'alayci'] as const;
 export type Expression = (typeof PORTRAIT_EXPRESSIONS)[number];
-export const CG_SCENES = ['void', 'battlefield', 'forest_wake', 'village_view', 'title'] as const;
+export const CG_SCENES = ['void', 'forest_wake', 'village_view', 'title'] as const;
 
 // LPC satır düzeni (klasik)
 export const LPC_ROWS = {

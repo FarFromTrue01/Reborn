@@ -150,7 +150,7 @@ describe('Kayıt', () => {
     g.saveVersion = 1;
     const m = migrate(JSON.parse(JSON.stringify(g)), 1);
     expect(m.gathered).toEqual({});
-    expect(m.saveVersion).toBe(2);
+    expect(m.saveVersion).toBe(3);
   });
   it('Bozuk kayıt null döner', () => {
     const st = new MemoryStorage();
@@ -165,5 +165,60 @@ describe('Zaman', () => {
     expect(nextMorning({ day: 1, minute: 22 * 60 })).toEqual({ day: 2, minute: 360 });
     expect(nextMorning({ day: 2, minute: 60 })).toEqual({ day: 2, minute: 360 });
     expect(clockLabel({ day: 1, minute: 7 * 60 + 5 })).toBe('07:05');
+  });
+});
+
+import { appraisalReady, claimAppraisalExp, APPRAISAL_COOLDOWN_MS } from '../src/core/appraisal';
+
+describe('Appraisal spam koruması', () => {
+  it('Aynı hedef için skill EXP günde bir kez', () => {
+    const rec: Record<string, number> = {};
+    expect(claimAppraisalExp(rec, 'vera', 3)).toBe(true);
+    for (let i = 0; i < 20; i++) expect(claimAppraisalExp(rec, 'vera', 3)).toBe(false);
+    expect(claimAppraisalExp(rec, 'lina', 3)).toBe(true);
+    expect(claimAppraisalExp(rec, 'vera', 4)).toBe(true);
+    expect(claimAppraisalExp(rec, 'vera', 4)).toBe(false);
+  });
+  it('~1.5 sn bekleme ve panel açıkken yeni panel yok', () => {
+    expect(APPRAISAL_COOLDOWN_MS).toBe(1500);
+    expect(appraisalReady(0, null, false)).toBe(true);
+    expect(appraisalReady(1000, 0, false)).toBe(false);
+    expect(appraisalReady(1500, 0, false)).toBe(true);
+    expect(appraisalReady(99999, 0, true)).toBe(false);
+  });
+});
+
+import { remapFog, NEW_WORLD_W, NEW_WORLD_H } from '../src/core/save';
+import { WORLD_W, WORLD_H } from '../src/world/worldgen';
+
+describe('Kayıt göçü v2 → v3', () => {
+  it('Yeni dünya boyutu göç sabitleriyle aynı', () => {
+    expect(NEW_WORLD_W).toBe(WORLD_W);
+    expect(NEW_WORLD_H).toBe(WORLD_H);
+  });
+  it('Sis haritası aynı koordinatlarda kalır', () => {
+    const oldW = 150, oldH = 110;
+    const bits = new Uint8Array(Math.ceil((oldW * oldH) / 8));
+    const set = (x: number, y: number) => { const i = y * oldW + x; bits[i >> 3] |= 1 << (i & 7); };
+    set(95, 58); set(0, 0); set(149, 109);
+    let s = '';
+    for (const b of bits) s += String.fromCharCode(b);
+    const out = atob(remapFog(btoa(s), oldW, oldH, NEW_WORLD_W, NEW_WORLD_H));
+    const get = (x: number, y: number) => { const i = y * NEW_WORLD_W + x; return (out.charCodeAt(i >> 3) >> (i & 7)) & 1; };
+    expect(get(95, 58)).toBe(1);
+    expect(get(0, 0)).toBe(1);
+    expect(get(149, 109)).toBe(1);
+    expect(get(96, 58)).toBe(0);
+  });
+  it('Eski kayıt göç eder; lonca kaydı olan oyuncu yeni işleri bitirmiş sayılır', () => {
+    const old: any = newGameState();
+    old.saveVersion = 2;
+    delete old.quickFood;
+    old.flags = { guild_registered: true };
+    const m = migrate(old, 2);
+    expect(m.saveVersion).toBe(3);
+    expect(m.quickFood).toBeNull();
+    expect(m.flags.bertram_done).toBe(true);
+    expect(m.flags.farm_done).toBe(true);
   });
 });

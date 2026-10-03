@@ -12,7 +12,8 @@ import { Player } from '../world/player';
 import { Enemy } from '../world/enemy';
 import { Npc } from '../world/npc';
 import { TILE, type MapData, type Zone, type PropPlacement } from '../world/types';
-import { NPCS, scheduleAt, type NpcDef, type JosephStatus } from '../data/npcs';
+import { NPCS, scheduleAt, CASTE_BUBBLES, type NpcDef, type JosephStatus } from '../data/npcs';
+import { nearestFree } from '../world/path';
 import { daylight, hourOf, advance } from '../core/time';
 import { resolvePhysical, resolveSpell } from '../world/combat';
 import { monsterExp, rollDrops, splitExp } from '../core/monster';
@@ -209,7 +210,10 @@ export class WorldScene extends Phaser.Scene {
     this.projectiles = [];
     this.rays = [];
     if (this.r) {
-      for (const o of this.r.objects) o.destroy();
+      for (const o of this.r.objects) {
+        this.tweens.killTweensOf(o);
+        o.destroy();
+      }
       this.r.map.destroy();
     }
     if (this.collider) this.collider.destroy();
@@ -280,18 +284,35 @@ export class WorldScene extends Phaser.Scene {
         const key = s.id + '#' + i;
         const until = G.state.respawns[key] ?? 0;
         if (until > now) continue;
-        const ang = Math.random() * Math.PI * 2;
-        const rr = Math.random() * s.radius;
-        let x = Math.round(s.x + Math.cos(ang) * rr), y = Math.round(s.y + Math.sin(ang) * rr);
-        if (m.solid[y * m.w + x]) {
-          x = s.x;
-          y = s.y;
-        }
+        const [x, y] = this.spawnTile(s.x, s.y, s.radius);
         const e = new Enemy(this, s.monster, x * TILE + 16, y * TILE + 22, key, s.level);
         this.physics.add.collider(e.actor, this.r.collide);
         this.enemies.push(e);
       }
     }
+  }
+
+  /** Yürünebilir, ağaç gövdesi/tepesi altında olmayan bir doğma karosu seçer. */
+  spawnTile(cx: number, cy: number, radius: number): [number, number] {
+    const m = this.mapData;
+    const ok = (x: number, y: number) => {
+      if (x < 1 || y < 1 || x >= m.w - 1 || y >= m.h - 1) return false;
+      if (m.solid[y * m.w + x]) return false;
+      // gövdeye yapışık olmasın: alttaki ve yanlardaki karolar da boş olsun
+      if (m.solid[(y + 1) * m.w + x] || m.solid[y * m.w + x - 1] || m.solid[y * m.w + x + 1]) return false;
+      return !this.r.occluders.covers(x * TILE + 16, y * TILE + 22, 6) && !this.r.occluders.covers(x * TILE + 16, y * TILE - 4, 6);
+    };
+    for (let i = 0; i < 40; i++) {
+      const ang = Math.random() * Math.PI * 2;
+      const rr = Math.random() * (radius + i / 10);
+      const x = Math.round(cx + Math.cos(ang) * rr), y = Math.round(cy + Math.sin(ang) * rr);
+      if (ok(x, y)) return [x, y];
+    }
+    // Spiral arama
+    for (let r = 1; r < 12; r++)
+      for (let dy = -r; dy <= r; dy++)
+        for (let dx = -r; dx <= r; dx++) if (Math.max(Math.abs(dx), Math.abs(dy)) === r && ok(cx + dx, cy + dy)) return [cx + dx, cy + dy];
+    return [cx, cy];
   }
 
   absMinute() {
@@ -302,7 +323,7 @@ export class WorldScene extends Phaser.Scene {
     const hour = hourOf(G.state.time);
     for (const def of NPCS) {
       if (this.director.npcOverride(def.id) === false) continue;
-      const e = scheduleAt(def, hour);
+      const e = scheduleAt(def, hour, G.state.time.day);
       const forced = this.director.npcPlacement(def.id, this.mapData.id);
       if (forced === null) continue;
       if (!forced && e.map !== this.mapData.id) continue;
@@ -316,9 +337,11 @@ export class WorldScene extends Phaser.Scene {
   }
 
   addNpc(def: NpcDef, tx: number, ty: number, scripted = false) {
+    const m = this.mapData;
+    [tx, ty] = nearestFree(m.solid, m.w, m.h, tx, ty);
     const n = new Npc(this, def, tx * TILE + 16, ty * TILE + 22);
     n.homeTile = [tx, ty];
-    n.entry = scripted ? null : scheduleAt(def, hourOf(G.state.time));
+    n.entry = scripted ? null : scheduleAt(def, hourOf(G.state.time), G.state.time.day);
     n.scripted = scripted;
     this.physics.add.collider(n.actor, this.r.collide);
     this.npcs.push(n);
@@ -368,11 +391,13 @@ export class WorldScene extends Phaser.Scene {
       e.update(dt);
     }
     const hour = G.state.time.minute / 60;
-    for (const n of [...this.npcs]) n.update(dt, hour);
+    for (const n of [...this.npcs]) n.update(dt, hour, G.state.time.day);
+    this.updateCaste(dt);
     this.updateProjectiles(dt);
     this.updatePickups(dt);
     this.updateCombatState(dt);
     this.updateAmbient(dt);
+    this.updateOcclusion(dt);
     if (!this.cutscene) {
       this.checkWarpsAndTriggers(dt);
       this.updateZone(false);
@@ -434,7 +459,7 @@ export class WorldScene extends Phaser.Scene {
       if (this.director.npcOverride(def.id) === false) continue;
       const forced = this.director.npcPlacement(def.id, this.mapData.id);
       if (forced === null || forced) continue;
-      const e = scheduleAt(def, hour);
+      const e = scheduleAt(def, hour, G.state.time.day);
       if (e.map !== this.mapData.id) continue;
       // Kapıdan / girişten gelir
       let start: { x: number; y: number } | null = null;
@@ -450,10 +475,29 @@ export class WorldScene extends Phaser.Scene {
   }
 
   homeBuildingOf(def: NpcDef) {
-    const map: Record<string, string> = { bertram: 'inn', smith: 'smithy', shopkeeper: 'shop', healer: 'healer', celeste: 'guild' };
+    const map: Record<string, string> = {
+      bertram: 'inn', smith: 'smithy', shopkeeper: 'shop', healer: 'healer', celeste: 'guild', innmaid: 'inn', vagrant: 'inn',
+      baker: 'bakery', tailor: 'tailor', tanner: 'tannery', hunter: 'lodge', haldor: 'farmhouse', apprentice: 'smithy',
+      merchant: 'manor', merc_guard: 'manor', headman: 'house_f', headwife: 'house_f', farmer_m3: 'farmhouse2', farmer_f3: 'farmhouse2',
+      gerda: 'farmhouse2', shepherd: 'stable', milkmaid: 'barn', woodcutter: 'house_g', washer: 'house_c', child_girl: 'house_h', child_boy: 'house_e',
+      carpenter: 'house_a', bard: 'inn', guard_pell: 'guardhouse', guard_hob: 'guardhouse', guard_wil: 'guardhouse', adv_thorne: 'inn', adv_kael: 'house_c',
+      steward: 'checkpoint', knight: 'checkpoint',
+    };
     if (map[def.id]) return map[def.id];
     const houses = ['house_a', 'house_b', 'house_c', 'house_d', 'house_e'];
     return houses[def.id.length % houses.length];
+  }
+
+  /** Ağaç tepeleri ve çatılar: arkasında oyuncu veya düşman varsa yarı saydam. */
+  updateOcclusion(dt: number) {
+    const a = this.player.actor;
+    const list: { x: number; y: number; h: number }[] = [{ x: a.x, y: a.y, h: 48 }];
+    const v = this.cameras.main.worldView;
+    for (const e of this.enemies) {
+      if (!e.alive || e.x < v.x - 64 || e.x > v.right + 64 || e.y < v.y - 64 || e.y > v.bottom + 200) continue;
+      list.push({ x: e.x, y: e.y, h: e.actor.kind === 'lpc' ? 48 : 30 });
+    }
+    this.r.occluders.update(dt, list);
   }
 
   // ================================================================= ışık ve ortam
@@ -612,7 +656,7 @@ export class WorldScene extends Phaser.Scene {
     }
     const night = daylight(G.state.time) < 0.3;
     const z = this.zone;
-    if (z?.id === 'village' || z?.id === 'training' || z?.id === 'checkpoint') Sound.play(night ? 'night' : 'village');
+    if (z?.music === 'village' || z?.id === 'training' || z?.safe) Sound.play(night ? 'night' : 'village');
     else Sound.play(night ? 'night' : 'forest');
   }
 
@@ -831,6 +875,31 @@ export class WorldScene extends Phaser.Scene {
     R.checkDiscoveries();
   }
 
+  // ================================================================= kast: eğilme ve yol verme
+  private casteT = 0;
+  updateCaste(dt: number) {
+    this.casteT -= dt;
+    if (this.casteT > 0 || this.cutscene) return;
+    this.casteT = 0.3;
+    const highs = this.npcs.filter((n) => n.prestige >= 4 && !n.scripted);
+    if (!highs.length) return;
+    for (const h of highs) {
+      const moving = h.state === 'walk' || Math.hypot(h.actor.body2.velocity.x, h.actor.body2.velocity.y) > 5;
+      for (const b of this.npcs) {
+        if (b === h || b.prestige > 2 || b.scripted) continue;
+        const d = Math.hypot(b.x - h.x, b.y - h.y) / TILE;
+        if (h.prestige >= 5 && d < 4.5) {
+          const rude = b.def.personality === 'rude';
+          const lines = b.prestige <= 1 ? ['(Yere kapanıyor.)', 'Efendim... Bağışlayın.'] : rude ? ['(Dişlerinin arasından) ...Efendim.'] : ['Hoş geldiniz, efendim!', 'Efendim.', '(Başını eğiyor.)', 'Baronun ışığı üstünüze, efendim.'];
+          b.bow(h, lines[Math.floor(Math.random() * lines.length)]);
+        } else if (moving && d < 1.9) {
+          const lines = ['Buyrun efendim, geçin.', '(Kenara çekiliyor.)', 'Pardon, efendim!', 'Yol verin, Thorne Efendi geçiyor!'].filter((l) => !l.includes('Thorne') || h.def.id === 'adv_thorne');
+          b.yieldTo(h, Math.random() < 0.6 ? lines[Math.floor(Math.random() * lines.length)] : null);
+        }
+      }
+    }
+  }
+
   // ================================================================= durum / balon
   josephStatus(): JosephStatus {
     if (G.p.inventory.guild_card || G.flag('guild_registered')) return 'adventurer';
@@ -851,6 +920,9 @@ export class WorldScene extends Phaser.Scene {
     const h = G.state.time.minute / 60;
     const night = h >= 21 || h < 5;
     const pool = [...(night && def.bubbles.night ? def.bubbles.night : []), ...(def.bubbles[st] ?? []), ...(def.bubbles.any ?? [])];
+    // Kasta göre ek tepkiler: kendi replikleri azsa ya da arada bir
+    const caste = CASTE_BUBBLES[def.caste]?.[st] ?? [];
+    if (caste.length && (pool.length < 2 || Math.random() < 0.25)) return caste[Math.floor(Math.random() * caste.length)];
     if (!pool.length) return null;
     return pool[Math.floor(Math.random() * pool.length)];
   }

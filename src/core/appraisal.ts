@@ -47,3 +47,24 @@ export function appraisalBaseExp(mine: SubRank, target: SubRank, targetLevel: nu
   const lv = Math.max(0, targetLevel - myLevel);
   return Math.max(0.5, 1.5 + diff * 1.5 + lv * 0.5);
 }
+
+/** Appraisal'ı art arda kullanmayı engelleyen bekleme (ms). */
+export const APPRAISAL_COOLDOWN_MS = 1500;
+
+/**
+ * Yeni bir Appraisal paneli açılabilir mi? Panel açıkken ya da bekleme sürerken hayır.
+ */
+export function appraisalReady(now: number, lastAt: number | null, panelOpen: boolean, cooldownMs = APPRAISAL_COOLDOWN_MS): boolean {
+  if (panelOpen) return false;
+  return lastAt === null || now - lastAt >= cooldownMs;
+}
+
+/**
+ * Skill EXP aynı hedef için günde bir kez verilir. EXP verilecekse kaydı günceller ve true döner.
+ * appraised: hedef kimliği → son EXP verilen gün.
+ */
+export function claimAppraisalExp(appraised: Record<string, number>, key: string, day: number): boolean {
+  if (appraised[key] === day) return false;
+  appraised[key] = day;
+  return true;
+}

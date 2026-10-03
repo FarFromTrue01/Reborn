@@ -20,11 +20,13 @@ function walk(dir: string, base = dir): string[] {
 /** Kullanıcının kendi görselleri: assets/art altındaki dosyaların listesi. */
 function artIndex(): string {
   const files = walk(path.join(root, 'assets/art')).filter((f) => /\.(png|jpe?g|webp)$/i.test(f));
-  return JSON.stringify({ files }, null, 0);
+  const audio = walk(path.join(root, 'assets/audio')).filter((f) => /\.(ogg|mp3|wav|m4a)$/i.test(f));
+  return JSON.stringify({ files, audio }, null, 0);
 }
 
 const MIME: Record<string, string> = {
   '.png': 'image/png', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.webp': 'image/webp',
+  '.ogg': 'audio/ogg', '.mp3': 'audio/mpeg', '.wav': 'audio/wav', '.m4a': 'audio/mp4',
   '.json': 'application/json', '.txt': 'text/plain; charset=utf-8', '.csv': 'text/csv; charset=utf-8',
 };
 

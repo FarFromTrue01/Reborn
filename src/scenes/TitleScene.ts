@@ -188,7 +188,7 @@ export class TitleScene extends Phaser.Scene {
     const W = Display.uiW, H = Display.uiH;
     const c = this.add.container(0, 0).setDepth(50);
     c.add(this.add.rectangle(0, 0, W, H, 0x000000, 0.6).setOrigin(0, 0).setInteractive());
-    const pw = Math.min(820, W - 40), ph = 560;
+    const pw = Math.min(820, W - 40), ph = Math.min(610, H - 30);
     const g = this.add.graphics();
     drawFrame(g, (W - pw) / 2, (H - ph) / 2, pw, ph);
     c.add(g);

@@ -1,6 +1,27 @@
 // Kayıt: localStorage, sürüm numaralı ve göç (migration) destekli.
 
-import { CURRENT_SAVE_VERSION, newGameState, type GameState } from './state';
+import { CURRENT_SAVE_VERSION, newGameState, OLD_WORLD_W, OLD_WORLD_H, type GameState } from './state';
+
+/** 0.2.0'daki dünya boyutu (worldgen.ts WORLD_W/H ile aynı olmalı; testle doğrulanır). */
+export const NEW_WORLD_W = 230;
+export const NEW_WORLD_H = 150;
+
+/** Bit dizisi olarak saklanan sis haritasını yeni genişliğe taşır (eski kareler aynı koordinatta kalır). */
+export function remapFog(b64: string, oldW: number, oldH: number, newW: number, newH: number): string {
+  const bin = atob(b64);
+  const out = new Uint8Array(Math.ceil((newW * newH) / 8));
+  for (let y = 0; y < Math.min(oldH, newH); y++)
+    for (let x = 0; x < Math.min(oldW, newW); x++) {
+      const i = y * oldW + x;
+      if ((bin.charCodeAt(i >> 3) >> (i & 7)) & 1) {
+        const j = y * newW + x;
+        out[j >> 3] |= 1 << (j & 7);
+      }
+    }
+  let s = '';
+  for (let i = 0; i < out.length; i++) s += String.fromCharCode(out[i]);
+  return btoa(s);
+}
 
 export interface StorageLike {
   getItem(k: string): string | null;
@@ -28,6 +49,26 @@ const MIGRATIONS: ((d: any) => any)[] = [
     d.appraised ??= {};
     d.pendingDiscoveries ??= [];
     d.saveVersion = 2;
+    return d;
+  },
+  // v2 → v3 (0.2.0): köy büyüdü (sis haritası yeni genişliğe), Bertram'ın işi 4 güne bölündü, hızlı yemek.
+  (d) => {
+    if (d.fog?.world) {
+      try {
+        d.fog.world = remapFog(d.fog.world, OLD_WORLD_W, OLD_WORLD_H, NEW_WORLD_W, NEW_WORLD_H);
+      } catch {
+        delete d.fog.world;
+      }
+    }
+    d.quickFood ??= null;
+    d.flags ??= {};
+    d.counters ??= {};
+    // Eski sistemde lonca kaydını tamamlamış oyuncular yeni işleri bitirmiş sayılır.
+    if (d.flags.guild_registered || (d.counters.workDays ?? 0) >= 4) {
+      d.flags.bertram_done = true;
+      d.flags.farm_done = true;
+    }
+    d.saveVersion = 3;
     return d;
   },
 ];

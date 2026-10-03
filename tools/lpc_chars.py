@@ -187,15 +187,96 @@ CHARS = {
     'goblin_chief': ('muscular', [('body', 'dark_green'), ('heads_goblin', 'dark_green'),
                                   ('torso_armour_leather', 'brown'), ('legs_pants', 'brown'), ('feet_boots', 'black'),
                                   ('hat_helmet_barbarian', 'iron')]),
-    # --- Prolog: S rütbe kahramanlar
-    'hero_knight': ('male', [('body', 'light'), ('heads_human_male', 'light'), ('torso_armour_plate', 'gold'),
-                             ('legs_armour', 'gold'), ('feet_boots', 'black'), ('cape_solid', 'white'),
-                             ('hat_helmet_nasal', 'gold')]),
-    'hero_mage': ('female', [('body', 'light'), ('heads_human_female', 'light'), ('hair_xlong', 'white'),
-                             ('torso_clothes_robe', 'blue'), ('hat_hood_cloth', 'blue')]),
-    'hero_archer': ('female', [('body', 'olive'), ('heads_human_female', 'olive'), ('head_ears_elven', 'olive'),
-                               ('hair_long_straight', 'black'), ('torso_armour_leather', 'forest'), ('legs_pants', 'forest'),
-                               ('feet_boots', 'brown'), ('weapon_ranged_bow_normal', 'light')]),
+    # --- 0.2.0: yeni köylüler, esnaf ve üst kast
+    'haldor': ('male', [('body', 'light'), ('heads_human_male_elderly', 'light'), ('eyes', 'gray'),
+                        ('hair_balding', 'white'), ('beards_trimmed', 'white'), ('torso_clothes_longsleeve', 'tan'),
+                        ('torso_aprons_overalls', 'brown'), ('legs_pants', 'brown'), ('feet_boots', 'brown'),
+                        ('hat_cap_bonnie', 'brown')]),
+    'baker': ('female', [('body', 'light'), ('heads_human_female', 'light'), ('eyes', 'blue'),
+                         ('hair_bangs_bun', 'blonde'), ('torso_clothes_blouse', 'white'), ('torso_aprons_apron_full', 'brown'),
+                         ('legs_skirts_plain', 'brown'), ('feet_shoes', 'brown'), ('hat_headband_kerchief', 'white')]),
+    'tailor': ('female', [('body', 'light'), ('heads_human_female', 'light'), ('eyes', 'purple'),
+                          ('hair_long_tied', 'black'), ('torso_clothes_blouse_longsleeve', 'lavender'), ('dress_sash', 'purple'),
+                          ('legs_skirts_plain', 'purple'), ('feet_shoes', 'black'), ('neck_necklace_chain', 'silver')]),
+    'tanner': ('muscular', [('body', 'bronze'), ('heads_human_male_gaunt', 'bronze'), ('eyes', 'brown'),
+                            ('hair_buzzcut', 'black'), ('beards_bigstache', 'black'), ('torso_clothes_sleeveless', 'brown'),
+                            ('torso_aprons_apron', 'leather'), ('legs_pants', 'leather'), ('feet_boots', 'black')]),
+    'merchant': ('male', [('body', 'light'), ('heads_human_male_plump', 'light'), ('eyes', 'brown'),
+                          ('hair_parted', 'chestnut'), ('beards_trimmed', 'chestnut'), ('torso_clothes_longsleeve_formal', 'white'),
+                          ('torso_jacket_frock', 'maroon'), ('legs_formal', 'black'), ('feet_boots', 'black'),
+                          ('hat_formal_bowler', 'black'), ('neck_necklace_chain', 'gold'), ('belt_leather', 'black')]),
+    'merc_guard': ('muscular', [('body', 'taupe'), ('heads_human_male', 'taupe'), ('eyes', 'gray'),
+                                ('hair_buzzcut', 'dark brown'), ('beards_5oclock_shadow', 'dark brown'), ('torso_chainmail', 'gray'),
+                                ('legs_pants', 'charcoal'), ('feet_boots', 'black'), ('cape_solid', 'navy'),
+                                ('hat_helmet_norman', 'steel'), ('weapon_sword_longsword', 'longsword')]),
+    'steward': ('male', [('body', 'light'), ('heads_human_male', 'light'), ('eyes', 'gray'),
+                         ('hair_parted2', 'gray'), ('torso_clothes_longsleeve_formal', 'white'), ('torso_jacket_frock', 'navy'),
+                         ('neck_cravat', 'white'), ('legs_formal', 'navy'), ('feet_boots', 'black'),
+                         ('hat_cap_cavalier_feather', 'navy')]),
+    'knight': ('male', [('body', 'light'), ('heads_human_male', 'light'), ('eyes', 'blue'),
+                        ('torso_armour_plate', 'steel'), ('legs_armour', 'steel'), ('feet_boots_plate', 'steel'),
+                        ('cape_solid', 'blue'), ('hat_helmet_armet', 'steel'), ('weapon_sword_longsword', 'longsword')]),
+    'vagrant': ('male', [('body', 'taupe'), ('heads_human_male_gaunt', 'taupe'), ('eyes', 'brown'),
+                         ('hair_unkempt', 'dark brown'), ('beards_5oclock_shadow', 'dark brown'), ('torso_clothes_sleeveless', 'gray'),
+                         ('cape_tattered', 'brown'), ('legs_pants', 'gray'), ('feet_sandals', 'brown')]),
+    'beggar': ('female', [('body', 'light'), ('heads_human_female_elderly', 'light'), ('eyes', 'brown'),
+                          ('hair_messy2', 'gray'), ('torso_clothes_tunic', 'brown'), ('cape_tattered', 'gray'),
+                          ('legs_skirts_plain', 'charcoal')]),
+    'farmer_m3': ('male', [('body', 'taupe'), ('heads_human_male', 'taupe'), ('eyes', 'brown'),
+                           ('hair_curly_short', 'black'), ('torso_clothes_shortsleeve', 'tan'), ('torso_aprons_suspenders', 'brown'),
+                           ('legs_pants', 'brown'), ('feet_boots', 'brown'), ('tool_thrust', 'shovel')]),
+    'farmer_f3': ('female', [('body', 'light'), ('heads_human_female', 'light'), ('eyes', 'green'),
+                             ('hair_braid', 'blonde'), ('torso_clothes_blouse', 'white'), ('dress_bodice', 'maroon'),
+                             ('legs_skirts_plain', 'brown'), ('feet_shoes', 'brown')]),
+    'shepherd': ('male', [('body', 'light'), ('heads_human_male_small', 'light'), ('eyes', 'blue'),
+                          ('hair_mop', 'sandy'), ('torso_clothes_longsleeve', 'green'), ('legs_pants', 'brown'),
+                          ('feet_sandals', 'brown'), ('weapon_polearm_cane', 'cane')]),
+    'milkmaid': ('female', [('body', 'light'), ('heads_human_female', 'light'), ('eyes', 'brown'),
+                            ('hair_pigtails', 'ginger'), ('torso_clothes_blouse', 'white'), ('dress_bodice', 'blue'),
+                            ('legs_skirts_plain', 'navy'), ('feet_shoes', 'brown'), ('hat_headband_kerchief', 'blue')]),
+    'headman': ('male', [('body', 'light'), ('heads_human_male_plump', 'light'), ('eyes', 'gray'),
+                         ('hair_balding', 'gray'), ('beards_medium', 'gray'), ('torso_clothes_longsleeve', 'white'),
+                         ('torso_jacket_frock', 'brown'), ('legs_formal', 'brown'), ('feet_boots', 'brown'),
+                         ('neck_necklace_chain', 'brass')]),
+    'headwife': ('female', [('body', 'light'), ('heads_human_female', 'light'), ('eyes', 'gray'),
+                            ('hair_bangs_bun', 'dark gray'), ('torso_clothes_blouse_longsleeve', 'maroon'), ('legs_skirts_plain', 'maroon'),
+                            ('feet_shoes', 'black'), ('neck_necklace_beaded_small', 'white')]),
+    'carpenter': ('male', [('body', 'light'), ('heads_human_male', 'light'), ('eyes', 'brown'),
+                           ('hair_messy2', 'light brown'), ('beards_beard', 'light brown'), ('torso_clothes_longsleeve', 'walnut'),
+                           ('torso_aprons_apron', 'leather'), ('legs_pants', 'tan'), ('feet_boots', 'brown'), ('tool_smash', 'hammer')]),
+    'child_girl': ('child', [('body', 'light'), ('heads_human_child', 'light'), ('eyes', 'blue'),
+                             ('hair_bob', 'blonde'), ('torso_clothes_child_shirt', 'pink'), ('legs_childskirts', 'blue')]),
+    'child_boy': ('child', [('body', 'taupe'), ('heads_human_child', 'taupe'), ('eyes', 'brown'),
+                            ('hair_messy1', 'black'), ('torso_clothes_child_shirt', 'red'), ('legs_childpants', 'brown')]),
+    'washer': ('female', [('body', 'amber'), ('heads_human_female', 'amber'), ('eyes', 'brown'),
+                          ('hair_shoulderr', 'redhead'), ('torso_clothes_blouse', 'sky'), ('torso_aprons_apron', 'white'),
+                          ('legs_skirts_plain', 'blue'), ('feet_shoes', 'brown')]),
+    'adv_kael': ('male', [('body', 'light'), ('heads_human_male', 'light'), ('eyes', 'blue'),
+                          ('hair_spiked2', 'blonde'), ('torso_armour_leather', 'brown'), ('legs_pants', 'charcoal'),
+                          ('feet_boots', 'brown'), ('belt_leather', 'brown'), ('weapon_sword_dagger', 'dagger')]),
+    'adv_thorne': ('muscular', [('body', 'olive'), ('heads_human_male', 'olive'), ('eyes', 'gray'),
+                                ('hair_longhawk', 'black'), ('beards_chevron', 'black'), ('torso_chainmail', 'gray'),
+                                ('torso_jacket_tabard', 'black'), ('legs_armour', 'iron'), ('feet_boots', 'black'),
+                                ('cape_solid', 'black'), ('weapon_sword_longsword', 'longsword')]),
+    'gerda': ('female', [('body', 'light'), ('heads_human_female_elderly', 'light'), ('eyes', 'blue'),
+                         ('hair_bangs_bun', 'white'), ('torso_clothes_blouse', 'forest'), ('cape_solid', 'forest'),
+                         ('legs_skirts_plain', 'brown'), ('feet_shoes', 'brown')]),
+    'guard3': ('male', [('body', 'bronze'), ('heads_human_male', 'bronze'), ('eyes', 'brown'),
+                        ('hair_plain', 'black'), ('torso_chainmail', 'gray'), ('torso_jacket_tabard', 'blue'),
+                        ('legs_pants', 'navy'), ('feet_boots', 'black'), ('hat_helmet_kettle', 'steel'),
+                        ('weapon_polearm_spear', 'medium')]),
+    'bard': ('male', [('body', 'light'), ('heads_human_male', 'light'), ('eyes', 'green'),
+                      ('hair_long_messy', 'chestnut'), ('torso_clothes_longsleeve_laced', 'red'), ('legs_pants', 'green'),
+                      ('feet_boots', 'brown'), ('hat_cap_feather', 'red')]),
+    'apprentice': ('male', [('body', 'light'), ('heads_human_male_small', 'light'), ('eyes', 'brown'),
+                            ('hair_buzzcut', 'ginger'), ('torso_clothes_sleeveless', 'gray'), ('torso_aprons_apron', 'leather'),
+                            ('legs_pants', 'charcoal'), ('feet_shoes', 'brown')]),
+    'innmaid': ('female', [('body', 'olive'), ('heads_human_female', 'olive'), ('eyes', 'brown'),
+                           ('hair_ponytail2', 'chestnut'), ('torso_clothes_blouse', 'white'), ('torso_aprons_apron', 'white'),
+                           ('legs_skirts_plain', 'forest'), ('feet_shoes', 'brown')]),
+    'woodcutter': ('muscular', [('body', 'light'), ('heads_human_male', 'light'), ('eyes', 'blue'),
+                                ('hair_buzzcut', 'redhead'), ('beards_beard', 'redhead'), ('torso_clothes_sleeveless', 'red'),
+                                ('legs_pants', 'brown'), ('feet_boots', 'brown'), ('tool_smash', 'axe')]),
 }
 
 # Joseph: dinamik katmanlar (ekipmana göre)
@@ -229,6 +310,15 @@ def main():
     os.makedirs(OUT, exist_ok=True)
     manifest = {'chars': {}, 'joseph': {}}
     only = set(sys.argv[2:])
+    if only:
+        # Kısmi üretim: mevcut manifest ve kredileri koru, Joseph katmanlarına dokunma.
+        mp = os.path.join(OUT, 'chars.json')
+        if os.path.exists(mp):
+            manifest = json.load(open(mp))
+        cp = os.path.join(ROOT, 'tools', 'credits_lpc_chars.json')
+        if os.path.exists(cp):
+            for c in json.load(open(cp)):
+                credits_used[c['file']] = c
     for cid, (body, parts) in CHARS.items():
         if only and cid not in only:
             continue
@@ -237,6 +327,13 @@ def main():
         manifest['chars'][cid] = cid + '.png'
     jd = os.path.join(OUT, 'joseph')
     os.makedirs(jd, exist_ok=True)
+    if only:
+        with open(os.path.join(OUT, 'chars.json'), 'w') as f:
+            json.dump(manifest, f, indent=1, ensure_ascii=False)
+        with open(os.path.join(ROOT, 'tools', 'credits_lpc_chars.json'), 'w') as f:
+            json.dump(sorted(credits_used.values(), key=lambda c: c['file']), f, indent=1, ensure_ascii=False)
+        print('tamam (kısmi):', len(credits_used), 'kredi kaydı')
+        return
     print('joseph katmanları')
     compose(*JOSEPH_BODY).save(os.path.join(jd, 'body.png'), optimize=True)
     compose(*JOSEPH_HEAD).save(os.path.join(jd, 'head.png'), optimize=True)

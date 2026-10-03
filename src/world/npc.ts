@@ -1,7 +1,7 @@
 // NPC kontrolcüsü: günlük program, yürüme, balonlar.
 import Phaser from 'phaser';
 import { Actor, dirFromVec, type Dir } from './actor';
-import { scheduleAt, type NpcDef, type ScheduleEntry } from '../data/npcs';
+import { scheduleAt, prestigeOf, type NpcDef, type ScheduleEntry } from '../data/npcs';
 import { TILE } from './types';
 import { findPath, nearestFree } from './path';
 import type { WorldScene } from '../scenes/WorldScene';
@@ -24,6 +24,10 @@ export class Npc {
   leaveCb: (() => void) | null = null;
   speed: number;
   hp: number;
+  /** Kast tepkileri (eğilme, yol verme) için bekleme ve poz süresi. */
+  reactCd = 0;
+  poseT = 0;
+  prestige: number;
 
   constructor(public w: WorldScene, public def: NpcDef, x: number, y: number) {
     this.actor = new Actor(w, x, y, [def.sheet], 'lpc');
@@ -33,6 +37,38 @@ export class Npc {
     this.nameTag = w.add.text(x, y, def.name, { fontFamily: 'AlegreyaSans, sans-serif', fontSize: '10px', color: '#f0e6c8', stroke: '#140c06', strokeThickness: 3 }).setOrigin(0.5, 1).setDepth(960000).setAlpha(0);
     this.nameTag.setResolution(w.cameras.main.zoom);
     this.hp = derive(def.creature).maxHp;
+    this.prestige = prestigeOf(def);
+  }
+
+  /** Bir soylu geçerken eğil. */
+  bow(target: Npc, line: string | null) {
+    if (this.reactCd > 0 || this.scripted) return false;
+    this.reactCd = 30;
+    this.path = [];
+    if (this.state === 'walk') this.state = 'idle';
+    this.actor.body2.setVelocity(0, 0);
+    this.actor.face(dirFromVec(target.x - this.x, target.y - this.y));
+    this.actor.play('bow', { loop: false, restart: true });
+    this.poseT = 1.8;
+    if (line && this.w.canBubble()) this.say(line, 2.4);
+    return true;
+  }
+
+  /** Üst kasttan biri yaklaşırken yolun kenarına çekil. */
+  yieldTo(target: Npc, line: string | null) {
+    if (this.reactCd > 0 || this.scripted || this.state === 'leaving') return false;
+    this.reactCd = 14;
+    const v = target.actor.body2.velocity;
+    let px = -v.y, py = v.x;
+    const l = Math.hypot(px, py);
+    if (l < 1) { px = 1; py = 0; } else { px /= l; py /= l; }
+    // hangi yana: hedefin uzağına
+    const side = (this.x - target.x) * px + (this.y - target.y) * py >= 0 ? 1 : -1;
+    const [tx, ty] = this.tile();
+    this.walkTo(tx + Math.round(px * side * 2), ty + Math.round(py * side * 2));
+    this.idleT = -4; // kenarda biraz bekle
+    if (line && this.w.canBubble()) this.say(line, 2.2);
+    return true;
   }
 
   get x() { return this.actor.x; }
@@ -59,13 +95,14 @@ export class Npc {
     const m = this.w.mapData;
     const [sx, sy] = nearestFree(m.solid, m.w, m.h, ...this.tile());
     const [gx, gy] = nearestFree(m.solid, m.w, m.h, tx, ty);
-    const p = findPath(m.solid, m.w, m.h, sx, sy, gx, gy);
+    const p = findPath(m.solid, m.w, m.h, sx, sy, gx, gy, 24000);
     this.path = p ?? [];
     this.state = this.path.length ? 'walk' : 'idle';
   }
 
-  update(dt: number, hour: number) {
+  update(dt: number, hour: number, day?: number) {
     const a = this.actor;
+    this.reactCd -= dt;
     a.tickAnim(dt);
     a.tickFlash(dt);
     const body = a.body2;
@@ -90,8 +127,16 @@ export class Npc {
       else body.setVelocity(0, 0);
       return;
     }
+    // eğilme pozu
+    if (this.poseT > 0) {
+      this.poseT -= dt;
+      body.setVelocity(0, 0);
+      if (this.poseT <= 0) a.play('idle');
+      a.setDepth(a.y);
+      return;
+    }
     // program
-    const e = scheduleAt(this.def, hour);
+    const e = scheduleAt(this.def, hour, day);
     if (e !== this.entry) {
       this.entry = e;
       this.onEntry(e);
@@ -139,7 +184,8 @@ export class Npc {
       // Başka bir yere gidiyor: bu haritadan ayrıl (kapıya/çıkışa yürü, sonra kaybol)
       let door: { x: number; y: number } | null = null;
       if (mapId === 'world') {
-        const b = this.w.mapData.points['door_' + (e.map === 'inn_attic' ? 'inn' : e.map)];
+        const target = e.map === 'hidden' ? this.w.homeBuildingOf(this.def) : e.map === 'inn_attic' ? 'inn' : e.map;
+        const b = this.w.mapData.points['door_' + target];
         if (b) door = b;
       } else door = this.w.mapData.points.exit ?? null;
       if (door && e.map !== 'hidden') {

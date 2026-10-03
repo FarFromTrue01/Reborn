@@ -52,6 +52,8 @@ export interface GameState {
   killed: Record<string, number>; // canavar türü → sayı
   respawns: Record<string, number>; // spawn noktası id → yeniden doğacağı oyun dakikası (mutlak)
   gathered: Record<string, number>; // toplama noktası → toplandığı gün
+  /** Hızlı Yemek yuvasına atanmış yiyecek (yoksa envanterdeki ilk yiyecek). */
+  quickFood: string | null;
 }
 
 export const START_POINT: Point = { map: 'world', x: 0, y: 0 };
@@ -109,7 +111,12 @@ export function newGameState(): GameState {
     killed: {},
     respawns: {},
     gathered: {},
+    quickFood: null,
   };
 }
 
-export const CURRENT_SAVE_VERSION = 2;
+export const CURRENT_SAVE_VERSION = 3;
+
+/** Dünya haritasının 0.1.x boyutları (sis haritası göçü için). */
+export const OLD_WORLD_W = 150;
+export const OLD_WORLD_H = 110;

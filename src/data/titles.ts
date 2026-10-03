@@ -28,6 +28,10 @@ const titles: TitleDef[] = [
   { id: 'npc_sharpeye', name: 'Keskin Göz', rank: 'F', desc: 'Kırk adımdan elma vuran okçu.', bonus: { stats: { DEX: 1 } } },
   { id: 'npc_reader', name: 'İnsan Okuyan', rank: 'E', desc: 'Lonca sınavlarında yüzlerce maceracıyı değerlendirdi.', bonus: { expPct: 0.02 } },
   { id: 'npc_smith', name: 'Örs Ustası', rank: 'F', desc: 'Bin kılıç dövdü.', bonus: { stats: { STR: 1 } } },
+  { id: 'npc_merchant', name: 'Altın Terazi', rank: 'E', desc: 'Üç krallıkta ticaret yaptı, hiçbir pazarlığı kaybetmedi.', bonus: { stats: { INT: 1 } } },
+  { id: 'npc_steward', name: 'Valmont Mührü', rank: 'D', desc: 'Valmont Baronu adına konuşur. Sözü emirdir.', bonus: { stats: { INT: 1 } } },
+  { id: 'npc_knight', name: 'Yemin Eden', rank: 'D', desc: 'Valmont Hanedanı\'na kılıç yemini etti.', bonus: { stats: { VIT: 2 } } },
+  { id: 'npc_blackhound', name: 'Kara Tazı', rank: 'D', desc: 'Sınır boylarında yüz goblin kulağı topladı.', bonus: { damagePct: 0.04 } },
   { id: 'npc_watch', name: 'Kapı Bekçisi', rank: 'F', desc: 'On yıl boyunca kapıyı tuttu.', bonus: { stats: { VIT: 1 } } },
   { id: 'goblin_chief_title', name: 'Kampın Şefi', rank: 'F', desc: 'Kendi kabilesini yumrukla yönetiyor.', bonus: { stats: { STR: 1 } } },
 ];

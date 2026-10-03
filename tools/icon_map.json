@@ -78,5 +78,12 @@
  "dv_swift": "S_Wind06.png",
  "coin_bronze": "I_BronzeCoin.png",
  "coin_silver": "I_SilverCoin.png",
- "coin_gold": "I_GoldCoin.png"
+ "coin_gold": "I_GoldCoin.png",
+ "pie": "I_C_Pie.png",
+ "cheese": "I_C_Cheese.png",
+ "jerky": "I_C_RawMeat.png",
+ "vest_wool": "A_Clothing02.png",
+ "hat_felt": "C_Hat01.png",
+ "diamond": "I_Diamond.png",
+ "coin_plat": "I_SilverBar.png"
 }
