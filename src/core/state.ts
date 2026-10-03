@@ -68,6 +68,8 @@ export interface GameState {
   awakeSince: number;
   /** Yanındaki yoldaşlar (C4). */
   party: string[];
+  /** Yoldaşların son HP'si (harita geçişlerinde korunur). */
+  partyHp: Record<string, number>;
   /** Günün pano görevleri (her sabah yenilenir). */
   board: { day: number; ids: string[] };
 }
@@ -133,6 +135,7 @@ export function newGameState(): GameState {
     cards: [],
     awakeSince: 7 * 60 + 20,
     party: [],
+    partyHp: {},
     board: { day: 0, ids: [] },
   };
 }

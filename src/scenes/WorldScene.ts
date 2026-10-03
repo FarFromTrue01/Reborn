@@ -11,8 +11,10 @@ import { FX } from '../world/fx';
 import { Player } from '../world/player';
 import { Enemy } from '../world/enemy';
 import { Npc } from '../world/npc';
+import { Companion } from '../world/companion';
 import { TILE, type MapData, type Zone, type PropPlacement } from '../world/types';
-import { NPCS, scheduleAt, CASTE_BUBBLES, TONE_LINES, type NpcDef, type JosephStatus } from '../data/npcs';
+import { COMPANIONS } from '../data/companions';
+import { NPCS, NPC_BY_ID, scheduleAt, CASTE_BUBBLES, TONE_LINES, type NpcDef, type JosephStatus } from '../data/npcs';
 import { josephStatusOf, toneOf, type Tone } from '../core/prestige';
 import { nearestFree } from '../world/path';
 import { PropCollision, blockedAt } from '../world/collision';
@@ -81,7 +83,7 @@ function encodeFog(arr: Uint8Array) {
 }
 
 interface Pickup { img: Phaser.GameObjects.Image; id: string; qty: number; money: number; x: number; y: number; t: number }
-interface Projectile { img: Phaser.GameObjects.Image; vx: number; vy: number; life: number; fromPlayer: boolean; enemy?: Enemy; tech?: string; power: number; radius: number; hits: Set<Enemy>; ignite?: boolean; element?: string; physical?: boolean }
+interface Projectile { img: Phaser.GameObjects.Image; vx: number; vy: number; life: number; fromPlayer: boolean; comp?: Companion; enemy?: Enemy; tech?: string; power: number; radius: number; hits: Set<Enemy>; ignite?: boolean; element?: string; physical?: boolean }
 
 export class WorldScene extends Phaser.Scene {
   mapData!: MapData;
@@ -102,6 +104,8 @@ export class WorldScene extends Phaser.Scene {
   timeAcc = 0;
   pickups: Pickup[] = [];
   projectiles: Projectile[] = [];
+  /** C4: haritadaki yoldaşlar (G.state.party'den kurulur). */
+  companions: Companion[] = [];
   incoming: { e: Enemy; at: number }[] = [];
   bubbleGlobalCd = 0;
   zone: Zone | null = null;
@@ -267,6 +271,8 @@ export class WorldScene extends Phaser.Scene {
     // temizle
     for (const e of this.enemies) e.destroy();
     for (const n of this.npcs) n.destroy();
+    for (const c of this.companions) c.destroy();
+    this.companions = [];
     for (const p of this.pickups) p.img.destroy();
     for (const p of this.projectiles) p.img.destroy();
     for (const r of this.rays) r.destroy();
@@ -310,6 +316,7 @@ export class WorldScene extends Phaser.Scene {
     // düşmanlar ve NPC'ler
     this.spawnEnemies();
     this.spawnNpcs();
+    this.spawnCompanions();
     // ortam
     if (!m.indoor) this.makeRays();
     this.zone = null;
@@ -355,9 +362,116 @@ export class WorldScene extends Phaser.Scene {
     for (const a of this.extraActors()) a.snap();
   }
 
-  /** Yoldaşlar gibi ek aktörler (yoldaş sistemi doldurur). */
+  /** Yoldaşlar gibi ek aktörler. */
   extraActors(): import('../world/actor').Actor[] {
-    return [];
+    return this.companions.map((c) => c.actor);
+  }
+
+  // ================================================================= yoldaşlar (C4)
+  /** Yoldaşları Joseph'in arkasına diz (harita değişince onunla gelirler). */
+  spawnCompanions() {
+    const party = G.state.party ?? [];
+    for (const id of party) {
+      if (!NPC_BY_ID[id] || !COMPANIONS[id]) continue;
+      this.makeCompanion(id);
+    }
+  }
+
+  makeCompanion(id: string) {
+    const pa = this.player.actor;
+    const c = new Companion(this, id, pa.x, pa.y, G.state.partyHp?.[id]);
+    this.physics.add.collider(c.actor, this.r.collide);
+    this.companions.push(c);
+    c.teleportNear();
+    return c;
+  }
+
+  /** Gruba katıl (hikâye). Haritadaki NPC kopyası kaldırılır. */
+  addCompanion(id: string) {
+    if (!G.state.party.includes(id)) G.state.party.push(id);
+    const n = this.npc(id);
+    let c = this.companion(id);
+    if (!c) {
+      c = this.makeCompanion(id);
+      if (n) {
+        c.actor.setPosition(n.x, n.y);
+        c.actor.body2.reset(n.x, n.y);
+        c.actor.face(n.actor.dir);
+      }
+    }
+    if (n) this.removeNpc(n);
+    G.events.emit('party');
+    return c;
+  }
+
+  /** Gruptan ayrıl: yerinde bir NPC olarak kalır (senaryo yerleştirmesi isterse). */
+  removeCompanion(id: string, leaveNpc = false) {
+    G.state.party = G.state.party.filter((x) => x !== id);
+    const c = this.companion(id);
+    if (c) {
+      if (leaveNpc) {
+        const def = NPC_BY_ID[id];
+        if (def) {
+          const n = this.addNpc(def, Math.floor(c.x / TILE), Math.floor((c.y - 6) / TILE), true);
+          n.actor.face(c.actor.dir);
+        }
+      }
+      c.destroy();
+      this.companions = this.companions.filter((x) => x !== c);
+    }
+    delete G.state.partyHp?.[id];
+    G.events.emit('party');
+  }
+
+  companion(id: string) {
+    return this.companions.find((c) => c.id === id) ?? null;
+  }
+
+  updateCompanions(dt: number) {
+    for (const c of this.companions) c.update(dt);
+    if (this.companions.length) {
+      G.state.partyHp ??= {};
+      for (const c of this.companions) G.state.partyHp[c.id] = Math.round(c.hp);
+    }
+  }
+
+  /** Yoldaşın yakın dövüş vuruşu. Dost ateşi yok: yalnızca düşmanlar. */
+  companionHit(c: Companion, e: Enemy, dir: Phaser.Math.Vector2, mult = 1) {
+    if (!e.alive) return;
+    const res = resolvePhysical({ d: c.d, level: c.level }, { d: e.d, level: e.level }, { mult });
+    e.aware || e.becomeAware(true);
+    e.barShowT = 3;
+    if (res.miss) {
+      this.fx.number(e.x, e.y - 40, 'Iska!', 'miss');
+      return;
+    }
+    e.c.hp -= res.damage;
+    e.damageBy[c.id] = (e.damageBy[c.id] ?? 0) + res.damage;
+    e.actor.kb.set(dir.x, dir.y).scale(110 * (e.def.boss ? 0.3 : 1));
+    e.actor.flash(0xffffff, 0.06);
+    this.fx.sparks(e.x, e.y - 18, 0xd8f0ff, 5);
+    this.fx.number(e.x, e.y - 40, String(res.damage) + (res.crit ? '!' : ''), 'info');
+    Sound.sfx('hit', 0.6);
+    if (e.c.hp <= 0) {
+      this.killEnemy(e, null);
+      if (Math.random() < 0.6) c.say(c.pick(c.cdef.kill), 1.6);
+      if (!e.damageBy.joseph && !c.saidNoExp) {
+        c.saidNoExp = true;
+        c.say(c.pick(c.cdef.noExp), 2.6);
+      }
+    }
+  }
+
+  spawnCompanionArrow(c: Companion, e: Enemy, dir: Phaser.Math.Vector2) {
+    // hedefin hareketine biraz önden nişan
+    const v = e.actor.body2?.velocity;
+    const lead = 0.2;
+    const tx = e.x + (v?.x ?? 0) * lead, ty = e.y + (v?.y ?? 0) * lead;
+    const d = new Phaser.Math.Vector2(tx - c.x, ty - c.y).normalize();
+    void dir;
+    const img = this.add.image(c.x + d.x * 12, c.y - 22 + d.y * 8, 'arrow').setRotation(d.angle()).setDepth(930000);
+    this.projectiles.push({ img, vx: d.x * 11 * TILE, vy: d.y * 11 * TILE, life: 0.8, fromPlayer: true, comp: c, power: 1, radius: 10, hits: new Set(), physical: true });
+    Sound.sfx('swing', 0.3);
   }
 
   /** C7: savaşta, ara sahnede, diyalogda, menüde ve mini oyunda değilken her 3 dakikada bir kayıt. */
@@ -537,6 +651,19 @@ export class WorldScene extends Phaser.Scene {
     }
   }
 
+  /** Belirli bir yerde düşman doğur (senaryolar ve geliştirici modu). */
+  spawnAt(monster: string, tx: number, ty: number, count = 1, radius = 2, key = 'script'): Enemy[] {
+    const out: Enemy[] = [];
+    for (let i = 0; i < count; i++) {
+      const [x, y] = this.spawnTile(tx, ty, radius);
+      const e = new Enemy(this, monster, x * TILE + 16, y * TILE + 22, `${key}#${i}`);
+      this.physics.add.collider(e.actor, this.r.collide);
+      this.enemies.push(e);
+      out.push(e);
+    }
+    return out;
+  }
+
   /** Yürünebilir, ağaç gövdesi/tepesi altında olmayan bir doğma karosu seçer. */
   spawnTile(cx: number, cy: number, radius: number): [number, number] {
     const m = this.mapData;
@@ -574,9 +701,9 @@ export class WorldScene extends Phaser.Scene {
     for (const c of this.companionBodies()) pc.resolve(c);
   }
 
-  /** Yoldaşların gövdeleri (yoldaş sistemi doldurur). */
+  /** Yoldaşların gövdeleri. */
   companionBodies(): Phaser.Physics.Arcade.Body[] {
-    return [];
+    return this.companions.filter((c) => !c.down).map((c) => c.actor.body2);
   }
 
   freeze(reason: string) {
@@ -609,6 +736,7 @@ export class WorldScene extends Phaser.Scene {
   spawnNpcs() {
     const hour = hourOf(G.state.time);
     for (const def of NPCS) {
+      if (G.state.party?.includes(def.id)) continue;
       if (this.director.npcOverride(def.id) === false) continue;
       const e = scheduleAt(def, hour, G.state.time.day);
       const forced = this.director.npcPlacement(def.id, this.mapData.id);
@@ -678,6 +806,7 @@ export class WorldScene extends Phaser.Scene {
       }
       e.update(dt);
     }
+    this.updateCompanions(dt);
     const hour = G.state.time.minute / 60;
     for (const n of [...this.npcs]) n.update(dt, hour, G.state.time.day);
     this.updateCaste(dt);
@@ -1325,9 +1454,9 @@ export class WorldScene extends Phaser.Scene {
     this.tweens.add({ targets: t, y: t.y - 10, alpha: 0, delay: dur * 700, duration: dur * 300, onComplete: () => t.destroy() });
   }
 
-  /** HUD'daki yoldaş çubukları için (yoldaş sistemi doldurur). */
+  /** HUD'daki yoldaş çubukları için. */
   partyStatus(): { name: string; hp: number; max: number; down: boolean }[] {
-    return [];
+    return this.companions.map((c) => ({ name: c.name, hp: c.hp, max: c.maxHp, down: c.down }));
   }
 
   // ================================================================= dövüş
@@ -1535,8 +1664,11 @@ export class WorldScene extends Phaser.Scene {
     // ödüller
     const exp = monsterExp(e.def, e.level);
     const share = splitExp(exp, e.damageBy);
-    if (share.joseph) R.gainExp(share.joseph);
-    this.fx.number(e.x, e.y - 52, `+${share.joseph ?? 0} EXP`, 'exp');
+    // C4: Joseph yalnızca kendi vurduğu düşmandan EXP alır
+    if (share.joseph) {
+      R.gainExp(share.joseph);
+      this.fx.number(e.x, e.y - 52, `+${share.joseph} EXP`, 'exp');
+    }
     R.divineVictory(e.level, !!e.def.boss);
     G.state.killed[e.def.id] = (G.state.killed[e.def.id] ?? 0) + 1;
     Q.notify('kill', e.def.id);
@@ -1608,6 +1740,16 @@ export class WorldScene extends Phaser.Scene {
 
   /** Düşmanın yakın dövüş vuruşu oyuncuya isabet ediyor mu? */
   enemyMeleeHit(e: Enemy) {
+    if (e.foe) {
+      const c = e.foe;
+      const range = (e.def.attackRange + 0.35) * TILE * (e.heavyAttack ? 1.7 : 1) + 6;
+      const v = new Phaser.Math.Vector2(c.x - e.x, c.y - e.y);
+      if (v.length() > range || c.down) return;
+      const res = resolvePhysical({ d: e.d, level: e.level }, { d: c.d, level: c.level }, { mult: e.heavyAttack ? 1.6 : 1 });
+      if (res.miss) this.fx.number(c.x, c.y - 50, 'Iska!', 'miss');
+      else c.hurt(res.damage, v.normalize());
+      return;
+    }
     const pl = this.player;
     const a = pl.actor;
     const range = (e.def.attackRange + 0.35) * TILE * (e.heavyAttack ? 1.7 : 1) + 6;
@@ -1732,6 +1874,11 @@ export class WorldScene extends Phaser.Scene {
           if (Math.hypot(e.x - p.img.x, e.y - 18 - p.img.y) < p.radius + e.actor.bodyR) {
             p.hits.add(e);
             const dir = new Phaser.Math.Vector2(p.vx, p.vy).normalize();
+            if (p.comp) {
+              this.companionHit(p.comp, e, dir, p.power);
+              dead = true;
+              break;
+            }
             if (p.physical) this.hitEnemy(e, { dir, physical: true, mult: p.power, skill: p.tech ? this.techSkill(p.tech) : undefined });
             else this.hitEnemy(e, { dir, spell: { base: p.power, element: p.element }, skill: p.tech ? this.techSkill(p.tech) : undefined, knock: 0.5 });
             if (p.tech === 'fireball') this.explode(p.img.x, p.img.y, 1.5 * TILE * G.d.areaMult, p.power * 0.6, p.tech);
@@ -1740,7 +1887,16 @@ export class WorldScene extends Phaser.Scene {
         }
       } else {
         const a = this.player.actor;
-        if (Math.hypot(a.x - p.img.x, a.y - 18 - p.img.y) < p.radius + 8) {
+        for (const c of this.companions) {
+          if (c.down || dead) continue;
+          if (Math.hypot(c.x - p.img.x, c.y - 18 - p.img.y) < p.radius + 8) {
+            dead = true;
+            const e = p.enemy!;
+            const res = resolveSpell({ d: e.d, level: e.level }, { d: c.d, level: c.level }, e.def.natural.dmg, { element: 'fire' });
+            if (!res.miss) c.hurt(res.damage, new Phaser.Math.Vector2(p.vx, p.vy).normalize());
+          }
+        }
+        if (!dead && Math.hypot(a.x - p.img.x, a.y - 18 - p.img.y) < p.radius + 8) {
           dead = true;
           const e = p.enemy!;
           const dir = new Phaser.Math.Vector2(p.vx, p.vy).normalize();

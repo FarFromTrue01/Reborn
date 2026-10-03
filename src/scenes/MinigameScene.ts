@@ -1,11 +1,13 @@
-// Mini oyunlar (20–40 saniye): odun kesme, taş kaldırma, koşu parkuru (antrenman) ve hasat (Haldor'un tarlası).
+// Mini oyunlar (20–40 saniye): odun kesme, taş kaldırma, koşu parkuru (antrenman), hasat (Haldor'un tarlası)
+// ve Servis Koşturmacası (Bertram'ın hanı, serveGame.ts).
 import Phaser from 'phaser';
 import { Display } from '../game/display';
 import { Sound } from '../audio/audio';
 import { COLORS, FONT, txt, drawFrame, Button } from '../ui/kit';
 import { G } from '../game/G';
+import { ServeGame, serveDifficulty } from './serveGame';
 
-type Kind = 'chop' | 'lift' | 'run' | 'harvest';
+type Kind = 'chop' | 'lift' | 'run' | 'harvest' | 'serve';
 
 export class MinigameScene extends Phaser.Scene {
   kind: Kind = 'chop';
@@ -45,12 +47,16 @@ export class MinigameScene extends Phaser.Scene {
   runAnimT = 0;
   stage!: Phaser.GameObjects.Graphics;
   sheaves: Phaser.GameObjects.Image[] = [];
+  serve: ServeGame | null = null;
+  serveDay = 1;
 
   constructor() {
     super('Minigame');
   }
 
-  init(data: { kind: Kind; done: (p: number) => void }) {
+  init(data: { kind: Kind; done: (p: number) => void; day?: number }) {
+    this.serve = null;
+    this.serveDay = data.day ?? 1;
     this.kind = data.kind;
     this.done = data.done;
     this.t = 0;
@@ -63,7 +69,7 @@ export class MinigameScene extends Phaser.Scene {
     this.lastSide = null;
     this.swingT = -1;
     this.runAnimT = 0;
-    this.dur = data.kind === 'chop' ? 24 : data.kind === 'lift' ? 25 : data.kind === 'harvest' ? 22 : 30;
+    this.dur = data.kind === 'chop' ? 24 : data.kind === 'lift' ? 25 : data.kind === 'harvest' ? 22 : data.kind === 'serve' ? serveDifficulty(this.serveDay).dur : 30;
     this.sheaves = [];
   }
 
@@ -72,12 +78,14 @@ export class MinigameScene extends Phaser.Scene {
     this.cameras.main.setOrigin(0, 0);
     const W = Display.uiW, H = Display.uiH;
     this.add.rectangle(0, 0, W, H, 0x000000, 0.7).setOrigin(0, 0).setInteractive();
-    const pw = Math.min(900, W - 40), ph = 520;
+    const serve = this.kind === 'serve';
+    const pw = Math.min(serve ? 980 : 900, W - 40), ph = serve ? Math.min(680, H - 30) : 520;
     const px = (W - pw) / 2, py = (H - ph) / 2;
     const fg = this.add.graphics();
     drawFrame(fg, px, py, pw, ph);
-    const titles = { chop: 'Odun Kesme Kütüğü', lift: 'Taş Kaldırma', run: 'Koşu Parkuru', harvest: 'Hasat: Haldor\'un Buğdayı' };
+    const titles = { chop: 'Odun Kesme Kütüğü', lift: 'Taş Kaldırma', run: 'Koşu Parkuru', harvest: 'Hasat: Haldor\'un Buğdayı', serve: `Servis Koşturmacası · Gün ${this.serveDay}` };
     const helps = {
+      serve: 'Tezgâhtan bira, güveç ya da ekmek al; süre bitmeden masaya götür. Kirli tabakları topla, bulaşığa bırak.',
       harvest: 'Orak işareti yeşil alandan geçerken biç! Her temiz vuruş bir demet.',
       chop: 'İbre yeşil alandan geçerken vur! Tam ortası en iyisi.',
       lift: 'Basılı tut: taş kalkar. Bırak: iner. İbreyi altın bölgede tut.',
@@ -88,9 +96,16 @@ export class MinigameScene extends Phaser.Scene {
     this.timeT = txt(this, px + pw - 30, py + 30, '', { size: 18, color: COLORS.text, bold: true }).setOrigin(1, 0);
     this.stage = this.add.graphics();
     this.g = this.add.graphics();
-    this.buildStage();
     const by = py + ph - 70;
-    if (this.kind === 'run') {
+    if (serve) {
+      this.info.setY(py + 64).setFontSize(15);
+      const world = this.scene.get('World') as any;
+      const keys: string[] = world?.player?.actor?.layers?.map((l: Phaser.GameObjects.Sprite) => l.texture.key) ?? ['j_body', 'j_head'];
+      this.serve = new ServeGame(this, px, py, pw, ph, this.serveDay, keys);
+    } else this.buildStage();
+    if (serve) {
+      // dokunmalar masalara ve tezgâha
+    } else if (this.kind === 'run') {
       const l = new Button(this, W / 2 - 150, by, 'SOL', () => this.step('L'), { w: 220, h: 80, size: 24, sound: null });
       const r = new Button(this, W / 2 + 150, by, 'SAĞ', () => this.step('R'), { w: 220, h: 80, size: 24, sound: null });
       l.on('pointerdown', () => this.step('L'));
@@ -239,6 +254,10 @@ export class MinigameScene extends Phaser.Scene {
       if (this.t >= this.dur) this.finish();
     }
     this.timeT.setText(`${Math.max(0, Math.ceil(this.dur - this.t))} sn`);
+    if (this.serve) {
+      this.serve.update(dt);
+      return;
+    }
     if (this.kind === 'chop' || this.kind === 'harvest') {
       if (this.running) {
         this.marker += this.markerDir * dt * (0.9 + this.logs * 0.06);
@@ -310,7 +329,8 @@ export class MinigameScene extends Phaser.Scene {
     if (!this.running) return;
     this.running = false;
     let perf = 0;
-    if (this.kind === 'chop' || this.kind === 'harvest') perf = Math.min(1, this.hits / 14) * (this.attempts ? Math.min(1, 0.5 + this.logs / this.attempts / 2) : 0);
+    if (this.serve) perf = this.serve.perf();
+    else if (this.kind === 'chop' || this.kind === 'harvest') perf = Math.min(1, this.hits / 14) * (this.attempts ? Math.min(1, 0.5 + this.logs / this.attempts / 2) : 0);
     else if (this.kind === 'lift') perf = Math.min(1, this.inZone / (this.dur * 0.75));
     else perf = Math.min(1, this.dist) * 0.6 + (this.steps ? (this.goodSteps / this.steps) * 0.4 : 0);
     perf = Phaser.Math.Clamp(perf, 0, 1);

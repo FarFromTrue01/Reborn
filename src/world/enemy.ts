@@ -8,6 +8,7 @@ import type { CreatureData } from '../core/types';
 import { TILE } from './types';
 import type { WorldScene } from '../scenes/WorldScene';
 import { Sound } from '../audio/audio';
+import type { Companion } from './companion';
 
 export type EState = 'idle' | 'wander' | 'alert' | 'chase' | 'windup' | 'strike' | 'recover' | 'flee' | 'return' | 'hurt' | 'dead' | 'stunned';
 
@@ -42,6 +43,9 @@ export class Enemy {
   slowT = 0;
   lunge = new Phaser.Math.Vector2();
   hitThisSwing = false;
+  /** C4: saldırdığı yoldaş (null = Joseph). */
+  foe: Companion | null = null;
+  foeT = 0;
 
   constructor(public w: WorldScene, monsterId: string, x: number, y: number, spawnId: string, level?: number) {
     this.def = MONSTERS[monsterId];
@@ -163,7 +167,17 @@ export class Enemy {
       this.w.onSneakApproach();
     }
 
-    const toP = new Phaser.Math.Vector2(pd.x - this.x, pd.y - this.y);
+    // C4: hedef seçimi — Joseph ya da yakındaki bir yoldaş (Joseph'e hafif öncelik)
+    if (this.aware) {
+      this.foeT -= dt;
+      if (this.foeT <= 0 && this.state !== 'windup' && this.state !== 'strike') {
+        this.foeT = 0.6;
+        this.pickFoe(playerOk);
+      }
+    }
+    if (this.foe && (this.foe.down || !this.w.companions.includes(this.foe))) this.foe = null;
+    const fp = this.foe ? this.foe.actor : pd;
+    const toP = new Phaser.Math.Vector2(fp.x - this.x, fp.y - this.y);
     const distP = toP.length() / TILE;
     if (vis.see) this.lastSeenT = 0;
     else this.lastSeenT += dt;
@@ -189,7 +203,7 @@ export class Enemy {
         break;
       }
       case 'chase': {
-        if (!playerOk || (this.lastSeenT > 4 && distP > 6) || Math.hypot(this.x - this.home.x, this.y - this.home.y) > 16 * TILE) {
+        if ((!playerOk && !this.foe) || (!this.foe && this.lastSeenT > 4 && distP > 6) || Math.hypot(this.x - this.home.x, this.y - this.home.y) > 16 * TILE) {
           this.aware = false;
           this.awareness = 0.3;
           this.setState('return');
@@ -204,7 +218,7 @@ export class Enemy {
             a.face(dirFromVec(toP.x, toP.y));
             a.play('walk');
           } else if (distP > this.def.attackRange) {
-            this.moveTo({ x: pd.x, y: pd.y }, speed, dt);
+            this.moveTo({ x: fp.x, y: fp.y }, speed, dt);
           } else {
             body.setVelocity(0, 0);
             a.face(dirFromVec(toP.x, toP.y));
@@ -218,7 +232,7 @@ export class Enemy {
           break;
         }
         // Sürü: hafif yanlara açıl
-        const tgt = { x: pd.x, y: pd.y };
+        const tgt = { x: fp.x, y: fp.y };
         if (this.def.behavior === 'pack') {
           const ang = (this.uid % 3 - 1) * 0.7;
           const v = toP.clone().rotate(ang).normalize().scale(-0.9 * TILE);
@@ -302,6 +316,26 @@ export class Enemy {
     this.drawUI();
   }
 
+  pickFoe(playerOk: boolean) {
+    const pd = this.w.player.actor;
+    let best: Companion | null = null;
+    let bd = playerOk ? Math.hypot(pd.x - this.x, pd.y - this.y) / TILE : Infinity;
+    for (const c of this.w.companions) {
+      if (c.down || !c.fights) continue;
+      const d = Math.hypot(c.x - this.x, c.y - this.y) / TILE + 0.8;
+      if (d < bd && d < 10) {
+        bd = d;
+        best = c;
+      }
+    }
+    this.foe = best;
+  }
+
+  /** Saldırı hedefinin konumu. */
+  foePos(): { x: number; y: number } {
+    return this.foe ? this.foe.actor : this.w.player.actor;
+  }
+
   shouldFlee(): boolean {
     if (this.def.fleeAt && !this.fledOnce && this.c.hp / this.d.maxHp <= this.def.fleeAt) {
       this.fledOnce = true;
@@ -333,18 +367,18 @@ export class Enemy {
     this.setState('windup');
     this.attackCount++;
     this.heavyAttack = this.def.behavior === 'boss' && this.attackCount % 3 === 0;
-    const pd = this.w.player.actor;
+    const pd = this.foePos();
     this.actor.face(dirFromVec(pd.x - this.x, pd.y - this.y));
     this.actor.play('idle');
     this.icon.setText('!').setColor('#ff3020');
     Sound.sfx('windup', 0.5);
-    this.w.registerIncoming(this, this.def.windup * (this.heavyAttack ? 1.5 : 1));
+    if (!this.foe) this.w.registerIncoming(this, this.def.windup * (this.heavyAttack ? 1.5 : 1));
   }
 
   strike() {
     this.setState('strike');
     this.hitThisSwing = false;
-    const pd = this.w.player.actor;
+    const pd = this.foePos();
     const v = new Phaser.Math.Vector2(pd.x - this.x, pd.y - this.y).normalize();
     this.actor.face(dirFromVec(v.x, v.y));
     if (this.def.attack === 'bolt') {
@@ -371,7 +405,7 @@ export class Enemy {
       g.lineStyle(2, 0xff5040, 0.8);
       g.strokeCircle(this.x, this.y, r * t);
     } else if (this.def.attack === 'bolt') {
-      const pd = this.w.player.actor;
+      const pd = this.foePos();
       g.lineStyle(2, 0xffa040, 0.3 + 0.5 * t);
       g.lineBetween(this.x, this.y - 20, pd.x, pd.y - 16);
     } else {

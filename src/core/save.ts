@@ -111,6 +111,7 @@ export function migrateV3toV4(d: any): any {
   }
   d.cards ??= [];
   d.party ??= [];
+  d.partyHp ??= {};
   d.board ??= { day: 0, ids: [] };
   d.awakeSince ??= ((d.time?.day ?? 1) - 1) * 1440 + (d.time?.minute ?? 420);
   // --- görev günlüğü: bayraklardan hikâyenin neresinde olduğunu çıkar
