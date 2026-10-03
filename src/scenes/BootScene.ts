@@ -2,9 +2,12 @@ import Phaser from 'phaser';
 import { ATLASES, BUILDINGS, CHAR_SHEETS, IMAGES, JOSEPH_LAYERS, JSONS, MONSTER_SHEETS, LPC_FRAME } from '../data/manifest';
 import { G } from '../game/G';
 import { makeCoinTextures } from '../ui/coins';
+import { warmCache } from '../game/pwa';
 
 /** Tüm görselleri manifestten yükler, çalışma zamanı dokularını üretir. */
 export class BootScene extends Phaser.Scene {
+  private loaded: string[] = [];
+
   constructor() {
     super('Boot');
   }
@@ -19,6 +22,10 @@ export class BootScene extends Phaser.Scene {
       if (msg) msg.textContent = 'Yükleniyor… ' + (f.key ?? '');
     });
     this.load.on('loaderror', (f: any) => console.warn('Yüklenemedi:', f.key, f.src));
+    // yüklenen adresler: açılıştan sonra service worker önbelleğine kopyalanır (warmCache)
+    this.load.on('load', (f: any) => {
+      if (typeof f.src === 'string') this.loaded.push(f.src);
+    });
     for (const [k, p] of Object.entries(CHAR_SHEETS)) this.load.spritesheet(k, p, { frameWidth: LPC_FRAME, frameHeight: LPC_FRAME });
     for (const [k, l] of Object.entries(JOSEPH_LAYERS)) this.load.spritesheet('j_' + k, l.file, { frameWidth: LPC_FRAME, frameHeight: LPC_FRAME });
     for (const [k, p] of Object.entries(MONSTER_SHEETS)) this.load.spritesheet(k, p, { frameWidth: 64, frameHeight: 64 });
@@ -42,6 +49,7 @@ export class BootScene extends Phaser.Scene {
       boot.style.opacity = '0';
       setTimeout(() => boot.remove(), 700);
     }
+    warmCache(this.loaded);
     this.scene.start('Title');
   }
 

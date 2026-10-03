@@ -1,6 +1,7 @@
 import { defineConfig, type Plugin } from 'vite';
 import fs from 'node:fs';
 import path from 'node:path';
+import { precacheList } from './src/pwa/precache';
 
 const root = __dirname;
 const versionInfo = JSON.parse(fs.readFileSync(path.join(root, 'version.json'), 'utf8'));
@@ -33,7 +34,7 @@ const MIME: Record<string, string> = {
 /**
  * - Geliştirmede kök dizindeki assets/ klasörünü /assets/ altında sunar.
  * - Build'de assets/ klasörünü dist/assets/ altına kopyalar.
- * - art-index.json, version.json ve sw.js (sürüm + önbellek listesi) üretir.
+ * - art-index.json, version.json ve sw.js (sürüm + çekirdek önbellek listesi) üretir.
  */
 function elonthAssets(): Plugin {
   return {
@@ -81,9 +82,10 @@ function elonthAssets(): Plugin {
       fs.writeFileSync(path.join(out, 'version.json'), JSON.stringify({ ...versionInfo, full: VERSION }));
       if (fs.existsSync(path.join(root, 'CREDITS.md'))) fs.copyFileSync(path.join(root, 'CREDITS.md'), path.join(out, 'CREDITS.md'));
       // service worker
-      const files = walk(out).filter((f) => f !== 'sw.js' && f !== 'version.json' && !f.endsWith('.map'));
+      // Kurulumda yalnızca çekirdek dosyalar (src/pwa/precache.ts); gerisi ilk istekte önbelleğe girer
+      const core = precacheList(walk(out));
       const tpl = fs.readFileSync(path.join(root, 'src/sw-template.js'), 'utf8');
-      const sw = tpl.replace('__VERSION__', VERSION).replace('__FILES__', JSON.stringify(['./', ...files.map((f) => './' + f)]));
+      const sw = tpl.replace('__VERSION__', VERSION).replace('__FILES__', JSON.stringify(core));
       fs.writeFileSync(path.join(out, 'sw.js'), sw);
     },
   };

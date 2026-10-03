@@ -48,7 +48,7 @@ const QA = new URLSearchParams(location.search).has('qa');
 
 async function start() {
   cssFonts();
-  setupPWA();
+  setupPWA(() => G.inGame);
   // Bağlam kaybı sonrası yenileme ya da atılmış sekme: başlık ekranı son kayıttan otomatik devam eder
   try {
     Lifecycle.resumeOnTitle = takeResumeFlag(window.sessionStorage, !!(document as any).wasDiscarded);

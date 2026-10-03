@@ -6,7 +6,7 @@ import { COLORS, FONT, txt, Button, drawFrame } from '../ui/kit';
 import { ensureCG } from '../ui/portraits';
 import { buildSettings } from '../ui/settingsPanel';
 import { confirmBox } from '../ui/panels';
-import { goFullscreen } from '../game/pwa';
+import { goFullscreen, applyPendingUpdate } from '../game/pwa';
 import { clearFogCache } from './WorldScene';
 import { slotInfo, SLOT_KEYS } from '../core/save';
 import { Lifecycle } from '../game/lifecycle';
@@ -17,6 +17,8 @@ export class TitleScene extends Phaser.Scene {
   private root!: Phaser.GameObjects.Container;
   private panel: Phaser.GameObjects.Container | null = null;
   private stars: { img: Phaser.GameObjects.Image; tw: number }[] = [];
+  /** Oyuna geçiş (karartma) sürüyor: tam ekrana geçişin yeniden boyutlandırması sahneyi baştan kurmasın. */
+  private leaving = false;
 
   constructor() {
     super('Title');
@@ -30,6 +32,7 @@ export class TitleScene extends Phaser.Scene {
     this.root = undefined!;
     this.panel = null;
     this.stars = [];
+    this.leaving = false;
   }
 
   create() {
@@ -42,10 +45,14 @@ export class TitleScene extends Phaser.Scene {
     const off = Display.onResize(() => {
       this.cameras.main.setSize(Display.w, Display.h);
       this.cameras.main.setZoom(Display.uiZoom);
-      this.scene.restart();
+      // Devam / Yeni Oyun tam ekrana geçirir; o yeniden boyutlanma karartmayı kesip sahneyi baştan
+      // kurarsa oyun açılmıyor, ikinci dokunuş gerekiyordu.
+      if (!this.leaving) this.scene.restart();
     });
     this.events.once('shutdown', off);
     Sound.play('title');
+    // Bekleyen sürüm güncellemesi: oyun dışındayken uygula (sayfa bir kez yenilenir)
+    applyPendingUpdate();
     this.input.on('pointerdown', () => {
       Sound.unlock();
       Sound.play('title');
@@ -210,6 +217,7 @@ export class TitleScene extends Phaser.Scene {
       return;
     }
     clearFogCache();
+    this.leaving = true;
     goFullscreen();
     this.cameras.main.fadeOut(600, 0, 0, 0);
     this.cameras.main.once('camerafadeoutcomplete', () => this.scene.start('World', {}));
@@ -222,6 +230,7 @@ export class TitleScene extends Phaser.Scene {
     }
     G.newGame();
     clearFogCache();
+    this.leaving = true;
     goFullscreen();
     this.cameras.main.fadeOut(900, 0, 0, 0);
     this.cameras.main.once('camerafadeoutcomplete', () => this.scene.start('Prologue'));

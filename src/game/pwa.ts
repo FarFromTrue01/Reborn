@@ -1,24 +1,49 @@
 // PWA: service worker kaydı ve sürüm kontrolü.
-// version.json her açılışta ağdan okunur; çalışan sürümden farklıysa
-// yeni service worker devreye alınır ve sayfa bir kez yenilenir.
+// version.json her açılışta ağdan okunur; çalışan sürümden farklıysa yeni service worker indirilir.
+// Yeni sürüm oyun ortasında devreye alınmaz: bekleyen sürüm oyuncu oyunda değilken (başlık ekranı)
+// etkinleştirilir ve sayfa bir kez yenilenir. İlk kurulumda hiç yenileme yapılmaz.
 
 declare const __APP_VERSION__: string;
 
 export let updateAvailable = false;
 
-export function setupPWA() {
+/** controllerchange'de sayfa yenilensin mi? Yalnızca bir kontrolcü başkasıyla değiştiğinde (sürüm güncellemesi). */
+export function shouldReloadOnControllerChange(hadController: boolean, alreadyReloading: boolean): boolean {
+  return hadController && !alreadyReloading;
+}
+
+/** Bekleyen yeni sürüm şimdi etkinleştirilsin mi? */
+export function shouldActivateWaiting(o: { waiting: boolean; controlled: boolean; inGame: boolean }): boolean {
+  return o.waiting && o.controlled && !o.inGame;
+}
+
+let tryActivate: () => void = () => {};
+
+/** Başlık ekranı çağırır: oyun dışındayken bekleyen güncellemeyi uygula. */
+export function applyPendingUpdate() {
+  tryActivate();
+}
+
+export function setupPWA(inGame: () => boolean = () => false) {
   if (!('serviceWorker' in navigator) || import.meta.env.DEV) return;
   let reloading = false;
-  // İlk kurulumda (önceden kontrolcü yokken) yenileme yapma; sadece sürüm güncellemesinde yenile.
-  const hadController = !!navigator.serviceWorker.controller;
+  // Kontrolcü anlık izlenir: ilk kurulumda clients.claim() de controllerchange tetikler (önceden
+  // kontrolcü yok → yenileme yok); sonraki gerçek sürüm değişiminde bir kez yenilenir.
+  let controller = navigator.serviceWorker.controller;
   navigator.serviceWorker.addEventListener('controllerchange', () => {
-    if (reloading || !hadController) return;
+    const had = !!controller;
+    controller = navigator.serviceWorker.controller;
+    if (!shouldReloadOnControllerChange(had, reloading)) return;
     reloading = true;
     window.location.reload();
   });
   navigator.serviceWorker
     .register('./sw.js')
     .then((reg) => {
+      tryActivate = () => {
+        const w = reg.waiting;
+        if (w && shouldActivateWaiting({ waiting: true, controlled: !!navigator.serviceWorker.controller, inGame: inGame() })) w.postMessage('skipWaiting');
+      };
       const check = async () => {
         try {
           const r = await fetch('./version.json', { cache: 'no-store' });
@@ -26,7 +51,7 @@ export function setupPWA() {
           if (v.full && v.full !== __APP_VERSION__) {
             updateAvailable = true;
             await reg.update();
-            if (reg.waiting) reg.waiting.postMessage('skipWaiting');
+            tryActivate();
           }
         } catch {
           /* çevrimdışı */
@@ -37,11 +62,21 @@ export function setupPWA() {
       reg.addEventListener('updatefound', () => {
         const nw = reg.installing;
         nw?.addEventListener('statechange', () => {
-          if (nw.state === 'installed' && navigator.serviceWorker.controller) nw.postMessage('skipWaiting');
+          if (nw.state === 'installed') tryActivate();
         });
       });
+      tryActivate();
     })
     .catch(() => {});
+}
+
+/**
+ * Açılışta yüklenen görselleri service worker önbelleğine kopyalat (ilk ziyarette sayfa henüz SW
+ * denetiminde olmadığı için bunlar önbelleğe girmemişti). Ağa yeniden gitmez.
+ */
+export function warmCache(urls: string[]) {
+  if (!('serviceWorker' in navigator) || import.meta.env.DEV || !urls.length) return;
+  navigator.serviceWorker.ready.then((reg) => reg.active?.postMessage({ type: 'warm', urls })).catch(() => {});
 }
 
 /** Tam ekran ve yatay kilit (dokunuşla çağrılmalı). */

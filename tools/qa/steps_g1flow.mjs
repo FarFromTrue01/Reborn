@@ -60,4 +60,13 @@ export default async ({ page, wait, shot, evalG }) => {
   const open = await evalG(() => { const t = window.__game.scene.getScene('Title'); return !!t.panel && t.panel.active !== false && !!t.panel.scene; });
   await shot('g1_title_settings');
   console.log(open ? 'PASS AYARLAR' : 'FAIL AYARLAR');
+  // Devam'a basınca tam ekrana geçilir: o yeniden boyutlanma karartmayı kesmemeli (tek dokunuşta açılış)
+  await click('Title', 'Kapat');
+  await wait(800);
+  console.log('Devam (yeniden boyutlanmalı):', await click('Title', 'Devam'));
+  await wait(120);
+  await page.setViewportSize({ width: 1180, height: 800 });
+  await wait(3500);
+  const opened = await evalG(() => window.__game.scene.isActive('World'));
+  console.log(opened ? 'PASS tek dokunuşta açılış' : 'FAIL tek dokunuşta açılış');
 };
