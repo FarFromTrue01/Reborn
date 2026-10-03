@@ -17,7 +17,7 @@ export class Npc {
   bubble: Phaser.GameObjects.Container | null = null;
   bubbleT = 0;
   bubbleCd = 5 + Math.random() * 15;
-  nameTag: Phaser.GameObjects.Text;
+  nameTag: Phaser.GameObjects.Container;
   patrolIdx = 0;
   homeTile: [number, number] = [0, 0];
   scripted = false;
@@ -28,14 +28,23 @@ export class Npc {
   reactCd = 0;
   poseT = 0;
   prestige: number;
+  /** A8: konuşma sırasında yaptığı işi bırakır, Joseph'e döner; bitince kaldığı yerden devam eder. */
+  talking = false;
 
   constructor(public w: WorldScene, public def: NpcDef, x: number, y: number) {
     this.actor = new Actor(w, x, y, [def.sheet], 'lpc');
     this.actor.enablePhysics(9);
     this.actor.body2.setImmovable(true);
     this.speed = (def.speed ?? 2.2) * TILE;
-    this.nameTag = w.add.text(x, y, def.name, { fontFamily: 'AlegreyaSans, sans-serif', fontSize: '10px', color: '#f0e6c8', stroke: '#140c06', strokeThickness: 3 }).setOrigin(0.5, 1).setDepth(960000).setAlpha(0);
-    this.nameTag.setResolution(w.cameras.main.zoom);
+    // A10: okunur isim etiketi — koyu plaka üstünde kalın yazı, her şeyin önünde
+    const t = w.add.text(0, 0, def.name, { fontFamily: 'AlegreyaSans, sans-serif', fontSize: '13px', fontStyle: 'bold', color: '#fbefcf', stroke: '#140c06', strokeThickness: 2 }).setOrigin(0.5, 1);
+    t.setResolution(w.cameras.main.zoom * 1.5);
+    const plate = w.add.graphics();
+    plate.fillStyle(0x0c0a12, 0.72);
+    plate.fillRoundedRect(-t.width / 2 - 5, -t.height - 1, t.width + 10, t.height + 2, 4);
+    plate.lineStyle(1, 0x6b5426, 0.9);
+    plate.strokeRoundedRect(-t.width / 2 - 5, -t.height - 1, t.width + 10, t.height + 2, 4);
+    this.nameTag = w.add.container(x, y, [plate, t]).setDepth(965000).setAlpha(0);
     this.hp = derive(def.creature).maxHp;
     this.prestige = prestigeOf(def);
   }
@@ -109,7 +118,7 @@ export class Npc {
     // isim etiketi: oyuncu yakınsa
     const pd = this.w.player.actor;
     const dist = Math.hypot(pd.x - this.x, pd.y - this.y) / TILE;
-    this.nameTag.setPosition(a.x, a.y - 60);
+    this.nameTag.setPosition(a.x, a.y - 58);
     this.nameTag.setAlpha(Phaser.Math.Clamp((4 - dist) / 2, 0, 1) * (this.bubble ? 0 : 1));
     // balon
     if (this.bubble) {
@@ -120,6 +129,13 @@ export class Npc {
         this.bubble = null;
         this.w.tweens.add({ targets: b, alpha: 0, y: b.y - 6, duration: 250, onComplete: () => b.destroy() });
       }
+    }
+    if (this.talking) {
+      body.setVelocity(0, 0);
+      if (a.anim !== 'idle') a.play('idle');
+      a.face(dirFromVec(pd.x - this.x, pd.y - this.y));
+      a.setDepth(a.y);
+      return;
     }
     if (this.scripted) {
       a.setDepth(a.y);
@@ -242,8 +258,8 @@ export class Npc {
     this.bubble?.destroy();
     const c = this.w.add.container(this.actor.x, this.actor.y - 62).setDepth(970000);
     const t = this.w.add.text(0, 0, text, {
-      fontFamily: 'AlegreyaSans, sans-serif', fontSize: '9px', color: '#2a1d10',
-      wordWrap: { width: 120, useAdvancedWrap: true }, align: 'center',
+      fontFamily: 'AlegreyaSans, sans-serif', fontSize: '11px', color: '#2a1d10',
+      wordWrap: { width: 140, useAdvancedWrap: true }, align: 'center',
     }).setOrigin(0.5, 1);
     t.setResolution(this.w.cameras.main.zoom * 1.5);
     const bw = t.width + 10, bh = t.height + 6;

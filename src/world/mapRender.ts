@@ -3,6 +3,7 @@ import { LAYER_ORDER, TERRAIN, TILE, type MapData, type PropPlacement, type Door
 import { PROP_INFO } from '../data/props';
 import type { BuildingMeta } from './worldgen';
 import { Occluders } from './occlusion';
+import { Culler } from './culling';
 
 export interface LightSource {
   x: number;
@@ -27,6 +28,8 @@ export interface RenderedMap {
   sails?: Phaser.GameObjects.Image;
   /** Arkasında kalanları gizleyebilecek büyük görseller (ağaç tepeleri, çatılar). */
   occluders: Occluders;
+  /** Ekran dışı ayıklama (yalnızca dış harita). */
+  culler: Culler | null;
 }
 
 function hash(x: number, y: number) {
@@ -117,6 +120,7 @@ export function renderMap(scene: Phaser.Scene, m: MapData, meta: any, bmeta: Rec
   const lights: LightSource[] = [];
   const propImages: RenderedMap['propImages'] = [];
   const occluders = new Occluders();
+  const culler = m.indoor ? null : new Culler();
   const COLS = meta.cols as number;
   const T = meta.terrains;
   const W = m.w, H = m.h;
@@ -217,7 +221,7 @@ export function renderMap(scene: Phaser.Scene, m: MapData, meta: any, bmeta: Rec
 
   // Çarpışma katmanı (görünmez)
   const collide = tm.createBlankLayer('collide', ts, 0, 0)!;
-  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) if (m.solid[y * W + x]) collide.putTileAt(0, x, y, false);
+  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) if (m.hard[y * W + x]) collide.putTileAt(0, x, y, false);
   collide.setCollision(0);
   collide.setVisible(false);
 
@@ -253,6 +257,7 @@ export function renderMap(scene: Phaser.Scene, m: MapData, meta: any, bmeta: Rec
     const px = b.tx * TILE, py = b.tyBottom * TILE - bm.h;
     const img = scene.add.image(px, py, 'b_' + b.id).setOrigin(0, 0).setDepth(b.tyBottom * TILE - 4);
     objects.push(img);
+    culler?.add(img, px + bm.w / 2, py + bm.h / 2);
     occluders.add(img, b.tyBottom * TILE - 4, 0.02, 0.02);
     // kapı önü basamak gölgesi
     for (const d of bm.doors) {
@@ -265,6 +270,7 @@ export function renderMap(scene: Phaser.Scene, m: MapData, meta: any, bmeta: Rec
       const d = bm.doors[0];
       const s = scene.add.image(px + d.x + 30, b.tyBottom * TILE - 70, 'props', b.sign).setOrigin(0.5, 0).setDepth(b.tyBottom * TILE - 3);
       objects.push(s);
+      culler?.add(s);
     }
     // pencereler gece yanar
     if (b.enter || b.id.startsWith('house')) {
@@ -302,6 +308,7 @@ export function renderMap(scene: Phaser.Scene, m: MapData, meta: any, bmeta: Rec
     img.setDepth(depth);
     objects.push(img);
     propImages.push({ img, p });
+    if (!p.key.startsWith('__')) culler?.add(img);
     const info = PROP_INFO[p.key];
     // Büyük ağaç ve çalılar: arkasındakileri saklayabilir
     if (!p.flat && !p.key.startsWith('__') && (p.depthOffset ?? 0) >= 0 && img.displayHeight >= 56 && /^(tree_|bush_big|woodshed|tent_|wagon|stall_|well|outhouse|wheat)/.test(p.key)) occluders.add(img, depth);
@@ -310,5 +317,5 @@ export function renderMap(scene: Phaser.Scene, m: MapData, meta: any, bmeta: Rec
     if (p.light) lights.push({ x: p.x, y: p.y - (img.displayHeight * 0.6), radius: p.light.radius, color: p.light.color, flicker: p.light.flicker, night: p.light.night, phase: Math.random() * 10, obj: img });
   }
 
-  return { map: tm, collide, layers, swayers, animProps, lights, objects, propImages, sails, occluders };
+  return { map: tm, collide, layers, swayers, animProps, lights, objects, propImages, sails, occluders, culler };
 }

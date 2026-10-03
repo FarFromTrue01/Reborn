@@ -1,6 +1,6 @@
 // İç mekân haritaları. Her oda: zemin karosu, üst duvar (2 karo), çevre engelleri, mobilyalar.
-import { TERRAIN, TILE, type MapData, type PropPlacement, type Warp, type Trigger, type DoorDef } from './types';
-import { PROP_INFO } from '../data/props';
+import { TERRAIN, TILE, type MapData, type PropPlacement, type Warp, type Trigger, type DoorDef, type ColliderRect } from './types';
+import { propBox, rectTiles } from '../data/props';
 
 interface RoomSpec {
   id: string;
@@ -23,22 +23,30 @@ class Builder {
   points: Record<string, { x: number; y: number }> = {};
   walls: { x: number; y: number; h: number; style: string }[] = [];
   solid: Uint8Array;
+  hard: Uint8Array;
+  colliders: ColliderRect[] = [];
   floorMask: Uint8Array;
   constructor(public w: number, public h: number) {
     this.solid = new Uint8Array(w * h);
+    this.hard = new Uint8Array(w * h);
     this.floorMask = new Uint8Array(w * h).fill(1);
   }
+  /** Sert engel (duvar, ocak, merdiven boşluğu). */
   block(x0: number, y0: number, x1: number, y1: number) {
-    for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) if (x >= 0 && y >= 0 && x < this.w && y < this.h) this.solid[y * this.w + x] = 1;
+    for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) if (x >= 0 && y >= 0 && x < this.w && y < this.h) { this.solid[y * this.w + x] = 1; this.hard[y * this.w + x] = 1; }
   }
   open(x0: number, y0: number, x1: number, y1: number) {
-    for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) if (x >= 0 && y >= 0 && x < this.w && y < this.h) this.solid[y * this.w + x] = 0;
+    for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) if (x >= 0 && y >= 0 && x < this.w && y < this.h) { this.solid[y * this.w + x] = 0; this.hard[y * this.w + x] = 0; }
   }
+  /** Mobilya: çarpışma kutusu görünen tabanına oturur; kapladığı karolar NPC yol bulmasında dolu. */
   prop(key: string, tx: number, ty: number, extra: Partial<PropPlacement> = {}) {
-    const info = PROP_INFO[key] ?? { baseY: 0 };
     const p: PropPlacement = { key, x: tx * TILE + TILE / 2, y: ty * TILE + TILE - 2, ...extra };
     this.props.push(p);
-    if (info.solid && !extra.flat) this.block(tx + info.solid[0], ty + info.solid[1], tx + info.solid[2], ty + info.solid[3]);
+    const r = extra.flat ? null : propBox(key, p.x, p.y, p.scale ?? 1);
+    if (r) {
+      this.colliders.push({ ...r, key });
+      for (const [x, y] of rectTiles(r)) if (x >= 0 && y >= 0 && x < this.w && y < this.h) this.solid[y * this.w + x] = 1;
+    }
     return p;
   }
   /** Duvara asılı (engelsiz) dekor. */
@@ -354,7 +362,7 @@ export function buildInteriors(floors: Record<string, number>): Record<string, M
     const fi = floors[r.floor] ?? 0;
     for (let i = 0; i < floorTiles.length; i++) floorTiles[i] = fi;
     out[r.id] = {
-      id: r.id, name: r.name, w: r.w, h: r.h, indoor: true, terrain, solid: b.solid, floorTiles,
+      id: r.id, name: r.name, w: r.w, h: r.h, indoor: true, terrain, solid: b.solid, hard: b.hard, colliders: b.colliders, floorTiles,
       wallTiles: [{ x: 0, y: 0, h: 2, style: r.wall }, ...b.walls],
       props: b.props, buildings: [], zones: [{ id: r.id, x: 0, y: 0, w: r.w, h: r.h, name: r.name, safe: true }],
       spawns: [], warps: b.warps, doors: b.doors, triggers: b.triggers, gathers: [], music: r.music, ambientDark: r.dark, points: b.points,

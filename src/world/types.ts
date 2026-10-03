@@ -26,11 +26,20 @@ export const LAYER_ORDER: { id: number; name: string }[] = [
   { id: TERRAIN.water, name: 'water' },
 ];
 
+export interface ColliderRect {
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+  /** Hangi dekora ait (testler ve yakılabilir çalılar için). */
+  key?: string;
+  off?: boolean;
+}
+
 export interface PropPlacement {
   key: string; // props atlas frame
   x: number; // px, alt orta
   y: number; // px, alt
-  solid?: [number, number, number, number]; // karo bazında engel: dx0, dy0, dx1, dy1 (alt-orta karoya göre)
   sway?: boolean;
   depthOffset?: number;
   flat?: boolean; // zemine yatık (derinlik sıralamasız)
@@ -137,7 +146,12 @@ export interface MapData {
   h: number;
   indoor: boolean;
   terrain: Uint8Array;
+  /** NPC yol bulma ızgarası (karo): sert engeller + dekorların kapladığı karolar. */
   solid: Uint8Array;
+  /** Oyuncu/aktör çarpışma ızgarası (karo): yalnızca su, duvar, bina, bariyer gibi sert engeller. */
+  hard: Uint8Array;
+  /** Dekorların piksel çarpışma kutuları (görünen tabanlarına oturur). */
+  colliders: ColliderRect[];
   floorTiles?: Int16Array; // iç mekân: tileset karo indeksi (-1 boş)
   wallTiles?: { x: number; y: number; h: number; style: string }[];
   props: PropPlacement[];

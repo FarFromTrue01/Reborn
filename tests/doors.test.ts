@@ -2,8 +2,8 @@
 // yönüne uygun bir duvarda duruyor ve önündeki kare yürünebilir.
 // Yeni eklenen her bina ve oda da bu testten geçmek zorunda.
 import { describe, it, expect } from 'vitest';
-import { buildWorld, type BuildingMeta } from '../src/world/worldgen';
-import { buildInteriors } from '../src/world/interiors';
+import { type BuildingMeta } from '../src/world/worldgen';
+import { buildMaps } from '../src/world/maps';
 import { DOOR_SPRITES, type MapData, type DoorDef } from '../src/world/types';
 
 import buildingsJson from '../assets/gfx/buildings/buildings.json';
@@ -14,8 +14,7 @@ const bmeta = buildingsJson as unknown as Record<string, BuildingMeta>;
 const floors = (terrainJson as any).floors as Record<string, number>;
 const props = (propsJson as any).frames as Record<string, unknown>;
 
-const world = buildWorld(bmeta);
-const interiors = buildInteriors(floors);
+const { world, interiors } = buildMaps(bmeta, floors);
 const maps: MapData[] = [world, ...Object.values(interiors)];
 
 const solidAt = (m: MapData, x: number, y: number) => (x < 0 || y < 0 || x >= m.w || y >= m.h ? true : !!m.solid[y * m.w + x]);

@@ -939,19 +939,25 @@ export class UIScene extends Phaser.Scene {
   openMenu(tab?: string) {
     if (this.menuIsOpen || this.dialogueOpen() || this.world?.cutscene) return;
     this.menuIsOpen = true;
-    this.world.paused = true;
-    this.world.physics.pause();
+    this.closeAppraisal();
+    // A3/A4: menü opak; arkadaki World ve UI duraklatılır ve çizilmez (müzik sürer).
+    this.world.freeze('menu');
+    this.world.scene.setVisible(false);
     Input.clear();
     Sound.sfx('open');
     this.scene.launch('Menu', { tab });
     this.scene.bringToTop('Menu');
+    this.scene.setVisible(false);
+    this.scene.pause();
   }
 
   closeMenu() {
     if (this.scene.isActive('Menu')) this.scene.stop('Menu');
     this.menuIsOpen = false;
-    this.world.paused = false;
-    this.world.physics.resume();
+    this.scene.resume();
+    this.scene.setVisible(true);
+    this.world.scene.setVisible(true);
+    this.world.unfreeze('menu');
     Sound.sfx('close');
     this.refreshButtons();
   }

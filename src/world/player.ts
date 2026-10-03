@@ -11,6 +11,7 @@ import type { WorldScene } from '../scenes/WorldScene';
 import { Sound } from '../audio/audio';
 import { hpRegenPerSec, mpRegenPerSec, staminaRegenPerSec } from '../core/formulas';
 import { LIGHT_MAX, LIGHT_DECAY_PER_SEC } from '../core/divine';
+import { runStep, RUN_THRESHOLD, type RunLock } from '../core/stamina';
 
 export type PState = 'free' | 'attack' | 'heavy' | 'dodge' | 'hurt' | 'dead' | 'cast' | 'locked' | 'dash';
 
@@ -29,6 +30,8 @@ export class Player {
   counterT = 0; // mükemmel kaçış sonrası karşı saldırı penceresi
   staminaDelay = 0;
   running = false;
+  /** Dayanıklılık bitince koşu kilidi (A1). */
+  runLock: RunLock = { exhausted: false };
   sneaking = false;
   combatT = 99; // son savaş olayından beri geçen süre
   secondWindUsed = false;
@@ -169,13 +172,18 @@ export class Player {
         if (Input.consume('appraise')) this.w.appraiseNearest();
         if (Input.consume('eat')) this.w.eatQuick();
         // hareket
-        const wantRun = (Input.run || (Input.touchMove && mlen > 0.92)) && mlen > 0.2;
-        this.running = wantRun && p.stamina > 1;
+        const wantRun = (Input.run || (Input.touchMove && mlen > RUN_THRESHOLD)) && mlen > 0.2;
+        this.running = runStep(this.runLock, wantRun, p.stamina);
         // Ayarlardaki "Karakter hızı" yalnızca yürüme/koşmayı çarpar (Divine Hız hesabına dokunmaz)
         let sp = BASE_SPEED * TILE * d.moveSpeed * mlen * (G.settings.moveSpeed ?? 1);
         if (this.running) {
           sp *= 1.6;
           p.stamina = Math.max(0, p.stamina - 11 * d.runCostMult * dt);
+          if (p.stamina <= 0) {
+            this.runLock.exhausted = true;
+            this.running = false;
+            this.w.fx.number(a.x, a.y - 50, 'Nefes nefese', 'miss');
+          }
           this.staminaDelay = 0.5;
           this.distAcc += sp * dt;
           if (this.distAcc > TILE * 10) {

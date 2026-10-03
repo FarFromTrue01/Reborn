@@ -2,6 +2,7 @@
 import { zeroStats, addStats, type Stats } from '../core/formulas';
 import { parseSubRank } from '../core/ranks';
 import type { CreatureData } from '../core/types';
+import { SCHEDULES } from './schedules';
 
 export type Personality = 'kind' | 'rude' | 'neutral' | 'gossip' | 'proud' | 'shy' | 'drunk' | 'wise';
 
@@ -40,6 +41,9 @@ export interface NpcDef {
   creature: CreatureData;
   guildLabel?: string; // lonca rütbesi yerine görünen (ör. Görevli)
   schedule: ScheduleEntry[];
+  /** Günden güne değişen alternatif gün planları (data/schedules.ts). */
+  plans?: ScheduleEntry[][];
+  planKey?: string;
   /** Kast durumuna göre balon replikleri. */
   bubbles: Partial<Record<JosephStatus | 'any' | 'night', string[]>>;
   /** Konuşunca söyledikleri (kısa). */
@@ -105,9 +109,7 @@ function creature(id: string, name: string, race: string, gender: string, age: n
   };
 }
 
-const always = (map: string, at: string | [number, number], wander = 0, act: ScheduleEntry['act'] = 'work'): ScheduleEntry[] => [{ from: 0, to: 24, map, at, wander, act }];
-
-export const NPCS: NpcDef[] = [
+const RAW_NPCS: Omit<NpcDef, 'schedule'>[] = [
   // ======================================================================= ANA KARAKTERLER
   {
     id: 'bertram', name: 'Bertram', sheet: 'bertram', voice: 'bertram', portrait: 'bertram', personality: 'neutral', caste: 'burgher', shop: 'inn', role: 'inn',
@@ -117,7 +119,6 @@ export const NPCS: NpcDef[] = [
       inventory: { bread: 12, hot_stew: 6, rabbit_meat: 3 },
     }),
     guildLabel: 'E (emekli)',
-    schedule: [{ from: 5, to: 24, map: 'inn', at: 'bertram', act: 'work' }, { from: 0, to: 5, map: 'hidden', at: 'bertram' }],
     bubbles: {
       any: ['Bira döküldü, biri silsin şunu!', 'Güveç ocakta. Kaşıklar nerede?', 'Bacağım yine sızlıyor. Yağmur gelecek.'],
     },
@@ -130,12 +131,6 @@ export const NPCS: NpcDef[] = [
       equipment: { weapon: 'iron_shortsword', chest: 'leather_vest', pants: 'sturdy_pants', boots: 'leather_boots' },
       inventory: { hp_potion_s: 2, bread: 1 }, traits: ['silver_tongue'],
     }),
-    schedule: [
-      { from: 8, to: 12, map: 'inn', at: 'table_vera', act: 'sit' },
-      { from: 12, to: 17, map: 'guild', at: 'vera', act: 'talk' },
-      { from: 17, to: 23, map: 'inn', at: 'table_vera', act: 'drink' },
-      { from: 23, to: 8, map: 'hidden', at: 'table_vera' },
-    ],
     bubbles: {
       naked: ['Bak bak, çıplak kahraman geliyor!', 'Lina, kapat gözlerini!', 'Şortun da mı çalındı, yoksa moda mı?'],
       rootless: ['Bulaşıkçı! Tabaklar parlıyor mu?', 'Giyinmişsin bile. Gelişiyorsun.'],
@@ -154,12 +149,6 @@ export const NPCS: NpcDef[] = [
       equipment: { weapon: 'hunter_bow', chest: 'leather_vest', pants: 'linen_pants', boots: 'leather_boots' },
       inventory: { apple: 3, rabbit_pelt: 1 }, traits: ['keen_ears'],
     }),
-    schedule: [
-      { from: 8, to: 12, map: 'inn', at: 'table_lina', act: 'sit' },
-      { from: 12, to: 17, map: 'guild', at: 'lina', act: 'talk' },
-      { from: 17, to: 23, map: 'inn', at: 'table_lina', act: 'drink' },
-      { from: 23, to: 8, map: 'hidden', at: 'table_lina' },
-    ],
     bubbles: {
       naked: ['Hihihi!', 'Vera, bak, bak! Hihi!', 'Kuyruğumu bile daha çok örtüyor!'],
       rootless: ['Hihi, bulaşıkçı!', 'Kulaklarım her şeyi duyar, haberin olsun~'],
@@ -178,7 +167,6 @@ export const NPCS: NpcDef[] = [
       inventory: { mp_potion_s: 1 },
     }),
     guildLabel: 'Görevli',
-    schedule: [{ from: 7, to: 21, map: 'guild', at: 'celeste', act: 'work' }, { from: 21, to: 7, map: 'hidden', at: 'celeste' }],
     bubbles: {
       any: ['Sıradaki.', 'Görev kanıtları tezgâhın üstüne, lütfen.'],
       naked: ['...Kapıyı kapatır mısın? Cereyan yapıyor. Ve... bu manzara.'],
@@ -193,11 +181,6 @@ export const NPCS: NpcDef[] = [
     creature: creature('smith', 'Gunnar', 'İnsan', 'Erkek', 41, 5, { STR: 9, VIT: 6, DEX: 4, AGI: 1 }, {
       appraisal: 'G+', titles: ['npc_smith'], equipment: { gloves: 'leather_gloves', boots: 'leather_boots' }, inventory: { firewood: 8 },
     }),
-    schedule: [
-      { from: 8, to: 18, map: 'smithy', at: 'smith', act: 'work' },
-      { from: 18, to: 22, map: 'inn', at: 'seat_m1', act: 'drink' },
-      { from: 22, to: 8, map: 'hidden', at: 'smith' },
-    ],
     bubbles: { any: ['Demir sıcakken dövülür.', 'Kömür yine pahalanmış.'], naked: ['Önce bir pantolon al, evlat. Sonra kılıç.'] },
     talk: {
       naked: ['Kılıç mı? Önce pantolon. Kimse yarı çıplak adama silah satmaz.', 'Paran varsa konuşuruz. Yoksa ateşimi soğutma.'],
@@ -208,11 +191,6 @@ export const NPCS: NpcDef[] = [
   {
     id: 'shopkeeper', name: 'Marta', sheet: 'shopkeeper', voice: 'female', portrait: 'shopkeeper', personality: 'neutral', caste: 'burgher', shop: 'shop', role: 'shop',
     creature: creature('shopkeeper', 'Marta', 'İnsan', 'Kadın', 36, 2, { INT: 3, LUK: 3, DEX: 2 }, { appraisal: 'G+', equipment: { ring1: 'copper_ring' } }),
-    schedule: [
-      { from: 8, to: 19, map: 'shop', at: 'shopkeeper', act: 'work' },
-      { from: 19, to: 21, map: 'world', at: [97, 60], wander: 2, act: 'talk' },
-      { from: 21, to: 8, map: 'hidden', at: 'shopkeeper' },
-    ],
     bubbles: { any: ['Taze ekmek, ucuz sargı!', 'İp, mum, tuz... ne lazımsa.'], naked: ['Aman! Dükkânıma öyle girme!'] },
     talk: {
       naked: ['Önce üstüne bir şey giy, sonra konuşalım. Müşterilerim kaçıyor.'],
@@ -225,11 +203,6 @@ export const NPCS: NpcDef[] = [
     creature: creature('healer', 'Ilse', 'İnsan', 'Kadın', 67, 6, { INT: 8, MNA: 8, VIT: 4, LUK: 4 }, {
       appraisal: 'F', skills: [['healing_magic', 'E-'], ['first_aid', 'D-'], ['gathering', 'E']], inventory: { herb: 20, hp_potion_s: 5 },
     }),
-    schedule: [
-      { from: 9, to: 17, map: 'healer', at: 'healer', act: 'work' },
-      { from: 17, to: 20, map: 'world', at: [117, 73], wander: 2, act: 'work' },
-      { from: 20, to: 9, map: 'hidden', at: 'healer' },
-    ],
     bubbles: { any: ['Bu otlar kendiliğinden kurumaz.', 'Rüzgâr değişti. Öksürük mevsimi.'], naked: ['Üşüteceksin evladım, bir şey giy.'] },
     talk: {
       naked: ['Vah yavrum, kimdir seni bu hâle koyan? Gel, şu çizikleri bir göreyim. ...Bedava, merak etme. Bu sefer.'],
@@ -242,12 +215,6 @@ export const NPCS: NpcDef[] = [
       appraisal: 'G+', skills: [['archery', 'E'], ['stealth', 'F'], ['gathering', 'F']], guildRank: parseSubRank('F+'),
       equipment: { weapon: 'hunter_bow', chest: 'leather_vest', boots: 'leather_boots' }, inventory: { rabbit_pelt: 4, wolf_pelt: 1 },
     }),
-    schedule: [
-      { from: 6, to: 12, map: 'world', at: [73, 52], wander: 3, act: 'work' },
-      { from: 12, to: 18, map: 'lodge', at: 'hunter', act: 'work' },
-      { from: 18, to: 23, map: 'inn', at: 'seat_m6', act: 'drink' },
-      { from: 23, to: 6, map: 'hidden', at: [73, 52] },
-    ],
     bubbles: { any: ['Rüzgâra karşı yaklaş. Hep rüzgâra karşı.', 'Kurtlar bu yıl erken indi.'], naked: ['...Ormanda öyle dolaşma. Sivrisinekler yer seni.'] },
     talk: {
       any: ['Kurtlar sürüyle gezer. Birini görürsen, üçünü say.', 'Goblinler derin ormanda kamp kurmuş. Oraya tek başına gitme.'],
@@ -260,10 +227,6 @@ export const NPCS: NpcDef[] = [
     creature: creature('guard_hob', 'Hob', 'İnsan', 'Erkek', 29, 4, { STR: 5, VIT: 6, AGI: 3, DEX: 2 }, {
       appraisal: 'G', skills: [['spear_mastery', 'G+']], titles: ['npc_watch'], equipment: { weapon: 'iron_spear', helmet: 'iron_cap', chest: 'padded_armor', boots: 'leather_boots' },
     }),
-    schedule: [
-      { from: 6, to: 22, map: 'world', at: [80, 57], act: 'patrol', patrol: [[70, 58], [88, 58], [95, 52], [102, 58], [124, 57], [102, 63], [92, 72]] },
-      { from: 22, to: 6, map: 'hidden', at: [80, 57] },
-    ],
     bubbles: {
       naked: ['Hey sen! Köyde böyle dolaşılmaz!', 'Haydutlar mı soydu? Kayıt tutmam lazım...'],
       rootless: ['Sorun çıkarma, yeter.', 'Han çalışanı, ha? İyi. Göz önündesin.'],
@@ -281,12 +244,6 @@ export const NPCS: NpcDef[] = [
     creature: creature('guard_wil', 'Wilmer', 'İnsan', 'Erkek', 35, 5, { STR: 7, VIT: 6, AGI: 2, DEX: 3, LUK: 2 }, {
       appraisal: 'G', skills: [['spear_mastery', 'F-']], equipment: { weapon: 'iron_spear', helmet: 'iron_cap', chest: 'padded_armor', boots: 'hobnail_boots' },
     }),
-    schedule: [
-      { from: 0, to: 6, map: 'world', at: [96, 56], act: 'patrol', patrol: [[95, 54], [104, 58], [95, 62], [88, 58]] },
-      { from: 6, to: 14, map: 'world', at: [131, 57], wander: 2, act: 'work' },
-      { from: 14, to: 18, map: 'world', at: [96, 56], act: 'patrol', patrol: [[95, 54], [104, 58], [95, 62], [88, 58]] },
-      { from: 18, to: 24, map: 'world', at: [96, 56], act: 'patrol', patrol: [[95, 54], [104, 58], [95, 62], [88, 58]] },
-    ],
     bubbles: {
       naked: ['Köksüz serseri. Defol, çocuklar var burada.', 'Şuna bak. Böcek gibi.'],
       rootless: ['Köksüz yine burada. Bir şey çalarsan kolunu kırarım.', 'Bulaşıkçı. Dilencilikten iyidir.'],
@@ -305,7 +262,6 @@ export const NPCS: NpcDef[] = [
       appraisal: 'E-', skills: [['spear_mastery', 'D-'], ['athletics', 'E']], titles: ['npc_watch'], guildRank: parseSubRank('D-'),
       equipment: { weapon: 'iron_spear', helmet: 'iron_cap', chest: 'padded_armor', pants: 'sturdy_pants', boots: 'hobnail_boots' },
     }),
-    schedule: always('world', 'checkpoint', 1, 'work'),
     bubbles: { any: ['Geçiş için kart ve ücret.', 'Şehir yolu güvenli değil, ama kurallar kurallardır.'] },
     talk: {},
   },
@@ -314,12 +270,6 @@ export const NPCS: NpcDef[] = [
   {
     id: 'tobin', name: 'Tobin', sheet: 'farmer_m1', voice: 'male', portrait: 'farmer_m1', personality: 'gossip', caste: 'commoner',
     creature: creature('tobin', 'Tobin', 'İnsan', 'Erkek', 20, 1, { STR: 2, VIT: 2 }),
-    schedule: [
-      { from: 7, to: 17, map: 'world', at: [104, 26], wander: 4, act: 'work' },
-      { from: 17, to: 19, map: 'world', at: [92, 60], wander: 2, act: 'talk' },
-      { from: 19, to: 22, map: 'inn', at: 'seat_m5', act: 'drink' },
-      { from: 22, to: 7, map: 'hidden', at: [104, 26] },
-    ],
     bubbles: {
       naked: ['Duydun mu? Ormandan çıplak biri gelmiş!', 'Haydut mu soydu bunu?', 'Vay be, ne kaslar ama... yok, yok.'],
       rootless: ['Han\'ın yeni bulaşıkçısı bu işte.', 'Bertram herkesi işe alıyor artık.'],
@@ -334,12 +284,6 @@ export const NPCS: NpcDef[] = [
   {
     id: 'ulric', name: 'Ulric', sheet: 'farmer_m2', voice: 'gruff', portrait: 'farmer_m2', personality: 'rude', caste: 'commoner',
     creature: creature('ulric', 'Ulric', 'İnsan', 'Erkek', 44, 2, { STR: 4, VIT: 4 }),
-    schedule: [
-      { from: 6, to: 16, map: 'world', at: [119, 26], wander: 4, act: 'work' },
-      { from: 16, to: 19, map: 'world', at: [124, 46], wander: 2, act: 'work' },
-      { from: 19, to: 23, map: 'inn', at: 'seat_m7', act: 'drink' },
-      { from: 23, to: 6, map: 'hidden', at: [119, 26] },
-    ],
     bubbles: {
       naked: ['Köksüz pislik. Tarlama yaklaşma!', 'Bunun ne işi var burada?'],
       rootless: ['Köksüz yine dolaşıyor.', 'Tarlamdan uzak dur, köksüz.'],
@@ -354,11 +298,6 @@ export const NPCS: NpcDef[] = [
   {
     id: 'hilda', name: 'Hilda', sheet: 'farmer_f1', voice: 'female', portrait: 'farmer_f1', personality: 'kind', caste: 'commoner',
     creature: creature('hilda', 'Hilda', 'İnsan', 'Kadın', 31, 1, { VIT: 2, DEX: 2 }),
-    schedule: [
-      { from: 7, to: 16, map: 'world', at: [84, 93], wander: 4, act: 'work' },
-      { from: 16, to: 20, map: 'world', at: [95, 61], wander: 3, act: 'talk' },
-      { from: 20, to: 7, map: 'hidden', at: [84, 93] },
-    ],
     bubbles: {
       naked: ['Zavallı çocuk... kim yaptı bunu?', 'Üşüyor olmalı.'],
       rootless: ['Hoş geldin, evlat. Bertram\'ın yanında mısın?'],
@@ -373,12 +312,6 @@ export const NPCS: NpcDef[] = [
   {
     id: 'greta', name: 'Greta', sheet: 'farmer_f2', voice: 'female', portrait: 'farmer_f2', personality: 'gossip', caste: 'commoner',
     creature: creature('greta', 'Greta', 'İnsan', 'Kadın', 27, 0, {}),
-    schedule: [
-      { from: 7, to: 12, map: 'world', at: [96, 60], wander: 3, act: 'talk' },
-      { from: 12, to: 17, map: 'world', at: [98, 94], wander: 3, act: 'work' },
-      { from: 17, to: 21, map: 'world', at: [93, 60], wander: 3, act: 'talk' },
-      { from: 21, to: 7, map: 'hidden', at: [96, 60] },
-    ],
     bubbles: {
       naked: ['Görmedim, görmedim! ...Gördüm.', 'Kim bu adam? Bunu herkese anlatacağım!'],
       rootless: ['Bertram onu tavan arasına yerleştirmiş, biliyor musun?', 'Vera ona "bulaşık prensi" diyormuş!'],
@@ -393,12 +326,6 @@ export const NPCS: NpcDef[] = [
   {
     id: 'edwin', name: 'İhtiyar Edwin', sheet: 'elder_m', voice: 'male_old', portrait: 'elder_m', personality: 'wise', caste: 'commoner',
     creature: creature('edwin', 'Edwin', 'İnsan', 'Erkek', 78, 3, { INT: 5, VIT: 2, MNA: 3, LUK: 2 }, { appraisal: 'F-', skills: [['gathering', 'F']] }),
-    schedule: [
-      { from: 9, to: 12, map: 'world', at: [92, 63], act: 'sit' },
-      { from: 12, to: 14, map: 'hidden', at: [92, 63] },
-      { from: 14, to: 18, map: 'world', at: [98, 63], act: 'sit' },
-      { from: 18, to: 9, map: 'hidden', at: [92, 63] },
-    ],
     bubbles: {
       any: ['Gençken ben de...', 'Elonth\'ta herkes sıfırdan başlar. Kral da, fare de.'],
       naked: ['Hm. Gözlerinde başka bir dünyanın tozu var.'],
@@ -416,12 +343,6 @@ export const NPCS: NpcDef[] = [
   {
     id: 'berta', name: 'Berta Nine', sheet: 'elder_f', voice: 'female_old', portrait: 'elder_f', personality: 'rude', caste: 'commoner',
     creature: creature('berta', 'Berta', 'İnsan', 'Kadın', 71, 1, { VIT: 2, INT: 2 }),
-    schedule: [
-      { from: 8, to: 12, map: 'world', at: [80, 52], wander: 1, act: 'sit' },
-      { from: 15, to: 18, map: 'world', at: [96, 64], wander: 1, act: 'sit' },
-      { from: 18, to: 8, map: 'hidden', at: [86, 46] },
-      { from: 12, to: 15, map: 'hidden', at: [86, 46] },
-    ],
     bubbles: {
       naked: ['Ahlaksız! Benim zamanımda...', 'Çık şuradan, utanmaz!'],
       rootless: ['Köksüz. Kesin bir şey çalacak.', 'Bizim zamanımızda köksüzler köye giremezdi.'],
@@ -436,12 +357,6 @@ export const NPCS: NpcDef[] = [
   {
     id: 'anna', name: 'Anna', sheet: 'mother', voice: 'female', portrait: 'mother', personality: 'kind', caste: 'commoner',
     creature: creature('anna', 'Anna', 'İnsan', 'Kadın', 29, 0, {}),
-    schedule: [
-      { from: 9, to: 12, map: 'world', at: [94, 60], wander: 2, act: 'talk' },
-      { from: 12, to: 14, map: 'hidden', at: [94, 60] },
-      { from: 14, to: 18, map: 'world', at: [93, 59], wander: 2, act: 'talk' },
-      { from: 18, to: 9, map: 'hidden', at: [94, 60] },
-    ],
     bubbles: {
       naked: ['Pip! Bakma oraya! Kapat gözlerini!', 'Aman Tanrım...'],
       rootless: ['Pip, adamı rahat bırak.'],
@@ -456,12 +371,6 @@ export const NPCS: NpcDef[] = [
   {
     id: 'pip', name: 'Pip', sheet: 'child', voice: 'child', portrait: 'child', personality: 'kind', caste: 'commoner', speed: 2.8,
     creature: creature('pip', 'Pip', 'İnsan', 'Erkek', 7, 0, {}),
-    schedule: [
-      { from: 9, to: 12, map: 'world', at: [95, 61], wander: 3, act: 'talk' },
-      { from: 12, to: 14, map: 'hidden', at: [95, 61] },
-      { from: 14, to: 18, map: 'world', at: [94, 61], wander: 3, act: 'talk' },
-      { from: 18, to: 9, map: 'hidden', at: [95, 61] },
-    ],
     bubbles: {
       naked: ['Anne! O adamın pantolonu yok!', 'Anne, göremiyorum!'],
       rootless: ['Bulaşıkçı abi!', 'Abi, kılıç kullanabiliyor musun?'],
@@ -476,11 +385,6 @@ export const NPCS: NpcDef[] = [
   {
     id: 'fenn', name: 'Sarhoş Fenn', sheet: 'drunk', voice: 'male', portrait: 'drunk', personality: 'drunk', caste: 'commoner',
     creature: creature('fenn', 'Fenn', 'İnsan', 'Erkek', 38, 2, { VIT: 5, LUK: 3 }, { traits: ['iron_liver'] }),
-    schedule: [
-      { from: 10, to: 16, map: 'world', at: [87, 58], wander: 1, act: 'sit' },
-      { from: 16, to: 24, map: 'inn', at: 'seat_m3', act: 'drink' },
-      { from: 0, to: 10, map: 'hidden', at: [87, 58] },
-    ],
     bubbles: {
       naked: ['Hık! Ben de... ben de bir zamanlar böyleydim!', 'Kardeşim! Sen de mi kaybettin pantolonunu? Hık!'],
       rootless: ['Bulaşıkçı! Bir bira! Hık!', 'Sen iyi çocuksun. Hık. Herkes iyidir.'],
@@ -495,11 +399,6 @@ export const NPCS: NpcDef[] = [
   {
     id: 'oswin', name: 'Değirmenci Oswin', sheet: 'miller', voice: 'male_old', portrait: 'miller', personality: 'neutral', caste: 'burgher',
     creature: creature('oswin', 'Oswin', 'İnsan', 'Erkek', 58, 2, { STR: 3, VIT: 3, DEX: 2 }),
-    schedule: [
-      { from: 6, to: 18, map: 'world', at: [68, 94], wander: 2, act: 'work' },
-      { from: 18, to: 22, map: 'inn', at: 'seat_m8', act: 'drink' },
-      { from: 22, to: 6, map: 'hidden', at: [68, 94] },
-    ],
     bubbles: { any: ['Değirmen taşı aşınmış yine.', 'Fareler ambara dadandı.'] },
     talk: {
       any: ['Değirmenin arkası farelerle dolu. Birisi temizlese iyi olurdu. Para veremem ama teşekkür ederim.'],
@@ -511,12 +410,6 @@ export const NPCS: NpcDef[] = [
       appraisal: 'F+', skills: [['sword_mastery', 'E'], ['evasion', 'F'], ['athletics', 'E-']], guildRank: parseSubRank('E-'),
       equipment: { weapon: 'iron_shortsword', chest: 'padded_armor', pants: 'sturdy_pants', boots: 'hobnail_boots', cape: 'traveler_cape' },
     }),
-    schedule: [
-      { from: 9, to: 14, map: 'guild', at: 'adv1', act: 'talk' },
-      { from: 14, to: 18, map: 'world', at: [100, 57], wander: 2, act: 'talk' },
-      { from: 18, to: 23, map: 'inn', at: 'good_1', act: 'drink' },
-      { from: 23, to: 9, map: 'hidden', at: [100, 57] },
-    ],
     bubbles: {
       naked: ['Ha! Bu da ne?', 'Haydutlara yakalanmışsın, çaylak.'],
       rootless: ['Bertram\'ın yeni köpeği.'],
@@ -533,12 +426,6 @@ export const NPCS: NpcDef[] = [
     creature: creature('sira', 'Sira', 'Elf', 'Kadın', 112, 12, { INT: 16, MNA: 14, AGI: 8, DEX: 6, VIT: 4 }, {
       appraisal: 'E', skills: [['fire_magic', 'D-'], ['healing_magic', 'E'], ['stealth', 'E-']], guildRank: parseSubRank('D'),
     }),
-    schedule: [
-      { from: 10, to: 16, map: 'guild', at: 'adv2', act: 'sit' },
-      { from: 16, to: 18, map: 'world', at: [92, 52], wander: 1, act: 'sit' },
-      { from: 18, to: 21, map: 'inn', at: 'good_2', act: 'drink' },
-      { from: 21, to: 10, map: 'hidden', at: [92, 52] },
-    ],
     bubbles: { any: ['...', 'Bu köyün havası temiz.'], naked: ['...(başını çevirir)'] },
     talk: {
       any: ['...Seni okuyamıyorum. Garip.', 'Elf\'ler yüz yıl yaşar, insanlar yüz yılda yaşlanır. Acele etme.'],
@@ -550,13 +437,6 @@ export const NPCS: NpcDef[] = [
   {
     id: 'haldor', name: 'Yaşlı Haldor', sheet: 'haldor', voice: 'male_old', portrait: 'haldor', personality: 'kind', caste: 'commoner',
     creature: creature('haldor', 'Haldor', 'İnsan', 'Erkek', 71, 2, { STR: 2, VIT: 3, DEX: 1 }, { appraisal: 'G', skills: [['gathering', 'F-']], inventory: { bread: 2, apple: 4 } }),
-    schedule: [
-      { from: 6, to: 12, map: 'world', at: [134, 46], wander: 3, act: 'work' },
-      { from: 12, to: 14, map: 'farmhouse', at: 'haldor', act: 'sit' },
-      { from: 14, to: 18, map: 'world', at: [136, 46], wander: 3, act: 'work' },
-      { from: 18, to: 22, map: 'farmhouse', at: 'haldor', act: 'sit' },
-      { from: 22, to: 6, map: 'hidden', at: 'haldor' },
-    ],
     bubbles: {
       naked: ['Vay evlat... Üşüyeceksin bu hâlde.', 'Kimin nesi bu? Ormandan mı çıktı?'],
       rootless: ['Buğday kendini biçmez...', 'Ah, dizlerim. Ah, belim.', 'Bertram\'ın çırağı mı o?'],
@@ -574,11 +454,6 @@ export const NPCS: NpcDef[] = [
   {
     id: 'baker', name: 'Fırıncı Brunhild', sheet: 'baker', voice: 'female', portrait: 'baker', personality: 'neutral', caste: 'burgher', shop: 'bakery', role: 'shop',
     creature: creature('baker', 'Brunhild', 'İnsan', 'Kadın', 39, 2, { STR: 3, VIT: 3, DEX: 2 }, { appraisal: 'G+', inventory: { bread: 30, honey_bun: 12, meat_pie: 6 } }),
-    schedule: [
-      { from: 5, to: 18, map: 'bakery', at: 'baker', act: 'work' },
-      { from: 18, to: 21, map: 'world', at: [168, 72], wander: 2, act: 'talk' },
-      { from: 21, to: 5, map: 'hidden', at: 'baker' },
-    ],
     bubbles: {
       any: ['Taze ekmek! Sıcak sıcak!', 'Hamur kendini yoğurmaz.'],
       naked: ['Fırınımın önünden çekil! Un kokusu sana bulaşmasın!'],
@@ -594,11 +469,6 @@ export const NPCS: NpcDef[] = [
   {
     id: 'tailor', name: 'Terzi Mirelle', sheet: 'tailor', voice: 'female', portrait: 'tailor', personality: 'proud', caste: 'burgher', shop: 'tailor', role: 'shop',
     creature: creature('tailor', 'Mirelle', 'İnsan', 'Kadın', 33, 2, { DEX: 5, INT: 3, LUK: 2 }, { appraisal: 'F-', equipment: { necklace: 'rabbit_charm' }, inventory: { linen_shirt: 3 } }),
-    schedule: [
-      { from: 9, to: 18, map: 'tailor', at: 'tailor', act: 'work' },
-      { from: 18, to: 20, map: 'world', at: [178, 72], wander: 2, act: 'talk' },
-      { from: 20, to: 9, map: 'hidden', at: 'tailor' },
-    ],
     bubbles: {
       any: ['İğne, iplik, sabır.', 'Bu kumaş başkentten geldi. Sakın dokunma.'],
       naked: ['Tanrılar! Gözlerim! Biri bu adama bir çuval versin!'],
@@ -614,11 +484,6 @@ export const NPCS: NpcDef[] = [
   {
     id: 'tanner', name: 'Tabakçı Gorm', sheet: 'tanner', voice: 'gruff', portrait: 'tanner', personality: 'rude', caste: 'burgher', shop: 'tannery', role: 'shop',
     creature: creature('tanner', 'Gorm', 'İnsan', 'Erkek', 45, 4, { STR: 7, VIT: 6, DEX: 3 }, { appraisal: 'G+', equipment: { gloves: 'leather_gloves' }, inventory: { wolf_pelt: 3, rabbit_pelt: 6 } }),
-    schedule: [
-      { from: 8, to: 18, map: 'tannery', at: 'tanner', act: 'work' },
-      { from: 18, to: 23, map: 'inn', at: 'bar_2', act: 'drink' },
-      { from: 23, to: 8, map: 'hidden', at: 'tanner' },
-    ],
     bubbles: {
       any: ['Koku mu? Para kokusu bu.', 'Post getir, para götür. Az para.'],
       naked: ['Senin derin bile satılmaz.'],
@@ -634,11 +499,6 @@ export const NPCS: NpcDef[] = [
   {
     id: 'apprentice', name: 'Çırak Ott', sheet: 'apprentice', voice: 'male', portrait: 'apprentice', personality: 'shy', caste: 'commoner',
     creature: creature('apprentice', 'Ott', 'İnsan', 'Erkek', 15, 1, { STR: 2, VIT: 1, DEX: 1 }),
-    schedule: [
-      { from: 8, to: 18, map: 'smithy', at: [6, 6], act: 'work' },
-      { from: 18, to: 21, map: 'world', at: [80, 69], wander: 2, act: 'talk' },
-      { from: 21, to: 8, map: 'hidden', at: [80, 69] },
-    ],
     bubbles: {
       any: ['Usta yine bağıracak...', 'Körük, körük, körük.'],
       naked: ['(Kızarıp başka yere bakıyor.)'],
@@ -652,11 +512,6 @@ export const NPCS: NpcDef[] = [
   {
     id: 'carpenter', name: 'Marangoz Ivo', sheet: 'carpenter', voice: 'male', portrait: 'carpenter', personality: 'neutral', caste: 'burgher',
     creature: creature('carpenter', 'Ivo', 'İnsan', 'Erkek', 37, 3, { STR: 5, DEX: 5, VIT: 3 }, { appraisal: 'G', inventory: { firewood: 12 } }),
-    schedule: [
-      { from: 7, to: 17, map: 'world', at: [179, 62], wander: 2, act: 'work' },
-      { from: 17, to: 21, map: 'world', at: [131, 117], wander: 2, act: 'talk' },
-      { from: 21, to: 7, map: 'hidden', at: [179, 62] },
-    ],
     bubbles: {
       any: ['Bu araba tekerleği üçüncü kez kırıldı.', 'Tüccarın arabası, tüccarın derdi.'],
       naked: ['Hey! Talaşa basma, yalınayaksın!'],
@@ -671,11 +526,6 @@ export const NPCS: NpcDef[] = [
   {
     id: 'bard', name: 'Ozan Fennick', sheet: 'bard', voice: 'male', portrait: 'bard', personality: 'gossip', caste: 'burgher',
     creature: creature('bard', 'Fennick', 'İnsan', 'Erkek', 28, 3, { DEX: 4, LUK: 4, INT: 3 }, { appraisal: 'F-', traits: ['silver_tongue'] }),
-    schedule: [
-      { from: 10, to: 17, map: 'world', at: [174, 74], wander: 2, act: 'talk' },
-      { from: 18, to: 23, map: 'inn', at: 'stage', act: 'talk' },
-      { from: 23, to: 10, map: 'hidden', at: [174, 74] },
-    ],
     bubbles: {
       any: ['♪ S rütbe Leydi Aveline, ejderhanın dişini söktü ♪', '♪ Kral bir kadeh kaldırdı, köylüler eğildi ♪', 'Bir bronz atan bir şarkı dinler!'],
       naked: ['♪ Ormandan çıktı bir adam, ne gömlek ne de don ♪'],
@@ -690,10 +540,6 @@ export const NPCS: NpcDef[] = [
   {
     id: 'innmaid', name: 'Hizmetçi Mia', sheet: 'innmaid', voice: 'female', portrait: 'innmaid', personality: 'kind', caste: 'commoner',
     creature: creature('innmaid', 'Mia', 'İnsan', 'Kadın', 17, 1, { DEX: 2, AGI: 2 }),
-    schedule: [
-      { from: 7, to: 23, map: 'inn', at: [6, 7], wander: 3, act: 'work' },
-      { from: 23, to: 7, map: 'hidden', at: [6, 7] },
-    ],
     bubbles: {
       any: ['Geliyor, geliyor!', 'Ocaktaki güveç yanmasın...'],
       naked: ['Ay! Bertram Amca, kapıda biri var... çıplak!'],
@@ -713,14 +559,6 @@ export const NPCS: NpcDef[] = [
       appraisal: 'E-', titles: ['npc_merchant'], traits: ['silver_tongue'],
       equipment: { ring1: 'copper_ring', necklace: 'rabbit_charm', boots: 'leather_boots' }, inventory: { meat_pie: 2, mp_potion_s: 1 },
     }),
-    schedule: [
-      { from: 9, to: 11, map: 'world', at: [172, 74], wander: 2, act: 'talk' },
-      { from: 11, to: 13, map: 'tailor', at: 'queue', act: 'talk' },
-      { from: 13, to: 16, map: 'world', at: [97, 59], wander: 3, act: 'talk' },
-      { from: 16, to: 18, map: 'tannery', at: 'queue', act: 'talk' },
-      { from: 18, to: 23, map: 'inn', at: 'good_3', act: 'drink' },
-      { from: 23, to: 9, map: 'hidden', at: [154, 55] },
-    ],
     bubbles: {
       any: ['Zaman paradır, para da benim.', 'Bu köyde bir şey alınacak, bir şey satılacak. O kadar.'],
       naked: ['Varg, şu şeyi yolumdan al.'],
@@ -739,14 +577,6 @@ export const NPCS: NpcDef[] = [
       appraisal: 'G+', skills: [['sword_mastery', 'E-'], ['athletics', 'F']], guildRank: parseSubRank('E'),
       equipment: { weapon: 'iron_shortsword', chest: 'padded_armor', helmet: 'iron_cap', boots: 'hobnail_boots' },
     }),
-    schedule: [
-      { from: 9, to: 11, map: 'world', at: [174, 75], wander: 1, act: 'talk' },
-      { from: 11, to: 13, map: 'tailor', at: [2, 5], act: 'work' },
-      { from: 13, to: 16, map: 'world', at: [99, 60], wander: 1, act: 'talk' },
-      { from: 16, to: 18, map: 'tannery', at: [2, 6], act: 'work' },
-      { from: 18, to: 23, map: 'inn', at: 'good_6', act: 'drink' },
-      { from: 23, to: 9, map: 'hidden', at: [154, 55] },
-    ],
     bubbles: {
       any: ['...', 'Efendinin keselerine bakma.'],
       rootless: ['Bir adım daha yaklaş, kolunu kırarım.', 'Köksüz. Gözüm üzerinde.'],
@@ -759,12 +589,6 @@ export const NPCS: NpcDef[] = [
     creature: creature('steward', 'Edric Valmont', 'İnsan', 'Erkek', 52, 6, { INT: 9, LUK: 3, VIT: 3 }, {
       appraisal: 'E', titles: ['npc_steward'], equipment: { ring1: 'copper_ring', boots: 'leather_boots', cape: 'traveler_cape' },
     }),
-    schedule: [
-      { from: 10, to: 12, map: 'world', at: [96, 61], act: 'talk', days: [1, 5] },
-      { from: 12, to: 14, map: 'world', at: [172, 73], act: 'talk', days: [1, 5] },
-      { from: 14, to: 16, map: 'world', at: [158, 84], act: 'talk', days: [1, 5] },
-      { from: 0, to: 24, map: 'hidden', at: [210, 57] },
-    ],
     bubbles: {
       any: ['Baron Valmont\'un vergisi bu ay yüzde on artmıştır.', 'Muhtar nerede? Defterler eksik.'],
       naked: ['Bu... şey... neden yolda? Cedric!'],
@@ -783,12 +607,6 @@ export const NPCS: NpcDef[] = [
       appraisal: 'E-', skills: [['sword_mastery', 'D'], ['athletics', 'E'], ['iron_body', 'E-']], titles: ['npc_knight'],
       equipment: { weapon: 'iron_shortsword', chest: 'padded_armor', helmet: 'iron_cap', pants: 'sturdy_pants', boots: 'hobnail_boots', cape: 'traveler_cape' },
     }),
-    schedule: [
-      { from: 10, to: 12, map: 'world', at: [97, 62], act: 'patrol', patrol: [[97, 62], [94, 62]], days: [1, 5] },
-      { from: 12, to: 14, map: 'world', at: [173, 74], act: 'work', days: [1, 5] },
-      { from: 14, to: 16, map: 'world', at: [159, 85], act: 'work', days: [1, 5] },
-      { from: 0, to: 24, map: 'hidden', at: [210, 57] },
-    ],
     bubbles: {
       any: ['...', 'Kâhyadan üç adım uzak dur.'],
       rootless: ['Bir adım daha, köksüz.', 'Eğil.'],
@@ -802,12 +620,6 @@ export const NPCS: NpcDef[] = [
       appraisal: 'E', skills: [['sword_mastery', 'D+'], ['evasion', 'E'], ['athletics', 'D-'], ['iron_body', 'E']], titles: ['npc_blackhound'],
       guildRank: parseSubRank('D-'), equipment: { weapon: 'iron_shortsword', chest: 'padded_armor', pants: 'sturdy_pants', boots: 'hobnail_boots', cape: 'traveler_cape' },
     }),
-    schedule: [
-      { from: 9, to: 13, map: 'guild', at: 'adv4', act: 'sit' },
-      { from: 13, to: 18, map: 'world', at: [101, 57], wander: 2, act: 'talk' },
-      { from: 18, to: 23, map: 'inn', at: 'good_5', act: 'drink' },
-      { from: 23, to: 9, map: 'hidden', at: [101, 57] },
-    ],
     bubbles: {
       any: ['Bu köyde öldürülecek bir şey kalmamış.', 'Goblin kampı mı? Çocuk oyuncağı.'],
       naked: ['Hah! Goblinler bile pantolon giyer.'],
@@ -826,12 +638,6 @@ export const NPCS: NpcDef[] = [
       appraisal: 'G', skills: [['sword_mastery', 'G+', 6]], guildRank: parseSubRank('F-'),
       equipment: { weapon: 'rusty_shortsword', chest: 'leather_vest', boots: 'leather_boots' },
     }),
-    schedule: [
-      { from: 8, to: 12, map: 'guild', at: 'adv3', act: 'sit' },
-      { from: 12, to: 18, map: 'world', at: [71, 54], wander: 3, act: 'work' },
-      { from: 18, to: 23, map: 'inn', at: 'bar_1', act: 'drink' },
-      { from: 23, to: 8, map: 'hidden', at: [71, 54] },
-    ],
     bubbles: {
       any: ['Bir gün D rütbe olacağım. Sonra C. Sonra...', 'Thorne Efendi bana bakmadı bile.'],
       naked: ['Hahaha! Bu adam kim?!'],
@@ -849,13 +655,6 @@ export const NPCS: NpcDef[] = [
   {
     id: 'headman', name: 'Muhtar Godric', sheet: 'headman', voice: 'bertram', portrait: 'headman', personality: 'proud', caste: 'burgher',
     creature: creature('headman', 'Godric', 'İnsan', 'Erkek', 56, 3, { INT: 5, VIT: 3, LUK: 3 }, { appraisal: 'F-', equipment: { ring1: 'copper_ring' } }),
-    schedule: [
-      { from: 8, to: 12, map: 'world', at: [158, 84], wander: 2, act: 'talk' },
-      { from: 12, to: 15, map: 'world', at: [94, 59], wander: 3, act: 'talk' },
-      { from: 15, to: 18, map: 'world', at: [170, 73], wander: 2, act: 'talk' },
-      { from: 18, to: 22, map: 'inn', at: 'good_4', act: 'drink' },
-      { from: 22, to: 8, map: 'hidden', at: [158, 84] },
-    ],
     bubbles: {
       any: ['Vergi defterleri, vergi defterleri...', 'Kâhya gelecek, her şey yerli yerinde olsun.'],
       naked: ['Muhafız! Köyümde bu ne rezalet!'],
@@ -871,12 +670,6 @@ export const NPCS: NpcDef[] = [
   {
     id: 'headwife', name: 'Hanım Matilde', sheet: 'headwife', voice: 'female', portrait: 'headwife', personality: 'rude', caste: 'burgher',
     creature: creature('headwife', 'Matilde', 'İnsan', 'Kadın', 50, 1, { INT: 3, LUK: 2 }, { equipment: { necklace: 'rabbit_charm' } }),
-    schedule: [
-      { from: 9, to: 11, map: 'bakery', at: 'queue', act: 'talk' },
-      { from: 11, to: 16, map: 'world', at: [173, 72], wander: 2, act: 'talk' },
-      { from: 16, to: 18, map: 'tailor', at: 'queue', act: 'talk' },
-      { from: 18, to: 9, map: 'hidden', at: [158, 84] },
-    ],
     bubbles: {
       any: ['Brunhild\'in ekmeği yine hamur.', 'Muhtar karısına yol verilir, bilmiyor musunuz?'],
       naked: ['Ahlaksız! Gözlerim kirlendi!'],
@@ -892,13 +685,6 @@ export const NPCS: NpcDef[] = [
   {
     id: 'farmer_m3', name: 'Jonas', sheet: 'farmer_m3', voice: 'male', portrait: 'farmer_m3', personality: 'neutral', caste: 'commoner',
     creature: creature('farmer_m3', 'Jonas', 'İnsan', 'Erkek', 35, 2, { STR: 4, VIT: 3 }, { skills: [['gathering', 'G+']] }),
-    schedule: [
-      { from: 6, to: 12, map: 'world', at: [149, 130], wander: 4, act: 'work' },
-      { from: 12, to: 13, map: 'world', at: [115, 122], act: 'sit' },
-      { from: 13, to: 18, map: 'world', at: [165, 130], wander: 4, act: 'work' },
-      { from: 18, to: 22, map: 'world', at: [131, 117], wander: 2, act: 'talk' },
-      { from: 22, to: 6, map: 'hidden', at: [115, 122] },
-    ],
     bubbles: {
       any: ['Lahanalar tavşanlara yem oluyor.', 'Vergiden sonra elimize ne kalacak?'],
       naked: ['Ormandan gelen o adam mı bu?'],
@@ -914,12 +700,6 @@ export const NPCS: NpcDef[] = [
   {
     id: 'farmer_f3', name: 'Elke', sheet: 'farmer_f3', voice: 'female', portrait: 'farmer_f3', personality: 'kind', caste: 'commoner',
     creature: creature('farmer_f3', 'Elke', 'İnsan', 'Kadın', 32, 1, { VIT: 2, DEX: 2 }),
-    schedule: [
-      { from: 7, to: 11, map: 'world', at: [117, 123], wander: 2, act: 'work' },
-      { from: 11, to: 15, map: 'world', at: [168, 73], wander: 2, act: 'talk' },
-      { from: 15, to: 19, map: 'world', at: [119, 123], wander: 2, act: 'work' },
-      { from: 19, to: 7, map: 'hidden', at: [117, 123] },
-    ],
     bubbles: {
       any: ['Pazarda yumurta yine ucuz.', 'Jonas yine yemeği unuttu.'],
       naked: ['Çocuğum, sen ne hâldesin...'],
@@ -935,10 +715,6 @@ export const NPCS: NpcDef[] = [
   {
     id: 'shepherd', name: 'Çoban Tam', sheet: 'shepherd', voice: 'child', portrait: 'shepherd', personality: 'shy', caste: 'commoner', speed: 2.6,
     creature: creature('shepherd', 'Tam', 'İnsan', 'Erkek', 13, 1, { AGI: 2, VIT: 1 }),
-    schedule: [
-      { from: 6, to: 19, map: 'world', at: [188, 128], wander: 6, act: 'work' },
-      { from: 19, to: 6, map: 'hidden', at: [188, 128] },
-    ],
     bubbles: {
       any: ['Hoy hoy hoy!', 'Bir kuzu eksik... yine.'],
       naked: ['(Değneğini sıkıca tutuyor.)'],
@@ -950,12 +726,6 @@ export const NPCS: NpcDef[] = [
   {
     id: 'milkmaid', name: 'Sütçü Rosa', sheet: 'milkmaid', voice: 'female', portrait: 'milkmaid', personality: 'gossip', caste: 'commoner',
     creature: creature('milkmaid', 'Rosa', 'İnsan', 'Kadın', 19, 1, { VIT: 2, STR: 1 }),
-    schedule: [
-      { from: 5, to: 10, map: 'world', at: [186, 121], wander: 3, act: 'work' },
-      { from: 10, to: 14, map: 'world', at: [169, 74], wander: 2, act: 'talk' },
-      { from: 14, to: 18, map: 'world', at: [186, 123], wander: 3, act: 'work' },
-      { from: 18, to: 5, map: 'hidden', at: [186, 121] },
-    ],
     bubbles: {
       any: ['Süt! Taze süt!', 'Duydun mu? Kâhya bu hafta yine geliyormuş.'],
       naked: ['Hihi! Mia\'ya anlatacağım!'],
@@ -970,12 +740,6 @@ export const NPCS: NpcDef[] = [
   {
     id: 'washer', name: 'Çamaşırcı Wynn', sheet: 'washer', voice: 'female', portrait: 'washer', personality: 'gossip', caste: 'commoner',
     creature: creature('washer', 'Wynn', 'İnsan', 'Kadın', 41, 1, { VIT: 2, STR: 2 }),
-    schedule: [
-      { from: 7, to: 13, map: 'world', at: [100, 125], wander: 2, act: 'work' },
-      { from: 13, to: 17, map: 'world', at: [188, 67], wander: 2, act: 'work' },
-      { from: 17, to: 20, map: 'world', at: [130, 117], wander: 2, act: 'talk' },
-      { from: 20, to: 7, map: 'hidden', at: [100, 125] },
-    ],
     bubbles: {
       any: ['Kâhyanın gömleği yine şarap lekesi.', 'Herkesin kirli çamaşırı bende. Her anlamda.'],
       naked: ['Sana yıkayacak bir şey bile kalmamış!'],
@@ -987,12 +751,6 @@ export const NPCS: NpcDef[] = [
   {
     id: 'gerda', name: 'Gerda Nine', sheet: 'gerda', voice: 'female_old', portrait: 'gerda', personality: 'kind', caste: 'commoner',
     creature: creature('gerda', 'Gerda', 'İnsan', 'Kadın', 76, 1, { INT: 3, VIT: 1 }, { skills: [['gathering', 'F-']] }),
-    schedule: [
-      { from: 8, to: 13, map: 'world', at: [129, 117], act: 'sit' },
-      { from: 13, to: 15, map: 'hidden', at: [117, 123] },
-      { from: 15, to: 19, map: 'world', at: [120, 123], wander: 1, act: 'sit' },
-      { from: 19, to: 8, map: 'hidden', at: [117, 123] },
-    ],
     bubbles: {
       any: ['Bu meşe ben kızken de buradaydı.', 'Gel otur yavrum, ayakta durma.'],
       naked: ['Vah yavrucak... Üşüme, gel güneşe otur.'],
@@ -1006,10 +764,6 @@ export const NPCS: NpcDef[] = [
   {
     id: 'child_girl', name: 'Lotte', sheet: 'child_girl', voice: 'child', portrait: 'child_girl', personality: 'kind', caste: 'commoner', speed: 2.8,
     creature: creature('child_girl', 'Lotte', 'İnsan', 'Kız', 8, 0, {}),
-    schedule: [
-      { from: 9, to: 17, map: 'world', at: [170, 75], wander: 4, act: 'talk' },
-      { from: 17, to: 9, map: 'hidden', at: [170, 75] },
-    ],
     bubbles: {
       any: ['Çeşmeye bozuk para attım! Dilek tuttum!', 'Benno beni kovalıyor!'],
       naked: ['Anneee! Çıplak adam!'],
@@ -1021,11 +775,6 @@ export const NPCS: NpcDef[] = [
   {
     id: 'child_boy', name: 'Benno', sheet: 'child_boy', voice: 'child', portrait: 'child_boy', personality: 'gossip', caste: 'commoner', speed: 2.9,
     creature: creature('child_boy', 'Benno', 'İnsan', 'Erkek', 9, 0, {}),
-    schedule: [
-      { from: 9, to: 12, map: 'world', at: [128, 115], wander: 4, act: 'talk' },
-      { from: 12, to: 17, map: 'world', at: [174, 76], wander: 4, act: 'talk' },
-      { from: 17, to: 9, map: 'hidden', at: [128, 115] },
-    ],
     bubbles: {
       any: ['Yakalayamazsın!', 'Lotte ağlak!'],
       naked: ['Hahaha! Bak bak!'],
@@ -1037,12 +786,6 @@ export const NPCS: NpcDef[] = [
   {
     id: 'woodcutter', name: 'Oduncu Brann', sheet: 'woodcutter', voice: 'gruff', portrait: 'woodcutter', personality: 'neutral', caste: 'commoner',
     creature: creature('woodcutter', 'Brann', 'İnsan', 'Erkek', 42, 3, { STR: 7, VIT: 5 }, { inventory: { firewood: 20 } }),
-    schedule: [
-      { from: 6, to: 16, map: 'world', at: [127, 136], wander: 2, act: 'work' },
-      { from: 16, to: 19, map: 'world', at: [132, 117], wander: 2, act: 'talk' },
-      { from: 19, to: 22, map: 'inn', at: 'back_2', act: 'drink' },
-      { from: 22, to: 6, map: 'hidden', at: [127, 136] },
-    ],
     bubbles: {
       any: ['Kütük, kütük, kütük.', 'Güney ormanında bir şey dolaşıyor. Büyük bir şey.'],
       naked: ['Bu soğukta mı? Delisin sen.'],
@@ -1056,10 +799,6 @@ export const NPCS: NpcDef[] = [
     creature: creature('guard_pell', 'Pell', 'İnsan', 'Erkek', 26, 4, { STR: 5, VIT: 5, AGI: 3, DEX: 3 }, {
       appraisal: 'G', skills: [['spear_mastery', 'G+']], titles: ['npc_watch'], equipment: { weapon: 'iron_spear', helmet: 'iron_cap', chest: 'padded_armor', boots: 'leather_boots' },
     }),
-    schedule: [
-      { from: 6, to: 22, map: 'world', at: [160, 58], act: 'patrol', patrol: [[150, 58], [172, 60], [172, 80], [172, 98], [184, 90], [172, 80], [160, 58], [196, 57]] },
-      { from: 22, to: 6, map: 'hidden', at: [160, 58] },
-    ],
     bubbles: {
       any: ['Doğu mahallesi sakindir. Sakin kalsın.'],
       naked: ['Hey! Burası muhtarın mahallesi, böyle dolaşamazsın!'],
@@ -1077,12 +816,6 @@ export const NPCS: NpcDef[] = [
   {
     id: 'vagrant', name: 'Köksüz Nim', sheet: 'vagrant', voice: 'male', portrait: 'vagrant', personality: 'wise', caste: 'rootless',
     creature: creature('vagrant', 'Nim', 'İnsan', 'Erkek', 44, 1, { VIT: 2, LUK: 3 }, { appraisal: 'G', skills: [['stealth', 'G+']], inventory: { small_stone: 3 } }),
-    schedule: [
-      { from: 6, to: 12, map: 'world', at: [86, 55], act: 'sit' },
-      { from: 12, to: 17, map: 'world', at: [140, 59], wander: 2, act: 'sit' },
-      { from: 17, to: 23, map: 'inn', at: 'back_1', act: 'sit' },
-      { from: 23, to: 6, map: 'world', at: [64, 60], act: 'sit' },
-    ],
     bubbles: {
       any: ['...', 'Bir bronz? Yok mu? Peki.'],
       naked: ['Kardeşim! Onları da mı aldılar senden?'],
@@ -1098,10 +831,6 @@ export const NPCS: NpcDef[] = [
   {
     id: 'beggar', name: 'Dilenci Moss', sheet: 'beggar', voice: 'female_old', portrait: 'beggar', personality: 'kind', caste: 'rootless',
     creature: creature('beggar', 'Moss', 'İnsan', 'Kadın', 63, 0, {}),
-    schedule: [
-      { from: 7, to: 19, map: 'world', at: [105, 64], act: 'sit' },
-      { from: 19, to: 7, map: 'hidden', at: [105, 64] },
-    ],
     bubbles: {
       any: ['Bir bronz... bir ekmek parası...', 'Tanrılar sizi korusun, efendim.'],
       naked: ['Ah çocuğum... Senden de alacak bir şey kalmamış.'],
@@ -1112,14 +841,42 @@ export const NPCS: NpcDef[] = [
   },
 ];
 
+export const NPCS: NpcDef[] = RAW_NPCS.map((n) => {
+  const sc = SCHEDULES[n.id];
+  if (!sc) throw new Error('Programı olmayan NPC: ' + n.id);
+  return { ...n, schedule: sc.base, plans: sc.plans, planKey: sc.planKey };
+});
+
 export const NPC_BY_ID: Record<string, NpcDef> = Object.fromEntries(NPCS.map((n) => [n.id, n]));
+
+function hashStr(s: string) {
+  let h = 2166136261;
+  for (let i = 0; i < s.length; i++) h = Math.imul(h ^ s.charCodeAt(i), 16777619);
+  return h >>> 0;
+}
+
+/** O gün uygulanacak plan indeksi (0 = temel program). Deterministik: aynı gün aynı plan. */
+export function planIndex(n: NpcDef, day: number): number {
+  const count = 1 + (n.plans?.length ?? 0);
+  if (count === 1) return 0;
+  const key = n.planKey ?? n.id;
+  return hashStr(key + ':' + day) % count;
+}
+
+/** O günün program satırları. */
+export function planFor(n: NpcDef, day?: number): ScheduleEntry[] {
+  if (day === undefined) return n.schedule;
+  const i = planIndex(n, day);
+  return i === 0 ? n.schedule : n.plans![i - 1];
+}
 
 /** Bir NPC'nin saat (ve gün) için program kaydı. Gün verilmezse haftanın günü kısıtları yok sayılır. */
 export function scheduleAt(n: NpcDef, hour: number, day?: number): ScheduleEntry {
   const wd = day !== undefined ? (day - 1) % 7 : -1;
-  for (const s of n.schedule) {
+  const plan = planFor(n, day);
+  for (const s of plan) {
     if (s.days && (wd < 0 || !s.days.includes(wd))) continue;
     if (s.from <= s.to ? hour >= s.from && hour < s.to : hour >= s.from || hour < s.to) return s;
   }
-  return n.schedule.find((s) => !s.days) ?? n.schedule[0];
+  return plan.find((s) => !s.days) ?? plan[0];
 }

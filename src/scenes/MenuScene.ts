@@ -23,6 +23,7 @@ import type { UIScene } from './UIScene';
 import type { WorldScene } from './WorldScene';
 import { getMap, fogOf, clearFogCache } from './WorldScene';
 import { TERRAIN, TILE } from '../world/types';
+import { VILLAGE_X0, BARRIER_X, WORLD_H } from '../world/worldgen';
 
 type Tab = 'status' | 'inventory' | 'equipment' | 'map' | 'history' | 'settings' | 'save';
 const TABS: [Tab, string][] = [
@@ -73,7 +74,7 @@ export class MenuScene extends Phaser.Scene {
     this.cameras.main.setZoom(Display.uiZoom);
     this.cameras.main.setOrigin(0, 0);
     const W = Display.uiW, H = Display.uiH;
-    this.add.rectangle(0, 0, W, H, 0x05040a, 0.72).setOrigin(0, 0).setInteractive();
+    this.add.rectangle(0, 0, W, H, 0x05040a, 1).setOrigin(0, 0).setInteractive();
     this.pw = Math.min(1180, W - 24);
     this.ph = Math.min(690, H - 20);
     this.px = (W - this.pw) / 2;
@@ -643,7 +644,7 @@ export class MenuScene extends Phaser.Scene {
     if (id === 'map_village' || id === 'map_forest_deep') {
       const r = transact(G.p as any, { label: 'Harita', take: [{ id, qty: 1 }] });
       if (!r.ok) return;
-      if (id === 'map_village') this.world.revealArea('world', 60, 18, 212, 142);
+      if (id === 'map_village') this.world.revealArea('world', VILLAGE_X0 - 2, 24, BARRIER_X, WORLD_H - 4);
       else this.world.revealArea('world', 0, 0, 56, 24);
       R.sysmsg('HARİTA', [id === 'map_village' ? 'Brindlewood haritaya işlendi.' : 'Ormanın derinlikleri haritaya işlendi.']);
       this.render();

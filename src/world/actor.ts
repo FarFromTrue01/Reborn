@@ -199,6 +199,16 @@ export class Actor extends Phaser.GameObjects.Container {
     }
   }
 
+  /**
+   * A2: çizim konumunu dünya pikseline hizala (fizik konumu kesirli kalır).
+   * Kamera da dünya pikseline yuvarlandığı için ikisi aynı adımda hareket eder; titreme olmaz.
+   */
+  snap() {
+    const ox = Math.floor(this.x) - this.x, oy = Math.floor(this.y) - this.y;
+    this.shadow.setPosition(ox, oy);
+    for (const l of this.layers) l.setPosition(ox, oy);
+  }
+
   setAlphaAll(a: number) {
     for (const l of this.layers) l.setAlpha(a);
   }

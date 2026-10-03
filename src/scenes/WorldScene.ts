@@ -3,8 +3,8 @@ import { G } from '../game/G';
 import { Display } from '../game/display';
 import { Input } from '../game/input';
 import { Sound } from '../audio/audio';
-import { buildWorld, type BuildingMeta } from '../world/worldgen';
-import { buildInteriors } from '../world/interiors';
+import { type BuildingMeta } from '../world/worldgen';
+import { buildMaps } from '../world/maps';
 import { renderMap, type RenderedMap } from '../world/mapRender';
 import { Lighting } from '../world/lighting';
 import { FX } from '../world/fx';
@@ -14,6 +14,7 @@ import { Npc } from '../world/npc';
 import { TILE, type MapData, type Zone, type PropPlacement } from '../world/types';
 import { NPCS, scheduleAt, CASTE_BUBBLES, type NpcDef, type JosephStatus } from '../data/npcs';
 import { nearestFree } from '../world/path';
+import { PropCollision, blockedAt } from '../world/collision';
 import { daylight, hourOf, advance } from '../core/time';
 import { resolvePhysical, resolveSpell } from '../world/combat';
 import { monsterExp, rollDrops, splitExp } from '../core/monster';
@@ -32,13 +33,18 @@ import type { UIScene } from './UIScene';
 import { Director } from '../story/director';
 
 let WORLD_CACHE: MapData | null = null;
+/** Kamera ölü bölgesi (dünya pikseli, yarım genişlik/yükseklik) ve dikey ofset. Tamsayı: yuvarlama tutarlı kalır. */
+const CAM_DEAD_X = 18, CAM_DEAD_Y = 12, CAM_OFFSET_Y = 20;
 let INTERIORS: Record<string, MapData> | null = null;
 const FOG: Record<string, Uint8Array> = {};
 
 export function getMap(scene: Phaser.Scene, id: string): MapData {
   const bmeta = scene.cache.json.get('buildingsMeta') as Record<string, BuildingMeta>;
-  if (!WORLD_CACHE) WORLD_CACHE = buildWorld(bmeta);
-  if (!INTERIORS) INTERIORS = buildInteriors(scene.cache.json.get('terrainMeta').floors);
+  if (!WORLD_CACHE || !INTERIORS) {
+    const all = buildMaps(bmeta, scene.cache.json.get('terrainMeta').floors);
+    WORLD_CACHE = all.world;
+    INTERIORS = all.interiors;
+  }
   if (id === 'world') return WORLD_CACHE;
   return INTERIORS[id] ?? WORLD_CACHE;
 }
@@ -85,6 +91,9 @@ export class WorldScene extends Phaser.Scene {
   director!: Director;
   cutscene = false;
   paused = false;
+  /** A4: menü / Appraisal açıkken dünya tamamen durur (zaman, NPC, düşman, zamanlayıcı, tween). Müzik sürer. */
+  frozen = false;
+  private freezeReasons = new Set<string>();
   darkness = 0;
   timeAcc = 0;
   pickups: Pickup[] = [];
@@ -98,6 +107,8 @@ export class WorldScene extends Phaser.Scene {
   ambientT = 0;
   appraiseEventT = 40;
   collider: Phaser.Physics.Arcade.Collider | null = null;
+  /** Dekorların piksel çarpışma kutuları (bu harita). */
+  propCol: PropCollision | null = null;
   killsThisCombat: Record<string, number> = {};
   lowHpWin = false;
   warpCooldown = 0;
@@ -128,10 +139,35 @@ export class WorldScene extends Phaser.Scene {
 
   create() {
     G.inGame = true;
+    // önceki oturumdan kalan durdurma/gizleme durumlarını sıfırla
+    this.freezeReasons.clear();
+    this.frozen = false;
+    this.paused = false;
+    this.time.paused = false;
+    this.sys.setVisible(true);
     this.fx = new FX(this);
     this.cameras.main.setZoom(Display.worldZoom);
     this.cameras.main.setBackgroundColor('#07060b');
-    this.physics.world.setFPS(60);
+    // roundPixels açık: Phaser hem kaydırmayı hem sprite konumunu dünya pikseline yuvarlar (floor).
+    // Kamerayı Joseph'e TAMSAYI bir ofsetle bağladığımızda iki yuvarlama hep aynı sonucu verir (A2).
+    this.cameras.main.setRoundPixels(true);
+    // Fizik adımı ekran yenileme hızıyla uyumlu: sabit 60 Hz adım 120 Hz ekranda takılma yapıyordu (A2).
+    this.physics.world.fixedStep = false;
+    // Dekor kutuları: her fizik adımından sonra dairesel gövdeleri dışarı it
+    this.physics.world.on('worldstep', () => this.resolvePropCollisions());
+    // Kamera, fizik gövdeleri sprite'lara aktarıldıktan SONRA güncellenir (bir kare gecikme yok).
+    this.events.on('postupdate', () => {
+      if (!this.paused && !this.frozen) this.updateCamera();
+      this.snapActors();
+      // kaydırmadan (worldView bir kare geride kalabilir) görünen alanı hesapla
+      const cam = this.cameras.main, z = cam.zoom;
+      const b = cam.getBounds();
+      const vw = cam.width / z, vh = cam.height / z;
+      const vx = Phaser.Math.Clamp(cam.scrollX + cam.width / 2 - vw / 2, b.x, Math.max(b.x, b.right - vw));
+      const vy = Phaser.Math.Clamp(cam.scrollY + cam.height / 2 - vh / 2, b.y, Math.max(b.y, b.bottom - vh));
+      this.viewRect.setTo(vx, vy, vw, vh);
+      this.r?.culler?.update(this.viewRect);
+    });
     this.lighting = new Lighting(this);
     this.lighting.quality = G.settings.quality;
     this.setupKeys();
@@ -240,6 +276,7 @@ export class WorldScene extends Phaser.Scene {
     const m = this.mapData;
     this.r = renderMap(this, m, this.cache.json.get('terrainMeta'), this.cache.json.get('buildingsMeta'));
     this.physics.world.setBounds(0, 0, m.w * TILE, m.h * TILE);
+    this.propCol = new PropCollision(m.colliders, m.w);
     // oyuncu
     if (!tx && !ty && m.points.wake) {
       tx = m.points.wake.x;
@@ -249,9 +286,11 @@ export class WorldScene extends Phaser.Scene {
     this.player = new Player(this, tx * TILE + TILE / 2, ty * TILE + TILE / 2 + 6);
     this.player.actor.face(facing as Dir);
     this.collider = this.physics.add.collider(this.player.actor, this.r.collide);
-    this.cameras.main.startFollow(this.player.actor, true, 0.14, 0.14, 0, 20);
     this.updateCameraBounds();
-    this.cameras.main.centerOn(this.player.actor.x, this.player.actor.y);
+    this.camFollow = true;
+    this.camX = this.player.actor.x;
+    this.camY = this.player.actor.y - CAM_OFFSET_Y;
+    this.applyCamera();
     this.lighting.setLights(this.r.lights);
     // düşmanlar ve NPC'ler
     this.spawnEnemies();
@@ -263,6 +302,55 @@ export class WorldScene extends Phaser.Scene {
     this.warpCooldown = 0.6;
     this.ui?.onMapChanged?.();
     if (!first) this.director.onEnterMap(id);
+  }
+
+  /**
+   * Kamera takibi (A2): küçük bir ölü bölge + ekran pikseline hizalı kaydırma.
+   * Joseph ölü bölgenin içindeyken kamera hiç oynamaz; kenara dayanınca onunla birlikte,
+   * aynı ofsetle kayar. Kaydırma 1/zoom adımına yuvarlandığı için sprite ile kamera
+   * aynı yönde yuvarlanır ve yavaş yürüyüşte 1 piksellik ileri-geri titreme oluşmaz.
+   */
+  camFollow = true;
+  viewRect = new Phaser.Geom.Rectangle();
+  camX = 0;
+  camY = 0;
+  updateCamera() {
+    if (!this.camFollow || !this.player) return;
+    const a = this.player.actor;
+    const tx = a.x, ty = a.y - CAM_OFFSET_Y;
+    if (tx > this.camX + CAM_DEAD_X) this.camX = tx - CAM_DEAD_X;
+    else if (tx < this.camX - CAM_DEAD_X) this.camX = tx + CAM_DEAD_X;
+    if (ty > this.camY + CAM_DEAD_Y) this.camY = ty - CAM_DEAD_Y;
+    else if (ty < this.camY - CAM_DEAD_Y) this.camY = ty + CAM_DEAD_Y;
+    this.applyCamera();
+  }
+
+  applyCamera() {
+    const cam = this.cameras.main;
+    // scroll = hedef − tamsayı: kesirli kısmı Joseph'inkiyle aynı kalır, floor() tutarlı olur.
+    // Sınırlar Phaser tarafından (floor sonrası) uygulanır.
+    cam.setScroll(this.camX - Math.floor(cam.width / 2), this.camY - Math.floor(cam.height / 2));
+  }
+
+  snapActors() {
+    if (!this.player) return;
+    this.player.actor.snap();
+    for (const n of this.npcs) n.actor.snap();
+    for (const e of this.enemies) e.actor.snap();
+    for (const a of this.extraActors()) a.snap();
+  }
+
+  /** Yoldaşlar gibi ek aktörler (yoldaş sistemi doldurur). */
+  extraActors(): import('../world/actor').Actor[] {
+    return [];
+  }
+
+  /** Kamerayı (ör. bir sahne sonrası) yeniden Joseph'e bağla. */
+  followPlayer() {
+    this.camFollow = true;
+    const cam = this.cameras.main;
+    this.camX = cam.midPoint.x;
+    this.camY = cam.midPoint.y;
   }
 
   updateCameraBounds() {
@@ -330,6 +418,48 @@ export class WorldScene extends Phaser.Scene {
     return [cx, cy];
   }
 
+  /** Hareket eden aktörleri dekor kutularından dışarı iter (worldstep). */
+  resolvePropCollisions() {
+    const pc = this.propCol;
+    if (!pc || !this.player) return;
+    const pb = this.player.actor.body2;
+    if (pb) pc.resolve(pb);
+    for (const e of this.enemies) if (e.alive && e.actor.body2) pc.resolve(e.actor.body2);
+    for (const n of this.npcs) {
+      const b = n.actor.body2;
+      if (b && (b.velocity.x !== 0 || b.velocity.y !== 0)) pc.resolve(b);
+    }
+    for (const c of this.companionBodies()) pc.resolve(c);
+  }
+
+  /** Yoldaşların gövdeleri (yoldaş sistemi doldurur). */
+  companionBodies(): Phaser.Physics.Arcade.Body[] {
+    return [];
+  }
+
+  freeze(reason: string) {
+    if (!this.freezeReasons.size) {
+      this.physics.pause();
+      this.tweens.pauseAll();
+      this.time.paused = true;
+      Input.clear();
+    }
+    this.freezeReasons.add(reason);
+    this.frozen = true;
+  }
+
+  unfreeze(reason: string) {
+    if (!this.freezeReasons.delete(reason) || this.freezeReasons.size) return;
+    this.physics.resume();
+    this.tweens.resumeAll();
+    this.time.paused = false;
+    this.frozen = false;
+  }
+
+  isFrozen(reason?: string) {
+    return reason ? this.freezeReasons.has(reason) : this.frozen;
+  }
+
   absMinute() {
     return (G.state.time.day - 1) * 1440 + G.state.time.minute;
   }
@@ -375,7 +505,7 @@ export class WorldScene extends Phaser.Scene {
   // ================================================================= ana döngü
   update(_time: number, deltaMs: number) {
     let dt = Math.min(0.05, deltaMs / 1000);
-    if (this.paused) return;
+    if (this.paused || this.frozen) return;
     this.playClock += dt;
     // ağır çekim
     if (this.slowmoT > 0) {
@@ -1382,7 +1512,7 @@ export class WorldScene extends Phaser.Scene {
       p.img.x += p.vx * dt;
       p.img.y += p.vy * dt;
       const tx = Math.floor(p.img.x / TILE), ty = Math.floor((p.img.y + 16) / TILE);
-      let dead = p.life <= 0 || (tx >= 0 && ty >= 0 && tx < m.w && ty < m.h && m.solid[ty * m.w + tx] && m.terrain[ty * m.w + tx] !== 8);
+      let dead = p.life <= 0 || (tx >= 0 && ty >= 0 && tx < m.w && ty < m.h && m.terrain[ty * m.w + tx] !== 8 && blockedAt(m, this.propCol, p.img.x, p.img.y + 16));
       if (p.ignite) this.tryIgnite(p.img.x, p.img.y + 16);
       if (p.fromPlayer) {
         for (const e of this.enemies) {
@@ -1435,11 +1565,12 @@ export class WorldScene extends Phaser.Scene {
         this.r.lights.push({ x: p.p.x, y: p.p.y - 10, radius: 80, color: 0xff8a30, flicker: true, phase: 0 });
         this.lighting.setLights(this.r.lights);
         for (let i = 0; i < 10; i++) this.time.delayedCall(i * 120, () => this.ember(p.p.x + (Math.random() - 0.5) * 16, p.p.y - 8));
+        this.r.culler?.hidden.add(img);
         this.tweens.add({ targets: img, alpha: 0, tint: 0x301000, duration: 1600, onComplete: () => img.setVisible(false) });
         // engeli kaldır
         const tx = Math.floor(p.p.x / TILE), ty = Math.floor(p.p.y / TILE);
         this.mapData.solid[ty * this.mapData.w + tx] = 0;
-        this.r.collide.removeTileAt(tx, ty);
+        this.propCol?.disableNear(p.p.x, p.p.y - 4, 6);
         Sound.sfx('fire');
       }
     }

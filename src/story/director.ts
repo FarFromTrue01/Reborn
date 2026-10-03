@@ -122,7 +122,7 @@ export class Director {
   pan(x: number, y: number, ms: number): Promise<void> {
     return new Promise((resolve) => {
       const cam = this.w.cameras.main;
-      cam.stopFollow();
+      this.w.camFollow = false;
       cam.pan(x, y, ms, 'Sine.easeInOut', false, (_c: any, p: number) => {
         if (p >= 1) resolve();
       });
@@ -130,7 +130,7 @@ export class Director {
   }
 
   follow() {
-    this.w.cameras.main.startFollow(this.w.player.actor, true, 0.14, 0.14, 0, 20);
+    this.w.followPlayer();
   }
 
   say(id: string, text: string, expr?: any) {
@@ -542,7 +542,19 @@ export class Director {
   talk(n: Npc) {
     const id = n.def.id;
     if (this.busy) return;
+    n.talking = true;
+    n.actor.body2?.setVelocity(0, 0);
     this.scene(async () => {
+      try {
+        await this.talkInner(n, id);
+      } finally {
+        n.talking = false;
+      }
+    }).finally(() => (n.talking = false));
+  }
+
+  private async talkInner(n: Npc, id: string) {
+    {
       this.face(n.actor, this.w.player.actor);
       this.face(this.w.player.actor, n.actor);
       switch (id) {
@@ -555,7 +567,7 @@ export class Director {
           if (n.def.shop) return this.talkShop(n, n.def.shop);
           return this.talkGeneric(n);
       }
-    });
+    }
   }
 
   async talkGeneric(n: Npc) {

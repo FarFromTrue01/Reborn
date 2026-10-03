@@ -1,9 +1,9 @@
 // Büyüyen köy ve NPC verilerinin tutarlılığı: her NPC'nin görseli, kastı, replikleri ve programı geçerli;
 // program hedefleri gerçekten var olan, yürünebilir kareler; dükkân sahipleri dükkânlarında çalışıyor.
 import { describe, it, expect } from 'vitest';
-import { buildWorld, type BuildingMeta } from '../src/world/worldgen';
-import { buildInteriors } from '../src/world/interiors';
-import { NPCS, CASTE_RANK, scheduleAt } from '../src/data/npcs';
+import { type BuildingMeta } from '../src/world/worldgen';
+import { buildMaps } from '../src/world/maps';
+import { NPCS, CASTE_RANK, scheduleAt, planIndex } from '../src/data/npcs';
 import { CHAR_SHEETS, BUILDINGS } from '../src/data/manifest';
 import { SHOPS, shopOpen } from '../src/data/shops';
 import { nearestFree } from '../src/world/path';
@@ -12,16 +12,18 @@ import buildingsJson from '../assets/gfx/buildings/buildings.json';
 import terrainJson from '../assets/gfx/tiles/terrain.json';
 
 const bmeta = buildingsJson as unknown as Record<string, BuildingMeta>;
-const world = buildWorld(bmeta);
-const interiors = buildInteriors((terrainJson as any).floors);
+const { world, interiors } = buildMaps(bmeta, (terrainJson as any).floors);
 const maps: Record<string, MapData> = { world, ...interiors };
 
 describe('Köy', () => {
-  it('Köy 0.1.0\'a göre en az 2 kat büyük', () => {
+  it('0.3.0: köy sıkıştı (0.2.0: 151×115 karo), bina sayısı aynı (32), şehir yolu kısa', () => {
     const v = world.zones.find((z) => z.id === 'village')!;
-    expect(v.w * v.h).toBeGreaterThanOrEqual(2 * 80 * 72);
-    // binalar da en az iki katı
-    expect(world.buildings.length).toBeGreaterThanOrEqual(2 * 16);
+    expect(v.w).toBeLessThanOrEqual(Math.round(151 * 0.65));
+    expect(v.h).toBeLessThanOrEqual(Math.round(115 * 0.8));
+    expect(world.buildings.length).toBe(32);
+    const plaza = world.points.plaza, cp = world.points.checkpoint;
+    // 0.2.0'da meydandan kontrol noktasına ~115 karo vardı
+    expect(cp.x - plaza.x).toBeLessThanOrEqual(70);
   });
   it('Her bina görselinin metası var', () => {
     for (const b of world.buildings) expect(bmeta[b.id], b.id).toBeTruthy();
@@ -46,8 +48,8 @@ describe('NPC\'ler', () => {
       expect(bubbles.length, `${n.id} balon`).toBeGreaterThan(0);
       expect(n.schedule.length).toBeGreaterThan(0);
     });
-    it(`${n.id}: program hedefleri geçerli ve yürünebilir`, () => {
-      for (const e of n.schedule) {
+    it(`${n.id}: program hedefleri geçerli ve yürünebilir (tüm gün planları)`, () => {
+      for (const e of [...n.schedule, ...(n.plans ?? []).flat()]) {
         if (e.map === 'hidden') continue;
         const m = maps[e.map];
         expect(m, `${n.id}: ${e.map} haritası`).toBeTruthy();
@@ -64,15 +66,44 @@ describe('NPC\'ler', () => {
       }
     });
   }
-  it('Dükkân sahipleri çalışma saatinde kendi dükkânlarında', () => {
+  it('Dükkân sahipleri her gün, çalışma saatlerinin tamamında kendi dükkânlarında', () => {
     for (const shop of Object.values(SHOPS)) {
       const keeper = NPCS.find((n) => n.id === shop.keeper)!;
       expect(keeper, shop.id).toBeTruthy();
+      for (let day = 1; day <= 21; day++)
+        for (let h = shop.hours[0]; h < shop.hours[1]; h++) {
+          const e = scheduleAt(keeper, h + 0.5, day);
+          expect(e.map, `${keeper.id} gün ${day} saat ${h}`).toBe(shop.map);
+        }
       const mid = Math.floor((shop.hours[0] + shop.hours[1]) / 2);
-      const e = scheduleAt(keeper, mid, 1);
-      expect(e.map, `${keeper.id} saat ${mid}`).toBe(shop.map);
       expect(shopOpen(shop, shop.map, mid)).toBe(true);
       expect(shopOpen(shop, 'world', mid)).toBe(false);
+    }
+  });
+  it('D2: gece herkes handa değil ve handaki kalabalık günden güne değişiyor', () => {
+    const crowd = (day: number) => NPCS.filter((n) => scheduleAt(n, 20.5, day).map === 'inn').map((n) => n.id).sort().join(',');
+    const nights = new Set<string>();
+    for (let d = 1; d <= 7; d++) {
+      const c = crowd(d).split(',');
+      expect(c.length).toBeLessThan(NPCS.length / 2);
+      nights.add(crowd(d));
+    }
+    expect(nights.size).toBeGreaterThanOrEqual(4);
+  });
+  it('D2: çoğu NPC\'nin günden güne değişen planı var; aynı NPC her gün aynı saatte aynı yerde değil', () => {
+    const withPlans = NPCS.filter((n) => (n.plans?.length ?? 0) > 0);
+    expect(withPlans.length).toBeGreaterThanOrEqual(35);
+    for (const n of withPlans) {
+      const seen = new Set<number>();
+      for (let d = 1; d <= 14; d++) seen.add(planIndex(n, d));
+      expect(seen.size, n.id).toBeGreaterThan(1);
+    }
+  });
+  it('Paralı asker efendisiyle, Pip annesiyle aynı planı izliyor', () => {
+    const by = Object.fromEntries(NPCS.map((n) => [n.id, n]));
+    for (let d = 1; d <= 14; d++) {
+      expect(planIndex(by.merc_guard, d)).toBe(planIndex(by.merchant, d));
+      expect(planIndex(by.pip, d)).toBe(planIndex(by.anna, d));
     }
   });
   it('Kâhya yalnızca belirli günlerde köyde', () => {
