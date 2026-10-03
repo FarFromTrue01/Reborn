@@ -538,6 +538,17 @@ export class WorldScene extends Phaser.Scene {
   }
 
   /** C7: savaşta, ara sahnede, diyalogda, menüde ve mini oyunda değilken her 3 dakikada bir kayıt. */
+  /**
+   * Sayfa gizlenirken / bağlam kaybolurken otomatik kayıt. Ara sahne, diyalog, harita geçişi ya da
+   * ölüm ortasında kaydetmez (yarım kalmış durum yazılmasın); o zaman son otomatik kayıt geçerli.
+   */
+  snapshotSave(): boolean {
+    if (!this.player || this.cutscene || this.ui?.dialogueOpen() || this.transitioning || this.player.dead || this.director?.isBusy) return false;
+    const ok = G.save('auto');
+    if (ok) this.autoSaveT = 0;
+    return ok;
+  }
+
   tickAutoSave(dt: number) {
     this.autoSaveT += dt;
     if (this.autoSaveT < 180) return;

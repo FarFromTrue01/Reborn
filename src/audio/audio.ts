@@ -93,6 +93,16 @@ class AudioEngine {
     if (this.wanted !== 'none') this.play(this.wanted, true);
   }
 
+  /** Sayfa gizlenince sesi tamamen durdur (AudioContext askıya alınır). */
+  suspend() {
+    if (this.ctx && this.ctx.state === 'running') this.ctx.suspend().catch(() => {});
+  }
+
+  /** Sayfa yeniden görünür olunca sürdür (önceden dokunuşla açılmışsa). */
+  resume() {
+    if (this.ctx && this.ctx.state === 'suspended') this.ctx.resume().catch(() => {});
+  }
+
   applyVolumes() {
     if (!this.ctx) return;
     const s = G.settings;

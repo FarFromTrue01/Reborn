@@ -10,7 +10,10 @@ export interface Settings {
   sfx: number;
   voice: number;
   shake: boolean;
+  /** Grafik kalitesi: ışık geçişi, sis, parçacıklar ve çizim çözünürlüğü (bkz. qualityDprCap). */
   quality: 'low' | 'medium' | 'high';
+  /** FPS sınırı: 60 / 120 / 144; 0 = sınırsız (ekran yenileme hızı). */
+  fpsCap: FpsCap;
   showFps: boolean;
   /** Joystick: sol altta sabit (dokunmatik cihazlarda varsayılan) ya da dokunulan yerde belirir. */
   joystick: 'float' | 'fixed';
@@ -22,6 +25,18 @@ export interface Settings {
   assistCombat: boolean;
   /** Geliştirici modu (C6): başlık ekranında sürüme 7 kez dokununca açılır. */
   devMode: boolean;
+}
+
+export const FPS_CAPS = [60, 120, 144, 0] as const;
+export type FpsCap = (typeof FPS_CAPS)[number];
+
+/**
+ * Phaser döngü ayarı (fps). ?qa (başsız tarayıcı) eski davranışı korur: sınır yok, kare süresi
+ * kırpılmaz. Sınırsızda hedef 60 yalnızca kare süresi yumuşatmasının başlangıcıdır.
+ */
+export function fpsLoopConfig(cap: FpsCap, qa: boolean): { target: number; limit: number; smoothStep: boolean; min?: number } {
+  if (qa) return { target: 60, limit: 0, smoothStep: false, min: 1 };
+  return { target: cap || 60, limit: cap, smoothStep: true };
 }
 
 const KEY = 'elonth.settings';
@@ -49,6 +64,7 @@ export function defaultSettings(touch = isTouchDevice()): Settings {
     voice: 0.7,
     shake: true,
     quality: 'high',
+    fpsCap: 60,
     showFps: false,
     joystick: touch ? 'fixed' : 'float',
     joyChosen: false,
@@ -78,6 +94,7 @@ export function sanitizeSettings(s: Partial<Settings> & Record<string, any>, tou
   if (typeof r.moveSpeed !== 'number' || !isFinite(r.moveSpeed)) r.moveSpeed = 1;
   r.moveSpeed = Math.min(MOVE_SPEED_MAX, Math.max(MOVE_SPEED_MIN, r.moveSpeed));
   if (!['low', 'medium', 'high'].includes(r.quality)) r.quality = 'high';
+  if (!(FPS_CAPS as readonly number[]).includes(r.fpsCap)) r.fpsCap = 60;
   r.joyChosen = !!r.joyChosen;
   r.assistCombat = r.assistCombat !== false;
   r.devMode = !!r.devMode;

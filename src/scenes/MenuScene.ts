@@ -136,6 +136,8 @@ export class MenuScene extends Phaser.Scene {
   close() {
     this.scene.stop();
     this.ui.closeMenu();
+    // Grafik kalitesi çözünürlüğü belirler: canvas yeniden boyutlanır, sahneler yeniden kurulur
+    Display.applyQuality(G.settings.quality);
     if (Math.abs(Display.uiScaleSetting - G.settings.uiScale) > 0.001) this.ui.applySettings();
   }
 

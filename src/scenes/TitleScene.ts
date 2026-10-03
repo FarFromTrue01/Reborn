@@ -9,6 +9,7 @@ import { confirmBox } from '../ui/panels';
 import { goFullscreen } from '../game/pwa';
 import { clearFogCache } from './WorldScene';
 import { slotInfo, SLOT_KEYS } from '../core/save';
+import { Lifecycle } from '../game/lifecycle';
 
 declare const __APP_VERSION__: string;
 
@@ -53,6 +54,14 @@ export class TitleScene extends Phaser.Scene {
       Sound.unlock();
       Sound.play('title');
     });
+    // Grafik bağlamı kaybolup sayfa yenilendiyse (ya da sekme atıldıysa) kaldığı yerden devam
+    if (Lifecycle.resumeOnTitle) {
+      Lifecycle.resumeOnTitle = false;
+      if (G.hasSave()) {
+        this.notice('Kaldığın yerden devam ediliyor…');
+        this.time.delayedCall(400, () => this.continueGame());
+      }
+    }
   }
 
   async build() {
@@ -233,7 +242,8 @@ export class TitleScene extends Phaser.Scene {
     c.add(new Button(this, W / 2, (H + ph) / 2 - 44, 'Kapat', () => {
       c.destroy();
       this.panel = null;
-      this.scene.restart();
+      // kalite değiştiyse Display yeniden boyutlanır ve onResize bu sahneyi zaten yeniden başlatır
+      if (!Display.applyQuality(G.settings.quality)) this.scene.restart();
     }, { w: 200, h: 54 }));
     this.panel = c;
   }

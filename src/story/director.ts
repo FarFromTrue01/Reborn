@@ -43,6 +43,10 @@ export class Director {
   /** Bölüm II akışı. */
   ch2 = new Chapter2(this);
   private busy = false;
+  /** Bir hikâye sahnesi sürüyor mu? (kayıt için güvenli an değil) */
+  get isBusy() {
+    return this.busy;
+  }
   private appraiseWaiter: ((id: string) => void) | null = null;
   private pendingCheck = 0;
 

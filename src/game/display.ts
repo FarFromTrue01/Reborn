@@ -1,8 +1,16 @@
-// Ekran ölçüleri. Oyun cihaz pikseli çözünürlüğünde çizilir;
-// dünya kamerası TAMSAYI zoom kullanır (keskin piksel sanat),
+// Ekran ölçüleri. Oyun cihaz pikseli çözünürlüğünde çizilir (en fazla grafik kalitesinin izin
+// verdiği oranda); dünya kamerası TAMSAYI zoom kullanır (keskin piksel sanat),
 // arayüz 720 birim yüksekliğe göre ölçeklenir.
 
 type Listener = () => void;
+
+/**
+ * Grafik kalitesine göre çizim çözünürlüğü tavanı (cihaz pikseli / CSS pikseli).
+ * dpr 3 olan bir tablette tam çözünürlük 9 kat piksel demek; Yüksek'te bile 2 ile sınırlı.
+ */
+export function qualityDprCap(q: 'low' | 'medium' | 'high'): number {
+  return q === 'low' ? 1 : q === 'medium' ? 1.5 : 2;
+}
 
 export const Display = {
   dpr: 1,
@@ -15,10 +23,14 @@ export const Display = {
   uiW: 960,
   uiH: 640,
   uiScaleSetting: 1,
+  /** Çözünürlük tavanı (qualityDprCap). */
+  dprCap: 2,
   listeners: [] as Listener[],
+  /** main.ts kurar: compute + canvas yeniden boyutlandırma + emit. */
+  refresh: null as (() => void) | null,
 
   compute() {
-    this.dpr = Math.min(3, window.devicePixelRatio || 1);
+    this.dpr = Math.min(this.dprCap, window.devicePixelRatio || 1);
     this.cssW = Math.max(320, window.innerWidth);
     this.cssH = Math.max(240, window.innerHeight);
     this.w = Math.round(this.cssW * this.dpr);
@@ -38,5 +50,18 @@ export const Display = {
 
   emit() {
     for (const l of [...this.listeners]) l();
+  },
+
+  /**
+   * Kalite ayarı çözünürlük tavanını değiştirdiyse canvas'ı yeniden boyutlandırır ve sahneleri
+   * yeniden kurar (Ayarlar kapanınca çağrılır). Değişiklik yaptıysa true.
+   */
+  applyQuality(q: 'low' | 'medium' | 'high'): boolean {
+    const cap = qualityDprCap(q);
+    if (cap === this.dprCap) return false;
+    this.dprCap = cap;
+    if (this.refresh) this.refresh();
+    else this.compute();
+    return true;
   },
 };

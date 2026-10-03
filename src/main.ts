@@ -10,7 +10,11 @@ import { MinigameScene } from './scenes/MinigameScene';
 import { CreditsScene } from './scenes/CreditsScene';
 import { G } from './game/G';
 import { setupPWA } from './game/pwa';
+import { setupLifecycle, takeResumeFlag, Lifecycle } from './game/lifecycle';
+import { Sound } from './audio/audio';
 import * as R from './game/rules';
+import { fpsLoopConfig } from './game/settings';
+import { qualityDprCap } from './game/display';
 
 declare const __APP_VERSION__: string;
 export const APP_VERSION = __APP_VERSION__;
@@ -45,9 +49,17 @@ const QA = new URLSearchParams(location.search).has('qa');
 async function start() {
   cssFonts();
   setupPWA();
+  // Bağlam kaybı sonrası yenileme ya da atılmış sekme: başlık ekranı son kayıttan otomatik devam eder
+  try {
+    Lifecycle.resumeOnTitle = takeResumeFlag(window.sessionStorage, !!(document as any).wasDiscarded);
+  } catch {
+    /* sessionStorage yok */
+  }
   await loadFonts();
   Display.uiScaleSetting = G.settings.uiScale;
+  Display.dprCap = qualityDprCap(G.settings.quality);
   Display.compute();
+  const fps = fpsLoopConfig(G.settings.fpsCap, QA);
   const game = new Phaser.Game({
     type: Phaser.WEBGL,
     parent: 'game',
@@ -59,13 +71,27 @@ async function start() {
     antialias: false,
     scale: { mode: Phaser.Scale.NONE, zoom: 1 / Display.dpr },
     input: { activePointers: 4 },
-    // ?qa: başsız tarayıcıda (QA) kare süresi kırpılmasın; oyun zamanı gerçek zamana yakın aksın
-    fps: QA ? { target: 60, smoothStep: false, min: 1 } : { target: 60, smoothStep: true },
+    // ?qa: başsız tarayıcıda (QA) kare süresi kırpılmasın; oyun zamanı gerçek zamana yakın aksın.
+    // Diğer durumlarda Ayarlar → FPS sınırı (applyFpsCap çalışırken de uygular).
+    fps: fps,
     render: { powerPreference: 'high-performance', maxLights: 24 } as any,
     scene: [BootScene, TitleScene, PrologueScene, WorldScene, UIScene, MenuScene, MinigameScene, CreditsScene],
     physics: { default: 'arcade', arcade: { gravity: { x: 0, y: 0 }, debug: false } },
   });
   (window as any).__game = game;
+  const world = () => {
+    const w = game.scene.getScene('World') as WorldScene | null;
+    return w && w.sys.isActive() ? w : null;
+  };
+  setupLifecycle({
+    canvas: game.canvas,
+    inGame: () => G.inGame && !!world(),
+    snapshot: () => world()?.snapshotSave() ?? false,
+    pause: () => world()?.freeze('hidden'),
+    resume: () => world()?.unfreeze('hidden'),
+    mute: () => Sound.suspend(),
+    unmute: () => Sound.resume(),
+  });
   (window as any).__R = R;
   (window as any).Phaser = Phaser;
   const onResize = () => {
@@ -74,7 +100,27 @@ async function start() {
     game.scale.resize(Display.w, Display.h);
     Display.emit();
   };
+  Display.refresh = onResize;
   window.addEventListener('resize', () => setTimeout(onResize, 60));
+  // FPS sınırı: Phaser'ın sınırlayıcısı adım işlevini start/wake'te bağlar; değişince uyut-uyandır.
+  // Sınır 1 ms toleranslı: 60 Hz ekranda 60 sınırı, rAF titremesi yüzünden kare atlamasın.
+  const applyFpsCap = (force = false) => {
+    if (QA) return;
+    const c = fpsLoopConfig(G.settings.fpsCap, false);
+    const loop = game.loop as any;
+    if (!force && loop.fpsLimit === c.limit && loop.targetFps === c.target) return;
+    loop.targetFps = c.target;
+    loop._target = 1000 / c.target;
+    loop.fpsLimit = c.limit;
+    loop.hasFpsLimit = c.limit > 0;
+    loop._limitRate = c.limit > 0 ? 1000 / c.limit - 1 : 0;
+    if (loop.running) {
+      loop.sleep();
+      loop.wake(true);
+    }
+  };
+  game.events.once('ready', () => applyFpsCap(true));
+  G.events.on('settings', () => applyFpsCap());
   window.addEventListener('orientationchange', () => setTimeout(onResize, 250));
 }
 

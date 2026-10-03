@@ -3,7 +3,7 @@ import Phaser from 'phaser';
 import { G } from '../game/G';
 import { COLORS, FONT, txt, Button } from './kit';
 import { Sound } from '../audio/audio';
-import { MOVE_SPEED_MIN, MOVE_SPEED_MAX, isTouchDevice } from '../game/settings';
+import { MOVE_SPEED_MIN, MOVE_SPEED_MAX, isTouchDevice, FPS_CAPS } from '../game/settings';
 import { goFullscreen, exitFullscreen, isFullscreen, fullscreenSupported, isStandalone } from '../game/pwa';
 
 function slider(scene: Phaser.Scene, c: Phaser.GameObjects.Container, x: number, y: number, w: number, label: string, get: () => number, set: (v: number) => void, fmt: (v: number) => string, min: number, max: number) {
@@ -66,28 +66,29 @@ export function buildSettings(scene: Phaser.Scene, c: Phaser.GameObjects.Contain
   y += 46;
   slider(scene, c, 0, y, col, 'Arayüz boyutu', () => s.uiScale, (v) => (s.uiScale = Math.round(v * 20) / 20), (v) => `${Math.round(v * 100)}%`, 0.8, 1.4);
   slider(scene, c, col + 60, y, col, 'Metin hızı', () => s.textSpeed, (v) => (s.textSpeed = Math.round(v)), (v) => `${Math.round(v)} harf/sn`, 15, 120);
-  y += 80;
+  y += 74;
   slider(scene, c, 0, y, col, 'Müzik', () => s.music, (v) => (s.music = v), (v) => `${Math.round(v * 100)}%`, 0, 1);
   slider(scene, c, col + 60, y, col, 'Efektler', () => s.sfx, (v) => (s.sfx = v), (v) => `${Math.round(v * 100)}%`, 0, 1);
-  y += 80;
+  y += 74;
   slider(scene, c, 0, y, col, 'Konuşma sesi', () => s.voice, (v) => (s.voice = v), (v) => `${Math.round(v * 100)}%`, 0, 1);
   slider(scene, c, col + 60, y, col, 'Karakter hızı', () => s.moveSpeed, (v) => (s.moveSpeed = Math.round(v * 20) / 20), (v) => `${v.toFixed(2)}x`, MOVE_SPEED_MIN, MOVE_SPEED_MAX);
-  y += 92;
+  y += 86;
   const bx0 = 150, bx1 = col + 210;
+  const row = 55;
   toggle(scene, c, bx0, y, 'Otomatik ilerleme', () => s.autoAdvance, (v) => (s.autoAdvance = v)).setName('set_auto');
   toggle(scene, c, bx1, y, 'Ekran sarsıntısı', () => s.shake, (v) => (s.shake = v)).setName('set_shake');
-  y += 58;
+  y += row;
   toggle(scene, c, bx0, y, 'FPS göstergesi', () => s.showFps, (v) => (s.showFps = v)).setName('set_fps');
   cycler(scene, c, bx1, y, () => `Grafik: ${{ high: 'Yüksek', medium: 'Orta', low: 'Düşük' }[s.quality]}`, () => {
     s.quality = s.quality === 'high' ? 'medium' : s.quality === 'medium' ? 'low' : 'high';
   }).setName('set_quality');
-  y += 58;
+  y += row;
   cycler(scene, c, bx0, y, () => `Joystick: ${s.joystick === 'fixed' ? 'Sol altta sabit' : 'Hareketli'}`, () => {
     s.joystick = s.joystick === 'fixed' ? 'float' : 'fixed';
     s.joyChosen = true;
   }).setName('set_joy');
   toggle(scene, c, bx1, y, 'Yardımlı savaş', () => s.assistCombat, (v) => (s.assistCombat = v)).setName('set_assist');
-  y += 58;
+  y += row;
   // Tam ekran: iPhone tarayıcısı desteklemez → ipucu
   if (fullscreenSupported()) {
     const b: Button = new Button(scene, bx0, y, isFullscreen() ? 'Tam ekrandan çık' : 'Tam ekran', async () => {
@@ -100,7 +101,13 @@ export function buildSettings(scene: Phaser.Scene, c: Phaser.GameObjects.Contain
   } else if (!isStandalone()) {
     c.add(txt(scene, 0, y - 18, 'Tam ekran için oyunu ana ekrana ekle: Paylaş → "Ana Ekrana Ekle".', { size: 15, color: COLORS.textGold, wrap: col + 40 }).setName('set_fs_hint'));
   }
-  if (G.settings.devMode) toggle(scene, c, bx1, y, 'Geliştirici modu', () => s.devMode, (v) => (s.devMode = v)).setName('set_dev');
-  y += 40;
-  c.add(txt(scene, 0, y, `Arayüz boyutu değişikliği menü kapanınca uygulanır. Karakter hızı yalnızca yürüme ve koşmayı etkiler.${isTouchDevice() ? '' : ' Yardımlı savaş: saldırınca menzildeki en yakın düşmana döner.'}`, { size: 13, italic: true, color: COLORS.textDim, wrap: w }));
+  cycler(scene, c, bx1, y, () => `FPS sınırı: ${s.fpsCap ? s.fpsCap : 'Sınırsız'}`, () => {
+    s.fpsCap = FPS_CAPS[(FPS_CAPS.indexOf(s.fpsCap) + 1) % FPS_CAPS.length];
+  }).setName('set_fpscap');
+  if (G.settings.devMode) {
+    y += row;
+    toggle(scene, c, bx0, y, 'Geliştirici modu', () => s.devMode, (v) => (s.devMode = v)).setName('set_dev');
+  }
+  y += 38;
+  c.add(txt(scene, 0, y, `Grafik kalitesi çözünürlüğü de belirler (Düşük 1x, Orta 1,5x, Yüksek 2x); arayüz boyutu ve kalite menü kapanınca uygulanır. Yüksek FPS sınırı daha akıcı ama pili hızlı tüketir. Karakter hızı yalnızca yürüme ve koşmayı etkiler.${isTouchDevice() ? '' : ' Yardımlı savaş: saldırınca menzildeki en yakın düşmana döner.'}`, { size: 13, italic: true, color: COLORS.textDim, wrap: w }));
 }
