@@ -1,6 +1,7 @@
 import Phaser from 'phaser';
 import { ATLASES, BUILDINGS, CHAR_SHEETS, IMAGES, JOSEPH_LAYERS, JSONS, MONSTER_SHEETS, LPC_FRAME } from '../data/manifest';
 import { G } from '../game/G';
+import { makeCoinTextures } from '../ui/coins';
 
 /** Tüm görselleri manifestten yükler, çalışma zamanı dokularını üretir. */
 export class BootScene extends Phaser.Scene {
@@ -33,6 +34,7 @@ export class BootScene extends Phaser.Scene {
     if (idx?.audio) for (const f of idx.audio) G.audioFiles.add(f);
     G.credits = this.cache.json.get('credits');
     this.makeTextures();
+    makeCoinTextures(this);
     const boot = document.getElementById('boot');
     if (boot) {
       boot.style.opacity = '0';

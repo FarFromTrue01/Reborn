@@ -5,7 +5,8 @@ import { Display } from '../game/display';
 import { Sound } from '../audio/audio';
 import { SHOPS } from '../data/shops';
 import { ITEMS } from '../data/items';
-import { formatPrice, formatWallet, sellPrice } from '../core/money';
+import { sellPrice } from '../core/money';
+import { coinRow } from './coins';
 import { COLORS, FONT, txt, drawFrame, Button, iconImage } from './kit';
 import { ScrollList } from './panels';
 import { itemLabel, itemEffectsText } from './format';
@@ -28,8 +29,13 @@ export function openShop(ui: UIScene, shopId: string, tab: 'buy' | 'sell' = 'buy
     drawFrame(g, px, py, pw, ph);
     c.add(g);
     c.add(txt(ui, px + 30, py + 20, shop.name, { size: 24, font: FONT.title, color: COLORS.textGold, bold: true }));
-    const walletT = txt(ui, px + pw - 30, py + 26, '', { size: 18, color: '#f3dc95', bold: true }).setOrigin(1, 0);
-    c.add(walletT);
+    let walletRow: ReturnType<typeof coinRow> | null = null;
+    const drawWallet = () => {
+      walletRow?.destroy();
+      walletRow = coinRow(ui, 0, py + 38, G.p.wallet, { size: 22, font: 19, stroke: true });
+      walletRow.x = px + pw - 30 - walletRow.rowWidth;
+      c.add(walletRow);
+    };
     let mode = tab;
     let selected: string | null = null;
     let qty = 1;
@@ -62,7 +68,8 @@ export function openShop(ui: UIScene, shopId: string, tab: 'buy' | 'sell' = 'buy
     c.add(close);
 
     const buyPrice = (id: string) => {
-      if (shopId === 'inn' && G.flag('bertram_deal') && (id === 'hot_stew') && G.flag('meal_day') !== G.state.time.day) return 0;
+      // Bertram'ın bedava yemeği yalnızca ilk çalışma günü
+      if (shopId === 'inn' && id === 'hot_stew' && G.flag('free_meal_day') === G.state.time.day && G.flag('meal_day') !== G.state.time.day) return 0;
       return ITEMS[id].price;
     };
     const sellP = (id: string) => {
@@ -73,7 +80,7 @@ export function openShop(ui: UIScene, shopId: string, tab: 'buy' | 'sell' = 'buy
     };
 
     const refresh = () => {
-      walletT.setText(formatWallet(G.p.wallet));
+      drawWallet();
       tabs[0].setAlpha(mode === 'buy' ? 1 : 0.6);
       tabs[1].setAlpha(mode === 'sell' ? 1 : 0.6);
       list.clear();
@@ -100,7 +107,12 @@ export function openShop(ui: UIScene, shopId: string, tab: 'buy' | 'sell' = 'buy
         row.add(iconImage(ui, 30, 29, it.icon, 36));
         row.add(txt(ui, 58, 8, itemLabel(id), { size: 15, bold: true, wrap: listW - 200 }));
         const price = mode === 'buy' ? buyPrice(id) : sellP(id);
-        row.add(txt(ui, listW - 20, 18, price === 0 && mode === 'buy' ? 'Bedava' : formatPrice(price, true), { size: 15, color: '#f3dc95', bold: true }).setOrigin(1, 0));
+        if (price === 0 && mode === 'buy') row.add(txt(ui, listW - 20, 18, 'Bedava', { size: 15, color: COLORS.textGreen, bold: true }).setOrigin(1, 0));
+        else {
+          const pr = coinRow(ui, 0, 29, price, { size: 18, font: 16 });
+          pr.x = listW - 22 - pr.rowWidth;
+          row.add(pr);
+        }
         if (mode === 'sell') row.add(txt(ui, 58, 34, `Elinde: ${G.p.inventory[id]}`, { size: 12, color: COLORS.textDim }));
         const z = ui.add.zone(0, 0, listW - 8, 58).setOrigin(0, 0).setInteractive();
         z.on('pointerup', () => {
@@ -139,7 +151,9 @@ export function openShop(ui: UIScene, shopId: string, tab: 'buy' | 'sell' = 'buy
       detail.add(new Button(ui, 30, qy, '−', () => { qty = Math.max(1, qty - 1); drawDetail(); }, { w: 56, h: 52, size: 26 }));
       detail.add(txt(ui, 100, qy - 14, `${qty}`, { size: 24, bold: true }).setOrigin(0.5, 0));
       detail.add(new Button(ui, 170, qy, '+', () => { qty = Math.min(max, qty + 1); drawDetail(); }, { w: 56, h: 52, size: 26 }));
-      detail.add(txt(ui, 0, qy + 40, `Toplam: ${unit * qty === 0 ? 'Bedava' : formatPrice(unit * qty)}`, { size: 17, color: '#f3dc95', bold: true }));
+      detail.add(txt(ui, 0, qy + 40, 'Toplam:', { size: 17, color: '#f3dc95', bold: true }));
+      if (unit * qty === 0) detail.add(txt(ui, 74, qy + 40, 'Bedava', { size: 17, color: COLORS.textGreen, bold: true }));
+      else detail.add(coinRow(ui, 76, qy + 51, unit * qty, { size: 20, font: 17 }));
       const act = new Button(ui, dw / 2, qy + 110, mode === 'buy' ? 'Satın Al' : 'Sat', () => {
         if (mode === 'buy') {
           const r = R.buy(id, qty, unit, `${shop.name}: ${it.name}`);
@@ -150,7 +164,8 @@ export function openShop(ui: UIScene, shopId: string, tab: 'buy' | 'sell' = 'buy
           }
           if (unit === 0 && id === 'hot_stew') G.setFlag('meal_day', G.state.time.day);
           Sound.sfx('coin');
-          R.toast(`+${qty} ${it.name}` + (r.change && Object.values(r.change).some((v) => v > 0) ? ` · Para üstü: ${formatWallet(r.change)}` : ''), 'item', it.icon);
+          const ch = r.change ? (Object.entries(r.change) as [string, number][]).filter(([, v]) => v > 0).map(([k, v]) => `{w:${k}:${v}}`).join(' ') : '';
+          R.toast(`+${qty} ${it.name}` + (ch ? ` · Para üstü: ${ch}` : ''), 'item', it.icon);
         } else {
           const r = R.sell(id, qty, unit, `${shop.name}: ${it.name} satışı`);
           if (!r.ok) {
@@ -159,7 +174,7 @@ export function openShop(ui: UIScene, shopId: string, tab: 'buy' | 'sell' = 'buy
             return;
           }
           Sound.sfx('coin');
-          R.toast(`+${formatPrice(unit * qty)}`, 'money', 'coin_bronze');
+          R.toast(`+{m:${unit * qty}}`, 'money');
           if (!G.p.inventory[id]) selected = null;
         }
         qty = 1;

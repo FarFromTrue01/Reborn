@@ -7,7 +7,8 @@ import { SKILLS, TECHNIQUES, HIDDEN_DISCOVERIES, RARITY_NAMES } from '../data/sk
 import { subRankToString } from '../core/ranks';
 import { transact, type ItemQty } from '../core/transactions';
 import { ITEMS } from '../data/items';
-import { formatPrice, canonicalCoins } from '../core/money';
+import { canonicalCoins } from '../core/money';
+import { eat as eatRule, type EatState } from '../core/eating';
 import { TITLES } from '../data/titles';
 
 export type ToastKind = 'item' | 'exp' | 'divine' | 'money' | 'info' | 'warn' | 'skill';
@@ -233,7 +234,7 @@ export function giveItems(items: ItemQty[], label: string, silent = false): bool
 export function giveMoney(bronze: number, label: string, silent = false): boolean {
   if (bronze <= 0) return true;
   const r = transact(G.p as any, { label, receive: canonicalCoins(bronze) });
-  if (r.ok && !silent) toast(`+${formatPrice(bronze)}`, 'money', 'coin_bronze');
+  if (r.ok && !silent) toast(`+{m:${bronze}}`, 'money');
   return r.ok;
 }
 
@@ -249,4 +250,36 @@ export function sell(id: string, qty: number, unitPrice: number, label: string) 
 
 export function pay(amount: number, label: string) {
   return transact(G.p as any, { label, pay: amount });
+}
+
+// ------------------------------------------------------------ tüketme
+/**
+ * Bir eşyayı tüketir (yiyecek, iksir). Yiyecekler bekleme kurallarına tabidir (core/eating).
+ * addBuff: süreli etkiler (sargı) için oyuncuya buff ekler.
+ */
+export function consumeItem(id: string, eat: { state: EatState; now: number } | null, addBuff: (b: { id: string; t: number; amount: number }) => void): { ok: boolean; reason?: string; eatState?: EatState } {
+  const it = ITEMS[id];
+  if (!it || !G.p.inventory[id]) return { ok: false, reason: 'Elinde yok.' };
+  let next: EatState | undefined;
+  if (it.kind === 'food' && eat) {
+    const r = eatRule(eat.state, eat.now);
+    if (!r.ok) return { ok: false, reason: `Henüz yiyemezsin. (${Math.ceil(r.cooldown)} sn)` };
+    next = r.state;
+  }
+  const t = transact(G.p as any, { label: 'Kullan: ' + it.name, take: [{ id, qty: 1 }] });
+  if (!t.ok) return { ok: false, reason: t.reason };
+  const p = G.p;
+  for (const e of it.effects ?? []) {
+    if (e.type === 'heal') p.hp = Math.min(G.d.maxHp, p.hp + Math.round(e.amount! * G.d.healMult));
+    if (e.type === 'mana') p.mp = Math.min(G.d.maxMp, p.mp + e.amount!);
+    if (e.type === 'stamina') p.stamina = Math.min(G.d.maxStamina, p.stamina + e.amount!);
+    if (e.type === 'regen') {
+      addBuff({ id: 'regen', t: e.duration!, amount: (e.amount! * G.d.healMult) / e.duration! });
+      G.count('bandagesUsed');
+      gainSkillExp('first_aid', 1.5);
+      checkDiscoveries();
+    }
+  }
+  G.events.emit('stats');
+  return { ok: true, eatState: next };
 }

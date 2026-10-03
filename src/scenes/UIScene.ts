@@ -5,7 +5,11 @@ import { Input, type Action } from '../game/input';
 import { Sound } from '../audio/audio';
 import { COLORS, FONT, txt, drawFrame, drawBlue, drawBar, Button } from '../ui/kit';
 import { clockLabel, dateLabel } from '../core/time';
-import { formatWallet, formatPrice } from '../core/money';
+import { formatPrice } from '../core/money';
+import { coinRow, richLine, plainMoney } from '../ui/coins';
+import { expToNext } from '../core/formulas';
+import { cooldownInfo } from '../core/eating';
+import { subRankToString as srs } from '../core/ranks';
 import { ensurePortrait, EXPR_GLYPH } from '../ui/portraits';
 import { NPC_BY_ID, type NpcDef } from '../data/npcs';
 import { TECHNIQUES, SKILLS } from '../data/skills';
@@ -54,6 +58,13 @@ export class UIScene extends Phaser.Scene {
   choiceObjs: Phaser.GameObjects.GameObject[] = [];
   appraisalWin: Phaser.GameObjects.Container | null = null;
   contextLabel: string | null = null;
+  contextKind: string | null = null;
+  moneyRow: (Phaser.GameObjects.Container & { rowWidth: number }) | null = null;
+  moneyKey = '';
+  eatBtn: Button | null = null;
+  eatCount: Phaser.GameObjects.Text | null = null;
+  joyFixed: { base: Phaser.GameObjects.Graphics; knob: Phaser.GameObjects.Graphics; x: number; y: number } | null = null;
+  hudPanelH = 150;
   damageFlash!: Phaser.GameObjects.Rectangle;
   zoneBanner: Phaser.GameObjects.Container | null = null;
   ghostHp = 1;
@@ -114,6 +125,7 @@ export class UIScene extends Phaser.Scene {
     const keep = this.dlg;
     this.hud?.destroy();
     this.touch?.destroy();
+    this.cdOverlay?.destroy();
     this.damageFlash?.destroy();
     this.fpsText?.destroy();
     this.build();
@@ -127,25 +139,32 @@ export class UIScene extends Phaser.Scene {
     this.hudG = this.add.graphics();
     this.hud.add(this.hudG);
     this.hudTexts = {};
+    this.moneyRow = null;
+    this.moneyKey = '';
     const T = (k: string, x: number, y: number, o: any) => {
       const t = txt(this, x, y, '', o);
       this.hudTexts[k] = t;
       this.hud.add(t);
       return t;
     };
-    T('name', 20, 14, { size: 17, font: FONT.title, color: COLORS.textGold, bold: true, stroke: true });
-    T('hp', 26, 46, { size: 13, font: FONT.ui, bold: true, stroke: true });
-    T('mp', 26, 70, { size: 12, font: FONT.ui, bold: true, stroke: true });
-    T('st', 26, 90, { size: 11, font: FONT.ui, bold: true, stroke: true });
-    T('light', 26, 108, { size: 11, font: FONT.ui, bold: true, stroke: true, color: '#ffe9a0' });
-    T('clock', W - 196, 14, { size: 20, font: FONT.title, color: COLORS.textGold, bold: true, stroke: true, align: 'right' }).setOrigin(1, 0);
-    T('date', W - 196, 40, { size: 12, color: COLORS.textDim, stroke: true }).setOrigin(1, 0);
-    T('money', W - 196, 58, { size: 14, color: '#f3dc95', stroke: true, bold: true }).setOrigin(1, 0);
-    T('zone', W - 196, 78, { size: 11, color: COLORS.textDim, stroke: true, italic: true }).setOrigin(1, 0);
-    // mini harita
+    // Sol üst: kimlik ve barlar
+    T('name', 22, 12, { size: 19, font: FONT.title, color: COLORS.textGold, bold: true, stroke: true });
+    T('lv', 0, 15, { size: 15, font: FONT.ui, bold: true, color: '#fff2c0', stroke: true });
+    T('hp', 28, 43, { size: 14, font: FONT.ui, bold: true, stroke: true });
+    T('mp', 28, 67, { size: 12, font: FONT.ui, bold: true, stroke: true });
+    T('st', 296, 84, { size: 11, font: FONT.ui, bold: true, stroke: true, color: '#cfeac0' }).setOrigin(1, 0);
+    T('exp', 296, 100, { size: 11, font: FONT.ui, bold: true, stroke: true, color: '#d8c8ff' }).setOrigin(1, 0);
+    T('light', 28, 114, { size: 11, font: FONT.ui, bold: true, stroke: true, color: '#ffe9a0' });
+    // Sağ üst: saat, tarih, bölge (okunur boyutta) ve mini harita
+    T('clock', W - 196, 12, { size: 26, font: FONT.title, color: COLORS.textGold, bold: true, stroke: true, align: 'right' }).setOrigin(1, 0);
+    T('date', W - 196, 46, { size: 15, color: '#e8dcc0', stroke: true, bold: true }).setOrigin(1, 0);
+    T('zone', W - 196, 70, { size: 15, color: '#cfe6b8', stroke: true, italic: true, bold: true }).setOrigin(1, 0);
     if (!this.textures.exists('minimap')) this.minimapTex = this.textures.createCanvas('minimap', 160, 160)!;
     else this.minimapTex = this.textures.get('minimap') as Phaser.Textures.CanvasTexture;
     this.minimap = this.add.image(W - 98, 92, 'minimap').setDisplaySize(160, 160);
+    // Mini haritaya dokununca tam ekran harita
+    this.minimap.setInteractive({ useHandCursor: true });
+    this.minimap.on('pointerup', () => this.openMenu('map'));
     this.hud.add(this.minimap);
     const mf = this.add.graphics();
     drawFrame(mf, W - 180, 10, 164, 164, { alpha: 0, ornate: true });
@@ -155,11 +174,11 @@ export class UIScene extends Phaser.Scene {
     this.hud.add(menuB);
     const apB = new Button(this, W - 124, 216, '', () => { Input.press('appraise'); }, { w: 60, h: 60, style: 'round', icon: 'sk_appraisal' });
     this.hud.add(apB);
-    this.cdOverlay = this.add.graphics();
     this.buildTouch();
-    this.hud.add(this.cdOverlay);
+    // Bekleme ve parlama göstergeleri butonların ÜSTÜNDE çizilir
+    this.cdOverlay = this.add.graphics().setDepth(21);
     this.damageFlash = this.add.rectangle(0, 0, W, H, 0xff0000, 0).setOrigin(0, 0).setDepth(50);
-    if (G.settings.showFps) this.fpsText = txt(this, W / 2, 8, '', { size: 12, stroke: true }).setOrigin(0.5, 0).setDepth(60);
+    if (G.settings.showFps) this.fpsText = txt(this, W / 2, 8, '', { size: 13, stroke: true }).setOrigin(0.5, 0).setDepth(60);
     this.refreshButtons();
     this.drawMinimap(true);
   }
@@ -193,6 +212,31 @@ export class UIScene extends Phaser.Scene {
     mk('dodge', 'Kaçış', ax - 120 * s, ay + 52 * s, 38 * s, undefined, 0x16304a);
     mk('heavy', 'Ağır', ax - 20 * s, ay - 110 * s, 36 * s, undefined, 0x3a2410);
     mk('interact', 'Etkileşim', ax - 128 * s, ay - 52 * s, 36 * s, undefined, 0x1e3a1e);
+    // Hızlı Yemek: Kaçış butonunun solunda
+    this.eatBtn = mk('eat', '', ax - 212 * s, ay + 66 * s, 32 * s, 'bread', 0x2a2016);
+    this.eatCount = txt(this, this.eatBtn.x + 22 * s, this.eatBtn.y + 14 * s, '', { size: Math.round(15 * s + 2), bold: true, stroke: true }).setOrigin(1, 0.5);
+    this.touch.add(this.eatCount);
+    // Sabit joystick: tabanı her zaman sol altta görünür
+    this.joyFixed = null;
+    if (G.settings.joystick === 'fixed' && this.isTouch) {
+      const jx = 150, jy = H - 150;
+      const base = this.add.graphics();
+      base.fillStyle(0x000000, 0.3);
+      base.fillCircle(0, 0, 76);
+      base.lineStyle(2.5, COLORS.gold, 0.75);
+      base.strokeCircle(0, 0, 76);
+      base.lineStyle(1, COLORS.goldDark, 0.8);
+      base.strokeCircle(0, 0, 40);
+      base.setPosition(jx, jy);
+      const knob = this.add.graphics();
+      knob.fillStyle(0xd9b45a, 0.6);
+      knob.fillCircle(0, 0, 32);
+      knob.lineStyle(2, 0xf3dc95, 0.95);
+      knob.strokeCircle(0, 0, 32);
+      knob.setPosition(jx, jy);
+      this.touch.add([base, knob]);
+      this.joyFixed = { base, knob, x: jx, y: jy };
+    }
     this.skillBtns = [];
     for (let i = 0; i < 4; i++) {
       const ang = Math.PI * (1.02 + i * 0.16);
@@ -207,7 +251,7 @@ export class UIScene extends Phaser.Scene {
     }
     if (!big) {
       // klavye ipuçları
-      const hint = txt(this, 14, H - 26, 'WASD: hareket · Shift: koş · J/Tık: saldırı · K: ağır · Boşluk: kaçış · E: etkileşim · Q: Appraisal · 1-4: skill · Z/X/C: Divine · Esc: menü', { size: 11, color: COLORS.textDim, stroke: true });
+      const hint = txt(this, 14, H - 26, 'WASD: hareket · Shift: koş · J/Tık: saldırı · K: ağır · Boşluk: kaçış · E: etkileşim · F: hızlı yemek · Q: Appraisal · 1-4: skill · Z/X/C: Divine · Esc: menü', { size: 11, color: COLORS.textDim, stroke: true });
       this.touch.add(hint);
     }
   }
@@ -248,8 +292,9 @@ export class UIScene extends Phaser.Scene {
     const hide = this.hideHud || this.menuIsOpen;
     this.hud.setVisible(!hide);
     this.touch.setVisible(!hide && !this.dialogueOpen() && !(this.world?.cutscene));
-    if (this.contextLabel !== null) this.touchButtons.interact?.setText(this.contextLabel);
-    else this.touchButtons.interact?.setText('Etkileşim');
+    this.cdOverlay.setVisible(this.touch.visible);
+    this.updateInteractButton();
+    this.updateEatButton();
   }
 
   drawHud(dt: number) {
@@ -257,32 +302,57 @@ export class UIScene extends Phaser.Scene {
     g.clear();
     const p = G.p;
     const d = G.d;
+    const W = Display.uiW;
     // sol üst panel
     const hasLight = G.state.divine.skills.length > 0;
-    drawFrame(g, 8, 6, 290, hasLight ? 126 : 108, { alpha: 0.78, ornate: false });
-    this.hudTexts.name.setText(`Joseph  ·  Lv ${p.level}`);
+    const panelH = hasLight ? 168 : 150;
+    this.hudPanelH = panelH;
+    drawFrame(g, 8, 6, 300, panelH, { alpha: 0.8, ornate: false });
+    this.hudTexts.name.setText('Joseph');
+    const lvX = 22 + this.hudTexts.name.width + 12;
+    const rank = p.guildRank !== null ? `  ·  ${srs(p.guildRank)}` : '';
+    this.hudTexts.lv.setText(`Lv ${p.level}${rank}`).setPosition(lvX + 8, 15);
+    g.fillStyle(0x3a2e1a, 0.9);
+    g.fillRoundedRect(lvX, 13, this.hudTexts.lv.width + 16, 22, 6);
+    g.lineStyle(1, COLORS.gold, 0.9);
+    g.strokeRoundedRect(lvX, 13, this.hudTexts.lv.width + 16, 22, 6);
     const hpF = p.hp / d.maxHp;
     this.ghostHp = Math.max(hpF, this.ghostHp - dt * 0.5);
-    drawBar(g, 20, 44, 266, 18, hpF, COLORS.hp, 0x180808, this.ghostHp);
+    drawBar(g, 20, 42, 276, 18, hpF, COLORS.hp, 0x180808, this.ghostHp);
     if (hpF < 0.3) {
       const pulse = 0.25 + Math.sin(this.time.now / 160) * 0.2;
       g.lineStyle(2, 0xff3020, pulse);
-      g.strokeRect(19, 43, 268, 20);
+      g.strokeRect(19, 41, 278, 20);
     }
-    this.hudTexts.hp.setText(`HP ${Math.ceil(p.hp)} / ${d.maxHp}`).setPosition(26, 45);
-    drawBar(g, 20, 68, 266, 12, d.maxMp ? p.mp / d.maxMp : 0, COLORS.mp, 0x0a0f20);
-    this.hudTexts.mp.setText(`MP ${Math.floor(p.mp)} / ${d.maxMp}`).setPosition(26, 66);
-    drawBar(g, 20, 88, 266, 8, p.stamina / d.maxStamina, COLORS.st, 0x0a160a);
-    this.hudTexts.st.setText('').setPosition(26, 84);
+    this.hudTexts.hp.setText(`HP ${Math.ceil(p.hp)} / ${d.maxHp}`);
+    drawBar(g, 20, 66, 276, 13, d.maxMp ? p.mp / d.maxMp : 0, COLORS.mp, 0x0a0f20);
+    this.hudTexts.mp.setText(`MP ${Math.floor(p.mp)} / ${d.maxMp}`);
+    drawBar(g, 20, 86, 186, 9, p.stamina / d.maxStamina, COLORS.st, 0x0a160a);
+    this.hudTexts.st.setText(`Dayanıklılık ${Math.floor(p.stamina)}`);
+    const need = expToNext(p.level);
+    drawBar(g, 20, 102, 186, 9, p.exp / need, 0x9a6ae8, 0x140a20);
+    this.hudTexts.exp.setText(`EXP ${Math.floor(p.exp)} / ${need}`);
+    let y = 120;
     if (hasLight) {
-      drawBar(g, 20, 106, 266, 10, G.state.divine.light / LIGHT_MAX, COLORS.light, 0x1a1404);
-      this.hudTexts.light.setText(`Işık ${Math.floor(G.state.divine.light)}`).setPosition(26, 103);
+      drawBar(g, 20, 120, 276, 9, G.state.divine.light / LIGHT_MAX, COLORS.light, 0x1a1404);
+      this.hudTexts.light.setText(`Işık ${Math.floor(G.state.divine.light)}`).setPosition(28, 116);
+      y = 138;
     } else this.hudTexts.light.setText('');
-    // sağ üst
+    // Para: simgelerle (yalnızca değişince yeniden çizilir)
+    const key = JSON.stringify(p.wallet) + y;
+    if (key !== this.moneyKey) {
+      this.moneyKey = key;
+      this.moneyRow?.destroy();
+      this.moneyRow = coinRow(this, 22, y + 2 + 13, p.wallet, { size: 20, font: 17, stroke: true });
+      this.hud.add(this.moneyRow);
+    }
+    // sağ üst: okunur saat, tarih ve bölge (arkasında koyu zemin)
     this.hudTexts.clock.setText(clockLabel(G.state.time));
     this.hudTexts.date.setText(dateLabel(G.state.time));
-    this.hudTexts.money.setText(formatWallet(p.wallet, true));
     this.hudTexts.zone.setText(this.world?.zone?.name ?? this.world?.mapData?.name ?? '');
+    const tw = Math.max(this.hudTexts.date.width, this.hudTexts.zone.width, this.hudTexts.clock.width) + 24;
+    g.fillStyle(0x0c0a12, 0.62);
+    g.fillRoundedRect(W - 196 - tw + 8, 8, tw + 4, 88, 8);
     // bekleme süreleri
     const c = this.cdOverlay;
     c.clear();
@@ -369,8 +439,67 @@ export class UIScene extends Phaser.Scene {
     this.refreshButtons();
   }
 
-  setContext(label: string | null) {
+  setContext(label: string | null, kind: string | null = null) {
     this.contextLabel = label;
+    this.contextKind = kind;
+  }
+
+  /**
+   * Etkileşim butonu: menzilde bir şey varsa renk değiştirir, nabız gibi parlar ve ~%10 büyür.
+   * Konuş (NPC) mavi, diğer etkileşimler (kapı, eşya, toplama, yatak) yeşil. Menzilde bir şey yoksa sönük.
+   */
+  updateInteractButton() {
+    const b = this.touchButtons.interact;
+    if (!b) return;
+    const kind = this.contextLabel !== null ? this.contextKind : null;
+    const talk = kind === 'npc';
+    const color = kind ? (talk ? 0x1d4f8c : 0x2a6a24) : 0x1e2a1e;
+    if (b.opts.color !== color) {
+      b.opts.color = color;
+      b.redraw();
+    }
+    b.setText(this.contextLabel ?? 'Etkileşim');
+    const base = this.isTouch ? 1 : 0.8;
+    void base;
+    if (kind) {
+      const t = this.time.now / 1000;
+      b.setAlpha(1);
+      if (!(b as any).down) b.setScale(1.1 + Math.sin(t * 5) * 0.025);
+      const c = this.cdOverlay;
+      const ring = talk ? 0x7cc8ff : 0x9fe08a;
+      c.lineStyle(3, ring, 0.45 + Math.sin(t * 5) * 0.3);
+      c.strokeCircle(b.x, b.y, (b.w / 2) * 1.1 + 5 + Math.sin(t * 5) * 2);
+      c.fillStyle(ring, 0.1 + Math.sin(t * 5) * 0.05);
+      c.fillCircle(b.x, b.y, (b.w / 2) * 1.1 + 4);
+    } else {
+      b.setAlpha(0.42);
+      b.setScale(1);
+    }
+  }
+
+  /** Hızlı Yemek butonu: atanmış yiyeceğin ikonu, adedi ve dairesel bekleme göstergesi. */
+  updateEatButton() {
+    const b = this.eatBtn;
+    if (!b || !this.world?.player) return;
+    const id = this.world.quickFoodId();
+    const n = id ? G.p.inventory[id] ?? 0 : 0;
+    if (id && b.iconImg) {
+      const icon = ITEMS[id]?.icon ?? 'bread';
+      if (b.iconImg.frame.name !== icon) b.iconImg.setFrame(icon);
+    }
+    this.eatCount?.setText(n ? `${n}` : '');
+    const cd = cooldownInfo(this.world.eatState, this.world.playClock);
+    b.setAlpha(!id ? 0.35 : cd.left > 0 ? 0.75 : 1);
+    if (id && cd.left > 0) {
+      const c = this.cdOverlay;
+      c.fillStyle(0x000000, 0.6);
+      c.slice(b.x, b.y, b.w / 2, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * (cd.left / cd.total), false);
+      c.fillPath();
+      c.lineStyle(2, 0xf3dc95, 0.9);
+      c.beginPath();
+      c.arc(b.x, b.y, b.w / 2 + 2, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * (1 - cd.left / cd.total), false);
+      c.strokePath();
+    }
   }
 
   // ================================================================== joystick
@@ -387,7 +516,20 @@ export class UIScene extends Phaser.Scene {
     if (this.menuIsOpen || this.world?.cutscene) return;
     const x = p.x / Display.uiZoom, y = p.y / Display.uiZoom;
     if (!p.wasTouch && !this.isTouch) return;
+    // Dünyadaki bir NPC'ye ya da canavara dokunmak: Appraisal (joystick/saldırı başlamaz)
+    const target = this.world?.creatureAtScreen(p.x, p.y);
+    if (target) {
+      this.world.tapAppraise(target);
+      return;
+    }
     if (x < Display.uiW * 0.45 && !this.joy) {
+      if (this.joyFixed) {
+        // Sabit joystick: taban yerinde kalır, topuz parmağı izler
+        this.joy = { id: p.id, bx: this.joyFixed.x, by: this.joyFixed.y, base: this.joyFixed.base, knob: this.joyFixed.knob };
+        Input.touchMove = true;
+        this.onMove(p);
+        return;
+      }
       const base = this.add.graphics().setDepth(30);
       base.fillStyle(0x000000, 0.25);
       base.fillCircle(0, 0, 70);
@@ -411,7 +553,11 @@ export class UIScene extends Phaser.Scene {
     let dx = x - this.joy.bx, dy = y - this.joy.by;
     const d = Math.hypot(dx, dy);
     const max = 70;
-    if (d > max) {
+    if (d > max && this.joyFixed) {
+      // sabit modda taban yerinde kalır
+      dx = (dx / d) * max;
+      dy = (dy / d) * max;
+    } else if (d > max) {
       // taban parmağı takip etsin
       this.joy.bx += (dx / d) * (d - max);
       this.joy.by += (dy / d) * (d - max);
@@ -434,8 +580,11 @@ export class UIScene extends Phaser.Scene {
 
   onUp(p: Phaser.Input.Pointer) {
     if (this.joy && p.id === this.joy.id) {
-      this.joy.base.destroy();
-      this.joy.knob.destroy();
+      if (this.joyFixed) this.joyFixed.knob.setPosition(this.joyFixed.x, this.joyFixed.y);
+      else {
+        this.joy.base.destroy();
+        this.joy.knob.destroy();
+      }
       this.joy = null;
       Input.moveX = 0;
       Input.moveY = 0;
@@ -445,17 +594,19 @@ export class UIScene extends Phaser.Scene {
 
   // ================================================================== bildirimler
   toast(text: string, kind = 'info', icon?: string) {
-    const y0 = 160;
+    const y0 = this.hudPanelH + 18;
     const c = this.add.container(16, y0).setDepth(40);
-    const t = txt(this, icon ? 40 : 12, 8, text, { size: 15, bold: true, stroke: true, color: kind === 'exp' ? COLORS.textBlue : kind === 'divine' ? '#ffe9a0' : kind === 'money' ? '#f3dc95' : kind === 'warn' ? COLORS.textRed : COLORS.text });
+    const color = kind === 'exp' ? COLORS.textBlue : kind === 'divine' ? '#ffe9a0' : kind === 'money' ? '#f3dc95' : kind === 'warn' ? COLORS.textRed : COLORS.text;
+    const hasIcon = !!icon && this.textures.get('icons').has(icon);
+    const t = richLine(this, hasIcon ? 40 : 12, 17, text, { size: 16, bold: true, stroke: true, color });
     const g = this.add.graphics();
-    const w = t.width + (icon ? 52 : 24);
-    g.fillStyle(0x0c0a12, 0.78);
+    const w = t.rowWidth + (hasIcon ? 52 : 24);
+    g.fillStyle(0x0c0a12, 0.8);
     g.fillRoundedRect(0, 0, w, 34, 6);
     g.lineStyle(1, kind === 'divine' ? COLORS.gold : COLORS.goldDark, 0.9);
     g.strokeRoundedRect(0, 0, w, 34, 6);
     c.add(g);
-    if (icon && this.textures.get('icons').has(icon)) c.add(this.add.image(20, 17, 'icons', icon).setScale(0.75));
+    if (hasIcon) c.add(this.add.image(20, 17, 'icons', icon).setScale(0.75));
     c.add(t);
     c.setAlpha(0);
     c.x = -40;
@@ -496,7 +647,10 @@ export class UIScene extends Phaser.Scene {
     drawBlue(g, -w / 2, 0, w, h, 0.82);
     c.add(g);
     c.add(txt(this, 0, 12, `【 ${m.title} 】`, { size: 18, font: FONT.title, color: '#e6f6ff', bold: true, align: 'center' }).setOrigin(0.5, 0));
-    m.lines.forEach((l, i) => c.add(txt(this, 0, 44 + i * lineH, l, { size: 15, color: COLORS.textBlue, align: 'center', wrap: w - 40 }).setOrigin(0.5, 0)));
+    m.lines.forEach((l, i) => {
+      if (/\{[mw]:/.test(l)) c.add(richLine(this, 0, 44 + i * lineH + 10, l, { size: 15, color: COLORS.textBlue, originX: 0.5 }));
+      else c.add(txt(this, 0, 44 + i * lineH, l, { size: 15, color: COLORS.textBlue, align: 'center', wrap: w - 40 }).setOrigin(0.5, 0));
+    });
     c.setAlpha(0).setScale(0.96, 0.6);
     this.tweens.add({ targets: c, alpha: 1, scaleY: 1, scaleX: 1, duration: 220, ease: 'Back.Out' });
     this.sysShowing = c;
@@ -707,7 +861,7 @@ export class UIScene extends Phaser.Scene {
           for (const x of this.choiceObjs) x.destroy();
           this.choiceObjs = [];
           this.choiceResolve = null;
-          G.state.history.push({ speaker: 'Joseph', text: '» ' + o, kind: 'choice' });
+          G.state.history.push({ speaker: 'Joseph', text: '» ' + plainMoney(o), kind: 'choice' });
           resolve(i);
         }, { w: bw, h: 56, size: 19 });
         b.setDepth(110);

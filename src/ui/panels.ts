@@ -7,11 +7,16 @@ import { Sound } from '../audio/audio';
 export class ScrollList extends Phaser.GameObjects.Container {
   inner: Phaser.GameObjects.Container;
   maskG: Phaser.GameObjects.Graphics;
+  bar: Phaser.GameObjects.Graphics;
   scrollY = 0;
   contentH = 0;
   private dragY: number | null = null;
+  private dragId = -1;
   private startScroll = 0;
   private moved = 0;
+  private vel = 0;
+  private lastMoveT = 0;
+  private handlers: [string, (...a: any[]) => void][] = [];
 
   constructor(scene: Phaser.Scene, x: number, y: number, public w: number, public h: number) {
     super(scene, x, y);
@@ -20,25 +25,56 @@ export class ScrollList extends Phaser.GameObjects.Container {
     this.maskG = scene.make.graphics({});
     this.updateMask();
     this.inner.setMask(this.maskG.createGeometryMask());
+    this.bar = scene.add.graphics();
+    this.add(this.bar);
     const zone = scene.add.zone(0, 0, w, h).setOrigin(0, 0).setInteractive();
     this.addAt(zone, 0);
-    zone.on('pointerdown', (p: Phaser.Input.Pointer) => {
+    // Sürükleme sahne düzeyinde dinlenir: satırların (butonların) üstünden başlayan
+    // dokunmatik sürüklemeler de listeyi kaydırır.
+    const down = (p: Phaser.Input.Pointer) => {
+      if (!this.active || !this.visible || !this.inside(p)) return;
       this.dragY = p.y;
+      this.dragId = p.id;
       this.startScroll = this.scrollY;
       this.moved = 0;
-    });
-    scene.input.on('pointermove', (p: Phaser.Input.Pointer) => {
-      if (this.dragY === null || !p.isDown) return;
+      this.vel = 0;
+    };
+    const move = (p: Phaser.Input.Pointer) => {
+      if (this.dragY === null || p.id !== this.dragId || !p.isDown) return;
       const dy = (p.y - this.dragY) / Display.uiZoom;
       this.moved = Math.max(this.moved, Math.abs(dy));
-      this.setScroll(this.startScroll - dy);
-    });
-    scene.input.on('pointerup', () => (this.dragY = null));
-    scene.input.on('wheel', (p: Phaser.Input.Pointer, _o: any, _dx: number, dy: number) => {
-      const lx = p.x / Display.uiZoom - this.worldX(), ly = p.y / Display.uiZoom - this.worldY();
-      if (lx >= 0 && ly >= 0 && lx <= this.w && ly <= this.h) this.setScroll(this.scrollY + dy * 0.6);
-    });
+      if (this.moved > 6) {
+        const before = this.scrollY;
+        this.setScroll(this.startScroll - dy);
+        const now = scene.time.now;
+        this.vel = (this.scrollY - before) / Math.max(1, now - this.lastMoveT);
+        this.lastMoveT = now;
+      }
+    };
+    const up = (p: Phaser.Input.Pointer) => {
+      if (p.id !== this.dragId) return;
+      this.dragY = null;
+      this.dragId = -1;
+    };
+    const wheel = (p: Phaser.Input.Pointer, _o: any, _dx: number, dy: number) => {
+      if (this.active && this.visible && this.inside(p)) this.setScroll(this.scrollY + dy * 0.6);
+    };
+    this.handlers = [['pointerdown', down], ['pointermove', move], ['pointerup', up], ['pointerupoutside', up], ['wheel', wheel]];
+    for (const [ev, fn] of this.handlers) scene.input.on(ev, fn);
+    // sürükleme sonrası kayma (momentum)
+    const tick = () => {
+      if (this.dragY !== null || Math.abs(this.vel) < 0.01) return;
+      this.setScroll(this.scrollY + this.vel * 16);
+      this.vel *= 0.9;
+    };
+    scene.events.on('update', tick);
+    this.handlers.push(['__update', tick]);
     scene.add.existing(this);
+  }
+
+  private inside(p: Phaser.Input.Pointer) {
+    const lx = p.x / Display.uiZoom - this.worldX(), ly = p.y / Display.uiZoom - this.worldY();
+    return lx >= 0 && ly >= 0 && lx <= this.w && ly <= this.h;
   }
 
   worldX() {
@@ -79,6 +115,22 @@ export class ScrollList extends Phaser.GameObjects.Container {
   setScroll(v: number) {
     this.scrollY = Phaser.Math.Clamp(v, 0, Math.max(0, this.contentH - this.h));
     this.inner.y = -this.scrollY;
+    this.drawBar();
+  }
+
+  /** Kaydırılabilir içerik varsa sağda ince bir kaydırma çubuğu. */
+  private drawBar() {
+    const g = this.bar;
+    if (!g?.active) return;
+    g.clear();
+    if (this.contentH <= this.h + 1) return;
+    const frac = this.h / this.contentH;
+    const bh = Math.max(30, this.h * frac);
+    const by = (this.scrollY / (this.contentH - this.h)) * (this.h - bh);
+    g.fillStyle(0x000000, 0.35);
+    g.fillRoundedRect(this.w - 6, 0, 5, this.h, 2);
+    g.fillStyle(0xd9b45a, 0.8);
+    g.fillRoundedRect(this.w - 6, by, 5, bh, 2);
   }
 
   clear() {
@@ -86,9 +138,18 @@ export class ScrollList extends Phaser.GameObjects.Container {
     this.contentH = 0;
     this.scrollY = 0;
     this.inner.y = 0;
+    this.drawBar();
   }
 
   destroy(fromScene?: boolean) {
+    const sc = this.scene;
+    if (sc) {
+      for (const [ev, fn] of this.handlers) {
+        if (ev === '__update') sc.events.off('update', fn);
+        else sc.input?.off(ev, fn);
+      }
+    }
+    this.handlers = [];
     this.maskG.destroy();
     super.destroy(fromScene);
   }

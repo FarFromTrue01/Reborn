@@ -23,7 +23,8 @@ import { ITEMS } from '../data/items';
 import { DIVINE_BY_ID } from '../data/divine';
 import { LIGHT_MAX, LIGHT_ON_HIT, LIGHT_ON_PERFECT_DODGE } from '../core/divine';
 import { loseMoneyPercent } from '../core/transactions';
-import { appraisalBaseExp, noticesAppraisal } from '../core/appraisal';
+import { appraisalBaseExp, noticesAppraisal, appraisalReady, claimAppraisalExp } from '../core/appraisal';
+import { newEatState, type EatState } from '../core/eating';
 import { spellPowerMult } from '../core/formulas';
 import { dirFromVec, dirVec, type Dir } from '../world/actor';
 import * as R from '../game/rules';
@@ -107,6 +108,10 @@ export class WorldScene extends Phaser.Scene {
   lastHour = -1;
   transitioning = false;
   private zoneNameShown = '';
+  /** Oyun açıkken (duraklatılmamış) geçen gerçek saniye: yemek beklemeleri için. */
+  playClock = 0;
+  eatState: EatState = newEatState();
+  private lastAppraiseAt: number | null = null;
 
   constructor() {
     super('World');
@@ -144,11 +149,20 @@ export class WorldScene extends Phaser.Scene {
       if (p.wasTouch || this.cutscene) return;
       if (p.rightButtonDown()) Input.press('dodge');
       else if (p.leftButtonDown()) {
+        // Fareyle bir NPC'ye tıklamak: Appraisal (saldırı değil)
+        const t = this.creatureAtScreen(p.x, p.y);
+        if (t && t.kind === 'npc') {
+          this.tapAppraise(t);
+          return;
+        }
         Input.aim = { x: p.worldX, y: p.worldY };
         Input.press('attack');
       }
     });
     this.input.mouse?.disableContextMenu();
+    const onSettings = () => (this.lighting.quality = G.settings.quality);
+    G.events.on('settings', onSettings);
+    this.events.once('shutdown', () => G.events.off('settings', onSettings));
     this.time.delayedCall(50, () => this.director.onWorldReady());
   }
 
@@ -183,6 +197,7 @@ export class WorldScene extends Phaser.Scene {
         case 'KeyK': Input.press('heavy'); break;
         case 'KeyE': case 'Enter': Input.press('interact'); break;
         case 'KeyQ': Input.press('appraise'); break;
+        case 'KeyF': Input.press('eat'); break;
         case 'Digit1': Input.press('skill1'); break;
         case 'Digit2': Input.press('skill2'); break;
         case 'Digit3': Input.press('skill3'); break;
@@ -361,6 +376,7 @@ export class WorldScene extends Phaser.Scene {
   update(_time: number, deltaMs: number) {
     let dt = Math.min(0.05, deltaMs / 1000);
     if (this.paused) return;
+    this.playClock += dt;
     // ağır çekim
     if (this.slowmoT > 0) {
       this.slowmoT -= dt;
@@ -402,8 +418,12 @@ export class WorldScene extends Phaser.Scene {
       this.checkWarpsAndTriggers(dt);
       this.updateZone(false);
       this.updateFog(dt);
-      this.ui.setContext(this.findInteractable()?.label ?? null);
+      {
+        const it = this.findInteractable();
+        this.ui.setContext(it?.label ?? null, it?.kind ?? null);
+      }
       this.randomAppraisalEvent(dt);
+      this.director.checkEncounters(dt);
     }
     this.bubbleGlobalCd -= dt;
     // ışık
@@ -815,6 +835,69 @@ export class WorldScene extends Phaser.Scene {
   }
 
   // ================================================================= Appraisal
+  /** Ekran koordinatındaki (piksel) NPC ya da canavar. */
+  creatureAtScreen(sx: number, sy: number): { kind: 'npc' | 'enemy'; ref: Npc | Enemy } | null {
+    if (!this.player) return null;
+    const wp = this.cameras.main.getWorldPoint(sx, sy);
+    let best: { kind: 'npc' | 'enemy'; ref: Npc | Enemy; d: number } | null = null;
+    const test = (x: number, y: number, h: number, kind: 'npc' | 'enemy', ref: Npc | Enemy) => {
+      if (wp.x < x - 16 || wp.x > x + 16 || wp.y < y - h || wp.y > y + 6) return;
+      const d = Math.hypot(wp.x - x, wp.y - (y - h / 2));
+      if (!best || d < best.d) best = { kind, ref, d };
+    };
+    for (const n of this.npcs) test(n.x, n.y, 52, 'npc', n);
+    for (const e of this.enemies) if (e.alive) test(e.x, e.y, e.actor.kind === 'lpc' ? 52 : 34, 'enemy', e);
+    const b = best as any;
+    return b ? { kind: b.kind, ref: b.ref } : null;
+  }
+
+  /** Dokunarak Appraisal. */
+  tapAppraise(t: { kind: 'npc' | 'enemy'; ref: Npc | Enemy }) {
+    if (t.kind === 'npc') {
+      const n = t.ref as Npc;
+      this.appraise(n.def.creature, n.def, n);
+    } else {
+      const e = t.ref as Enemy;
+      this.appraise(e.c, null, e);
+    }
+  }
+
+  // ================================================================= hızlı yemek
+  /** Hızlı yemek yuvasındaki yiyecek: atanmış olan ya da envanterdeki ilk yiyecek. */
+  quickFoodId(): string | null {
+    const inv = G.p.inventory;
+    const q = G.state.quickFood;
+    if (q && inv[q] && ITEMS[q]?.kind === 'food') return q;
+    return Object.keys(inv).find((id) => ITEMS[id]?.kind === 'food' && inv[id] > 0) ?? null;
+  }
+
+  /** Bir eşyayı tüket (yiyecekler bekleme kurallarına uyar). */
+  consume(id: string): boolean {
+    const r = R.consumeItem(id, { state: this.eatState, now: this.playClock }, (b) => this.player.buffs.push(b));
+    if (!r.ok) {
+      Sound.sfx('error', 0.5);
+      this.fx.number(this.player.actor.x, this.player.actor.y - 50, r.reason?.startsWith('Henüz') ? 'Henüz değil' : 'Yok', 'miss');
+      if (r.reason) R.toast(r.reason, 'warn');
+      return false;
+    }
+    if (r.eatState) this.eatState = r.eatState;
+    const it = ITEMS[id];
+    Sound.sfx(it.kind === 'food' ? 'pickup' : 'heal');
+    this.fx.glow(this.player.actor.x, this.player.actor.y - 20, 0x9fffa0, 30, 400);
+    R.toast(`${it.name} ${it.kind === 'food' ? 'yendi' : 'kullanıldı'}.`, 'info', it.icon);
+    return true;
+  }
+
+  eatQuick() {
+    const id = this.quickFoodId();
+    if (!id) {
+      Sound.sfx('error', 0.4);
+      this.ui.toastInfo('Hızlı yemek: elinde yiyecek yok.');
+      return;
+    }
+    this.consume(id);
+  }
+
   appraiseNearest() {
     const a = this.player.actor;
     const [fx, fy] = dirVec(a.dir);
@@ -837,15 +920,16 @@ export class WorldScene extends Phaser.Scene {
     this.appraise(b.kind === 'npc' ? (b.ref as Npc).def.creature : (b.ref as Enemy).c, b.kind === 'npc' ? (b.ref as Npc).def : null, b.ref);
   }
 
-  appraise(c: any, npcDef: NpcDef | null, ref: any) {
+  appraise(c: any, npcDef: NpcDef | null, ref: any, force = false) {
+    // Spam koruması: panel açıkken yeni panel yok, ~1.5 sn bekleme
+    if (!force && !appraisalReady(this.time.now, this.lastAppraiseAt, !!this.ui.appraisalWin)) return;
+    this.lastAppraiseAt = this.time.now;
     Sound.sfx('appraise');
     const mine = G.p.skills.find((s) => s.id === 'appraisal')!.rank;
     const theirs = (c.skills.find((s: any) => s.id === 'appraisal')?.rank ?? 0) as number;
     // EXP: aynı hedef günde bir kez
     const key = (npcDef?.id ?? 'm_' + (ref as Enemy).uid) as string;
-    const today = G.state.time.day;
-    if (G.state.appraised[key] !== today) {
-      G.state.appraised[key] = today;
+    if (claimAppraisalExp(G.state.appraised, key, G.state.time.day)) {
       R.gainSkillExp('appraisal', appraisalBaseExp(mine, theirs, c.level, G.p.level));
     }
     const actor = ref.actor;

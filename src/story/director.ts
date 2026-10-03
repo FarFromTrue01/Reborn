@@ -317,6 +317,68 @@ export class Director {
     });
   }
 
+  // ============================================================ karşılaşmalar
+  private encounterT = 0;
+  /** Düzenli kontrol: kâhya geçerken ilk karşılaşma sahnesi. */
+  checkEncounters(dt: number) {
+    this.encounterT -= dt;
+    if (this.encounterT > 0 || this.busy || this.w.cutscene || this.w.mapData.id !== 'world') return;
+    this.encounterT = 0.5;
+    if (G.flag('steward_met') || !G.flag('woke')) return;
+    const st = this.w.npc('steward');
+    if (!st) return;
+    const a = this.w.player.actor;
+    if (Math.hypot(st.x - a.x, st.y - a.y) < 5 * TILE) this.stewardScene();
+  }
+
+  stewardScene() {
+    this.scene(async () => {
+      G.setFlag('steward_met');
+      const a = this.w.player.actor;
+      const st = this.w.npc('steward')!;
+      const kn = this.w.npc('knight');
+      st.scripted = true;
+      if (kn) kn.scripted = true;
+      this.face(st.actor, a);
+      if (kn) this.face(kn.actor, a);
+      if (kn) await this.say('knight', 'Yol açın! Valmont Baronu\'nun kâhyası geçiyor!', 'kizgin');
+      // çevredeki köylüler eğilir
+      for (const n of this.w.npcs) {
+        if (n === st || n === kn || n.prestige > 2) continue;
+        if (Math.hypot(n.x - st.x, n.y - st.y) < 10 * TILE) n.bow(st, Math.random() < 0.5 ? 'Efendim!' : null);
+      }
+      await wait(this.w, 1200);
+      await this.think('Herkes eğildi. Kimse ona bakmıyor; hepsi toprağa bakıyor.');
+      await this.say('steward', 'Sen. Neden ayaktasın?', 'kizgin');
+      const c = await this.ui.choice(['(Başını eğ.)', '(Dimdik dur.)', '"Ben buralı değilim."']);
+      if (c === 0) {
+        a.play('bow', { loop: false, restart: true });
+        await wait(this.w, 900);
+        await this.say('steward', 'Hiç değilse eğilmeyi biliyor. Yürü, Cedric.');
+        a.play('idle');
+      } else if (c === 1) {
+        if (kn) {
+          await this.walk(kn.actor, Math.floor(a.x / TILE), Math.floor(a.y / TILE) - 1, 3);
+          this.face(kn.actor, a);
+          await this.say('knight', 'Kâhya Efendi sana bir soru sordu, köksüz.', 'kizgin');
+          Sound.sfx('hit');
+          a.kb.set(0, 1).scale(220);
+          G.p.hp = Math.max(1, G.p.hp - 1);
+          this.w.fx.number(a.x, a.y - 50, '-1', 'hurt');
+          this.ui.flashDamage();
+          await wait(this.w, 600);
+        }
+        await this.say('steward', 'Bırak, Cedric. Bir köksüzün dizini bükmek bana düşmez. Hayat büker nasılsa.');
+        G.affinity('steward', -2);
+      } else {
+        await this.say('steward', 'Buralı olmayan köksüz, buralı köksüzden de değersizdir. Baronun toprağındasın. Eğil ya da defol.');
+      }
+      await this.think('Bertram haklıydı. Bu dünyada herkes sıfırdan doğuyor ama herkes aynı yerden başlamıyor.');
+      st.scripted = false;
+      if (kn) kn.scripted = false;
+    });
+  }
+
   // ============================================================ sahne: köye giriş
   villageReaction() {
     this.scene(async () => {
@@ -393,14 +455,14 @@ export class Director {
         this.w.time.delayedCall(25000, () => resolve('timeout'));
       });
       this.appraiseWaiter = null;
-      if (got === 'timeout' && vera) this.w.appraise(vera.def.creature, vera.def, vera);
+      if (got === 'timeout' && vera) this.w.appraise(vera.def.creature, vera.def, vera, true);
       this.w.cutscene = true;
       await wait(this.w, 2600);
       this.ui.closeAppraisal();
       await this.think('Vera. İnsan, on dokuz yaşında. F- rütbe. Level 3.');
       await this.think('Statlarını göremiyorum. Rütbesi benimkinden bir harf yüksek. Aradaki farkı... hissediyorum.');
       if (lina) {
-        this.w.appraise(lina.def.creature, lina.def, lina);
+        this.w.appraise(lina.def.creature, lina.def, lina, true);
         await wait(this.w, 2200);
         this.ui.closeAppraisal();
         await this.think('Lina. Kedi soylu. O kulaklar gerçek. O da Level 3.');

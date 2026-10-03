@@ -1,6 +1,6 @@
 // Ortak giriş durumu: dokunmatik joystick/butonlar (UIScene) ve klavye/fare (WorldScene) burayı doldurur.
 
-export type Action = 'attack' | 'heavy' | 'dodge' | 'interact' | 'skill1' | 'skill2' | 'skill3' | 'skill4' | 'div1' | 'div2' | 'div3' | 'menu' | 'appraise' | 'map';
+export type Action = 'attack' | 'heavy' | 'dodge' | 'interact' | 'skill1' | 'skill2' | 'skill3' | 'skill4' | 'div1' | 'div2' | 'div3' | 'menu' | 'appraise' | 'map' | 'eat';
 
 class InputState {
   moveX = 0;

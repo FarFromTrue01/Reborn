@@ -167,10 +167,12 @@ export class Player {
         for (let i = 1; i <= 3; i++) if (Input.consume(('div' + i) as any)) this.w.useDivineSlot(i - 1);
         if (Input.consume('interact')) this.w.interact();
         if (Input.consume('appraise')) this.w.appraiseNearest();
+        if (Input.consume('eat')) this.w.eatQuick();
         // hareket
         const wantRun = (Input.run || (Input.touchMove && mlen > 0.92)) && mlen > 0.2;
         this.running = wantRun && p.stamina > 1;
-        let sp = BASE_SPEED * TILE * d.moveSpeed * mlen;
+        // Ayarlardaki "Karakter hızı" yalnızca yürüme/koşmayı çarpar (Divine Hız hesabına dokunmaz)
+        let sp = BASE_SPEED * TILE * d.moveSpeed * mlen * (G.settings.moveSpeed ?? 1);
         if (this.running) {
           sp *= 1.6;
           p.stamina = Math.max(0, p.stamina - 11 * d.runCostMult * dt);

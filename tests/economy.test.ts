@@ -123,3 +123,68 @@ describe('İşlemler', () => {
     expect(walletTotal(l.wallet)).toBe(135);
   });
 });
+
+import { ITEMS } from '../src/data/items';
+import { SHOPS } from '../src/data/shops';
+import { FEES, LESSONS, JOBS } from '../src/data/economy';
+import { MONSTERS } from '../src/data/monsters';
+
+describe('0.2.0 köy fiyatları', () => {
+  it('Yeni temel fiyatlar', () => {
+    const want: Record<string, number> = {
+      bread: 4, apple: 3, hot_stew: 12, bandage: 15, hp_potion_s: 60, mp_potion_s: 90, antidote: 45, map_village: 60,
+    };
+    for (const [id, p] of Object.entries(want)) expect(ITEMS[id].price, id).toBe(p);
+  });
+  it('Silah ve zırhlar yaklaşık ×2.5, kitaplar ×2', () => {
+    const old: Record<string, number> = { rusty_shortsword: 60, iron_shortsword: 220, leather_vest: 70, padded_armor: 230, linen_shirt: 30, hobnail_boots: 105 };
+    for (const [id, p] of Object.entries(old)) expect(ITEMS[id].price / p, id).toBeCloseTo(2.5, 1);
+    const books: Record<string, number> = { book_fire: 450, book_archery: 90, book_firstaid: 60 };
+    for (const [id, p] of Object.entries(books)) expect(ITEMS[id].price / p, id).toBeCloseTo(2, 5);
+  });
+  it('Hizmetler ve skill öğretmenleri (×5)', () => {
+    expect(FEES.innBed).toBe(40);
+    expect(FEES.healerWrap).toBe(15);
+    expect(LESSONS.archery.price).toBe(200);
+    expect(LESSONS.first_aid.price).toBe(150);
+    expect(LESSONS.sword_mastery.price).toBe(750);
+    expect(formatPrice(LESSONS.sword_mastery.price)).toBe('7 Gümüş 50 Bronz');
+  });
+  it('Bertram (4 gün) + Haldor\'un hasadı = tam 1 gümüş = lonca kaydı', () => {
+    expect(JOBS.bertramShifts).toBe(4);
+    expect(JOBS.bertramPay).toBe(50);
+    expect(JOBS.harvestPay).toBe(50);
+    expect(JOBS.bertramPay + JOBS.harvestPay).toBe(FEES.guildRegistration);
+    expect(canonicalCoins(FEES.guildRegistration)).toEqual(w({ silver: 1 }));
+  });
+  it('Drop satış değerleri artmadı (0.1.0 ile aynı)', () => {
+    const sell: Record<string, number> = {
+      rat_tail: 1, slime_jelly: 2, color_core: 8, rabbit_meat: 3, rabbit_pelt: 5, wolf_pelt: 9, wolf_fang: 5, goblin_ear: 4, goblin_trinket: 3, herb: 2,
+      goblin_cleaver: 63, gnawed_ring: 10, slime_gloves: 15, rabbit_charm: 20, wolf_fang_necklace: 55, scroll_spark: 100, chief_tusk: 40,
+    };
+    for (const [id, v] of Object.entries(sell)) expect(ITEMS[id].sell, id).toBe(v);
+    // Her drop sabit bir satış değerine sahip (fiyat artışı satış değerini etkilemesin)
+    for (const m of Object.values(MONSTERS)) {
+      for (const d of [...m.drops, ...(m.special ? [m.special] : [])]) if (ITEMS[d.id].kind !== 'quest') expect(ITEMS[d.id].sell, d.id).toBeDefined();
+    }
+  });
+  it('Dükkânların drop alım fiyatları eşyanın satış değerini aşmıyor (şifacının eski otu hariç)', () => {
+    for (const s of Object.values(SHOPS)) {
+      expect(s.rate).toBeGreaterThanOrEqual(0.3);
+      expect(s.rate).toBeLessThanOrEqual(0.4);
+      for (const [id, v] of Object.entries(s.special ?? {})) expect(v, `${s.id}.${id}`).toBeLessThanOrEqual(Math.max(ITEMS[id].sell ?? 0, s.id === 'healer' ? 9 : 0));
+    }
+  });
+  it('Al-sat ile para kasılamaz: hiçbir dükkânda alıp başka dükkâna satmak kâr getirmez', () => {
+    for (const shop of Object.values(SHOPS))
+      for (const id of shop.stock) {
+        const buy = ITEMS[id].price;
+        for (const other of Object.values(SHOPS)) {
+          const it = ITEMS[id];
+          const special = other.special?.[id];
+          const sp = special ?? (it.sell !== undefined ? it.sell : sellPrice(it.price, other.rate));
+          expect(sp, `${id}: ${shop.id} → ${other.id}`).toBeLessThan(buy);
+        }
+      }
+  });
+});

@@ -336,7 +336,7 @@ export const NPCS: NpcDef[] = [
     creature: creature('ulric', 'Ulric', 'İnsan', 'Erkek', 44, 2, { STR: 4, VIT: 4 }),
     schedule: [
       { from: 6, to: 16, map: 'world', at: [119, 26], wander: 4, act: 'work' },
-      { from: 16, to: 19, map: 'world', at: [120, 45], wander: 2, act: 'work' },
+      { from: 16, to: 19, map: 'world', at: [124, 46], wander: 2, act: 'work' },
       { from: 19, to: 23, map: 'inn', at: 'seat_m7', act: 'drink' },
       { from: 23, to: 6, map: 'hidden', at: [119, 26] },
     ],
@@ -417,7 +417,7 @@ export const NPCS: NpcDef[] = [
     id: 'berta', name: 'Berta Nine', sheet: 'elder_f', voice: 'female_old', portrait: 'elder_f', personality: 'rude', caste: 'commoner',
     creature: creature('berta', 'Berta', 'İnsan', 'Kadın', 71, 1, { VIT: 2, INT: 2 }),
     schedule: [
-      { from: 8, to: 12, map: 'world', at: [86, 46], wander: 1, act: 'sit' },
+      { from: 8, to: 12, map: 'world', at: [80, 52], wander: 1, act: 'sit' },
       { from: 15, to: 18, map: 'world', at: [96, 64], wander: 1, act: 'sit' },
       { from: 18, to: 8, map: 'hidden', at: [86, 46] },
       { from: 12, to: 15, map: 'hidden', at: [86, 46] },

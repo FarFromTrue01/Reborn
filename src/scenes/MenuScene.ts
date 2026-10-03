@@ -13,7 +13,7 @@ import { TITLES, TRAIT_NAMES } from '../data/titles';
 import { ITEMS } from '../data/items';
 import { EQUIP_SLOTS, EQUIP_SLOT_NAMES, type EquipSlot } from '../core/types';
 import { equip, unequip, transact } from '../core/transactions';
-import { formatWallet } from '../core/money';
+import { coinRow } from '../ui/coins';
 import { divineExpToNext, divineStat, DIVINE_STATS, DIVINE_STAT_NAMES } from '../core/divine';
 import { DIVINE_BY_ID } from '../data/divine';
 import { nextTier, rollOffer, type OfferRarity } from '../core/skills';
@@ -36,6 +36,9 @@ const TABS: [Tab, string][] = [
 ];
 const SECTIONS = ['all', 'status', 'stats', 'skills', 'traits', 'titles', 'equipment', 'inventory'] as const;
 const SECTION_NAMES: Record<string, string> = { all: 'Tümü', status: 'Status', stats: 'Stats', skills: 'Skills', traits: 'Traits', titles: 'Titles', equipment: 'Equipment', inventory: 'Inventory' };
+type InvCat = 'all' | 'equip' | 'food' | 'material' | 'other';
+const INV_CATS: [InvCat, string][] = [['all', 'Tümü'], ['equip', 'Ekipman'], ['food', 'Yiyecek ve İksir'], ['material', 'Malzeme'], ['other', 'Diğer']];
+const CAT_NAME: Record<string, string> = { weapon: 'Silah', armor: 'Zırh', food: 'Yiyecek', consumable: 'İksir / sarf', material: 'Malzeme', book: 'Kitap', quest: 'Görev eşyası', junk: 'Değersiz' };
 
 export class MenuScene extends Phaser.Scene {
   tab: Tab = 'status';
@@ -49,6 +52,7 @@ export class MenuScene extends Phaser.Scene {
   cw = 0;
   selItem: string | null = null;
   selSlot: EquipSlot | null = null;
+  invCat: InvCat = 'all';
 
   constructor() {
     super('Menu');
@@ -119,132 +123,410 @@ export class MenuScene extends Phaser.Scene {
     }
   }
 
+  // ================================================================ ortak çizim yardımcıları
+  /** Çerçeveli kart: başlık şeridi + gövde. Gövdenin başladığı y'yi döndürür. */
+  card(parent: Phaser.GameObjects.Container, x: number, y: number, w: number, h: number, title: string, style: 'blue' | 'gold' | 'divine' = 'blue', right?: string) {
+    const g = this.add.graphics();
+    const edge = style === 'blue' ? 0x7cc8ff : style === 'gold' ? COLORS.gold : 0xffd56a;
+    const fill = style === 'blue' ? 0x0c2148 : style === 'gold' ? 0x1c1626 : 0x2a2008;
+    g.fillStyle(0x000000, 0.3);
+    g.fillRoundedRect(x + 2, y + 4, w, h, 10);
+    g.fillStyle(fill, 0.92);
+    g.fillRoundedRect(x, y, w, h, 10);
+    g.fillStyle(edge, style === 'divine' ? 0.22 : 0.16);
+    g.fillRoundedRect(x, y, w, 34, { tl: 10, tr: 10, bl: 0, br: 0 });
+    g.lineStyle(style === 'divine' ? 2.5 : 1.5, edge, 0.9);
+    g.strokeRoundedRect(x, y, w, h, 10);
+    if (style === 'divine') {
+      g.lineStyle(1, 0xfff0b0, 0.5);
+      g.strokeRoundedRect(x + 4, y + 4, w - 8, h - 8, 8);
+    }
+    parent.add(g);
+    parent.add(txt(this, x + 14, y + 7, title, { size: 17, bold: true, font: FONT.title, color: style === 'blue' ? '#e6f6ff' : '#ffe9a0' }));
+    if (right) parent.add(txt(this, x + w - 14, y + 9, right, { size: 14, bold: true, color: style === 'blue' ? '#bfe4ff' : '#f3dc95' }).setOrigin(1, 0));
+    return y + 44;
+  }
+
+  /** Yatay ilerleme çubuğu + etiket. */
+  progress(parent: Phaser.GameObjects.Container, x: number, y: number, w: number, h: number, frac: number, color: number, label: string, labelColor = '#ffffff') {
+    const g = this.add.graphics();
+    g.fillStyle(0x000000, 0.5);
+    g.fillRoundedRect(x, y, w, h, h / 2);
+    g.fillStyle(color, 1);
+    if (frac > 0) g.fillRoundedRect(x, y, Math.max(h, w * Math.min(1, frac)), h, h / 2);
+    g.fillStyle(0xffffff, 0.18);
+    if (frac > 0) g.fillRect(x + 3, y + 1, Math.max(0, w * Math.min(1, frac) - 6), Math.max(1, h * 0.3));
+    parent.add(g);
+    if (label) parent.add(txt(this, x + 8, y + h / 2, label, { size: Math.max(11, Math.min(14, h - 2)), bold: true, stroke: true, color: labelColor }).setOrigin(0, 0.5));
+  }
+
+  chip(parent: Phaser.GameObjects.Container, x: number, y: number, text: string, color = 0x3a2e1a, textColor = '#fff2c0') {
+    const t = txt(this, x + 8, y + 3, text, { size: 13, bold: true, color: textColor });
+    const g = this.add.graphics();
+    g.fillStyle(color, 0.95);
+    g.fillRoundedRect(x, y, t.width + 16, 22, 11);
+    g.lineStyle(1, 0xffffff, 0.15);
+    g.strokeRoundedRect(x, y, t.width + 16, 22, 11);
+    parent.add([g, t]);
+    return x + t.width + 22;
+  }
+
+  /** Joseph'in o anki görünümü (giysi katmanlarıyla). */
+  josephSprite(parent: Phaser.GameObjects.Container, x: number, y: number, scale: number) {
+    const keys: string[] = this.world?.player?.actor?.layers?.map((l: Phaser.GameObjects.Sprite) => l.texture.key) ?? ['j_body', 'j_head'];
+    const c = this.add.container(x, y);
+    c.add(this.add.ellipse(0, 0, 40, 10, 0x000000, 0.35));
+    for (const k of keys) if (this.textures.exists(k)) c.add(this.add.sprite(0, 0, k, 130).setOrigin(0.5, 61 / 64));
+    c.setScale(scale);
+    parent.add(c);
+    return c;
+  }
+
   // ================================================================ STATUS
   renderStatus() {
     const c = this.content;
     const w = this.cw, h = this.ph - 48;
-    const g = this.add.graphics();
-    drawBlue(g, 0, 0, w, h, 0.84);
-    c.add(g);
     // bölüm sekmeleri
-    let bx = 14;
+    let bx = 0;
     for (const s of SECTIONS) {
       const label = SECTION_NAMES[s];
-      const bw = label.length * 9 + 26;
-      const b = new Button(this, bx + bw / 2, 30, label, () => {
+      const bw = label.length * 9 + 28;
+      const b = new Button(this, bx + bw / 2, 22, label, () => {
         this.section = s;
         this.render();
       }, { w: bw, h: 40, size: 14, style: 'blue' });
-      b.setAlpha(this.section === s ? 1 : 0.55);
+      b.setAlpha(this.section === s ? 1 : 0.5);
       c.add(b);
       bx += bw + 6;
     }
-    const list = new ScrollList(this, 14, 60, w - 28, h - 74);
+    const list = new ScrollList(this, 0, 52, w, h - 58);
     c.add(list);
     list.updateMask();
     const inner = list.inner;
-    let y = 4;
+    const W = w - 14;
+    let y = 0;
     const p = G.p, d = G.d, dv = G.state.divine;
-    const head = (icon: string, title: string) => {
-      inner.add(txt(this, 0, y, `${icon} ${title}`, { size: 19, bold: true, color: '#e6f6ff', font: FONT.title }));
-      const lg = this.add.graphics();
-      lg.lineStyle(1, 0x7cc8ff, 0.5);
-      lg.lineBetween(0, y + 28, w - 50, y + 28);
-      inner.add(lg);
-      y += 36;
-    };
-    const line = (s: string, color: string = COLORS.textBlue, size = 16, x = 18) => {
-      const t = txt(this, x, y, s, { size, color, wrap: w - 80 });
-      inner.add(t);
-      y += t.height + 6;
-      return t;
-    };
     const show = (s: string) => this.section === 'all' || this.section === s;
+    const gap = 14;
+
+    // ---------------------------------------------------------- STATUS kartı
     if (show('status')) {
-      head('⚙️', 'STATUS');
-      line(`İsim: Joseph   ·   Irk: İnsan   ·   Rütbe: ${p.guildRank !== null ? subRankToString(p.guildRank) : 'Yok'}`);
-      line(`Level: ${p.level}   ·   EXP: ${p.exp}/${expToNext(p.level)}`);
-      line(`HP: ${Math.ceil(p.hp)}/${d.maxHp}   ·   MP: ${Math.floor(p.mp)}/${d.maxMp}   ·   Dayanıklılık: ${Math.floor(p.stamina)}/${d.maxStamina}`);
-      line(`Para: ${formatWallet(p.wallet)}`, '#f3dc95');
-      y += 8;
+      const ch = 196;
+      const by = this.card(inner, 0, y, W, ch, '⚙️ STATUS', 'blue', 'Elonth Sistemi');
+      const pg = this.add.graphics();
+      pg.fillStyle(0x061230, 1);
+      pg.fillRoundedRect(14, by, 110, 138, 8);
+      pg.lineStyle(1, 0x7cc8ff, 0.6);
+      pg.strokeRoundedRect(14, by, 110, 138, 8);
+      inner.add(pg);
+      this.josephSprite(inner, 69, by + 128, 2);
+      const x0 = 142;
+      inner.add(txt(this, x0, by - 2, 'Joseph', { size: 26, bold: true, font: FONT.title, color: '#ffffff' }));
+      inner.add(txt(this, x0 + 120, by + 7, 'İnsan · Erkek · 18 yaş', { size: 14, color: '#9fc8ff' }));
+      let cx = x0;
+      cx = this.chip(inner, cx, by + 36, `Level ${p.level}`, 0x2a4a8a);
+      cx = this.chip(inner, cx, by + 36, `Rütbe: ${p.guildRank !== null ? subRankToString(p.guildRank) : 'Yok'}`, 0x3a2e1a);
+      cx = this.chip(inner, cx, by + 36, 'Kast: Köksüz', 0x4a2020, '#ffd0c0');
+      const bw = W - x0 - 20;
+      const half = (bw - 12) / 2;
+      this.progress(inner, x0, by + 68, half, 20, p.hp / d.maxHp, COLORS.hp, `HP ${Math.ceil(p.hp)} / ${d.maxHp}`);
+      this.progress(inner, x0 + half + 12, by + 68, half, 20, d.maxMp ? p.mp / d.maxMp : 0, COLORS.mp, `MP ${Math.floor(p.mp)} / ${d.maxMp}`);
+      this.progress(inner, x0, by + 94, half, 16, p.stamina / d.maxStamina, COLORS.st, `Dayanıklılık ${Math.floor(p.stamina)} / ${d.maxStamina}`);
+      const need = expToNext(p.level);
+      this.progress(inner, x0 + half + 12, by + 94, half, 16, p.exp / need, 0x9a6ae8, `EXP ${Math.floor(p.exp)} / ${need}`);
+      inner.add(txt(this, x0, by + 122, 'Para', { size: 14, bold: true, color: '#cfeaff' }));
+      inner.add(coinRow(this, x0 + 48, by + 131, p.wallet, { size: 20, font: 17 }));
+      y += ch + gap;
     }
+
+    // ---------------------------------------------------------- STATS kartı
     if (show('stats')) {
-      head('📊', 'STATS');
-      line(`Dağıtılmamış stat puanı: ${p.unspent}   ·   SP: ${p.sp}`, p.unspent ? '#ffe9a0' : COLORS.textBlue);
+      const rowH = 54;
+      const ch = 44 + 34 + STAT_KEYS.length * rowH + 44;
+      const by = this.card(inner, 0, y, W, ch, '📊 STATS', 'blue', `Dağıtılmamış: ${p.unspent}  ·  SP: ${p.sp}`);
+      let cx = 14;
+      cx = this.chip(inner, cx, by, `Fiziksel hasar ×${(1 + 0.05 * d.stats.STR).toFixed(2)}`, 0x1a3a6a, '#dff0ff');
+      cx = this.chip(inner, cx, by, `Kritik %${(d.crit * 100).toFixed(1)}`, 0x1a3a6a, '#dff0ff');
+      cx = this.chip(inner, cx, by, `Hareket ×${d.moveSpeed.toFixed(2)}`, 0x1a3a6a, '#dff0ff');
+      cx = this.chip(inner, cx, by, `Saldırı hızı ×${d.attackSpeed.toFixed(2)}`, 0x1a3a6a, '#dff0ff');
+      this.chip(inner, cx, by, `DEF ${d.def}`, 0x1a3a6a, '#dff0ff');
+      let ry = by + 34;
+      const src = d.statSources;
       for (const k of STAT_KEYS) {
-        const base = p.alloc[k];
-        const tot = d.stats[k];
-        const bonus = tot - base;
-        inner.add(txt(this, 18, y + 6, k, { size: 17, bold: true, color: '#e6f6ff' }));
-        inner.add(txt(this, 80, y + 6, `${tot}${bonus ? `  (${base} + ${bonus})` : ''}`, { size: 17, color: COLORS.textBlue }));
-        inner.add(txt(this, 230, y + 8, statHint(k), { size: 13, color: '#6f9fcf', italic: true, wrap: w - 360 }));
+        const g = this.add.graphics();
+        g.fillStyle(0x061230, 0.85);
+        g.fillRoundedRect(14, ry, W - 28, rowH - 8, 8);
+        g.lineStyle(1, 0x3d8bdb, 0.5);
+        g.strokeRoundedRect(14, ry, W - 28, rowH - 8, 8);
+        inner.add(g);
+        inner.add(txt(this, 28, ry + 7, k, { size: 20, bold: true, font: FONT.title, color: '#e6f6ff' }));
+        inner.add(txt(this, 96, ry + 5, String(d.stats[k]), { size: 24, bold: true, color: '#ffffff' }));
+        const parts: string[] = [];
+        for (const [name, st] of Object.entries(src)) {
+          const v = (st as any)[k] ?? 0;
+          if (v || name === 'Level') parts.push(`${name} ${name === 'Level' ? v : (v > 0 ? '+' : '') + v}`);
+        }
+        inner.add(txt(this, 150, ry + 6, parts.join('  ·  '), { size: 13, color: '#9fd6ff', bold: true }));
+        inner.add(txt(this, 150, ry + 26, statHint(k), { size: 13, color: '#6f9fcf', italic: true, wrap: W - 260 }));
         if (p.unspent > 0) {
-          const b = new Button(this, w - 90, y + 18, '+', () => {
+          const b = new Button(this, W - 50, ry + (rowH - 8) / 2, '+', () => {
             R.allocateStat(k);
             Sound.sfx('click');
             this.render();
-          }, { w: 52, h: 44, size: 22, style: 'blue' });
+          }, { w: 52, h: 40, size: 24, style: 'blue' });
           inner.add(b);
         }
-        y += 48;
+        ry += rowH;
       }
-      line(`Fiziksel hasar ×${(1 + 0.05 * d.stats.STR).toFixed(2)} · Kritik %${(d.crit * 100).toFixed(1)} · Hareket ×${d.moveSpeed.toFixed(2)} · Saldırı hızı ×${d.attackSpeed.toFixed(2)} · DEF ${d.def}`, '#9fc8ff', 14);
-      y += 6;
+      inner.add(txt(this, 14, ry + 4, p.unspent > 0 ? `Level atladıkça 4 stat puanı kazanırsın. ${p.unspent} puan dağıtılmayı bekliyor.` : 'Stat puanları level atlayınca gelir (her level +4).', { size: 13, italic: true, color: p.unspent ? '#ffe9a0' : '#6f9fcf' }));
+      y += ch + gap;
     }
+
+    // ---------------------------------------------------------- SKILLS
     if (show('skills')) {
-      head('⭐', 'SKILLS');
+      const cardH = 92;
+      const ch = 44 + Math.max(1, p.skills.length) * (cardH + 8) + (p.sp > 0 ? 60 : 4);
+      const by = this.card(inner, 0, y, W, ch, '⭐ SKILLS', 'blue', `${p.skills.length} skill`);
+      let ry = by;
       for (const s of p.skills) {
         const def = SKILLS[s.id];
-        const nt = nextTier(s);
-        line(`${def.name} (${subRankToString(s.rank)}) ${s.rank >= SUBRANK_MAX ? '[MAX]' : `[${Math.floor(s.exp)}/${skillThreshold(s.rank)}]`}   ·   ${RARITY_NAMES[def.rarity]}`, '#ffffff', 17);
+        const g = this.add.graphics();
+        g.fillStyle(0x061230, 0.85);
+        g.fillRoundedRect(14, ry, W - 28, cardH, 8);
+        g.lineStyle(1, def.rarity === 'legendary' ? 0xffd56a : def.rarity === 'rare' ? 0xb08aff : 0x3d8bdb, 0.8);
+        g.strokeRoundedRect(14, ry, W - 28, cardH, 8);
+        g.fillStyle(0x000000, 0.4);
+        g.fillRoundedRect(24, ry + 12, 56, 56, 8);
+        inner.add(g);
+        inner.add(iconImage(this, 52, ry + 40, def.icon, 46));
+        inner.add(txt(this, 94, ry + 8, def.name, { size: 19, bold: true, color: '#ffffff' }));
+        const nameW = 94 + txt(this, 0, -999, def.name, { size: 19, bold: true }).setVisible(false).width + 10;
+        let cx = this.chip(inner, nameW, ry + 9, subRankToString(s.rank), 0x2a4a8a);
+        this.chip(inner, cx, ry + 9, RARITY_NAMES[def.rarity], def.rarity === 'legendary' ? 0x5a4410 : def.rarity === 'rare' ? 0x3a2a60 : 0x2a3040);
+        const max = s.rank >= SUBRANK_MAX;
+        const th = skillThreshold(s.rank);
+        this.progress(inner, 94, ry + 38, Math.min(300, W - 140), 14, max ? 1 : s.exp / th, 0x3ab8e0, max ? 'MAX' : `${Math.floor(s.exp)} / ${th}`);
         const techs = def.tiers.filter((t) => t.technique && parseRank(t.at) <= s.rank).map((t) => TECHNIQUES[t.technique!]?.name);
-        if (techs.length) line(`Teknikler: ${techs.join(', ')}`, '#9fd6ff', 14, 36);
-        if (nt) line(`Sonraki (${nt.at}): ${nt.note}`, '#6f9fcf', 13, 36);
+        inner.add(txt(this, 94, ry + 60, def.desc + (techs.length ? `  ·  Teknikler: ${techs.join(', ')}` : ''), { size: 13, color: '#9fc8ff', wrap: W - 130 }));
+        const nt = nextTier(s);
+        if (nt && W > 600) inner.add(txt(this, W - 24, ry + 40, `Sonraki (${nt.at}): ${nt.note}`, { size: 12, italic: true, color: '#6f9fcf', wrap: W - 440, align: 'right' }).setOrigin(1, 0));
+        ry += cardH + 8;
       }
       if (p.sp > 0) {
-        const b = new Button(this, 160, y + 26, `Sistem Teklifi (SP: ${p.sp})`, () => this.systemOffer(), { w: 300, h: 50, style: 'blue', size: 16 });
+        const b = new Button(this, 170, ry + 26, `Sistem Teklifi (SP: ${p.sp})`, () => this.systemOffer(), { w: 300, h: 48, style: 'blue', size: 16 });
         inner.add(b);
-        y += 60;
       }
-      y += 6;
+      y += ch + gap;
     }
+
+    // ---------------------------------------------------------- TRAITS
     if (show('traits')) {
-      head('🔮', 'TRAITS');
       for (const t of p.traits) {
-        const tn = TRAIT_NAMES[t];
         if (t === 'divine_paladin') {
-          line(`• Divine Paladin (X) [Level: ${dv.level} | EXP: ${dv.exp}/${divineExpToNext(dv.level)}]`, '#ffe9a0', 17);
-          const v = (s: any) => `${DIVINE_STAT_NAMES[s as keyof typeof DIVINE_STAT_NAMES]} ${divineStat(s, dv.level).toFixed(2)}x`;
-          line(`  ${v('power')} · ${v('endurance')} · ${v('speed')}`, '#ffe9a0', 16);
-          line(`  ${v('learning')} · ${v('adaptation')}`, '#ffe9a0', 16);
-          for (const ds of dv.skills) line(`• Divine Paladin: ${DIVINE_BY_ID[ds]?.name}`, '#ffe9a0', 16);
-          line(`Antrenman: bugün ${3 - Math.min(3, dv.trainingDay === G.state.time.day ? dv.trainingCount : 0)} seans kaldı · Seri: ${dv.streak}`, '#bfa86a', 13, 36);
-        } else line(`• ${tn?.name ?? t} (${tn?.rank ?? '?'})`, '#ffe9a0');
+          const ch = 44 + 34 + 30 + 76 + Math.max(1, dv.skills.length) * 24 + 40;
+          const by = this.card(inner, 0, y, W, ch, '🔮 TRAIT · Divine Paladin (X)', 'divine', `Level ${dv.level}`);
+          inner.add(txt(this, 14, by - 2, 'Sadece sen görebilirsin. Appraisal ve lonca taşı bu trait\'i göremez.', { size: 13, italic: true, color: '#d8c890' }));
+          this.progress(inner, 14, by + 24, W - 28, 18, dv.exp / divineExpToNext(dv.level), 0xd9a530, `Divine EXP ${dv.exp} / ${divineExpToNext(dv.level)}`, '#fff6d0');
+          const bw = (W - 28 - 4 * 10) / 5;
+          DIVINE_STATS.forEach((ds, i) => {
+            const x = 14 + i * (bw + 10), yy = by + 54;
+            const g = this.add.graphics();
+            g.fillStyle(0x3a2a08, 0.95);
+            g.fillRoundedRect(x, yy, bw, 66, 8);
+            g.lineStyle(1.5, 0xffd56a, 0.8);
+            g.strokeRoundedRect(x, yy, bw, 66, 8);
+            inner.add(g);
+            inner.add(txt(this, x + bw / 2, yy + 8, DIVINE_STAT_NAMES[ds], { size: 14, bold: true, color: '#ffe9a0' }).setOrigin(0.5, 0));
+            inner.add(txt(this, x + bw / 2, yy + 30, `${divineStat(ds, dv.level).toFixed(2)}x`, { size: 22, bold: true, font: FONT.title, color: '#ffffff' }).setOrigin(0.5, 0));
+          });
+          let ry = by + 132;
+          if (!dv.skills.length) {
+            inner.add(txt(this, 14, ry, 'Divine skill yok. Her 3 Divine Level\'da bir awakening ile seçilir.', { size: 14, color: '#d8c890' }));
+            ry += 24;
+          }
+          for (const ds of dv.skills) {
+            const dd = DIVINE_BY_ID[ds];
+            inner.add(iconImage(this, 26, ry + 9, dd?.icon ?? 'stone', 20));
+            inner.add(txt(this, 42, ry, `${dd?.name}${dd?.kind === 'active' ? ` (Aktif · Işık ${dd.light})` : ' (Pasif)'}`, { size: 15, bold: true, color: '#ffe9a0' }));
+            ry += 24;
+          }
+          const left = 3 - Math.min(3, dv.trainingDay === G.state.time.day ? dv.trainingCount : 0);
+          inner.add(txt(this, 14, ry + 6, `Antrenman: bugün ${left} seans kaldı · Seri: ${dv.streak}`, { size: 13, color: '#bfa86a' }));
+          y += ch + gap;
+        } else {
+          const tn = TRAIT_NAMES[t];
+          const by = this.card(inner, 0, y, W, 80, `🔮 TRAIT · ${tn?.name ?? t} (${tn?.rank ?? '?'})`, 'gold');
+          void by;
+          y += 80 + gap;
+        }
       }
-      y += 6;
     }
+
+    // ---------------------------------------------------------- TITLES
     if (show('titles')) {
-      head('🏆', 'TITLES');
-      if (!p.titles.length) line('Yok');
+      const cardH = 64;
+      const ch = 44 + Math.max(1, p.titles.length) * (cardH + 8) + 4;
+      const by = this.card(inner, 0, y, W, ch, '🏆 TITLES', 'gold', `${p.titles.length} title`);
+      let ry = by;
+      if (!p.titles.length) inner.add(txt(this, 14, ry + 6, 'Henüz bir title yok. Title\'lar zor başarılarla kazanılır.', { size: 14, color: COLORS.textDim }));
       for (const t of p.titles) {
         const td = TITLES[t];
-        line(`${td.name} (${td.rank}) — ${td.desc}`, '#ffffff');
+        const g = this.add.graphics();
+        g.fillStyle(0x2a2030, 0.9);
+        g.fillRoundedRect(14, ry, W - 28, cardH, 8);
+        g.lineStyle(1, COLORS.gold, 0.7);
+        g.strokeRoundedRect(14, ry, W - 28, cardH, 8);
+        inner.add(g);
+        inner.add(txt(this, 26, ry + 8, `${td.name}`, { size: 17, bold: true, color: '#ffe9a0' }));
+        const bonus: string[] = [];
+        if (td.bonus.stats) for (const [k, v] of Object.entries(td.bonus.stats)) bonus.push(`${k} +${v}`);
+        if (td.bonus.hpPct) bonus.push(`Max HP +%${Math.round(td.bonus.hpPct * 100)}`);
+        if (td.bonus.damagePct) bonus.push(`Hasar +%${Math.round(td.bonus.damagePct * 100)}`);
+        if (td.bonus.expPct) bonus.push(`EXP +%${Math.round(td.bonus.expPct * 100)}`);
+        let cx = W - 24;
+        for (const b of bonus.reverse()) {
+          const tt = txt(this, 0, -999, b, { size: 13, bold: true }).setVisible(false);
+          cx -= tt.width + 22;
+          this.chip(inner, cx, ry + 8, b, 0x2a5a2a, '#d8ffc8');
+        }
+        this.chip(inner, 26 + txt(this, 0, -999, td.name, { size: 17, bold: true }).setVisible(false).width + 10, ry + 8, td.rank, 0x5a4410);
+        inner.add(txt(this, 26, ry + 36, td.desc, { size: 13, color: COLORS.textDim, wrap: W - 60 }));
+        ry += cardH + 8;
       }
-      y += 6;
+      y += ch + gap;
     }
+
+    // ---------------------------------------------------------- EQUIPMENT
     if (show('equipment')) {
-      head('🛡️', 'EQUIPMENT');
-      for (const s of EQUIP_SLOTS) line(`${EQUIP_SLOT_NAMES[s]}: ${p.equipment[s] ? itemLabel(p.equipment[s]!) : 'Yok'}`, p.equipment[s] ? '#ffffff' : '#6f8fb0', 15);
-      y += 6;
+      const ch = 44 + 420;
+      const by = this.card(inner, 0, y, W, ch, '🛡️ EQUIPMENT', 'gold', `DEF ${d.def} · ${d.weaponName} [${d.weaponDmg[0]}-${d.weaponDmg[1]}]`);
+      this.paperDoll(inner, W / 2, by, (slot) => {
+        this.tab = 'equipment';
+        this.selSlot = slot;
+        this.render();
+      });
+      y += ch + gap;
     }
+
+    // ---------------------------------------------------------- INVENTORY
     if (show('inventory')) {
-      head('🎒', 'INVENTORY');
-      const inv = Object.entries(p.inventory);
-      if (!inv.length) line('Boş');
-      for (const [id, q] of inv) line(`${itemLabel(id)} ×${q}`, '#ffffff', 15);
-      line(`Para: ${formatWallet(p.wallet)}`, '#f3dc95', 15);
+      const ids = this.inventoryIds(this.invCat);
+      const cols = Math.max(1, Math.floor((W - 28) / 84));
+      const rows = Math.max(1, Math.ceil(ids.length / cols));
+      const ch = 44 + 50 + rows * 84 + 10;
+      const by = this.card(inner, 0, y, W, ch, '🎒 INVENTORY', 'gold', `${Object.keys(p.inventory).length} çeşit`);
+      this.catTabs(inner, 14, by, (cat) => {
+        this.invCat = cat;
+        this.render();
+      });
+      this.itemGrid(inner, 14, by + 50, cols, ids, null, (id) => {
+        this.tab = 'inventory';
+        this.selItem = id;
+        this.render();
+      });
+      y += ch + gap;
     }
-    list.setContentHeight(y + 20);
+    list.setContentHeight(y + 10);
+  }
+
+  /** Karakterin etrafına dizilmiş 11 ekipman kutucuğu (sol 4, sağ 4, alt 3). */
+  paperDoll(parent: Phaser.GameObjects.Container, cx: number, y: number, onSelect: (s: EquipSlot) => void) {
+    const box = 62, step = 82;
+    const left: EquipSlot[] = ['helmet', 'necklace', 'chest', 'cape'];
+    const right: EquipSlot[] = ['weapon', 'gloves', 'belt', 'pants'];
+    const bottom: EquipSlot[] = ['ring1', 'boots', 'ring2'];
+    const g = this.add.graphics();
+    g.fillStyle(0x0a0810, 0.75);
+    g.fillRoundedRect(cx - 90, y + 6, 180, 316, 14);
+    g.lineStyle(1, COLORS.goldDark, 1);
+    g.strokeRoundedRect(cx - 90, y + 6, 180, 316, 14);
+    g.fillStyle(0xd9b45a, 0.06);
+    g.fillCircle(cx, y + 170, 80);
+    parent.add(g);
+    this.josephSprite(parent, cx, y + 300, 3.8);
+    const slotBox = (s: EquipSlot, x: number, yy: number) => {
+      const id = G.p.equipment[s];
+      const sel = this.selSlot === s && this.tab === 'equipment';
+      const bg = this.add.graphics();
+      bg.fillStyle(sel ? 0x3a2e1a : 0x1a1622, 0.95);
+      bg.fillRoundedRect(x - box / 2, yy, box, box, 8);
+      bg.lineStyle(sel ? 2.5 : 1.5, id ? COLORS.gold : COLORS.goldDark, 1);
+      bg.strokeRoundedRect(x - box / 2, yy, box, box, 8);
+      parent.add(bg);
+      if (id) {
+        parent.add(iconImage(this, x, yy + box / 2, ITEMS[id].icon, 42));
+        if (ITEMS[id].rank) parent.add(txt(this, x - box / 2 + 6, yy + 3, ITEMS[id].rank!, { size: 12, bold: true, color: COLORS.textGold, stroke: true }));
+      } else parent.add(txt(this, x, yy + box / 2, '—', { size: 18, color: '#4a4058' }).setOrigin(0.5));
+      parent.add(txt(this, x, yy + box + 2, EQUIP_SLOT_NAMES[s], { size: 12, bold: true, color: id ? COLORS.text : COLORS.textDim }).setOrigin(0.5, 0));
+      const z = this.add.zone(x - box / 2, yy, box, box + 14).setOrigin(0, 0).setInteractive({ useHandCursor: true });
+      z.on('pointerup', () => {
+        Sound.sfx('click', 0.5);
+        onSelect(s);
+      });
+      parent.add(z);
+    };
+    left.forEach((s, i) => slotBox(s, cx - 140, y + 6 + i * step));
+    right.forEach((s, i) => slotBox(s, cx + 140, y + 6 + i * step));
+    bottom.forEach((s, i) => slotBox(s, cx + (i - 1) * 90, y + 336));
+  }
+
+  /** Envanter kategorileri. */
+  inventoryIds(cat: InvCat): string[] {
+    return Object.keys(G.p.inventory).filter((id) => {
+      const k = ITEMS[id]?.kind;
+      if (!k) return false;
+      switch (cat) {
+        case 'all': return true;
+        case 'equip': return k === 'weapon' || k === 'armor';
+        case 'food': return k === 'food' || k === 'consumable';
+        case 'material': return k === 'material';
+        case 'other': return k === 'book' || k === 'quest' || k === 'junk';
+      }
+      return true;
+    });
+  }
+
+  catTabs(parent: Phaser.GameObjects.Container, x: number, y: number, onPick: (c: InvCat) => void) {
+    let bx = x;
+    for (const [cat, label] of INV_CATS) {
+      const n = this.inventoryIds(cat).length;
+      const text = `${label} (${n})`;
+      const bw = text.length * 8.5 + 26;
+      const b = new Button(this, bx + bw / 2, y + 20, text, () => onPick(cat), { w: bw, h: 40, size: 14 });
+      b.setAlpha(this.invCat === cat ? 1 : 0.55);
+      parent.add(b);
+      bx += bw + 6;
+    }
+  }
+
+  itemGrid(parent: Phaser.GameObjects.Container, x: number, y: number, cols: number, ids: string[], list: ScrollList | null, onPick: (id: string) => void) {
+    const S = 84;
+    if (!ids.length) parent.add(txt(this, x + 6, y + 10, 'Bu kategoride eşya yok.', { size: 15, color: COLORS.textDim }));
+    ids.forEach((id, i) => {
+      const it = ITEMS[id];
+      const cx = x + (i % cols) * S, cy = y + Math.floor(i / cols) * S;
+      const cell = this.add.container(cx, cy);
+      const g = this.add.graphics();
+      const sel = this.selItem === id;
+      const quick = G.state.quickFood === id;
+      g.fillStyle(sel ? 0x3a2e1a : 0x1a1622, 0.92);
+      g.fillRoundedRect(2, 2, S - 8, S - 8, 8);
+      g.lineStyle(sel ? 2.5 : 1, sel ? COLORS.gold : COLORS.goldDark, 1);
+      g.strokeRoundedRect(2, 2, S - 8, S - 8, 8);
+      cell.add(g);
+      cell.add(iconImage(this, (S - 4) / 2, (S - 4) / 2 - 2, it.icon, 46));
+      cell.add(txt(this, S - 10, S - 26, `${G.p.inventory[id]}`, { size: 14, bold: true, stroke: true }).setOrigin(1, 0));
+      if (it.rank) cell.add(txt(this, 8, 6, it.rank, { size: 12, bold: true, color: COLORS.textGold, stroke: true }));
+      if (quick) cell.add(txt(this, S - 10, 6, '⚡', { size: 13, stroke: true, color: '#ffe080' }).setOrigin(1, 0));
+      const z = this.add.zone(2, 2, S - 8, S - 8).setOrigin(0, 0).setInteractive({ useHandCursor: true });
+      z.on('pointerup', () => {
+        if (list?.wasDrag()) return;
+        Sound.sfx('click', 0.5);
+        onPick(id);
+      });
+      cell.addAt(z, 0);
+      parent.add(cell);
+    });
   }
 
   async systemOffer() {
@@ -287,56 +569,49 @@ export class MenuScene extends Phaser.Scene {
     const c = this.content;
     const w = this.cw, h = this.ph - 48;
     c.add(txt(this, 0, 0, 'Envanter', { size: 24, font: FONT.title, color: COLORS.textGold }));
-    c.add(txt(this, w, 6, formatWallet(G.p.wallet), { size: 18, color: '#f3dc95', bold: true }).setOrigin(1, 0));
-    const lw = w * 0.55;
-    const list = new ScrollList(this, 0, 48, lw, h - 60);
+    const wr = coinRow(this, 0, 16, G.p.wallet, { size: 22, font: 18 });
+    wr.x = w - wr.rowWidth;
+    c.add(wr);
+    const lw = Math.floor(w * 0.58);
+    this.catTabs(c, 0, 40, (cat) => {
+      this.invCat = cat;
+      this.render();
+    });
+    const list = new ScrollList(this, 0, 92, lw, h - 100);
     c.add(list);
     list.updateMask();
-    const ids = Object.keys(G.p.inventory);
-    const cols = Math.floor(lw / 92);
-    ids.forEach((id, i) => {
-      const it = ITEMS[id];
-      const x = (i % cols) * 92, y = Math.floor(i / cols) * 92;
-      const cell = this.add.container(x, y);
-      const g = this.add.graphics();
-      const sel = this.selItem === id;
-      g.fillStyle(sel ? 0x3a2e1a : 0x1a1622, 0.9);
-      g.fillRoundedRect(2, 2, 84, 84, 8);
-      g.lineStyle(sel ? 2 : 1, sel ? COLORS.gold : COLORS.goldDark, 1);
-      g.strokeRoundedRect(2, 2, 84, 84, 8);
-      cell.add(g);
-      cell.add(iconImage(this, 44, 40, it.icon, 50));
-      cell.add(txt(this, 80, 62, `${G.p.inventory[id]}`, { size: 14, bold: true, stroke: true }).setOrigin(1, 0));
-      if (it.rank) cell.add(txt(this, 8, 6, it.rank, { size: 12, bold: true, color: COLORS.textGold, stroke: true }));
-      const z = this.add.zone(2, 2, 84, 84).setOrigin(0, 0).setInteractive();
-      z.on('pointerup', () => {
-        if (list.wasDrag()) return;
-        Sound.sfx('click', 0.5);
-        this.selItem = id;
-        this.render();
-      });
-      cell.addAt(z, 0);
-      list.inner.add(cell);
+    const ids = this.inventoryIds(this.invCat);
+    const cols = Math.max(1, Math.floor((lw - 10) / 84));
+    this.itemGrid(list.inner, 0, 0, cols, ids, list, (id) => {
+      this.selItem = id;
+      this.render();
     });
-    if (!ids.length) list.inner.add(txt(this, 10, 10, 'Envanterin boş.', { size: 16, color: COLORS.textDim }));
-    list.setContentHeight(Math.ceil(ids.length / cols) * 92 + 10);
-    // ayrıntı
-    const dx = lw + 30, dw = w - lw - 30;
+    list.setContentHeight(Math.ceil(ids.length / cols) * 84 + 10);
+    // ayrıntı kartı
+    const dx = lw + 20, dw = w - lw - 20;
     const id = this.selItem && G.p.inventory[this.selItem] ? this.selItem : null;
+    const g = this.add.graphics();
+    g.fillStyle(0x1a1622, 0.9);
+    g.fillRoundedRect(dx, 92, dw, h - 100, 10);
+    g.lineStyle(1, COLORS.goldDark, 1);
+    g.strokeRoundedRect(dx, 92, dw, h - 100, 10);
+    c.add(g);
     if (!id) {
-      c.add(txt(this, dx, 60, 'Bir eşya seç.', { size: 16, color: COLORS.textDim }));
+      c.add(txt(this, dx + 16, 110, 'Bir eşya seç.\n\nYiyecekleri Hızlı Yemek yuvasına atayabilirsin (⚡).', { size: 15, color: COLORS.textDim, wrap: dw - 32 }));
       return;
     }
     const it = ITEMS[id];
-    c.add(iconImage(this, dx + 36, 90, it.icon, 64));
-    c.add(txt(this, dx + 80, 64, it.name, { size: 20, bold: true, color: COLORS.textGold, font: FONT.title, wrap: dw - 80 }));
-    c.add(txt(this, dx, 140, itemLabel(id), { size: 15, color: COLORS.textBlue, wrap: dw }));
+    c.add(iconImage(this, dx + 50, 140, it.icon, 64));
+    c.add(txt(this, dx + 94, 110, it.name, { size: 20, bold: true, color: COLORS.textGold, font: FONT.title, wrap: dw - 110 }));
+    c.add(txt(this, dx + 94, 140, `${CAT_NAME[it.kind] ?? ''}${it.rank ? ` · Rütbe ${it.rank}` : ''} · Elinde ${G.p.inventory[id]}`, { size: 13, color: COLORS.textDim, wrap: dw - 110 }));
+    c.add(txt(this, dx + 16, 186, itemLabel(id), { size: 15, color: COLORS.textBlue, wrap: dw - 32 }));
     const eff = itemEffectsText(id);
-    c.add(txt(this, dx, 172, it.desc + (eff ? '\n' + eff : '') + (it.special ? '\nÖzel: ' + it.special : ''), { size: 15, wrap: dw, lineSpacing: 3 }));
-    let by = 330;
+    const desc = txt(this, dx + 16, 216, it.desc + (eff ? '\n' + eff : '') + (it.special ? '\nÖzel: ' + it.special : ''), { size: 15, wrap: dw - 32, lineSpacing: 3 });
+    c.add(desc);
+    let by = Math.max(330, 226 + desc.height + 20);
     const act = (label: string, fn: () => void) => {
-      c.add(new Button(this, dx + dw / 2, by, label, fn, { w: dw - 10, h: 54, size: 18 }));
-      by += 64;
+      c.add(new Button(this, dx + dw / 2, by, label, fn, { w: dw - 30, h: 52, size: 17 }));
+      by += 60;
     };
     if (it.slot) act('Kuşan', () => {
       const slot = it.slot === 'ring' ? (G.p.equipment.ring1 ? 'ring2' : 'ring1') : it.slot!;
@@ -348,7 +623,17 @@ export class MenuScene extends Phaser.Scene {
       this.selItem = null;
       this.render();
     });
-    if (it.effects && (it.kind === 'consumable' || it.kind === 'food')) act('Kullan', () => this.useItem(id));
+    if (it.kind === 'food') {
+      act('Ye', () => this.useItem(id));
+      if (G.state.quickFood !== id) act('⚡ Hızlı yemeğe ata', () => {
+        G.state.quickFood = id;
+        G.scheduleSave();
+        Sound.sfx('click');
+        R.toast(`Hızlı yemek: ${it.name}`, 'info', it.icon);
+        this.render();
+      });
+      else c.add(txt(this, dx + dw / 2, by - 12, '⚡ Hızlı yemek yuvasında (F)', { size: 14, color: '#ffe080', bold: true }).setOrigin(0.5, 0));
+    } else if (it.effects && it.kind === 'consumable') act('Kullan', () => this.useItem(id));
     if (it.kind === 'book') act('Oku', () => this.useItem(id));
     if (id === 'map_village' || id === 'map_forest_deep') act('Haritaya işle', () => this.useItem(id));
   }
@@ -381,78 +666,56 @@ export class MenuScene extends Phaser.Scene {
       this.render();
       return;
     }
-    const r = transact(G.p as any, { label: 'Kullan: ' + it.name, take: [{ id, qty: 1 }] });
-    if (!r.ok) return;
-    const p = G.p;
-    for (const e of it.effects ?? []) {
-      if (e.type === 'heal') p.hp = Math.min(G.d.maxHp, p.hp + Math.round(e.amount! * G.d.healMult));
-      if (e.type === 'mana') p.mp = Math.min(G.d.maxMp, p.mp + e.amount!);
-      if (e.type === 'stamina') p.stamina = Math.min(G.d.maxStamina, p.stamina + e.amount!);
-      if (e.type === 'regen') {
-        this.world.player.buffs.push({ id: 'regen', t: e.duration!, amount: (e.amount! * G.d.healMult) / e.duration! });
-        G.count('bandagesUsed');
-        R.gainSkillExp('first_aid', 1.5);
-        R.checkDiscoveries();
-      }
-    }
-    Sound.sfx('heal');
-    R.toast(`${it.name} kullanıldı.`, 'info', it.icon);
-    G.events.emit('stats');
+    this.world.consume(id);
     this.render();
   }
 
   // ================================================================ EKİPMAN
   renderEquipment() {
     const c = this.content;
-    const w = this.cw;
+    const w = this.cw, h = this.ph - 48;
     c.add(txt(this, 0, 0, 'Ekipman', { size: 24, font: FONT.title, color: COLORS.textGold }));
-    const lw = w * 0.56;
-    EQUIP_SLOTS.forEach((s, i) => {
-      const y = 48 + i * 54;
-      const id = G.p.equipment[s];
-      const row = this.add.container(0, y);
-      const g = this.add.graphics();
-      const sel = this.selSlot === s;
-      g.fillStyle(sel ? 0x3a2e1a : 0x1a1622, 0.9);
-      g.fillRoundedRect(0, 0, lw, 48, 6);
-      g.lineStyle(1, sel ? COLORS.gold : COLORS.goldDark, 1);
-      g.strokeRoundedRect(0, 0, lw, 48, 6);
-      row.add(g);
-      row.add(txt(this, 12, 13, EQUIP_SLOT_NAMES[s], { size: 15, bold: true, color: COLORS.textGold }));
-      if (id) row.add(iconImage(this, 148, 24, ITEMS[id].icon, 30));
-      row.add(txt(this, 170, 13, id ? itemLabel(id) : 'Yok', { size: 14, color: id ? COLORS.text : COLORS.textDim, wrap: lw - 180 }));
-      const z = this.add.zone(0, 0, lw, 48).setOrigin(0, 0).setInteractive();
-      z.on('pointerup', () => {
-        Sound.sfx('click', 0.5);
-        this.selSlot = s;
-        this.render();
-      });
-      row.addAt(z, 0);
-      c.add(row);
+    const lw = Math.min(440, Math.floor(w * 0.56));
+    this.paperDoll(c, lw / 2, 36, (s) => {
+      this.selSlot = s;
+      this.render();
     });
-    const dx = lw + 26, dw = w - lw - 26;
+    const d = G.d;
+    c.add(txt(this, lw / 2, h - 24, `DEF ${d.def} · Silah: ${d.weaponName} [${d.weaponDmg[0]}-${d.weaponDmg[1]}]`, { size: 14, color: COLORS.textBlue, bold: true }).setOrigin(0.5, 0));
+    const dx = lw + 16, dw = w - lw - 16;
+    const g = this.add.graphics();
+    g.fillStyle(0x1a1622, 0.9);
+    g.fillRoundedRect(dx, 40, dw, h - 48, 10);
+    g.lineStyle(1, COLORS.goldDark, 1);
+    g.strokeRoundedRect(dx, 40, dw, h - 48, 10);
+    c.add(g);
     if (!this.selSlot) {
-      c.add(txt(this, dx, 60, 'Bir slot seç.\nKuşanılan eşya envanterden çıkar; çıkarınca geri döner.', { size: 15, color: COLORS.textDim, wrap: dw }));
+      c.add(txt(this, dx + 16, 60, 'Bir kutucuk seç.\nKuşanılan eşya envanterden çıkar; çıkarınca geri döner.', { size: 15, color: COLORS.textDim, wrap: dw - 32 }));
       return;
     }
     const s = this.selSlot;
     const cur = G.p.equipment[s];
-    let y = 50;
-    c.add(txt(this, dx, y, EQUIP_SLOT_NAMES[s], { size: 20, bold: true, color: COLORS.textGold, font: FONT.title }));
-    y += 40;
+    let y = 56;
+    c.add(txt(this, dx + 16, y, EQUIP_SLOT_NAMES[s], { size: 20, bold: true, color: COLORS.textGold, font: FONT.title }));
+    y += 36;
     if (cur) {
+      c.add(iconImage(this, dx + 36, y + 22, ITEMS[cur].icon, 40));
+      c.add(txt(this, dx + 64, y + 4, itemLabel(cur), { size: 14, color: COLORS.text, wrap: dw - 80 }));
+      y += 52;
       c.add(new Button(this, dx + dw / 2, y + 24, `Çıkar: ${ITEMS[cur].name}`, () => {
         unequip(G.p as any, s);
         this.world.player.refreshLayers();
         Sound.sfx('click');
         this.render();
-      }, { w: dw, h: 50, size: 15 }));
+      }, { w: dw - 30, h: 48, size: 15 }));
       y += 64;
     }
     const kind = s === 'ring1' || s === 'ring2' ? 'ring' : s;
     const cands = Object.keys(G.p.inventory).filter((id) => ITEMS[id]?.slot === kind);
-    if (!cands.length) c.add(txt(this, dx, y, 'Envanterde bu slota uygun eşya yok.', { size: 14, color: COLORS.textDim, wrap: dw }));
+    c.add(txt(this, dx + 16, y, cands.length ? 'Envanterden kuşan:' : 'Envanterde bu slota uygun eşya yok.', { size: 14, color: COLORS.textDim, wrap: dw - 32 }));
+    y += 26;
     for (const id of cands) {
+      if (y > h - 40) break;
       c.add(new Button(this, dx + dw / 2, y + 24, itemLabel(id), () => {
         const r = equip(G.p as any, id, s);
         if (r.ok) {
@@ -460,11 +723,9 @@ export class MenuScene extends Phaser.Scene {
           this.world.player.refreshLayers();
         }
         this.render();
-      }, { w: dw, h: 50, size: 13 }));
-      y += 58;
+      }, { w: dw - 30, h: 48, size: 13, icon: ITEMS[id].icon }));
+      y += 56;
     }
-    const d = G.d;
-    c.add(txt(this, dx, this.ph - 130, `DEF ${d.def} · Silah: ${d.weaponName} [${d.weaponDmg[0]}-${d.weaponDmg[1]}]`, { size: 14, color: COLORS.textBlue, wrap: dw }));
   }
 
   // ================================================================ HARİTA

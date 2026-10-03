@@ -1,10 +1,11 @@
-// Antrenman mini oyunları (20–40 saniye): odun kesme, taş kaldırma, koşu parkuru.
+// Mini oyunlar (20–40 saniye): odun kesme, taş kaldırma, koşu parkuru (antrenman) ve hasat (Haldor'un tarlası).
 import Phaser from 'phaser';
 import { Display } from '../game/display';
 import { Sound } from '../audio/audio';
 import { COLORS, FONT, txt, drawFrame, Button } from '../ui/kit';
+import { G } from '../game/G';
 
-type Kind = 'chop' | 'lift' | 'run';
+type Kind = 'chop' | 'lift' | 'run' | 'harvest';
 
 export class MinigameScene extends Phaser.Scene {
   kind: Kind = 'chop';
@@ -43,6 +44,7 @@ export class MinigameScene extends Phaser.Scene {
   swingT = -1;
   runAnimT = 0;
   stage!: Phaser.GameObjects.Graphics;
+  sheaves: Phaser.GameObjects.Image[] = [];
 
   constructor() {
     super('Minigame');
@@ -61,7 +63,8 @@ export class MinigameScene extends Phaser.Scene {
     this.lastSide = null;
     this.swingT = -1;
     this.runAnimT = 0;
-    this.dur = data.kind === 'chop' ? 24 : data.kind === 'lift' ? 25 : 30;
+    this.dur = data.kind === 'chop' ? 24 : data.kind === 'lift' ? 25 : data.kind === 'harvest' ? 22 : 30;
+    this.sheaves = [];
   }
 
   create() {
@@ -73,8 +76,9 @@ export class MinigameScene extends Phaser.Scene {
     const px = (W - pw) / 2, py = (H - ph) / 2;
     const fg = this.add.graphics();
     drawFrame(fg, px, py, pw, ph);
-    const titles = { chop: 'Odun Kesme Kütüğü', lift: 'Taş Kaldırma', run: 'Koşu Parkuru' };
+    const titles = { chop: 'Odun Kesme Kütüğü', lift: 'Taş Kaldırma', run: 'Koşu Parkuru', harvest: 'Hasat: Haldor\'un Buğdayı' };
     const helps = {
+      harvest: 'Orak işareti yeşil alandan geçerken biç! Her temiz vuruş bir demet.',
       chop: 'İbre yeşil alandan geçerken vur! Tam ortası en iyisi.',
       lift: 'Basılı tut: taş kalkar. Bırak: iner. İbreyi altın bölgede tut.',
       run: 'Sol ve Sağ butonlarına sırayla, düzenli bas. Ritmi koru!',
@@ -98,7 +102,7 @@ export class MinigameScene extends Phaser.Scene {
       this.input.keyboard?.on('keydown-RIGHT', () => this.step('R'));
       this.input.keyboard?.on('keydown-D', () => this.step('R'));
     } else {
-      const b = new Button(this, W / 2, by, this.kind === 'chop' ? 'VUR!' : 'KALDIR (basılı tut)', () => {}, { w: 360, h: 84, size: 24, sound: null });
+      const b = new Button(this, W / 2, by, this.kind === 'chop' ? 'VUR!' : this.kind === 'harvest' ? 'BİÇ!' : 'KALDIR (basılı tut)', () => {}, { w: 360, h: 84, size: 24, sound: null });
       b.removeAllListeners('pointerup');
       b.on('pointerdown', () => this.press(true));
       b.on('pointerup', () => this.press(false));
@@ -138,6 +142,12 @@ export class MinigameScene extends Phaser.Scene {
       shadow.setPosition(W / 2 - 50, feetY);
       if (this.textures.get('props').has('chop_block')) this.prop = this.add.image(W / 2 + 40, feetY + 6, 'props', 'chop_block').setOrigin(0.5, 1).setScale(2.4);
       this.setJoeFrame(12 + 3, 0);
+    } else if (this.kind === 'harvest') {
+      this.joe.setPosition(W / 2 - 120, feetY);
+      shadow.setPosition(W / 2 - 120, feetY);
+      if (this.textures.get('props').has('wheat'))
+        for (let i = 0; i < 5; i++) this.sheaves.push(this.add.image(W / 2 - 30 + i * 70, feetY + 8, 'props', 'wheat').setOrigin(0.5, 1).setScale(0.42, 0.6));
+      this.setJoeFrame(12 + 3, 0);
     } else if (this.kind === 'lift') {
       this.joe.setPosition(W / 2 + 190, feetY - 20);
       shadow.setPosition(W / 2 + 190, feetY - 20);
@@ -165,7 +175,7 @@ export class MinigameScene extends Phaser.Scene {
 
   press(down: boolean) {
     if (!this.running) return;
-    if (this.kind === 'chop') {
+    if (this.kind === 'chop' || this.kind === 'harvest') {
       if (!down) return;
       this.attempts++;
       this.swingT = 0;
@@ -175,11 +185,18 @@ export class MinigameScene extends Phaser.Scene {
         this.hits += 0.6 + q * 0.4;
         this.logs++;
         Sound.sfx('chop');
-        this.cameras.main.shake(80, 0.004);
+        if (G.settings.shake) this.cameras.main.shake(80, 0.004);
         this.zoneC = 0.2 + Math.random() * 0.6;
         this.zoneW = Math.max(0.08, 0.16 - this.logs * 0.006);
         this.flash(0x9fe08a);
-        this.time.delayedCall(170, () => this.prop && this.chips(this.prop.x, this.prop.y - 40));
+        this.time.delayedCall(170, () => {
+          if (this.prop) this.chips(this.prop.x, this.prop.y - 40);
+          if (this.kind === 'harvest' && this.sheaves.length) {
+            const sh = this.sheaves[this.logs % this.sheaves.length];
+            this.chips(sh.x, sh.y - 30);
+            this.tweens.add({ targets: sh, scaleY: 0.2, alpha: 0.3, duration: 160, yoyo: true, hold: 600 });
+          }
+        });
       } else {
         Sound.sfx('miss');
         this.flash(0xff5040);
@@ -216,13 +233,13 @@ export class MinigameScene extends Phaser.Scene {
     const W = Display.uiW, H = Display.uiH;
     const g = this.g;
     g.clear();
-    const bx = W / 2 - 330, bw = 660, by = this.kind === 'chop' ? H / 2 - 95 : H / 2 - 40;
+    const bx = W / 2 - 330, bw = 660, by = this.kind === 'chop' || this.kind === 'harvest' ? H / 2 - 95 : H / 2 - 40;
     if (this.running) {
       this.t += dt;
       if (this.t >= this.dur) this.finish();
     }
     this.timeT.setText(`${Math.max(0, Math.ceil(this.dur - this.t))} sn`);
-    if (this.kind === 'chop') {
+    if (this.kind === 'chop' || this.kind === 'harvest') {
       if (this.running) {
         this.marker += this.markerDir * dt * (0.9 + this.logs * 0.06);
         if (this.marker > 1) { this.marker = 1; this.markerDir = -1; }
@@ -237,7 +254,7 @@ export class MinigameScene extends Phaser.Scene {
       g.fillStyle(0xffffff, 1);
       g.fillTriangle(bx + this.marker * bw - 10, by - 14, bx + this.marker * bw + 10, by - 14, bx + this.marker * bw, by + 2);
       g.fillRect(bx + this.marker * bw - 2, by, 4, 40);
-      this.info.setText(`Kesilen kütük: ${this.logs}`);
+      this.info.setText(this.kind === 'harvest' ? `Biçilen demet: ${this.logs}` : `Kesilen kütük: ${this.logs}`);
       if (this.swingT >= 0) {
         this.swingT += dt;
         const f = Math.min(5, Math.floor(this.swingT / 0.05));
@@ -293,7 +310,7 @@ export class MinigameScene extends Phaser.Scene {
     if (!this.running) return;
     this.running = false;
     let perf = 0;
-    if (this.kind === 'chop') perf = Math.min(1, this.hits / 14) * (this.attempts ? Math.min(1, 0.5 + this.logs / this.attempts / 2) : 0);
+    if (this.kind === 'chop' || this.kind === 'harvest') perf = Math.min(1, this.hits / 14) * (this.attempts ? Math.min(1, 0.5 + this.logs / this.attempts / 2) : 0);
     else if (this.kind === 'lift') perf = Math.min(1, this.inZone / (this.dur * 0.75));
     else perf = Math.min(1, this.dist) * 0.6 + (this.steps ? (this.goodSteps / this.steps) * 0.4 : 0);
     perf = Phaser.Math.Clamp(perf, 0, 1);

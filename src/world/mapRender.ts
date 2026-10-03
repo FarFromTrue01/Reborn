@@ -304,7 +304,7 @@ export function renderMap(scene: Phaser.Scene, m: MapData, meta: any, bmeta: Rec
     propImages.push({ img, p });
     const info = PROP_INFO[p.key];
     // Büyük ağaç ve çalılar: arkasındakileri saklayabilir
-    if (!p.flat && !p.key.startsWith('__') && (p.depthOffset ?? 0) >= 0 && img.displayHeight >= 56 && /^(tree_|bush_big|woodshed|tent_|wagon|stall_|well|outhouse)/.test(p.key)) occluders.add(img, depth);
+    if (!p.flat && !p.key.startsWith('__') && (p.depthOffset ?? 0) >= 0 && img.displayHeight >= 56 && /^(tree_|bush_big|woodshed|tent_|wagon|stall_|well|outhouse|wheat)/.test(p.key)) occluders.add(img, depth);
     if (p.sway && info?.sway) swayers.push({ img, amp: info.sway, phase: hash(Math.floor(p.x), Math.floor(p.y)) * 6.28 });
     if (p.anim) animProps.push({ img, frames: p.anim, t: Math.random() });
     if (p.light) lights.push({ x: p.x, y: p.y - (img.displayHeight * 0.6), radius: p.light.radius, color: p.light.color, flicker: p.light.flicker, night: p.light.night, phase: Math.random() * 10, obj: img });
