@@ -59,7 +59,11 @@ Başsız tarayıcıda FPS'i yazılım GPU'nun doldurma hızı sınırlıyor; DPR
 - **Koşu:** `runStep(lock, want, stamina, maxStamina)` — kilit dayanıklılık dolunca da kalkar.
 - **Appraisal:** `claimAppraisalExp(..., clock, now)` 10 sn genel bekleme, oturum içi (`WorldScene.appraisalExpClock`).
 - **Para:** `normalizeWallet`, her `transact` sonunda.
-- Elle test betiği: `tools/qa/steps_g2.mjs` (`node tools/qa/shot.mjs g2`).
+- Elle test betiği: `tools/qa/steps_g2.mjs` (`node tools/qa/shot.mjs g2`, `?qa=1`, başsız Chromium). Son tur sonuçları (oyun saatiyle):
+  - Yeni oyun, HUD `HP 5,0 / 5,0`. Fare yumrukla 2 vuruş (0,5 + 0,5), Çatlak Sopa ile 1 vuruş (1,0).
+  - Tavşan 2 karo arkasından kovalanınca 10,9 sn'de köşeye sıkıştı, 12,1 sn'de tekme attı (HP 5,0 → 4,0). İlk denemede köşeye sıkışan tavşan kaçarken evinden uzaklaştığı için "eve dön"e geçip hiç saldırmıyordu → düzeltildi (sıkıştığı yer yeni evi). Yeniden ürkekleşme birim testle doğrulandı; başsız turda oyuncuyu uzaklaştırdığım yer bir ara sahne tetiklediği için ölçülemedi.
+  - Goblinin hazırlığı normal vuruşla kesildi. 12 sn boyunca 0,25 sn arayla vuruş: 7 hazırlık, 3 iptal, 4 tamamlanan saldırı — kilitlenmiyor. İlk ölçümde geri tepme ve vuruş donması düşman YZ'sini tamamen durdurduğu için iptal beklemesine rağmen düşman hiç saldıramıyordu → düzeltildi (ikisi artık yalnızca hareketi etkiliyor). Goblin Şefi normal vuruşla kesilmedi, ağır vuruşla kesildi.
+  - Joystick hep sonda: koş → 0'da nefes nefese yürü → %100'de kendiliğinden koş → … döngü tekrarlıyor.
 
 ## Sonraki oturum için notlar
 
