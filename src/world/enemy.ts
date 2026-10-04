@@ -129,14 +129,11 @@ export class Enemy {
     const pd = p.actor;
     const speed = this.def.speed * TILE * (this.slowT > 0 ? 0.5 : 1);
     this.slowT -= dt;
-    // Geri tepme yalnızca hareketi ezer; YZ (hazırlık sayacı, savurma, kovalama) sürer. Böylece iptal beklemesi
-    // (core/combat canInterrupt) sırasında gelen vuruşlar düşmanı itse de saldırısını durduramaz: sık vurarak kilitlenemez.
+    // Geri tepme ve vuruş donması (hit-stop) yalnızca hareketi ezer; YZ (hazırlık sayacı, savurma, kovalama) sürer.
+    // Böylece iptal beklemesi (core/combat canInterrupt) sırasında gelen vuruşlar düşmanı itip dondursa da saldırısını
+    // durduramaz: saldırı hızı ne kadar yüksek olursa olsun sık vurarak kilitlenemez.
     const knocked = a.kb.lengthSq() > 1;
-    if (a.frozenT > 0) {
-      body.setVelocity(0, 0);
-      this.drawUI();
-      return;
-    }
+    const frozen = a.frozenT > 0;
     if (this.stunT > 0) {
       this.stunT -= dt;
       body.setVelocity(0, 0);
@@ -316,7 +313,8 @@ export class Enemy {
         break;
       }
     }
-    if (knocked) {
+    if (frozen) body.setVelocity(0, 0);
+    else if (knocked) {
       body.setVelocity(a.kb.x, a.kb.y);
       a.kb.scale(Math.pow(0.0005, dt));
     }

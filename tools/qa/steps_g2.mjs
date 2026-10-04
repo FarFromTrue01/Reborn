@@ -6,10 +6,16 @@ export default async ({ page, wait, shot, evalG }) => {
   // Açık diyalog/teklif varsa kapat (teleportla arkadan yaklaşmak gizli keşif teklifini tetikleyebilir); durumu yaz.
   const settle = async (label) => {
     const before = await h.S();
-    if (before.cut || before.dlg || before.choice || before.busy) await h.run([1], 120);
+    let txt = '';
+    if (before.cut || before.dlg || before.choice || before.busy) {
+      txt = await evalG(() => { const ui = window.__game.scene.getScene('UI'); try { return JSON.stringify(ui.dlgState).slice(0, 160); } catch { return '?'; } });
+      await shot('g2_interrupt_' + label.replace(/\W+/g, '_'));
+      await h.run([1], 120);
+    }
     const s = await h.S();
-    log('[durum]', label, 'cutscene:', before.cut, '→', s.cut, 'diyalog:', before.dlg, 'meşgul:', before.busy);
+    log('[durum]', label, 'cutscene:', before.cut, '→', s.cut, 'diyalog:', before.dlg, 'meşgul:', before.busy, txt);
   };
+
   const W = () => 'window.__game.scene.getScene("World")';
   const log = (...a) => console.log(...a);
   await evalG(() => { window.__G.newGame(); window.__G.setFlag('woke'); for (const k of ['stealth','evasion','athletics','archery','first_aid','iron_body','sword_mastery','spear_mastery','gathering']) window.__G.state.flags['declined_' + k] = true; window.__game.scene.getScene('Title').scene.start('World', { map: 'world', x: 34, y: 64, facing: 'right' }); });
@@ -100,6 +106,7 @@ export default async ({ page, wait, shot, evalG }) => {
     w.events.on('postupdate', window.__qaChaseFn);
   });
   for (let i = 0; i < 400; i++) {
+    if ((await h.S()).cut) await settle('tavşan kovalarken');
     const q = await evalG(() => window.__qaChase);
     if (q.cornerAt !== null && q.hitAt !== null) break;
     if (i === 40) await shot('g2_03_rabbit_chase');
@@ -154,10 +161,13 @@ export default async ({ page, wait, shot, evalG }) => {
   const lockT0 = await evalG(() => window.__game.scene.getScene('World').playClock);
   let struck = 0, cancels = 0;
   await evalG(() => { const e = window.__qaGob; e._qaStrike = 0; const orig = e.strike.bind(e); e.strike = () => { e._qaStrike++; orig(); }; });
-  for (let i = 0; i < 200; i++) {
-    const r = await evalG(() => { const w = window.__game.scene.getScene('World'); const e = window.__qaGob; const pl = w.player.actor; pl.setPosition(e.x - 30, e.y); pl.body2.reset(pl.x, pl.y); const before = e.state; w.hitEnemy(e, { dir: new window.Phaser.Math.Vector2(1, 0), physical: true }); return { before, after: e.state }; });
-    if (r.before === 'windup' && r.after === 'hurt') cancels++;
-    await wait(150);
+  // Hızlı bir saldırgan gibi: oyun zamanıyla her 0,25 sn'de bir vuruş (~4 vuruş/sn), 12 oyun saniyesi.
+  await evalG(() => { window.__qaLast = -1; });
+  for (let i = 0; i < 2000; i++) {
+    const r = await evalG(() => { const w = window.__game.scene.getScene('World'); const e = window.__qaGob; const pl = w.player.actor; pl.setPosition(e.x - 30, e.y); pl.body2.reset(pl.x, pl.y); window.__G.p.hp = 999; if (w.playClock - window.__qaLast < 0.25) return null; window.__qaLast = w.playClock; const before = e.state; w.hitEnemy(e, { dir: new window.Phaser.Math.Vector2(1, 0), physical: true }); return { before, after: e.state, t: w.playClock }; });
+    if (r && r.before === 'windup' && r.after === 'hurt') cancels++;
+    if ((await evalG(() => window.__game.scene.getScene('World').playClock)) - lockT0 > 12) break;
+    await wait(30);
   }
   struck = await evalG(() => window.__qaGob._qaStrike);
   const lockGame = (await evalG(() => window.__game.scene.getScene('World').playClock)) - lockT0;
