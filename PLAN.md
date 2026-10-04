@@ -7,7 +7,8 @@ Dört aşamalı plan. Her oturum yalnızca kendi grubunu yapar; bitince bu dosya
 | **1. Çökme, bug, altyapı** | Pages dağıtımı, sahne sıfırlama, joystick önceliği, handa donma, performans, uygulama değişiminde çökme, PWA kurulumu | ✅ 0.3.1 |
 | **2. Denge ve dövüş** | Düşman/Joseph sayıları, hasar ve EXP eğrileri, dövüş mekanikleri | ✅ 0.4.0 |
 | **3. Arayüz** | Appraisal paneli (NPC/kendi/yaratık), eşya rütbeleri, saygınlık gösterimi, HUD görev kategorileri, Lonca Kartı barı, terfi görevi ve animasyonu, görev bitiş animasyonu, görev EXP kuralı, Ayarlar paneli | ✅ 0.5.0 |
-| **4. İçerik, görevler, animasyon** | Yeni görevler/bölümler, NPC diyalogları, animasyonlar | sırada |
+| **4A. Görevler ve içerik** | Ana görev güvencesi, pano akışı, NPC hedefli amaçlar, şifalı ot, yaralılar, sahne karakterleri, kâhyanın kesesi, yan görev iş yerleri ve mavi işaretler, lonca/pano, görev saatine kadar uyku, han oturma yerleri, yoldaş takibi, Dorn, Eros ve soylu adı, Grup 3'ten kalan dört düzeltme | ✅ 0.6.0 |
+| **4B. Animasyon ve silahlar** | Silah modelleri, saldırı animasyonları, kılıcı sırta koyma, konuşurken yürüme animasyonu | sırada |
 
 ## Grup 1'de yapılanlar (0.3.1)
 
@@ -90,9 +91,37 @@ Başsız tarayıcıda FPS'i yazılım GPU'nun doldurma hızı sınırlıyor; DPR
 - **Ayarlar:** menüde 944 px içerik 596 px alanda kayıyor; başlık ekranında Kapat sabit, en alta kaydırınca Kontroller bölümü görünüyor.
 - Gerçek tablette dokunmatik kaydırma ve animasyon akıcılığı denenemedi (yalnızca başsız tarayıcı).
 
+## Grup 4A'da yapılanlar (0.6.0)
+
+- **Ana görev güvencesi** (`src/story/mainline.ts`): `nextMainQuest` zinciri sondan başa okur, `ensureMainQuest` (Director, sahne dışında yarım saniyede bir) eksik halkayı açar; bekleme gereken yerlerde adım görevleri: `m_board` "Pano" (Loncaya dön, panodan görev al), `m_vl_rest` "Vera ve Lina", `m_next_day` "Ertesi Gün", `m_vl_cellar` "Yeni İş", nadiren `m_gpoints` "G Rütbesi". Adımlar zincirin asıl görevi açılınca sessizce kapanır; terfi görevi adımı kapatmaz. Test: zincir geliştirici araçlarıyla (görevi doğrudan bitirerek) baştan sona, her adımda aktif ana görev.
+- **Bekleme metni** (`WorldScene.questWait`): hikâye kapısı (`Chapter2.objectiveWait`: ertesi gün 08:00, akşam 18:00, hasat 06–16), kapalı bina ("Lonca 05:00'te açılır"), NPC'ye ulaşılamıyor (`src/world/reach.ts`: programdan bir sonraki erişilebilir saat ve yer). Beklemedeyken ok yok; HUD'da ve görev sekmesinde "⏳ …". `hourAt`/`whenLabel` Türkçe saat ekleri.
+- **Görev saatine kadar uyu**: yatakta, bekleyen görev varsa menü "Uyu / Görev saatine kadar uyu (yarın 08:00) / Vazgeç"; saat kuralına takılmaz, geçen her gün için gün değişimi işlenir.
+- **Pano**: sopa → "Pano" → loncaya girince `boardOpening` aynı gün (Vera ve Lina `ensureActors` ile kapıdan girer). Lonca 05–24 (`GUILD_HOURS`: kapı + Celeste'nin programı); panodan en fazla 3 ilan (`MAX_BOARD_QUESTS`).
+- **Sahne karakterleri**: `Director.say` konuşmacı haritada değilse onu Joseph'in yanına getirir (sahne bitince programına döner); `ensureActors/releaseActors`. Otlak ve bodrumda yoldaşlar `ensureParty` ile hep yanında.
+- **Yaralılar**: görev sürerken şifa evinin kapısı açık (`doorOverride`), Ilse Nine içeride.
+- **Kâhyanın Kesesi**: İlk Kadeh iki adımlı (hana gel → Vera'nın masasında "Otur"); ertesi gün meydanda kese sahnesi (gün bayrağı eksikse bugün); şüphelilerde sarı "?" işareti, ok sıradaki şüpheliye, ilerleme 0/4; suçlamada muhafız yol bularak yürür, Joseph `followUntilNear` ile izler.
+- **Yan görevler** (`src/story/sideposts.ts`): iş yeri tablosu + her verene özgü yönlendirme repliği; teklif, bekleyen ve teslim yalnızca iş yerinde. Mavi işaretler: NPC başında salınan "!" / "?" (`Npc.setMarker`), dünyada bina üstü işaret, mini haritada her kare çizilen ışık + halkalar (yalnızca işaret varken), tam haritada ışık, halkalar ve parlayan bina. Tüccarın temel programı sabahları konağın önünde.
+- **Yönlendirme**: her ana/yan/pano amacında `where` (test). Yeni hedef türleri `monster` (en yakın doğma bölgesi) ve `item` (en yakın toplama noktası ya da düşüren yaratık). NPC hedefinde sabit nokta kullanılmaz.
+- **Şifalı ot**: `prop.gather` ile bire bir; orman kenarında işaretin içinde sabit 9 ot; otun üstüne çalı/ağaç gelmez; toplandı durumu yüklemede ve yeni günde görsele uygulanır.
+- **Han**: `SeatBook` (`src/world/seats.ts`) — oturma noktası tek NPC; dolu ise aynı türden boş yer, yoksa herkesten 1,5 karo uzakta ayakta. Kapıdan giriş kuyruğuyla uyumlu (yer giriş anında ayrılır).
+- **Yoldaş takibi** (`src/world/follow.ts`): hız eşleştirme, 0,8/1,6 karo histerezis, yumuşak duruş, histerezisli koşu animasyonu.
+- **Ad ve rütbe**: şehir Eros (`CITY_NAMES.capital` anahtarı korunuyor), Baron Merrow, kâhya Edric Fenwick; eski ad depoda hiç geçmiyor (test). Dorn F+.
+- **Grup 3'ten**: `shrinkText` (Appraisal kutucukları: küçült, gerekirse iki satır), kutlamalar `RealClock` (performance.now), sessiz bitişler ertelenip sahne sonunda (`Q.flushDeferred`), yaratık portresi `monsterPortraitFrame` (aşağı bakan kare).
+- Kayıt v7 (`migrateV6toV7`). Testler: 446 → 481 (`tests/g4a.test.ts`). QA: `URL='http://localhost:4173/?qa=1' node tools/qa/shot.mjs g4a` (`ONLY=chain,haldor,side,herbs,inn`).
+
+### Uçtan uca QA (başsız Chromium, 1280×854, DPR 1)
+
+- **Zincir:** yeni oyun → Hana Git → Bertram → Hasat (geliştirici "Tamamla") → kayıt sahnesi → Bertram'dan sopa → "Pano: Loncaya dön, panodan görev al" → loncaya girince pano açılışı (Vera ve Lina sahnede) → G görevleri teslim → Biraz Hava → yaralılar → **22:00'de şifa evine girildi, Ilse Nine içeride** → "Vera ve Lina … yarın 08:00'de onları bul" → yatakta "Görev saatine kadar uyu (yarın 08:00)" → 08:00'de uyandı → Vera'yla otlak görevi (otlakta Vera ve Lina yanında) → teslim, G → İlk Kadeh ("Vera akşamı bekliyor — 18:00'de hana git") → handa "Vera'yla masaya otur", masada "Otur" → "Ertesi Gün" → ertesi sabah meydanda kese çalındı, 4 şüphelide işaret, ok en yakın şüpheliye → hepsine Appraisal, işaretler kalktı → muhafıza Wynn: Joseph muhafızı ~60 karo izleyip çamaşır iplerine 1,8 karo kala durdu (en büyük ara 3,9 karo) → "Yeni İş" → bodrum → 10 gümüş → veda → giriş kartı. **Her adımda en az bir aktif ana görev.**
+- **Haldor:** 08:00 ok tarlada Haldor'a; 12:30 ok çiftlik evinin kapısına (Haldor içeride); 23:00 ok yok, "Haldor yarın 06:00'da tarlada olur — o saate kadar bekle".
+- **Yan görev:** 19:00 handaki demirci: "İş konuşacaksan demirhaneye gel. Burada içiyorum."; 10:00 demirhanenin üstünde mavi işaret, mini haritada 3 mavi ışık, tam haritada ışık + halkalar + parlayan binalar; içeride demircinin başında mavi "!", konuşunca jöle teklifi.
+- **Şifalı ot:** işaretin içinde 9 ot, 9'u toplandı; harita yeniden yüklenince 9'u soluk.
+- **Han:** 19:00 (13 NPC) ve 20:00 (15 NPC) iç içe duran yok.
+- Başsız turda kutlama animasyonları ve sahneler çok hızlı ilerletildiği için bazı ertelenmiş bitişler (ör. "İlk Kadeh") bir sonraki sahnenin ardından oynadı; normal oyunda sahne biter bitmez oynar. Gerçek tablette denenemedi.
+
 ## Sonraki oturum için notlar
 
-- **Grup 4 için Grup 3'ten kalanlar:** sessiz tamamlanan hikâye görevleri (Hana Git, Bertram'ın İşi, Hasat, İlk Kadeh…) bitiş animasyonu oynatmaz — istenirse `silent` yerine kısa bir sahne arasında çağrılabilir. Terfi animasyonu için ayrı bir ses bestesi yok (mevcut `levelup` + `holy`). Yaratık portresi sayfanın ilk karesi (fare/tavşan arkadan görünüyor); istenirse aşağı bakan kare seçilebilir. `fmtHp` 10 altını hep bir ondalık gösterir ("HP 5,0 / 5,0").
+- **Grup 4B için:** silah modelleri, saldırı animasyonları, kılıcı sırta koyma, konuşurken yürüme animasyonu (4A bunlara dokunmadı). Terfi animasyonu için ayrı bir ses bestesi hâlâ yok (mevcut `levelup` + `holy`). `fmtHp` 10 altını hep bir ondalık gösterir ("HP 5,0 / 5,0").
+- **4A'dan kalanlar / karar bekleyenler:** tam haritada mavi işaretler henüz keşfedilmemiş (sisli) yerlerde de görünür — yön bulmak için bilerek bırakıldı, istenirse sise bağlanabilir. Kâhyanın kesesinde 4 şüpheli var (ilerleme 0/4). Bölüm I'in mini oyunlu adımları (iş, hasat) geliştirici "Tamamla" ile geçilince güvence bir sonraki görevi açar ama sahne bayraklarını (ör. `bertram_done`) kurmaz; gerçek oyunda bu yol kullanılmaz.
 - Eski plandaki "yardımlı savaş, yoldaş YZ" maddeleri Grup 2 talimatında yoktu, dokunulmadı (yoldaşlar silah ×2'den dolaylı güçlendi: düşük HP'li ilk yaratıkları hızlı bitirirler, Joseph'in EXP'si yalnızca kendi vurduklarından gelir). Gerekirse ayrı bir oturumda.
 - **Grup 4 için:** Tarla Faresi yalnızca otlak görevinde doğuyor; dünyaya (güney tarlaları) yerleştirmek içerik işi. `pack_hunter` title'ı artık otlak görevinden değil, ormandaki kurtlardan gelir.
 

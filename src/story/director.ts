@@ -18,7 +18,7 @@ import { walletTotal, emptyWallet, formatPrice } from '../core/money';
 import { nextMorning, hourOf, clockLabel, fromAbsMinute } from '../core/time';
 import { canSleep, absMinute } from '../core/sleep';
 import { dirFromVec } from '../world/actor';
-import { nearestFree } from '../world/path';
+import { nearestFree, findPath, pathBudget } from '../world/path';
 import { openShop } from '../ui/shop';
 import { DIVINE_BY_ID, divineOffer } from '../data/divine';
 import { SKILLS, RARITY_NAMES } from '../data/skills';
@@ -139,12 +139,56 @@ export class Director {
   }
 
   /**
-   * Bir aktörü (ör. Joseph) yürüyen bir hedefin peşinden götür: hedef durup aktör `near` karo yakınına varınca
-   * biter. Hız mesafeyle artar (geride kalmaz, üstüne binmez). Takılırsa süre sonunda hedefin yanına geçer.
+   * Bir aktörü yol bularak (A*, dekor ve binaların etrafından) bir karoya yürüt. Süre uzaklığa göre; takılırsa
+   * süre sonunda hedefe yerleştirilir.
    */
-  followUntilNear(actor: any, target: any, near = 1.5, timeoutMs = 9000): Promise<void> {
+  walkPath(actor: any, tx: number, ty: number, speed = 3): Promise<void> {
+    const m = this.w.mapData;
+    const [sx, sy] = nearestFree(m.solid, m.w, m.h, Math.floor(actor.x / TILE), Math.floor((actor.y - 6) / TILE));
+    const [gx, gy] = nearestFree(m.solid, m.w, m.h, tx, ty);
+    const path = findPath(m.solid, m.w, m.h, sx, sy, gx, gy, pathBudget(m.w, m.h, !!m.indoor)) ?? [[gx, gy]];
+    const limit = 2500 + (path.length / speed) * 1600;
     return new Promise((resolve) => {
       const t0 = this.w.time.now;
+      const ev = this.w.time.addEvent({
+        delay: 16, loop: true, callback: () => {
+          if (!path.length || this.w.time.now - t0 > limit) {
+            ev.remove();
+            if (path.length) actor.setPosition(gx * TILE + 16, gy * TILE + 22);
+            actor.body2?.setVelocity(0, 0);
+            actor.play('idle');
+            resolve();
+            return;
+          }
+          const [px, py] = path[0];
+          const wx = px * TILE + 16, wy = py * TILE + 22;
+          const dx = wx - actor.x, dy = wy - actor.y;
+          const d = Math.hypot(dx, dy);
+          if (d < 5) {
+            path.shift();
+            return;
+          }
+          actor.body2?.setVelocity((dx / d) * speed * TILE, (dy / d) * speed * TILE);
+          actor.face(dirFromVec(dx, dy));
+          if (actor.anim !== 'walk') actor.play('walk');
+        },
+      });
+    });
+  }
+
+  /**
+   * Bir aktörü (ör. Joseph) yürüyen bir hedefin peşinden götür (yol bularak). `until` bitince ve aktör hedefin
+   * `near` karo yakınına varınca biter. Hız mesafeyle artar (geride kalmaz, üstüne binmez); takılırsa süre sonunda
+   * hedefin yanına geçer.
+   */
+  followUntilNear(actor: any, target: any, near = 1.5, until: Promise<unknown> = Promise.resolve(), timeoutMs = 30000): Promise<void> {
+    return new Promise((resolve) => {
+      const t0 = this.w.time.now;
+      let arrived = false;
+      until.then(() => (arrived = true));
+      let path: [number, number][] = [];
+      let repathT = 0;
+      const m = this.w.mapData;
       const done = () => {
         ev.remove();
         actor.body2?.setVelocity(0, 0);
@@ -153,26 +197,39 @@ export class Director {
       };
       const ev = this.w.time.addEvent({
         delay: 16, loop: true, callback: () => {
-          const dx = target.x - actor.x, dy = target.y - actor.y;
-          const d = Math.hypot(dx, dy);
-          const tv = target.body2?.velocity;
-          const moving = !!tv && Math.hypot(tv.x, tv.y) > 5;
+          const d = Math.hypot(target.x - actor.x, target.y - actor.y);
           if (d <= near * TILE) {
             actor.body2?.setVelocity(0, 0);
             if (actor.anim !== 'idle') actor.play('idle');
-            if (!moving) done();
+            path = [];
+            if (arrived) done();
             return;
           }
           if (this.w.time.now - t0 > timeoutMs) {
-            const m = this.w.mapData;
-            const [fx, fy] = nearestFree(m.solid, m.w, m.h, Math.floor((target.x - Math.sign(dx) * TILE) / TILE), Math.floor(target.y / TILE));
+            const [fx, fy] = nearestFree(m.solid, m.w, m.h, Math.floor(target.x / TILE) + 1, Math.floor(target.y / TILE));
             actor.setPosition(fx * TILE + 16, fy * TILE + 22);
             actor.body2?.reset(actor.x, actor.y);
             done();
             return;
           }
-          const sp = Math.min(3.4, 1.4 + (d / TILE - near) * 0.9) * TILE;
-          actor.body2?.setVelocity((dx / d) * sp, (dy / d) * sp);
+          repathT -= 16;
+          if (repathT <= 0 || !path.length) {
+            repathT = 500;
+            const [sx, sy] = nearestFree(m.solid, m.w, m.h, Math.floor(actor.x / TILE), Math.floor((actor.y - 6) / TILE));
+            const [gx, gy] = nearestFree(m.solid, m.w, m.h, Math.floor(target.x / TILE), Math.floor((target.y - 6) / TILE));
+            path = findPath(m.solid, m.w, m.h, sx, sy, gx, gy, 6000) ?? [[gx, gy]];
+            if (path.length > 1) path.shift();
+          }
+          const [px, py] = path[0];
+          const wx = px * TILE + 16, wy = py * TILE + 22;
+          const dx = wx - actor.x, dy = wy - actor.y;
+          const dd = Math.hypot(dx, dy);
+          if (dd < 5) {
+            path.shift();
+            return;
+          }
+          const sp = Math.min(3.6, 1.6 + (d / TILE - near) * 0.6) * TILE;
+          actor.body2?.setVelocity((dx / dd) * sp, (dy / dd) * sp);
           actor.face(dirFromVec(dx, dy));
           if (actor.anim !== 'walk') actor.play('walk');
           actor.animSpeed = sp / (2.4 * TILE);

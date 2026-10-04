@@ -732,7 +732,8 @@ export class WorldScene extends Phaser.Scene {
       const b = this.mapData.buildings.find((x) => x.id === bid);
       if (!b || !bmeta[bid]) continue;
       const st = MARKER_STYLE[kind];
-      const x = b.tx * TILE + bmeta[bid].w / 2, y = b.tyBottom * TILE - bmeta[bid].h - 6;
+      // cephenin üst yarısında: çatının tepesi ekran dışında kalsa da görünür
+      const x = b.tx * TILE + bmeta[bid].w / 2, y = b.tyBottom * TILE - bmeta[bid].h * 0.42;
       const t = this.add.text(x, y, st.ch, { fontFamily: 'Cinzel, serif', fontSize: '34px', fontStyle: 'bold', color: st.color, stroke: st.stroke, strokeThickness: 5 }).setOrigin(0.5, 1).setDepth(967000);
       t.setResolution(this.cameras.main.zoom * 1.5);
       (t as any).kind = kind;

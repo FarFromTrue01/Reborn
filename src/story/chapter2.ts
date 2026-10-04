@@ -852,10 +852,9 @@ export class Chapter2 {
       wynn.scripted = true;
       g.scripted = true;
       // Joseph muhafızı kendiliğinden izler (kontroller kapalı, kamera onu takip eder); muhafızın yanına varınca biter
-      const follow = this.d.followUntilNear(this.w.player.actor, g.actor, 1.6);
-      await this.d.walk(g.actor, Math.floor(wynn.x / TILE) - 1, Math.floor(wynn.y / TILE), 3);
+      const guardWalk = this.d.walkPath(g.actor, Math.floor(wynn.x / TILE) - 1, Math.floor(wynn.y / TILE), 3);
+      await this.d.followUntilNear(this.w.player.actor, g.actor, 1.6, guardWalk);
       this.d.face(g.actor, wynn.actor);
-      await follow;
       this.d.face(this.w.player.actor, wynn.actor);
       wynn.say('Ne? Ne yapıyorsun? Bırak!', 2);
       await wait(this.w, 1200);

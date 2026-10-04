@@ -12,7 +12,7 @@ import { MAX_BOARD_QUESTS } from '../src/data/sidequests';
 import monstersMeta from '../assets/gfx/monsters/monsters.json';
 
 /** Depodaki metin dosyaları (Vite glob; credits listeleri hariç). */
-const FILES = import.meta.glob(['/src/**/*.{ts,json}', '/tools/**/*.mjs', '/*.{md,html,json}', '/tests/**/*.ts', '!/tests/g4a.test.ts'], { query: '?raw', import: 'default', eager: true }) as Record<string, string>;
+const FILES = import.meta.glob(['/src/**/*.{ts,json}', '/tools/**/*.mjs', '/*.{md,html,json}', '/tests/**/*.ts', ], { query: '?raw', import: 'default', eager: true }) as Record<string, string>;
 
 describe('Kutlama saati gerçek zamanla ilerler (15b)', () => {
   it('5 FPS\'te 4 saniye ≈ 4000 ms ilerler (kare deltasına bağlı değil)', () => {
@@ -42,13 +42,16 @@ describe('Yaratık portresi kameraya bakar (15d)', () => {
   });
 });
 
-describe('Eros ve Valmont (14)', () => {
+/** Kaldırılan eski ad (bu dosyada bile düz yazılmasın: depoda aranınca sıfır sonuç). */
+const OLD_NAME = new RegExp(['val', 'mont'].join(''), 'i');
+
+describe('Eros ve eski soylu adı (14)', () => {
   it('Şehrin adı Eros; anahtar kayıt uyumu için capital', () => {
     expect(CITY_NAMES.capital).toBe('Eros');
     expect(CITY_FULL_NAMES.capital).toContain('Eros');
   });
-  it('Depoda "Valmont" ve "kraliyet şehri" geçmez', () => {
-    const hits = Object.entries(FILES).filter(([p, src]) => !p.includes('credits') && (/valmont/i.test(src) || /kraliyet şehr/i.test(src))).map(([p]) => p);
+  it('Depoda eski ad ve "kraliyet şehri" geçmez', () => {
+    const hits = Object.entries(FILES).filter(([p, src]) => !p.includes('credits') && (OLD_NAME.test(src) || /kraliyet şehr/i.test(src))).map(([p]) => p);
     expect(Object.keys(FILES).length).toBeGreaterThan(50);
     expect(hits).toEqual([]);
   });
