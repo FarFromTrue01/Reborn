@@ -172,6 +172,59 @@ export default async ({ page, wait, shot, evalG }) => {
     console.log('sırta koyma tamam');
   }
 
+  // ================================================================ davranış: zamanlamalar (gerçek zamanlı)
+  if (want('behavior')) {
+    await resume();
+    await equip('iron_shortsword');
+    const P = () => W(() => {
+      const w = window.__game.scene.getScene('World'), pl = w.player;
+      return { t: w.playClock, st: pl.state, sheathed: pl.sheathed, sheath: pl.sheath?.kind ?? null, hit: pl.attackHitDone, anim: pl.actor.anim, calm: w.weaponCalm(), combat: +pl.combatT.toFixed(2) };
+    });
+    /** Koşul sağlanana kadar oyun saatiyle bekle; geçen oyun süresi (sn). */
+    const until = async (cond, max = 15) => {
+      const t0 = (await P()).t;
+      for (;;) {
+        const s = await P();
+        if (cond(s)) return { dt: +(s.t - t0).toFixed(2), s };
+        if (s.t - t0 > max) return { dt: null, s };
+        await wait(40);
+      }
+    };
+    // 1) açık alanda, savaşsız: 6 sn sonra sırta
+    await W(() => { const pl = window.__game.scene.getScene('World').player; pl.setSheathed(false); pl.sinceAttack = 0; pl.combatT = 99; });
+    let r = await until((s) => s.sheath === 'stow' || s.sheathed, 12);
+    console.log(`  açık alan: elde → sırta koyma başladı ${r.dt} sn (beklenen ≈6)`);
+    r = await until((s) => s.sheathed && !s.sheath, 2);
+    console.log(`  sırta koyma süresi ≈ ${r.dt} sn (beklenen ≈0,35)`);
+    // 2) sırttayken saldırı: hızlı çekme, saldırı hemen arkasından
+    await W(() => window.__IN.press('attack'));
+    r = await until((s) => s.st === 'attack', 2);
+    console.log(`  saldırı tuşu → saldırı başladı: ${r.dt} sn (beklenen ≈0,17)`);
+    r = await until((s) => s.hit, 2);
+    console.log(`  saldırı başı → darbe: ${r.dt} sn`);
+    await until((s) => s.st === 'free', 2);
+    // 3) ağır vuruşun hazırlanmasında kaçış iptal eder
+    await W(() => { window.__G.p.stamina = 999; window.__IN.press('heavy'); });
+    r = await until((s) => s.st === 'heavy', 2);
+    await wait(60);
+    await W(() => window.__IN.press('dodge'));
+    r = await until((s) => s.st === 'dodge' || s.st === 'free', 2);
+    const hitBefore = (await P()).hit;
+    console.log(`  ağır vuruş hazırlanırken kaçış: durum ${r.s.st}, darbe uygulandı mı: ${hitBefore ? 'evet (HATA)' : 'hayır'}`);
+    // 4) düşman fark edince silah çekilir
+    await W(() => { const w = window.__game.scene.getScene('World'); w.player.setSheathed(true); });
+    await W(() => { const w = window.__game.scene.getScene('World'); const a = w.player.actor; const [e] = w.spawnAt('slime', Math.floor(a.x / 32) + 3, Math.floor(a.y / 32), 1, 0, 'qa'); e.becomeAware(true); });
+    r = await until((s) => !s.sheathed && !s.sheath, 3);
+    console.log(`  düşman fark etti → silah elde: ${r.dt} sn (çekme ≈0,25)`);
+    await W(() => { const w = window.__game.scene.getScene('World'); for (const e of w.enemies) e.destroy?.(); w.enemies = []; w.inBattle = false; });
+    // 5) diyalogda hemen sırta
+    await W(() => { const w = window.__game.scene.getScene('World'); w.player.setSheathed(false); w.player.sinceAttack = 0; w.ui.say('joseph', 'QA'); });
+    await wait(300);
+    const dlg = await P();
+    console.log(`  diyalog açıkken: sırtta=${dlg.sheathed} (calm=${dlg.calm})`);
+    await h.run();
+  }
+
   // ================================================================ konuşurken idle (joystick basılı)
   if (want('talk')) {
     await resume();

@@ -7,6 +7,11 @@ LIC = os.path.join(ROOT, 'assets', 'licenses')
 os.makedirs(LIC, exist_ok=True)
 
 lpc = json.load(open(os.path.join(ROOT, 'tools', 'credits_lpc_chars.json')))
+# Grup 4B silahları (tools/build_weapons.py): aynı jeneratörden, dosya adına göre birleştirilir
+_wp = os.path.join(ROOT, 'tools', 'credits_weapons.json')
+if os.path.exists(_wp):
+    _have = {c['file'] for c in lpc}
+    lpc = sorted(lpc + [c for c in json.load(open(_wp)) if c['file'] not in _have], key=lambda c: c['file'])
 
 packs = [
     {'title': 'LPC Tile Atlas & LPC Tile Atlas 2 (arazi, köy parçaları, kapı/pencere)', 'authors': 'Lanea Zimmerman (Sharm), Daniel Eddeland, Casper Nilsson, Johann Charlot, Stephen Challener (Redshrike), Hyptosis, Barbara Rivera, Matthew Nash, Zabin, Jetrel, Bertram, Daniel Armstrong, Guido Bos, ve diğerleri (bkz. assets/licenses/LPC_Tile_Atlas_Attribution*.txt)', 'license': 'CC-BY-SA 3.0 / GPL 3.0', 'url': 'https://opengameart.org/content/lpc-tile-atlas', 'files': ['atlas1/Attribution.txt', 'atlas2/Attribution2.txt']},
@@ -43,6 +48,10 @@ for c in lpc:
     lines.append(f"- **{c['file']}** — {', '.join(c['authors'])} — {' / '.join(c['licenses'])}")
     for u in c.get('urls', [])[:3]:
         lines.append(f'  - {u}')
+lines += ['', '**Joseph\'in silahları (0.7.0, `tools/build_weapons.py`):** ahşap sopa yürüme kareleri *tools/smash* (çekiç) karelerinden yeniden çizildi; '
+          'sopa saldırısı *weapon/blunt/club*, kısa kılıçlar *weapon/sword/arming* (paslı kılıç pas tonuna boyandı), Goblin Satırı *weapon/sword/scimitar* '
+          '(mat demir ve deri kabzaya boyandı); sırtta/belde taşıma görüntüleri aynı karelerin döndürülüp yerleştirilmesiyle üretildi. '
+          'Türetilmiş kareler kaynaklarının lisanslarıyla paylaşılır.']
 lines += ['', '## Ortam, canavar ve ikon paketleri', '']
 for p in packs:
     lines.append(f"- **{p['title']}** — {p['authors']} — {p['license']} — {p['url']}")

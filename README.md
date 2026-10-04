@@ -23,7 +23,7 @@ Başka bir uygulamaya geçince oyun durur, ses susar ve otomatik kaydedilir. Tar
 | Yürü | Ekranın sol yarısında sürükle (sanal joystick; ayarlardan sol altta sabit yapılabilir) | WASD / ok tuşları |
 | Koş (dayanıklılık harcar) | Joystick'i kenara kadar it | Shift |
 | Saldırı | **Saldır** | J veya sol tık (tıklanan yöne) |
-| Ağır saldırı | **Ağır** | K |
+| Ağır saldırı (kısa hazırlanma; hazırlanırken Kaçış ile iptal) | **Ağır** | K |
 | Kaçış (yuvarlanma) | **Kaçış** | Boşluk veya sağ tık |
 | Etkileşim (konuş, gir, topla, uyu) | **Etkileşim** (menzilde bir şey varsa parlar: Konuş mavi, diğerleri yeşil) | E / Enter |
 | Hızlı yemek | Kaçış'ın solundaki yemek butonu | F |
@@ -48,7 +48,10 @@ Başka bir uygulamaya geçince oyun durur, ses susar ve otomatik kaydedilir. Tar
 - Yemekler bekleme süresine tabidir: her yemekten sonra 10 sn, art arda 3. yemekten sonra 60 sn. Son yemekten 60 sn geçince zincir sıfırlanır.
 - Dayanıklılık biterse Joseph **nefes nefese** kalır ve yürür. Joystick'i son kademede tutmaya devam edersen dayanıklılık **%100 dolunca kendiliğinden yeniden koşar**; joystick'i eşiğin altına çekmek (Shift'i bırakmak) da kilidi kaldırır.
 - **Yardımlı savaş** (varsayılan açık): saldırı tuşu menzildeki en yakın düşmana döner ve vurur (arkandaki dahil); hedefin altında bir işaret belirir. Kapalıyken eski davranış: baktığın yöne, küçük bir nişan düzeltmesiyle.
-- Ayarlar (kaydırılabilir; Görüntü · Ses · Oynanış · Kontroller bölümleri, geliştirici modunda + Geliştirici; başlık ekranında "Kapat" sabit): arayüz boyutu, metin hızı, sesler, **karakter hızı** (0.75x–2.0x, yalnızca yürüme/koşma), otomatik ilerleme, ekran sarsıntısı, FPS göstergesi, **FPS sınırı** (60 / 120 / 144 / Sınırsız; varsayılan 60 — yüksek değer daha akıcı ama pili hızlı tüketir), **grafik kalitesi** (çözünürlüğü de belirler: Yüksek en fazla 2x, Orta 1,5x, Düşük 1x cihaz pikseli; ayrıca ışık geçişi, orman sisi ve parçacıklar; menü kapanınca uygulanır), joystick modu (dokunmatikte varsayılan: sol altta sabit), **tam ekran** (iPhone'da: "Tam ekran için oyunu ana ekrana ekle"), yardımlı savaş.
+- **Silah animasyonları (0.7.0):** her silah elde görünür ve kendine göre sallanır/saplanır/gerilir. Hasar, silahın düşmana değdiği **darbe karesinde** işler (kesme mekaniği de o anda). Ağır vuruş silaha göre: kılıç ve sopa geriye çekip hızlı ve geniş savurur (öne adım + savurma izi), hançer hızla saplar, mızrak uzun hazırlanıp öne atılır, yay daha uzun gerilip güçlü bırakılır (geri tepme). Hazırlanma sırasında **Kaçış** vuruşu iptal eder.
+- **Silahı sırta koyma:** savaş dışında 6 sn saldırmazsan Joseph silahını sırtına (hançeri beline) koyar; düşman fark edince ya da saldırı tuşuna basınca çeker. Sırttayken saldırırsan çekme ~0,17 sn sürer ve saldırı hemen arkasından gelir. Hikâye sahnelerinde ve diyalogda silah hep sırttadır; köyün güvenli bölgelerinde ve iç mekânda ilk saldırıda çekilir, kısa süre sonra yine sırta konur. Ayarlar → Oynanış → *Silahı sırta koy* kapalıyken silah hep elde kalır.
+- Konuşurken, Appraisal/menü/dükkân açıkken ya da toplarken Joseph durur; joystick basılı kaldıysa iş bitince yürüme kaldığı yerden sürer.
+- Ayarlar (kaydırılabilir; Görüntü · Ses · Oynanış · Kontroller bölümleri, geliştirici modunda + Geliştirici; başlık ekranında "Kapat" sabit): arayüz boyutu, metin hızı, sesler, **karakter hızı** (0.75x–2.0x, yalnızca yürüme/koşma), otomatik ilerleme, ekran sarsıntısı, FPS göstergesi, **FPS sınırı** (60 / 120 / 144 / Sınırsız; varsayılan 60 — yüksek değer daha akıcı ama pili hızlı tüketir), **grafik kalitesi** (çözünürlüğü de belirler: Yüksek en fazla 2x, Orta 1,5x, Düşük 1x cihaz pikseli; ayrıca ışık geçişi, orman sisi ve parçacıklar; menü kapanınca uygulanır), joystick modu (dokunmatikte varsayılan: sol altta sabit), **tam ekran** (iPhone'da: "Tam ekran için oyunu ana ekrana ekle"), yardımlı savaş, **silahı sırta koy** (varsayılan açık; ayar sürümü 3).
 - Menü ve Appraisal paneli açıkken oyun zamanı durur (müzik sürer). Mini oyunlar ve konuşmalar eski davranışını korur.
 - **Geliştirici modu:** başlık ekranında sürüm numarasına 7 kez dokun. Menüde *Geliştirici* sekmesi açılır (Level/stat/HP/MP/para, skill rütbesi ve EXP, saat/gün, ışınlanma, görev ilerletme, Lonca Puanı); NPC'lerin başında Saygınlık değerleri görünür. Ayarlar'dan kapatılır. Normal oyuncu hiçbirini görmez.
 
@@ -246,6 +249,10 @@ node tools/qa/shot.mjs g1flow            # Ana Menüye Dön → Devam (HUD), yen
 URL='http://localhost:4173/?qa=1' node tools/qa/shot.mjs g3   # Appraisal (NPC/kendi/yaratık), HUD görev kategorileri, görev bitiş ve terfi animasyonu, Ayarlar (ONLY=appr,quest,rank,settings)
 node tools/qa/shot.mjs g1leak            # iç mekân turu (doku sızıntısı) ve WebGL bağlam kaybı → yenileme → devam
 node tools/qa/shot.mjs g1pwa             # SW: ilk kurulumda yenileme yok, önbellek, çevrimdışı açılış
+URL='http://localhost:4173/?qa=1' DPR=1 OUT=screens/g4b node tools/qa/shot.mjs g4b && python3 tools/qa/g4b_sheets.py
+                                         # silahlar: 4 yön yürüme (elde/sırtta), saldırı darbe/hazırlanma kareleri, sırta koyma/çekme,
+                                         # pelerinle sırt, konuşurken idle, zamanlamalar (ONLY=walk,cape,attack,sheath,behavior,talk) → tools/qa/g4b/
+URL='http://localhost:4173/?qa=1' DPR=1 node tools/qa/shot.mjs g4bperf   # meydanda silah + pelerinle FPS, saldırı sırasında FPS
 ```
 
 Görseller önceden üretilmiş olarak depodadır (`assets/gfx`). Yeniden üretmek için:
@@ -254,6 +261,7 @@ Görseller önceden üretilmiş olarak depodadır (`assets/gfx`). Yeniden üretm
 tools/fetch_sources.sh                                   # LPC kaynaklarını indirir (tools/.cache)
 python3 tools/lpc_chars.py tools/.cache/lpc-repo         # karakter sprite sheet'leri
 python3 tools/build_terrain.py && python3 tools/build_props.py && python3 tools/build_buildings.py
+python3 tools/build_weapons.py tools/.cache/lpc-repo     # silahlar: sopa, kılıçlar, satır, saldırı ve taşıma katmanları (lpc_chars'tan sonra)
 python3 tools/build_monsters.py && python3 tools/build_icons.py && python3 tools/build_credits.py
 ```
 
@@ -280,6 +288,12 @@ Yeni bina eklerken: `tools/build_buildings.py` içinde tarif, `src/data/manifest
 Oyun yalnızca `main` dalından yayınlanır (GitHub Actions → `github-pages` ortamı → Pages). Eski `claude/vigilant-darwin-hcoqh5` dalı artık workflow'u tetiklemez; o daldan yapılan eski dağıtım denemeleri ortam koruma kuralına takıldığı için ("Branch … is not allowed to deploy to github-pages") kırmızı görünür, siteyi etkilemez. Deponun varsayılan dalı hâlâ o eski dal ve bu oturumdaki araçlarla değiştirilemiyor. Değiştirmek için: GitHub'da depo → **Settings → General → Default branch** → ⇄ simgesi → `main` → **Update** → onayla. Sonra eski dalı silebilirsin.
 
 ## Sürüm notları
+
+- **0.7.0** — Silahlar ve animasyon (Grup 4B, bkz. `PLAN.md`). Güncelleme planı tamamlandı.
+  - *Silah modelleri:* Sopalar artık ahşap (Çatlak Sopa açık renkli ve çatlak, Budaklı Sopa koyu ve budaklı); saldırıda sopa görünür biçimde iner. Paslı Kısa Kılıç ve Demir Kısa Kılıç gerçek kısa kılıç (paslı / çelik), Goblin Satırı mat demir bir pala. Hançer hançer olarak kaldı. Yeni silah görünümü eklemek yalnızca veri (`WEAPON_VISUALS`).
+  - *Saldırılar:* Hasar darbe karesinde; normal ve ağır vuruş her silahta ayrı (hazırlanma, savurma izi, öne adım/atılma, yay çekiş efekti); hazırlanırken kaçışla iptal. Saldırı süresi formülü değişmedi.
+  - *Sırta koyma:* 6 sn savaşsız kalınca silah sırta (hançer bele), savaşta ya da saldırıda çekilir; dört yönde, yürürken salınarak, pelerinin üstünde. Ayarlar → Oynanış → Silahı sırta koy.
+  - *Düzeltmeler:* Konuşurken, Appraisal/menü/dükkânda Joseph yürüme pozunda kalmıyor; toplarken duruyor; etkileşimden sonra basılı joystick ile yürüme sürüyor.
 
 - **0.6.0** — Görevler ve içerik (Grup 4A, bkz. `PLAN.md`).
   - *Ana görev:* Hiçbir an "aktif görev yok" değil; bekleme adımları, NPC'ye ulaşılabilirlik ve bekleme metni, "Görev saatine kadar uyu". Pano silahtan sonra aynı gün. İlk Kadeh'te masaya otur. Kâhyanın kesesinde şüpheli işaretleri ve muhafızı izleme.

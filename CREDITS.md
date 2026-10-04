@@ -350,6 +350,8 @@ Kaynak: https://github.com/sanderfrenken/Universal-LPC-Spritesheet-Character-Gen
 - **torso/waist/belt_leather** — bluecarrot16, Johannes Sjölund (wulax), Matthew Krohn (makrohn) — OGA-BY 3.0 / CC-BY-SA 3.0 / GPL 3.0
   - https://opengameart.org/content/lpc-combat-armor-for-women
   - https://opengameart.org/content/lpc-pirates
+- **weapon/blunt/club** — bluecarrot16 — OGA-BY 3.0+ / GPL 3.0 / CC-BY 4.0
+  - https://opengameart.org/content/lpc-more-weapons
 - **weapon/polearm/cane** — bluecarrot16 — CC-BY-SA 3.0 / GPL 3.0
   - https://opengameart.org/content/lpc-gentleman
 - **weapon/polearm/spear** — walk animations redone by pvigier — split into layers and tweaked for v3 character bases by bluecarrot16
@@ -360,12 +362,19 @@ Kaynak: https://github.com/sanderfrenken/Universal-LPC-Spritesheet-Character-Gen
   - Johannes Sjölund (wulax), Pierre Vigier (pvigier)
   - OGA-BY 3.0+, GPL 3.0, CC-BY 4.0
   - https://opengameart.org/content/lpc-medieval-fantasy-character-sprites
+- **weapon/sword/arming** — ElizaWy; walk and down by JaidynReiman — OGA-BY 3.0
+  - https://github.com/ElizaWy/LPC/tree/main/Characters/Props/Sword%2001%20-%20Arming%20Sword
+  - https://opengameart.org/content/expanded-universal-lpc-spritesheet-idle-run-jump-lpc-revised-combat-and-assets
 - **weapon/sword/dagger** — bluecarrot16, Johannes Sjölund (wulax), Matthew Krohn (makrohn) — OGA-BY 3.0 / CC-BY-SA 3.0 / GPL 3.0
   - https://opengameart.org/content/lpc-medieval-fantasy-character-sprites
   - https://opengameart.org/content/lpc-extended-weapon-animations
 - **weapon/sword/longsword** — Johannes Sjölund (wulax), bluecarrot16 — OGA-BY 3.0 / CC-BY-SA 3.0
   - https://opengameart.org/content/lpc-medieval-fantasy-character-sprites
   - https://opengameart.org/content/lpc-extended-weapon-animations
+- **weapon/sword/scimitar** — Pierre Vigier and DCSS artists (see https://github.com/crawl/tiles/blob/master/ARTISTS.md) — OGA-BY 3.0
+  - https://opengameart.org/content/lpc-dcss-swords
+
+**Joseph'in silahları (0.7.0, `tools/build_weapons.py`):** ahşap sopa yürüme kareleri *tools/smash* (çekiç) karelerinden yeniden çizildi; sopa saldırısı *weapon/blunt/club*, kısa kılıçlar *weapon/sword/arming* (paslı kılıç pas tonuna boyandı), Goblin Satırı *weapon/sword/scimitar* (mat demir ve deri kabzaya boyandı); sırtta/belde taşıma görüntüleri aynı karelerin döndürülüp yerleştirilmesiyle üretildi. Türetilmiş kareler kaynaklarının lisanslarıyla paylaşılır.
 
 ## Ortam, canavar ve ikon paketleri
 

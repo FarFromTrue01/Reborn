@@ -35,7 +35,7 @@ def sheet(rows, out, labels=None):
         d = ImageDraw.Draw(o)
         for ri, t in enumerate(labels):
             d.text((6, ri * 122 * Z + 4), t, fill=(255, 255, 0))
-    o.save(os.path.join(OUT, out + '.png'), optimize=True)
+    o.quantize(256, dither=Image.Dither.NONE).save(os.path.join(OUT, out + '.png'), optimize=True)
     print(out)
 
 

@@ -2,7 +2,7 @@
 import { describe, it, expect } from 'vitest';
 import { attackPlan, attackFrameAt, impactTime, windupEnd, ANIM_FRAMES } from '../src/world/attackPlan';
 import { ITEMS } from '../src/data/items';
-import { JOSEPH_BIG, JOSEPH_LAYERS, WEAPON_VISUALS, WEAPON_ITEM_IMAGES, CARRY_Z } from '../src/data/manifest';
+import { JOSEPH_BIG, JOSEPH_LAYERS, WEAPON_VISUALS, WEAPON_ITEM_IMAGES, WEAPON_ROT, CARRY_Z } from '../src/data/manifest';
 import { sanitizeSettings, SETTINGS_VERSION, defaultSettings } from '../src/game/settings';
 import type { WeaponType } from '../src/core/types';
 
@@ -121,6 +121,9 @@ describe('Silah görünümleri (1, 2)', () => {
       const m = (weaponsMeta as any)[k];
       expect(m, k).toBeTruthy();
       for (const d of ['up', 'left', 'down', 'right']) expect(m.carry[d]).toBeTruthy();
+      // süzülen silah: önceden döndürülmüş sayfa (RotSprite), boyut kodla aynı
+      expect(m.rot).toEqual(WEAPON_ROT);
+      expect(pngSize(WEAPON_ITEM_IMAGES[k])).toEqual([WEAPON_ROT.cell * 8, WEAPON_ROT.cell * (WEAPON_ROT.steps / 8)]);
     }
   });
 });

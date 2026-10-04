@@ -169,6 +169,8 @@ for (const [k, v] of Object.entries(WEAPON_VISUALS)) {
   JOSEPH_LAYERS[k + '_carry'] = { file: `assets/gfx/chars/joseph/${k}_carry.png`, z: CARRY_Z.fg };
   JOSEPH_LAYERS[k + '_carry_bg'] = { file: `assets/gfx/chars/joseph/${k}_carry_bg.png`, z: CARRY_Z.bg };
 }
+/** Süzülen silah sayfası: 32 açı (11,25°), 80 px kare, tutma noktası karenin ortasında (RotSprite ile önceden döndürülmüş). */
+export const WEAPON_ROT = { steps: 32, cell: 80 };
 export const WEAPON_ITEM_IMAGES: Record<string, string> = Object.fromEntries(
   Object.entries(WEAPON_VISUALS).filter(([, v]) => v.carry).map(([k]) => [k, `assets/gfx/chars/joseph/${k}_item.png`]),
 );

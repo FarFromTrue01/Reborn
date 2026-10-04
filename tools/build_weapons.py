@@ -19,7 +19,7 @@ alır, Joseph'in klasik LPC düzenine (832x1344, 64 px kare) uyarlar ve oyun iç
 Kullanım:  python3 tools/build_weapons.py <lpc-repo-klasoru>
 """
 import json, os, sys, math, subprocess
-from PIL import Image
+from PIL import Image, ImageOps
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 JD = os.path.join(ROOT, 'assets', 'gfx', 'chars', 'joseph')
@@ -323,12 +323,28 @@ CARRY = {
     },
 }
 # Uzun silahlarda (mızrak, yay) tutma noktası silahın ortasıdır; sırtta da ortası omuz hizasına gelir.
+# Sağ yön, sol yönün aynası (`flip`): yayın kavisi iki yanda da sırta doğru.
 CARRY_LONG = {
     'up': {'x': 32, 'y': 38, 'a': -58, 'front': True},
     'down': {'x': 32, 'y': 38, 'a': -122, 'front': False},
     'left': {'x': 37, 'y': 37, 'a': -62, 'front': False},
-    'right': {'x': 27, 'y': 37, 'a': -118, 'front': False},
+    'right': {'x': 27, 'y': 37, 'a': -118, 'front': False, 'flip': True},
 }
+
+
+ROT_STEPS, ROT_CELL = 32, 80
+
+
+def rot_sheet(item, pivot, base_ang):
+    """Süzülen silah için önceden döndürülmüş kareler: k. karede uç k·360/32 derece yönünde, tutma noktası karenin ortasında."""
+    out = Image.new('RGBA', (ROT_CELL * 8, ROT_CELL * (ROT_STEPS // 8)))
+    for k in range(ROT_STEPS):
+        spr, R = rotated(item, pivot, k * 360 / ROT_STEPS - base_ang)
+        cell = Image.new('RGBA', (ROT_CELL, ROT_CELL))
+        cell.alpha_composite(spr, (ROT_CELL // 2 - R, ROT_CELL // 2 - R)) if R <= ROT_CELL // 2 else \
+            cell.alpha_composite(spr.crop((R - ROT_CELL // 2, R - ROT_CELL // 2, R + ROT_CELL // 2, R + ROT_CELL // 2)))
+        out.alpha_composite(cell, ((k % 8) * ROT_CELL, (k // 8) * ROT_CELL))
+    return out
 
 
 def head_anchor(head, row, col):
@@ -341,6 +357,7 @@ def head_anchor(head, row, col):
 def carry_layers(item, pivot, base_ang, place, sway=0.0):
     """Taşıma katmanları (ön, arka). Gövde salınımı başın konumundan okunur."""
     head = joseph('head.png')
+    mirrored = ImageOps.mirror(item)
     fg = Image.new('RGBA', (W, H))
     bg = Image.new('RGBA', (W, H))
     rows = []
@@ -359,7 +376,11 @@ def carry_layers(item, pivot, base_ang, place, sway=0.0):
             a = p['a']
             if row >= 8 and row <= 11 and col > 0 and sway:
                 a += sway * math.sin((col - 1) / 8 * 2 * math.pi)
-            spr, R = rotated(item, pivot, a - base_ang)
+            if p.get('flip'):
+                # ayna: öğe yatay çevrilir, açı da aynalanır (−90° dik eksene göre)
+                spr, R = rotated(mirrored, (item.width - pivot[0], pivot[1]), a - (180 - base_ang))
+            else:
+                spr, R = rotated(item, pivot, a - base_ang)
             dst = fg if p['front'] else bg
             cell = Image.new('RGBA', (F + 2 * R, F + 2 * R))
             cell.alpha_composite(spr, (int(p['x'] + dx), int(p['y'] + dy)))
@@ -408,7 +429,7 @@ def main():
         fg, bg = carry_layers(item, pivot, 0, CARRY['back'])
         save(fg, name + '_carry.png')
         save(bg, name + '_carry_bg.png')
-        save(item, name + '_item.png')
+        save(rot_sheet(item, pivot, 0), name + '_item.png')
         meta[name] = {'item': {'px': pivot[0], 'py': pivot[1], 'a': 0}, 'carry': CARRY['back']}
 
     # ------------------------------------------------------------- arming (kısa kılıçlar)
@@ -435,7 +456,7 @@ def main():
         fg, bg = carry_layers(item, pivot, base, CARRY['back'])
         save(fg, name + '_carry.png')
         save(bg, name + '_carry_bg.png')
-        save(item, name + '_item.png')
+        save(rot_sheet(item, pivot, base), name + '_item.png')
         meta[name] = {'item': {'px': pivot[0], 'py': pivot[1], 'a': round(base, 1)}, 'carry': CARRY['back']}
 
     # ------------------------------------------------------------- goblin satırı (pala)
@@ -462,7 +483,7 @@ def main():
     fg, bg = carry_layers(item, pivot, base, CARRY['back'])
     save(fg, 'w_cleaver_carry.png')
     save(bg, 'w_cleaver_carry_bg.png')
-    save(item, 'w_cleaver_item.png')
+    save(rot_sheet(item, pivot, base), 'w_cleaver_item.png')
     meta['w_cleaver'] = {'item': {'px': round(pivot[0], 1), 'py': round(pivot[1], 1), 'a': round(base, 1)}, 'carry': CARRY['back']}
 
     # ------------------------------------------------------------- mevcut silahlar: hançer, mızrak, yay
@@ -475,7 +496,7 @@ def main():
     fg, bg = carry_layers(item, pivot, base, CARRY['hip'], sway=4)
     save(fg, 'w_dagger_carry.png')
     save(bg, 'w_dagger_carry_bg.png')
-    save(item, 'w_dagger_item.png')
+    save(rot_sheet(item, pivot, base), 'w_dagger_item.png')
     meta['w_dagger'] = {'item': {'px': pivot[0], 'py': pivot[1], 'a': round(base, 1)}, 'carry': CARRY['hip']}
 
     spear = Image.alpha_composite(joseph('w_spear_bg.png'), joseph('w_spear.png'))
@@ -484,7 +505,7 @@ def main():
     fg, bg = carry_layers(item, pivot, 0, CARRY_LONG)
     save(fg, 'w_spear_carry.png')
     save(bg, 'w_spear_carry_bg.png')
-    save(item, 'w_spear_item.png')
+    save(rot_sheet(item, pivot, 0), 'w_spear_item.png')
     meta['w_spear'] = {'item': {'px': pivot[0], 'py': pivot[1], 'a': 0}, 'carry': CARRY_LONG}
 
     bow = Image.alpha_composite(joseph('w_bow_bg.png'), joseph('w_bow.png'))
@@ -493,9 +514,11 @@ def main():
     fg, bg = carry_layers(item, pivot, -90, CARRY_LONG)
     save(fg, 'w_bow_carry.png')
     save(bg, 'w_bow_carry_bg.png')
-    save(item, 'w_bow_item.png')
+    save(rot_sheet(item, pivot, -90), 'w_bow_item.png')
     meta['w_bow'] = {'item': {'px': pivot[0], 'py': pivot[1], 'a': -90}, 'carry': CARRY_LONG}
 
+    for m in meta.values():
+        m['rot'] = {'steps': ROT_STEPS, 'cell': ROT_CELL}
     with open(os.path.join(JD, 'weapons.json'), 'w') as f:
         json.dump(meta, f, indent=1)
 

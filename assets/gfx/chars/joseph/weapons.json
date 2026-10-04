@@ -30,6 +30,10 @@
     "a": 122,
     "front": false
    }
+  },
+  "rot": {
+   "steps": 32,
+   "cell": 80
   }
  },
  "w_stick_cracked": {
@@ -63,6 +67,10 @@
     "a": 122,
     "front": false
    }
+  },
+  "rot": {
+   "steps": 32,
+   "cell": 80
   }
  },
  "w_arming_rusty": {
@@ -96,6 +104,10 @@
     "a": 122,
     "front": false
    }
+  },
+  "rot": {
+   "steps": 32,
+   "cell": 80
   }
  },
  "w_arming_steel": {
@@ -129,6 +141,10 @@
     "a": 122,
     "front": false
    }
+  },
+  "rot": {
+   "steps": 32,
+   "cell": 80
   }
  },
  "w_cleaver": {
@@ -162,6 +178,10 @@
     "a": 122,
     "front": false
    }
+  },
+  "rot": {
+   "steps": 32,
+   "cell": 80
   }
  },
  "w_dagger": {
@@ -195,6 +215,10 @@
     "a": 118,
     "front": false
    }
+  },
+  "rot": {
+   "steps": 32,
+   "cell": 80
   }
  },
  "w_spear": {
@@ -226,8 +250,13 @@
     "x": 27,
     "y": 37,
     "a": -118,
-    "front": false
+    "front": false,
+    "flip": true
    }
+  },
+  "rot": {
+   "steps": 32,
+   "cell": 80
   }
  },
  "w_bow": {
@@ -259,8 +288,13 @@
     "x": 27,
     "y": 37,
     "a": -118,
-    "front": false
+    "front": false,
+    "flip": true
    }
+  },
+  "rot": {
+   "steps": 32,
+   "cell": 80
   }
  }
 }

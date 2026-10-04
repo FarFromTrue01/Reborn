@@ -4,7 +4,7 @@ import { Actor, dirFromVec, dirVec, type Dir } from './actor';
 import { G } from '../game/G';
 import { Input } from '../game/input';
 import { ITEMS } from '../data/items';
-import { JOSEPH_BIG, JOSEPH_LAYERS, WEAPON_VISUALS } from '../data/manifest';
+import { JOSEPH_BIG, JOSEPH_LAYERS, WEAPON_ROT, WEAPON_VISUALS } from '../data/manifest';
 import type { LayerDef } from './actor';
 import { attackFrameAt, attackPlan, impactTime, windupEnd, type AttackPlan } from './attackPlan';
 import { TILE } from './types';
@@ -46,7 +46,7 @@ const CARRY_PATH_CTRL: Record<Dir, { x: number; y: number }> = {
 
 interface CarryMeta {
   item: { px: number; py: number; a: number };
-  carry: Record<Dir, { x: number; y: number; a: number; front: boolean }>;
+  carry: Record<Dir, { x: number; y: number; a: number; front: boolean; flip?: boolean }>;
 }
 
 interface SheathAnim {
@@ -211,8 +211,8 @@ export class Player {
       then?.();
       return;
     }
-    const img = this.w.add.image(this.actor.x, this.actor.y, key);
-    img.setOrigin(meta.item.px / img.width, meta.item.py / img.height).setVisible(false);
+    // önceden döndürülmüş sayfa: tutma noktası karenin ortasında
+    const img = this.w.add.image(this.actor.x, this.actor.y, key, 0).setOrigin(0.5, 0.5).setVisible(false);
     this.sheath = { kind, t: 0, dur: kind === 'stow' ? STOW_DUR : fast ? QUICK_DRAW_DUR : DRAW_DUR, then, float: img, shown: false };
     if (kind === 'draw') this.sheathed = false;
     this.applyWeaponMode();
@@ -274,18 +274,24 @@ export class Player {
     const u = Math.max(0, Math.min(1, (k - 0.1) / 0.65));
     const e = u * u * (3 - 2 * u);
     const p = sh.kind === 'stow' ? e : 1 - e;
-    const c = CARRY_PATH_CTRL[a.dir];
+    // sırt: omzun üstünden / sırt kenarından; bel (hançer): elden bele düz
+    const c = back.y >= 40 ? { x: (hand.x + back.x) / 2, y: (hand.y + back.y) / 2 } : CARRY_PATH_CTRL[a.dir];
     const x = (1 - p) * (1 - p) * hand.x + 2 * (1 - p) * p * c.x + p * p * back.x;
     const y = (1 - p) * (1 - p) * hand.y + 2 * (1 - p) * p * c.y + p * p * back.y;
     let da = back.a - hand.a;
     da = ((da + 540) % 360) - 180;
-    const ang = hand.a + da * p - meta.item.a;
+    const tip = hand.a + da * p;
     const f = sh.float;
     const arrived = k >= 0.75;
     if (f) {
       f.setVisible(!arrived);
       f.setPosition(Math.floor(a.x) + x - 32, Math.floor(a.y) + y - 61 - a.liftY);
-      f.setAngle(ang);
+      // sırttaki görüntü aynalanmışsa (yay, sağ yön) yolun ikinci yarısında süzülen silah da aynalanır
+      const flip = !!back.flip && p > 0.5;
+      const deg = flip ? 180 - tip : tip;
+      const step = 360 / WEAPON_ROT.steps;
+      f.setFrame(((Math.round(deg / step) % WEAPON_ROT.steps) + WEAPON_ROT.steps) % WEAPON_ROT.steps);
+      f.setFlipX(flip);
       // elden çıkınca gövdenin arkasından geçer (sırtı dönükken sırtın üstünde): yüzün önünden geçmez
       const front = p < 0.15 ? a.dir !== 'up' : back.front;
       f.setDepth(a.depth + (front ? 0.5 : -0.5));
@@ -378,6 +384,7 @@ export class Player {
     {
       const moving = Math.hypot(Input.moveX, Input.moveY) > 0.08 && (this.state === 'free');
       if (this.state !== 'dead') this.tickSheath(dt, !moving);
+      else if (this.sheath) this.cancelSheath();
     }
 
     if (a.frozenT > 0) {

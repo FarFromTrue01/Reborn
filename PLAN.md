@@ -1,6 +1,6 @@
 # Güncelleme planı — devam notu
 
-Dört aşamalı plan. Her oturum yalnızca kendi grubunu yapar; bitince bu dosyayı günceller.
+Dört aşamalı plan — **tamamlandı (0.7.0)**. Her oturum yalnızca kendi grubunu yaptı ve bu dosyayı güncelledi.
 
 | Grup | Kapsam | Durum |
 | --- | --- | --- |
@@ -8,7 +8,7 @@ Dört aşamalı plan. Her oturum yalnızca kendi grubunu yapar; bitince bu dosya
 | **2. Denge ve dövüş** | Düşman/Joseph sayıları, hasar ve EXP eğrileri, dövüş mekanikleri | ✅ 0.4.0 |
 | **3. Arayüz** | Appraisal paneli (NPC/kendi/yaratık), eşya rütbeleri, saygınlık gösterimi, HUD görev kategorileri, Lonca Kartı barı, terfi görevi ve animasyonu, görev bitiş animasyonu, görev EXP kuralı, Ayarlar paneli | ✅ 0.5.0 |
 | **4A. Görevler ve içerik** | Ana görev güvencesi, pano akışı, NPC hedefli amaçlar, şifalı ot, yaralılar, sahne karakterleri, kâhyanın kesesi, yan görev iş yerleri ve mavi işaretler, lonca/pano, görev saatine kadar uyku, han oturma yerleri, yoldaş takibi, Dorn, Eros ve soylu adı, Grup 3'ten kalan dört düzeltme | ✅ 0.6.0 |
-| **4B. Animasyon ve silahlar** | Silah modelleri, saldırı animasyonları, kılıcı sırta koyma, konuşurken yürüme animasyonu | sırada |
+| **4B. Animasyon ve silahlar** | Silah modelleri, saldırı animasyonları, kılıcı sırta koyma, konuşurken yürüme animasyonu | ✅ 0.7.0 |
 
 ## Grup 1'de yapılanlar (0.3.1)
 
@@ -118,9 +118,48 @@ Başsız tarayıcıda FPS'i yazılım GPU'nun doldurma hızı sınırlıyor; DPR
 - **Han:** 19:00 (13 NPC) ve 20:00 (15 NPC) iç içe duran yok.
 - Başsız turda kutlama animasyonları ve sahneler çok hızlı ilerletildiği için bazı ertelenmiş bitişler (ör. "İlk Kadeh") bir sonraki sahnenin ardından oynadı; normal oyunda sahne biter bitmez oynar. Gerçek tablette denenemedi.
 
+## Grup 4B'de yapılanlar (0.7.0)
+
+- **Varlık üretimi** (`tools/build_weapons.py <lpc-repo>`): LPC jeneratöründen (seyrek klon) sopa/kılıç/pala sayfaları Joseph'in klasik düzenine uyarlanır. Çıktılar `assets/gfx/chars/joseph/`: el katmanları (64 px), büyük kare saldırı/yürüme sayfaları (128/192 px), sırt/bel taşıma katmanları (`*_carry`, `*_carry_bg`), süzülen silah sayfası (`*_item`, 32 açı × 80 px, RotSprite benzeri döndürme) ve `weapons.json` (tutma noktası, yöne göre sırttaki konum/açı). Krediler `tools/credits_weapons.json` → `build_credits.py`.
+- **Sopa:** `w_stick` (Budaklı, koyu, budaklı) ve `w_stick_cracked` (Çatlak, açık renkli, boydan boya çatlak). Yürüme kareleri eski `w_club` (çekiç) karelerinden yeniden çizildi: tutma ucu ve yön çekiçten okunur, sap uca doğru kalınlaşan ahşap sopa olur. Saldırı: LPC `weapon/blunt/club` (bluecarrot16, 192 px); jeneratördeki gibi **ters slash** (gövde 5→0, sopa 0→5: sopa başın üstünden iner). Çatlak sopa için saldırı sayfası da açık tona boyandı. `w_club` gürz/topuz için yerinde.
+- **Kılıçlar:** Paslı Kısa Kılıç = `arming` (çelik, pas tonuna kaydırılmış), Demir Kısa Kılıç = `arming` çelik, Goblin Satırı = `scimitar` (mat demir, deri kabza). Arming: universal sayfanın üst 1344 px'i (yürüme/hurt, fg z140 + bg z9) + `attack_slash` 128 px (fg z150, bg z8). Pala: yürüme ve slash 128 px (bıçak 64 px kareden taşıyor). Hançer hançer.
+- **Büyük kare katmanlar** (`Actor`): `LayerDef.big = { size, anim: 'slash' | 'walk', reverse }`; karenin merkezi 64 px karenin merkeziyle çakışır, gövdenin i. karesiyle aynı anda gösterilir. Katman rolleri `base | hand | carry`; `weaponMode` (elde / sırtta / geçişte). Yeni silah = `WEAPON_VISUALS`'a bir kayıt + `build_weapons.py`'de üretim; kod değişmez.
+- **Saldırı zaman çizelgesi** (`src/world/attackPlan.ts`, saf; test edilir): `pre / hold / swing` bölümleri, toplam süre `attackDur` (formül aynı). **Hasar darbe karesinde** (slash 3, thrust 5, shoot 9; yumruk eski %45/%60). Grup 2'nin kesme mekaniği `hitEnemy` içinde olduğundan darbe karesiyle birlikte çalışır.
+  - Kılıç: ağırda kılıç geriye çekili karede (2) tutulur, sonra hızlı geniş savuruş, öne adım, savurma izi. Sopa: ağırda sopa başın üstünde (kare 0) tutulur. Hançer: normal slash, ağır hızlı saplama + atılma. Mızrak: normal thrust, ağır uzun hazırlanma + hamle (lunge). Yay: normal shoot, ağır tam gerili karede bekler, bırakınca çekiş halkası + geri tepme.
+  - Hazırlanmada **kaçış iptal eder**; geç iptal (%75 sonrası) korunur. Beceri saldırıları eski yolla (çizelgesiz).
+- **Sırta koyma / çekme** (`Player.tickSheath`): savaş ve saldırı olmadan 6 sn (`min(sinceAttack, combatT) ≥ 6`) → sırta koy (0,35 sn). Düşman fark edince (`inBattle` başlangıcı) ve `enterCombat`'ta çek (0,25 sn, oyuncuyu durdurmaz). Sırttayken saldırı: hızlı çekme 0,17 sn (`draw` durumu) + saldırı hemen arkasından. Hikâye sahnesi/diyalog (`weaponCalm() === 'scene'`): anında sırta. İç mekân ve güvenli bölge: ilk saldırıda çekilir, 1,5 sn sonra yine sırta. Silahla yapılan beceri: anında ele. Kılıç, sopa, satır, mızrak, yay sırtta; hançer belde. Dururken gövde thrust 1–3 karelerinde kolunu omza/sırta uzatır; yürürken bacaklar yürümeye devam eder. Süzülen silah Bezier yolla omzun üstünden geçer; çekince metal parıltısı + ses (`draw`, `sheathe`, `bowstring` sesleri).
+  - Taşıma katmanları dört yönde, walk/idle/koşu, spellcast ve hurt (0–2) karelerinde; gövdenin salınımını (baş konumu) izler. z: önde 90 (pelerin 85'in üstü, baş 100'ün altı), arkada 6 (gövde 10'un, pelerin arkası 5'in üstü). Yay ve mızrağın elde yürüme karesi yok (LPC): yürürken/dururken sırttaki görünüm, saldırıda elde.
+  - Ayar: Ayarlar → Oynanış → **Silahı sırta koy** (varsayılan açık); ayar sürümü 3, eski ayarlar açık olarak göçer.
+- **Etkileşimde idle:** dünya duraklarken (Appraisal, menü, dükkân, mini oyun) `Player.holdStill` / `Companion.holdStill` — yürüme pozunda donma yok, hız sıfır. `locked` durumunda senaryo yürütmüyorsa idle. Toplarken durur ve otu koparır. Joystick son konumu `Input.touchX/Y`'de tutulur: diyalog/menü bitince basılı joystick ile yürüme kaldığı yerden sürer. NPC'ler (`talking`) ve yoldaşlar (ara sahnede) zaten idle.
+- Testler: 481 → 494 (`tests/g4b.test.ts`).
+
+### Ekran görüntüsü seti (`tools/qa/g4b/`, en yakın komşu ile büyütülmüş)
+
+Üretim: `npm run build && npx vite preview --port 4173 &`, `URL='http://localhost:4173/?qa=1' DPR=1 OUT=screens/g4b node tools/qa/shot.mjs g4b && python3 tools/qa/g4b_sheets.py`.
+
+- `walk_<silah>.png` — her silah, dört yönde yürüme (üst satır elde, alt satır sırtta): `cracked_stick`, `wooden_club`, `rusty_shortsword`, `iron_shortsword`, `goblin_cleaver`, `hunting_knife`, `iron_spear`, `short_bow`.
+- `attack_<silah>.png` — dört yönde normal vuruşun darbe karesi, ağır vuruşun hazırlanma karesi ve ağır vuruşun darbe karesi (yukarıdaki 8 silah + `fist`).
+- `sheath_<silah>.png` — dört yönde sırta koymanın ve çekmenin orta karesi.
+- `cape_up.png` — pelerinliyken, yukarı bakarken sırttaki silah (8 silah).
+- `talk_idle.png` — joystick basılıyken konuşma: Joseph idle, muhafıza dönük, silah sırtta.
+
+### Ölçümler (başsız Chromium, DPR 1)
+
+- Zamanlamalar (`ONLY=behavior`): açık alanda elde → sırta koyma 6,03 sn'de başladı, 0,35 sn sürdü; sırttayken saldırı tuşu → saldırı 0,25 sn (başsız tarayıcıda kare 50 ms; 60 FPS'te ≈0,19 sn); düşman fark edince silah 0,25 sn'de elde; ağır vuruşun hazırlanmasında kaçış → hasar uygulanmadı; diyalogda silah sırtta. Konuşma: sırasında idle (hız 0, muhafıza dönük), sonra basılı joystick ile yürüme sürdü.
+- **Performans** (`node tools/qa/shot.mjs g4bperf`, köy meydanı 25 NPC, Demir Kısa Kılıç + pelerin; aynı makinede 0.6.0 ile, iki tur): meydan FPS 6,0 / 6,1 → 6,3 / 6,1, CPU kare süresi 9,8 / 9,4 → 9,6 / 10,4 ms; ormanda sürekli saldırı 4,6 / 4,8 → 4,9 / 4,8 FPS. Fark gürültü düzeyinde. Joseph'in sprite sayısı 9 → 13 (görünmeyenler çizilmez). Bu makinede mutlak FPS Grup 1 ölçümünden (9,7) düşük; kıyas aynı makinede yapıldı.
+
+### Görsellerde tatmin edici olmayanlar
+
+- Arming kılıç saldırı sayfası ElizaWy'nin yeni gövdesi için çizilmiş; Joseph'in klasik slash'inde sağ/yukarı yönde iyi otururken ilk 1–2 karede (geriye çekiş) kabza el ile tam çakışmıyor (1–2 piksel). Kaydırma yapılmadı.
+- Yay ve mızrağın LPC'de elde yürüme karesi yok: savaşta yürürken de sırtta görünürler, saldırıda ele gelirler. Hançerin yukarı yön saplaması LPC'de gövdenin arkasında kalıyor (görünmüyor).
+- Yandan bakışta sırttaki kılıç/sopa sırttan dışa açılı duruyor (stilize; gerçekte sırta yapışık olurdu). Önden bakışta yalnızca omuz üstündeki kabza görünür. Hançer sağa bakarken belin arka tarafında kaldığı için görünmez.
+- Pala (Goblin Satırı) için hurt karesi yok; vurulunca kısa süre (0,28 sn) silah görünmez.
+- Sırta koyarken süzülen yay büyük ve ince; 0,35 sn'lik geçişte göze batmıyor ama durağan karede iri görünüyor. Çatlak sopanın çatlağı oyun ölçeğinde zor seçilir (asıl fark renk).
+- Gerçek tablette denenemedi (yalnızca başsız tarayıcı).
+
 ## Sonraki oturum için notlar
 
-- **Grup 4B için:** silah modelleri, saldırı animasyonları, kılıcı sırta koyma, konuşurken yürüme animasyonu (4A bunlara dokunmadı). Terfi animasyonu için ayrı bir ses bestesi hâlâ yok (mevcut `levelup` + `holy`). `fmtHp` 10 altını hep bir ondalık gösterir ("HP 5,0 / 5,0").
+- **Plan tamamlandı.** Grup 4B'den açık kalanlar: yukarıdaki "tatmin edici olmayanlar" listesi; ileride gürz/topuz için `w_club` hazır, uzun kılıç için LPC `longsword` saldırı sayfaları (192 px, klasik gövdeyle birebir uyumlu) kullanılabilir. Terfi animasyonu için ayrı bir ses bestesi hâlâ yok (mevcut `levelup` + `holy`). `fmtHp` 10 altını hep bir ondalık gösterir ("HP 5,0 / 5,0").
 - **4A'dan kalanlar / karar bekleyenler:** tam haritada mavi işaretler henüz keşfedilmemiş (sisli) yerlerde de görünür — yön bulmak için bilerek bırakıldı, istenirse sise bağlanabilir. Kâhyanın kesesinde 4 şüpheli var (ilerleme 0/4). Bölüm I'in mini oyunlu adımları (iş, hasat) geliştirici "Tamamla" ile geçilince güvence bir sonraki görevi açar ama sahne bayraklarını (ör. `bertram_done`) kurmaz; gerçek oyunda bu yol kullanılmaz.
 - Eski plandaki "yardımlı savaş, yoldaş YZ" maddeleri Grup 2 talimatında yoktu, dokunulmadı (yoldaşlar silah ×2'den dolaylı güçlendi: düşük HP'li ilk yaratıkları hızlı bitirirler, Joseph'in EXP'si yalnızca kendi vurduklarından gelir). Gerekirse ayrı bir oturumda.
 - **Grup 4 için:** Tarla Faresi yalnızca otlak görevinde doğuyor; dünyaya (güney tarlaları) yerleştirmek içerik işi. `pack_hunter` title'ı artık otlak görevinden değil, ormandaki kurtlardan gelir.
