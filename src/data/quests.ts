@@ -1,6 +1,8 @@
 // Görev tanımları (C2). Ana görevler "m_" ile başlar. Joseph G olana kadar her şey ana görevdir
 // (panodaki G görevleri dahil); yan görevler ve isteğe bağlı pano görevleri G olduktan sonra açılır.
 import type { QuestDef } from '../core/quests';
+import { rankupQuestId } from '../core/guild';
+import { subRankToString, type SubRank } from '../core/ranks';
 import { SIDE_QUESTS } from './sidequests';
 
 const W = (point: string, radius = 2) => ({ map: 'world', point, radius });
@@ -111,9 +113,10 @@ export const MAIN_QUESTS: QuestDef[] = [
     reward: { money: 40, points: 30, text: 'Toplam 120 bronz, kişi başı 40' },
   },
   {
-    id: 'm_promotion', kind: 'main', chapter: 2, title: 'Kayıtlar Yarın İşlenir', giver: 'celeste',
-    desc: 'G eşiğini geçtim. Celeste\'ye göre kayıtlar yarın işlenecek.',
-    objectives: [{ type: 'talk', label: 'Ertesi gün loncaya uğra', target: 'celeste', where: NPC('guild', 'celeste') }],
+    // 0.5.0'dan beri kullanılmıyor (terfi "Terfi" göreviyle o anda işlenir); eski kayıtlarda aktif olabilir.
+    id: 'm_promotion', kind: 'main', chapter: 2, title: 'Terfi', giver: 'celeste',
+    desc: 'G eşiğini geçtim. Celeste kayıtlarımı işleyecek.',
+    objectives: [{ type: 'talk', label: 'Celeste ile rütben hakkında konuş', target: 'celeste', where: NPC('guild', 'celeste') }],
     reward: { text: 'G rütbe' },
   },
   {
@@ -160,6 +163,19 @@ export const MAIN_QUESTS: QuestDef[] = [
     reward: { text: 'Giriş Kartı (3 ay)' },
   },
 ];
+
+/**
+ * Terfi görevi (dinamik, kayıtta tanımıyla saklanır): puan eşiği geçilince açılır, Celeste'yle konuşunca terfi o anda
+ * işlenir. Kimlik hedef kademeye göre (m_rankup_4 → F); aynı terfi için ikinci kez açılmaz.
+ */
+export function rankupQuest(target: SubRank): QuestDef {
+  return {
+    id: rankupQuestId(target), kind: 'main', title: 'Terfi', giver: 'celeste',
+    desc: `Lonca Puanım bir sonraki rütbenin eşiğini geçti (${subRankToString(target)}). Celeste kayıtlarımı işleyecek.`,
+    objectives: [{ type: 'talk', label: 'Celeste ile rütben hakkında konuş', target: 'celeste', where: NPC('guild', 'celeste') }],
+    reward: { text: `${subRankToString(target)} rütbe` },
+  };
+}
 
 const ALL: Record<string, QuestDef> = Object.fromEntries([...MAIN_QUESTS, ...SIDE_QUESTS].map((q) => [q.id, q]));
 

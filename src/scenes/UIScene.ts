@@ -6,6 +6,7 @@ import { touchIntent } from '../game/touch';
 import { Sound } from '../audio/audio';
 import { COLORS, FONT, txt, drawFrame, drawBlue, drawBar, Button, uiIcon, rankBadge } from '../ui/kit';
 import { QuestBox, PartyBars } from '../ui/hudQuests';
+import { playQuestComplete, playRankUp, type QuestDoneInfo, type PromotionInfo } from '../ui/celebrations';
 import { buildAppraisalPanel } from '../ui/appraisalPanel';
 import { clockLabel, dateLabel } from '../core/time';
 import { formatPrice } from '../core/money';
@@ -42,6 +43,16 @@ const JOY_FIXED_R = 76;
 
 const SPEAKER_NAMES: Record<string, string> = { joseph: 'Joseph', system: 'Sistem' };
 
+/** Sistem kuyruğu: mavi bildirim ya da kutlama sahnesi (aynı sırayla, üst üste binmeden). */
+interface SysItem {
+  title: string;
+  lines: string[];
+  sound?: string;
+  big?: boolean;
+  overlay?: 'quest' | 'rank';
+  data?: QuestDoneInfo | PromotionInfo;
+}
+
 export class UIScene extends Phaser.Scene {
   hud!: Phaser.GameObjects.Container;
   hudG!: Phaser.GameObjects.Graphics;
@@ -56,8 +67,10 @@ export class UIScene extends Phaser.Scene {
   cdOverlay!: Phaser.GameObjects.Graphics;
   joy: { id: number; bx: number; by: number; base: Phaser.GameObjects.Graphics; knob: Phaser.GameObjects.Graphics } | null = null;
   toasts: Phaser.GameObjects.Container[] = [];
-  sysQueue: { title: string; lines: string[]; sound?: string; big?: boolean }[] = [];
+  sysQueue: SysItem[] = [];
   sysShowing: Phaser.GameObjects.Container | null = null;
+  /** Kuyrukta sırası gelmiş kutlama sahnesi (görev bitişi / terfi); kendi dokunuşlarını yönetir. */
+  sysOverlay: { root: Phaser.GameObjects.Container; skip(): void } | null = null;
   dlg: Phaser.GameObjects.Container | null = null;
   dlgState: { full: string; shown: number; t: number; done: boolean; resolve: () => void; voice: string; pause: number; textObj: Phaser.GameObjects.Text; auto: number } | null = null;
   choiceResolve: ((i: number) => void) | null = null;
@@ -118,6 +131,7 @@ export class UIScene extends Phaser.Scene {
     this.toasts = [];
     this.sysQueue = [];
     this.sysShowing = null;
+    this.sysOverlay = null;
     this.dlg = null;
     this.dlgState = null;
     this.choiceResolve = null;
@@ -167,6 +181,8 @@ export class UIScene extends Phaser.Scene {
     const handlers: [string, (...a: any[]) => void][] = [
       ['toast', (t: any) => this.toast(t.text, t.kind, t.icon)],
       ['sysmsg', (m: any) => this.queueSys(m)],
+      ['questdone', (q: QuestDoneInfo) => this.queueSys({ title: 'GÖREV TAMAMLANDI', lines: [], overlay: 'quest', data: q })],
+      ['promotion', (p: PromotionInfo) => this.queueSys({ title: 'TERFİ', lines: [], overlay: 'rank', data: p })],
       ['stats', () => this.refreshButtons()],
       ['skills', () => this.refreshButtons()],
       ['settings', () => this.applySettings()],
@@ -769,15 +785,28 @@ export class UIScene extends Phaser.Scene {
     this.toast(text, 'info');
   }
 
-  queueSys(m: { title: string; lines: string[]; sound?: string; big?: boolean }) {
+  queueSys(m: SysItem) {
     this.sysQueue.push(m);
     if (!this.sysShowing) this.nextSys();
   }
 
   nextSys() {
     const m = this.sysQueue.shift();
+    this.sysOverlay = null;
     if (!m) {
       this.sysShowing = null;
+      return;
+    }
+    if (m.overlay && m.data) {
+      // kutlama sahnesi: dokununca sona atlar, ikinci dokunuş (ya da kısa bekleme) kapatır
+      const done = () => {
+        if (this.sysOverlay !== ov) return;
+        this.sysShowing = null;
+        this.nextSys();
+      };
+      const ov = m.overlay === 'rank' ? playRankUp(this, m.data as PromotionInfo, done) : playQuestComplete(this, m.data as QuestDoneInfo, done);
+      this.sysOverlay = ov;
+      this.sysShowing = ov.root;
       return;
     }
     Sound.sfx(m.sound ?? 'system', 0.8);
@@ -803,9 +832,21 @@ export class UIScene extends Phaser.Scene {
     });
   }
 
+  /** Kuyruk boşalınca (kutlama sahneleri ve bildirimler bitince) çözülür. Hikâye bunu bekleyip devam eder. */
+  whenOverlaysIdle(maxMs = 20000): Promise<void> {
+    return new Promise((resolve) => {
+      const t0 = Date.now();
+      const check = () => {
+        if (!this.sys?.isActive() || (!this.sysOverlay && !this.sysQueue.some((m) => m.overlay)) || Date.now() - t0 > maxMs) resolve();
+        else setTimeout(check, 100);
+      };
+      check();
+    });
+  }
+
   dismissSys() {
     const c = this.sysShowing;
-    if (!c) return;
+    if (!c || this.sysOverlay) return;
     this.sysShowing = null;
     this.tweens.add({ targets: c, alpha: 0, y: c.y - 10, duration: 200, onComplete: () => { c.destroy(); this.nextSys(); } });
   }
@@ -1048,7 +1089,8 @@ export class UIScene extends Phaser.Scene {
     const shade = this.add.rectangle(0, 0, W, H, 0x000000, 0.35).setOrigin(0, 0).setInteractive();
     shade.on('pointerdown', () => this.closeAppraisal());
     root.add(shade);
-    const panel = buildAppraisalPanel(this, c, npc, { self, mineRank: mine, dropMult: G.d.dropMult });
+    const josephLayers = self ? this.world?.player?.actor.layers.map((l) => l.texture.key) : undefined;
+    const panel = buildAppraisalPanel(this, c, npc, { self, mineRank: mine, dropMult: G.d.dropMult, josephLayers });
     const pw = (panel as any).panelW, ph = (panel as any).panelH;
     const sc = Math.min(1, (H - 30) / ph, (W - 30) / pw);
     panel.setScale(sc);

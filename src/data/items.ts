@@ -209,19 +209,20 @@ const list: ItemDef[] = [
   },
 
   // ------------------------------------------------------------------ Malzeme
-  { id: 'rat_tail', name: 'Fare Kuyruğu', kind: 'material', price: 3, sell: 1, stack: true, icon: 'rat_tail', desc: 'Şifacılar bir şeyler için kullanıyor. Ne için, sorma.' },
-  { id: 'small_stone', name: 'Küçük Taş', kind: 'junk', price: 1, sell: 0, stack: true, icon: 'stone', desc: 'Pürüzsüz, yuvarlak bir taş. Farenin yuvasında ne arıyordu?' },
-  { id: 'slime_jelly', name: 'Sümüksü Jölesi', kind: 'material', price: 5, sell: 2, stack: true, icon: 'jelly', desc: 'Yapışkan, hafif ışıldayan jöle. Simyacılar sever.' },
-  { id: 'color_core', name: 'Renkli Çekirdek', kind: 'material', price: 25, sell: 8, stack: true, icon: 'core', desc: 'Sümüksünün kalbi. Işığa tutunca renk değiştiriyor.' },
-  { id: 'rabbit_meat', name: 'Tavşan Eti', kind: 'material', price: 6, sell: 3, stack: true, icon: 'meat', desc: 'Taze et. Han mutfağı iyi para verir.' },
-  { id: 'rabbit_pelt', name: 'Tavşan Postu', kind: 'material', price: 12, sell: 5, stack: true, icon: 'pelt_small', desc: 'Yumuşak, beyaz post.' },
-  { id: 'wolf_pelt', name: 'Kurt Postu', kind: 'material', price: 25, sell: 9, stack: true, icon: 'pelt', desc: 'Kalın, gri kurt postu. Demirci ve terziler alır.' },
-  { id: 'wolf_fang', name: 'Kurt Dişi', kind: 'material', price: 14, sell: 5, stack: true, icon: 'fang', desc: 'Sivri bir köpek dişi.' },
-  { id: 'goblin_ear', name: 'Goblin Kulağı', kind: 'material', price: 10, sell: 4, stack: true, icon: 'goblin_ear', desc: 'Sivri, yeşil bir kulak. Lonca av kanıtı olarak kabul ediyor.' },
-  { id: 'goblin_trinket', name: 'Goblin Biblosu', kind: 'junk', price: 8, sell: 3, stack: true, icon: 'trinket', desc: 'Kemik, tüy ve parlak bir düğme. Goblinlere göre çok değerli.' },
-  { id: 'herb', name: 'Şifalı Ot', kind: 'material', price: 5, sell: 2, stack: true, icon: 'herb', desc: 'Ormanda biten acı yapraklı ot. Şifacı alır.' },
-  { id: 'firewood', name: 'Odun', kind: 'material', price: 2, sell: 1, stack: true, icon: 'wood', desc: 'Kuru odun parçası.' },
-  { id: 'chief_tusk', name: 'Şef Dişi', kind: 'material', price: 120, sell: 40, stack: true, icon: 'tusk', desc: 'Goblin şefinin kırık dişi. Bir kahramanlık kanıtı.' },
+  // Malzemelerin de rütbesi var (kalitesi): G sıradan, F daha zor bulunan av ürünü.
+  { id: 'rat_tail', name: 'Fare Kuyruğu', kind: 'material', rank: 'G', price: 3, sell: 1, stack: true, icon: 'rat_tail', desc: 'Şifacılar bir şeyler için kullanıyor. Ne için, sorma.' },
+  { id: 'small_stone', name: 'Küçük Taş', kind: 'junk', rank: 'G', price: 1, sell: 0, stack: true, icon: 'stone', desc: 'Pürüzsüz, yuvarlak bir taş. Farenin yuvasında ne arıyordu?' },
+  { id: 'slime_jelly', name: 'Sümüksü Jölesi', kind: 'material', rank: 'G', price: 5, sell: 2, stack: true, icon: 'jelly', desc: 'Yapışkan, hafif ışıldayan jöle. Simyacılar sever.' },
+  { id: 'color_core', name: 'Renkli Çekirdek', kind: 'material', rank: 'F', price: 25, sell: 8, stack: true, icon: 'core', desc: 'Sümüksünün kalbi. Işığa tutunca renk değiştiriyor.' },
+  { id: 'rabbit_meat', name: 'Tavşan Eti', kind: 'material', rank: 'G', price: 6, sell: 3, stack: true, icon: 'meat', desc: 'Taze et. Han mutfağı iyi para verir.' },
+  { id: 'rabbit_pelt', name: 'Tavşan Postu', kind: 'material', rank: 'G', price: 12, sell: 5, stack: true, icon: 'pelt_small', desc: 'Yumuşak, beyaz post.' },
+  { id: 'wolf_pelt', name: 'Kurt Postu', kind: 'material', rank: 'F', price: 25, sell: 9, stack: true, icon: 'pelt', desc: 'Kalın, gri kurt postu. Demirci ve terziler alır.' },
+  { id: 'wolf_fang', name: 'Kurt Dişi', kind: 'material', rank: 'F', price: 14, sell: 5, stack: true, icon: 'fang', desc: 'Sivri bir köpek dişi.' },
+  { id: 'goblin_ear', name: 'Goblin Kulağı', kind: 'material', rank: 'F', price: 10, sell: 4, stack: true, icon: 'goblin_ear', desc: 'Sivri, yeşil bir kulak. Lonca av kanıtı olarak kabul ediyor.' },
+  { id: 'goblin_trinket', name: 'Goblin Biblosu', kind: 'junk', rank: 'G', price: 8, sell: 3, stack: true, icon: 'trinket', desc: 'Kemik, tüy ve parlak bir düğme. Goblinlere göre çok değerli.' },
+  { id: 'herb', name: 'Şifalı Ot', kind: 'material', rank: 'G', price: 5, sell: 2, stack: true, icon: 'herb', desc: 'Ormanda biten acı yapraklı ot. Şifacı alır.' },
+  { id: 'firewood', name: 'Odun', kind: 'material', rank: 'G', price: 2, sell: 1, stack: true, icon: 'wood', desc: 'Kuru odun parçası.' },
+  { id: 'chief_tusk', name: 'Şef Dişi', kind: 'material', rank: 'F', price: 120, sell: 40, stack: true, icon: 'tusk', desc: 'Goblin şefinin kırık dişi. Bir kahramanlık kanıtı.' },
 
   // ------------------------------------------------------------------ Kitap / parşömen
   {

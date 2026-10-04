@@ -43,6 +43,8 @@ EMOJI = {
     'm_oak': '1f333', 'm_pasture': '1f411', 'm_pond': '1f30a', 'm_house': '1f3e1', 'm_quest': '1f4cd', 'm_city': '1f3f0',
     # servis koşturmacası
     's_beer': '1f37a', 's_stew': '1f372', 's_bread': '1f35e', 's_plate': '1f37d', 's_angry': '1f620', 's_happy': '1f60a',
+    # ayarlar bölümleri (0.5.0; mevcut atlasın sonuna eklendi)
+    'sound': '1f50a', 'gameplay': '1f3ae',
 }
 
 LETTERS = 'GFEDCBASX'

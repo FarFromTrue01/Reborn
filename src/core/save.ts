@@ -2,8 +2,8 @@
 
 import { CURRENT_SAVE_VERSION, newGameState, OLD_WORLD_W, OLD_WORLD_H, V2_WORLD_W, V2_WORLD_H, type GameState } from './state';
 import { newGuildState } from './guild';
-import { newQuestLog, type QuestLog } from './quests';
-import { questDef } from '../data/quests';
+import { newQuestLog, startQuest, type QuestLog } from './quests';
+import { questDef, rankupQuest } from '../data/quests';
 import { STAT_POINTS_PER_LEVEL } from './formulas';
 import { normalizeWallet, emptyWallet } from './money';
 
@@ -83,6 +83,8 @@ const MIGRATIONS: ((d: any) => any)[] = [
   (d) => migrateV3toV4(d),
   // v4 → v5 (0.4.0): level başına 6 stat puanı, normalize cüzdan.
   (d) => migrateV4toV5(d),
+  // v5 → v6 (0.5.0): "kayıtlar yarın işlenir" kalktı; bekleyen terfi Terfi görevine dönüşür.
+  (d) => migrateV5toV6(d),
 ];
 
 /** 0.2.0 kaydını 0.3.0'a taşır (testli: tests/save.test.ts). */
@@ -139,6 +141,26 @@ export function migrateV4toV5(d: any): any {
     if (d.player.wallet) d.player.wallet = normalizeWallet({ ...emptyWallet(), ...d.player.wallet });
   }
   d.saveVersion = 5;
+  return d;
+}
+
+/**
+ * v5 → v6 (0.5.0, arayüz): guild.pending (ertesi gün işlenecek terfi) kaldırıldı. Bekleyen terfi kaybolmasın:
+ * Terfi görevine dönüştürülür; Celeste'yle konuşunca o anda işlenir.
+ */
+export function migrateV5toV6(d: any): any {
+  const g = d.guild;
+  if (g && 'pending' in g) {
+    const p = g.pending;
+    delete g.pending;
+    const cur = d.player?.guildRank;
+    if (p && typeof p.rank === 'number' && g.member && typeof cur === 'number' && p.rank > cur) {
+      d.quests ??= newQuestLog();
+      d.quests.order ??= [];
+      startQuest(d.quests, rankupQuest(p.rank), d.time?.day ?? 1, true);
+    }
+  }
+  d.saveVersion = 6;
   return d;
 }
 

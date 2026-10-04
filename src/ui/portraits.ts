@@ -139,3 +139,69 @@ export const EXPR_GLYPH: Record<string, { ch: string; color: string } | null> = 
   uzgun: { ch: '…', color: '#9fc8ff' },
   alayci: { ch: '~', color: '#ffb0d0' },
 };
+
+/**
+ * Yaratık portresi: canavar sprite sayfasının ilk karesi, saydam kenarlar kırpılıp ortalanır.
+ * (Goblinler LPC karakter sayfası kullanır; onlar için lpcPortraitKey yeterli.) Sayfa yoksa null.
+ */
+export function monsterPortraitKey(scene: Phaser.Scene, sheet: string): string | null {
+  const key = 'portrait_mon_' + sheet;
+  if (scene.textures.exists(key)) return key;
+  if (!scene.textures.exists(sheet)) return null;
+  const fr = scene.textures.getFrame(sheet, 0);
+  if (!fr) return null;
+  const src = fr.source.image as HTMLImageElement;
+  // ilk kareyi ayrı bir tuvale al, saydam olmayan piksellerin sınırını bul
+  const tmp = document.createElement('canvas');
+  tmp.width = fr.cutWidth;
+  tmp.height = fr.cutHeight;
+  const tctx = tmp.getContext('2d', { willReadFrequently: true })!;
+  tctx.drawImage(src, fr.cutX, fr.cutY, fr.cutWidth, fr.cutHeight, 0, 0, fr.cutWidth, fr.cutHeight);
+  let x0 = tmp.width, y0 = tmp.height, x1 = -1, y1 = -1;
+  try {
+    const px = tctx.getImageData(0, 0, tmp.width, tmp.height).data;
+    for (let y = 0; y < tmp.height; y++)
+      for (let x = 0; x < tmp.width; x++)
+        if (px[(y * tmp.width + x) * 4 + 3] > 20) {
+          if (x < x0) x0 = x;
+          if (x > x1) x1 = x;
+          if (y < y0) y0 = y;
+          if (y > y1) y1 = y;
+        }
+  } catch {
+    /* tuval okunamadı: karenin tamamı */
+  }
+  if (x1 < 0) {
+    x0 = 0;
+    y0 = 0;
+    x1 = tmp.width - 1;
+    y1 = tmp.height - 1;
+  }
+  const S = 128;
+  const tex = scene.textures.createCanvas(key, S, S)!;
+  const ctx = tex.getContext();
+  const g = ctx.createRadialGradient(S / 2, S * 0.45, 8, S / 2, S / 2, S * 0.75);
+  g.addColorStop(0, '#5a2a26');
+  g.addColorStop(1, '#1e0c0c');
+  ctx.fillStyle = g;
+  ctx.fillRect(0, 0, S, S);
+  ctx.imageSmoothingEnabled = false;
+  const bw = x1 - x0 + 1, bh = y1 - y0 + 1;
+  // tam sayı ölçek: piksel sanatı keskin kalsın; kutunun ~%80'ini doldur
+  const k = Math.max(1, Math.floor((S * 0.8) / Math.max(bw, bh)));
+  const dw = bw * k, dh = bh * k;
+  const dx = Math.round((S - dw) / 2), dy = Math.round((S - dh) / 2 + 4);
+  ctx.globalAlpha = 0.35;
+  ctx.filter = 'brightness(0)';
+  ctx.drawImage(tmp, x0, y0, bw, bh, dx + 4, dy + 6, dw, dh);
+  ctx.filter = 'none';
+  ctx.globalAlpha = 1;
+  ctx.drawImage(tmp, x0, y0, bw, bh, dx, dy, dw, dh);
+  const v = ctx.createRadialGradient(S / 2, S / 2, S * 0.35, S / 2, S / 2, S * 0.75);
+  v.addColorStop(0, 'rgba(0,0,0,0)');
+  v.addColorStop(1, 'rgba(0,0,0,0.55)');
+  ctx.fillStyle = v;
+  ctx.fillRect(0, 0, S, S);
+  tex.refresh();
+  return key;
+}

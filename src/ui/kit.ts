@@ -314,3 +314,64 @@ export function rankBadge(scene: Phaser.Scene, x: number, y: number, subRank: nu
   c.setSize(size, size);
   return c;
 }
+
+/** Eşya rütbe rozeti: lonca rozetinin aynısı, yalnızca harf (alt kademe yok: N, N− değil). */
+export function itemRankBadge(scene: Phaser.Scene, x: number, y: number, letter: string, size = 20): Phaser.GameObjects.Container {
+  const i = Math.max(0, 'GFEDCBASX'.indexOf(letter));
+  return rankBadge(scene, x, y, i * 3 + 1, size, false);
+}
+
+/** Kesik çizgili yuvarlatılmış dikdörtgen (boş ekipman slotu). */
+export function dashedRoundedRect(g: Phaser.GameObjects.Graphics, x: number, y: number, w: number, h: number, r: number, dash = 5, gap = 4) {
+  const seg = (x0: number, y0: number, x1: number, y1: number) => {
+    const len = Math.hypot(x1 - x0, y1 - y0);
+    const ux = (x1 - x0) / (len || 1), uy = (y1 - y0) / (len || 1);
+    for (let d = 0; d < len; d += dash + gap) {
+      const e = Math.min(len, d + dash);
+      g.lineBetween(x0 + ux * d, y0 + uy * d, x0 + ux * e, y0 + uy * e);
+    }
+  };
+  seg(x + r, y, x + w - r, y);
+  seg(x + w, y + r, x + w, y + h - r);
+  seg(x + w - r, y + h, x + r, y + h);
+  seg(x, y + h - r, x, y + r);
+  // köşeler: kısa yaylar
+  const arc = (cx: number, cy: number, a0: number) => {
+    g.beginPath();
+    g.arc(cx, cy, r, a0, a0 + Math.PI / 2);
+    g.strokePath();
+  };
+  arc(x + w - r, y + r, -Math.PI / 2);
+  arc(x + w - r, y + h - r, 0);
+  arc(x + r, y + h - r, Math.PI / 2);
+  arc(x + r, y + r, Math.PI);
+}
+
+/** Bilgi kutucuğu zemini: koyu zemin, ince altın kenarlık, hafif yuvarlatılmış köşe (Appraisal ve Status ortak dili). */
+export function drawTile(g: Phaser.GameObjects.Graphics, x: number, y: number, w: number, h: number, opts: { empty?: boolean; fill?: number; edge?: number; r?: number } = {}) {
+  const r = opts.r ?? 8;
+  g.fillStyle(opts.fill ?? COLORS.panel2, opts.empty ? 0.55 : 0.95);
+  g.fillRoundedRect(x, y, w, h, r);
+  if (opts.empty) {
+    g.lineStyle(1, COLORS.goldDark, 0.9);
+    dashedRoundedRect(g, x, y, w, h, r);
+  } else {
+    g.lineStyle(1, opts.edge ?? COLORS.gold, 0.75);
+    g.strokeRoundedRect(x, y, w, h, r);
+  }
+}
+
+/** Metni verilen genişliğe sığdırır (sonuna "…"). */
+export function fitText(t: Phaser.GameObjects.Text, maxW: number) {
+  if (t.width <= maxW) return t;
+  const full = t.text;
+  let lo = 0, hi = full.length;
+  while (lo < hi) {
+    const mid = Math.ceil((lo + hi) / 2);
+    t.setText(full.slice(0, mid).trimEnd() + '…');
+    if (t.width <= maxW) lo = mid;
+    else hi = mid - 1;
+  }
+  t.setText(full.slice(0, lo).trimEnd() + '…');
+  return t;
+}

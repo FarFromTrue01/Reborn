@@ -2,12 +2,12 @@ import Phaser from 'phaser';
 import { G } from '../game/G';
 import { Display } from '../game/display';
 import { Sound } from '../audio/audio';
-import { COLORS, FONT, txt, drawFrame, drawBlue, Button, iconImage, uiIcon, rankBadge } from '../ui/kit';
+import { COLORS, FONT, txt, drawFrame, drawBlue, Button, iconImage, uiIcon, rankBadge, itemRankBadge } from '../ui/kit';
 import { renderDevPanel } from '../ui/devPanel';
 import { renderQuestsTab } from '../ui/questsTab';
 import { fmtExp, fmtHp } from '../ui/format';
 import { prestigeLabel, itemPrestige } from '../core/prestige';
-import { pointsToNext } from '../core/guild';
+import { pointsToNext, RANK_THRESHOLDS, levelRequirement, examRequired } from '../core/guild';
 import { daysLeft, CITY_NAMES } from '../core/cards';
 import { ScrollList, panelChoice, confirmBox } from '../ui/panels';
 import { buildSettings } from '../ui/settingsPanel';
@@ -155,7 +155,7 @@ export class MenuScene extends Phaser.Scene {
       case 'equipment': return this.renderEquipment();
       case 'map': return this.renderMap();
       case 'history': return this.renderHistory();
-      case 'settings': return buildSettings(this, this.content, this.cw);
+      case 'settings': return void buildSettings(this, this.content, this.cw, this.ph - 48);
       case 'save': return this.renderSave();
       case 'quests': return this.renderQuests();
       case 'dev': return renderDevPanel(this, this.content, this.cw, this.ph - 48);
@@ -282,20 +282,38 @@ export class MenuScene extends Phaser.Scene {
       inner.add(txt(this, x0 + 24, by + 122, 'Para', { size: 14, bold: true, color: '#cfeaff' }));
       inner.add(coinRow(this, x0 + 72, by + 131, p.wallet, { size: 20, font: 17 }));
       y += ch + gap;
-      // Lonca kartı (C3/B6): rütbe, Lonca Puanı, bir sonraki rütbeye kalan
+      // Lonca kartı (C3/B6): rütbe, Lonca Puanı ve bir sonraki rütbeye ilerleme barı (sonunda hedef rozet)
       const gs = G.state.guild;
-      const lh = 110;
+      const lh = 124;
       const lb = this.card(inner, 0, y, W, lh, 'LONCA KARTI', 'gold', gs.member ? 'Maceracılar Loncası — Brindlewood Şubesi' : 'Kayıtlı değil', 'card');
       if (gs.member && p.guildRank !== null) {
-        inner.add(rankBadge(this, 52, lb + 26, p.guildRank, 56));
-        inner.add(txt(this, 92, lb - 2, subRankToString(p.guildRank), { size: 30, bold: true, font: FONT.title, color: COLORS.textGold }));
-        const nxt = pointsToNext(gs.points, p.guildRank);
-        inner.add(uiIcon(this, 190, lb + 10, 'points', 22));
-        inner.add(txt(this, 206, lb, `Lonca Puanı: ${gs.points}`, { size: 17, bold: true, color: '#ffffff' }));
-        inner.add(txt(this, 206, lb + 26, nxt === null ? 'En yüksek rütbe' : `Bir sonraki rütbeye: ${nxt} puan${gs.pending ? ' · Terfi yarın işlenecek' : ''}`, { size: 14, color: '#d8c890' }));
+        const cur = p.guildRank;
+        inner.add(rankBadge(this, 52, lb + 30, cur, 56, true));
+        inner.add(txt(this, 92, lb + 4, subRankToString(cur), { size: 30, bold: true, font: FONT.title, color: COLORS.textGold }));
+        const nxt = pointsToNext(gs.points, cur);
+        const bx = 190, bw = W - bx - 84;
+        inner.add(uiIcon(this, bx + 10, lb + 10, 'points', 22));
+        inner.add(txt(this, bx + 26, lb, `Lonca Puanı: ${gs.points}`, { size: 17, bold: true, color: '#ffffff' }));
+        if (nxt === null) {
+          this.progress(inner, bx, lb + 30, bw, 20, 1, COLORS.gold, 'En yüksek rütbe', '#2a1a00');
+        } else {
+          const lo = RANK_THRESHOLDS[cur], hi = RANK_THRESHOLDS[cur + 1];
+          const frac = (gs.points - lo) / Math.max(1, hi - lo);
+          const lvNeed = levelRequirement(cur + 1);
+          const note = nxt > 0 ? `${nxt} puan kaldı` : examRequired(cur + 1) ? 'Terfi sınavla' : p.level < lvNeed ? `Level ${lvNeed} gerekir` : 'Terfi hazır: Celeste\'yle konuş';
+          inner.add(txt(this, bx + bw, lb + 2, note, { size: 14, bold: true, color: nxt > 0 ? '#d8c890' : '#9fe08a' }).setOrigin(1, 0));
+          this.progress(inner, bx, lb + 30, bw, 20, frac, COLORS.gold, `${gs.points - lo} / ${hi - lo}`, '#ffffff');
+          // hedef: bir sonraki rütbenin rozeti
+          const tg = this.add.graphics();
+          tg.lineStyle(1.5, COLORS.goldDark, 1);
+          tg.lineBetween(bx + bw + 4, lb + 40, bx + bw + 22, lb + 40);
+          inner.add(tg);
+          inner.add(rankBadge(this, bx + bw + 46, lb + 40, cur + 1, 44, true));
+          inner.add(txt(this, bx + bw + 46, lb + 64, subRankToString(cur + 1), { size: 12, bold: true, color: COLORS.textGold }).setOrigin(0.5, 0));
+        }
         if (gs.debt) {
-          inner.add(uiIcon(this, W - 170, lb + 10, 'debt', 20));
-          inner.add(txt(this, W - 154, lb, `Borç: ${gs.debt} bronz`, { size: 15, bold: true, color: COLORS.textRed }));
+          inner.add(uiIcon(this, bx + 10, lb + 66, 'debt', 18));
+          inner.add(txt(this, bx + 24, lb + 58, `Loncaya borç: ${gs.debt} bronz`, { size: 14, bold: true, color: COLORS.textRed }));
         }
       } else inner.add(txt(this, 20, lb + 4, gs.revoked ? 'Kartın alındı. Yeniden kayıt 1 gümüş; G-\'den ve 0 puandan başlarsın.' : 'Maceracılar Loncası\'na kayıt bir gümüş.', { size: 15, color: COLORS.textDim, wrap: W - 40 }));
       y += lh + gap;
@@ -517,7 +535,12 @@ export class MenuScene extends Phaser.Scene {
       parent.add(bg);
       if (id) {
         parent.add(iconImage(this, x, yy + box / 2, ITEMS[id].icon, 42));
-        if (ITEMS[id].rank) parent.add(txt(this, x - box / 2 + 6, yy + 3, ITEMS[id].rank!, { size: 12, bold: true, color: COLORS.textGold, stroke: true }));
+        if (ITEMS[id].rank) parent.add(itemRankBadge(this, x - box / 2 + 11, yy + 11, ITEMS[id].rank!, 18));
+        // Saygınlık katkısı (0 olsa bile +0)
+        const sv = itemPrestige(id);
+        const pt = txt(this, x + box / 2 - 4, yy + box - 3, prestigeLabel(sv), { size: 12, bold: true, stroke: true, color: sv > 0 ? '#cfe6b8' : sv < 0 ? COLORS.textRed : '#d8ccb0' }).setOrigin(1, 1);
+        parent.add(pt);
+        parent.add(uiIcon(this, x + box / 2 - 11 - pt.width, yy + box - 10, 'prestige', 12));
       } else parent.add(txt(this, x, yy + box / 2, '—', { size: 18, color: '#4a4058' }).setOrigin(0.5));
       parent.add(txt(this, x, yy + box + 2, EQUIP_SLOT_NAMES[s], { size: 12, bold: true, color: id ? COLORS.text : COLORS.textDim }).setOrigin(0.5, 0));
       const z = this.add.zone(x - box / 2, yy, box, box + 14).setOrigin(0, 0).setInteractive({ useHandCursor: true });
@@ -580,7 +603,7 @@ export class MenuScene extends Phaser.Scene {
       cell.add(g);
       cell.add(iconImage(this, (S - 4) / 2, (S - 4) / 2 - 2, it.icon, 46));
       cell.add(txt(this, S - 10, S - 26, `${G.p.inventory[id]}`, { size: 14, bold: true, stroke: true }).setOrigin(1, 0));
-      if (it.rank) cell.add(txt(this, 8, 6, it.rank, { size: 12, bold: true, color: COLORS.textGold, stroke: true }));
+      if (it.rank) cell.add(itemRankBadge(this, 15, 15, it.rank, 20));
       if (quick) cell.add(uiIcon(this, S - 18, 14, 'stamina', 18));
       const z = this.add.zone(2, 2, S - 8, S - 8).setOrigin(0, 0).setInteractive({ useHandCursor: true });
       z.on('pointerup', () => {
@@ -705,7 +728,14 @@ export class MenuScene extends Phaser.Scene {
     const it = ITEMS[id];
     c.add(iconImage(this, dx + 50, 140, it.icon, 64));
     c.add(txt(this, dx + 94, 110, it.name, { size: 20, bold: true, color: COLORS.textGold, font: FONT.title, wrap: dw - 110 }));
-    c.add(txt(this, dx + 94, 140, `${CAT_NAME[it.kind] ?? ''}${it.rank ? ` · Rütbe ${it.rank}` : ''} · Elinde ${G.p.inventory[id]}`, { size: 13, color: COLORS.textDim, wrap: dw - 110 }));
+    let ix = dx + 94;
+    if (it.rank) {
+      c.add(itemRankBadge(this, ix + 10, 150, it.rank, 20));
+      const rt = txt(this, ix + 24, 141, `Rütbe ${it.rank}`, { size: 13, bold: true, color: COLORS.textGold });
+      c.add(rt);
+      ix += 32 + rt.width;
+    }
+    c.add(txt(this, ix, 141, `${it.rank ? '· ' : ''}${CAT_NAME[it.kind] ?? ''} · Elinde ${G.p.inventory[id]}`, { size: 13, color: COLORS.textDim, wrap: dx + dw - ix - 10 }));
     c.add(txt(this, dx + 16, 186, itemLabel(id), { size: 15, color: COLORS.textBlue, wrap: dw - 32 }));
     let ty = 214;
     if (it.slot) {
@@ -843,8 +873,13 @@ export class MenuScene extends Phaser.Scene {
     y += 36;
     if (cur) {
       c.add(iconImage(this, dx + 36, y + 22, ITEMS[cur].icon, 40));
-      c.add(txt(this, dx + 64, y + 4, itemLabel(cur), { size: 14, color: COLORS.text, wrap: dw - 80 }));
-      y += 52;
+      if (ITEMS[cur].rank) c.add(itemRankBadge(this, dx + 20, y + 6, ITEMS[cur].rank!, 18));
+      const lt = txt(this, dx + 64, y + 4, itemLabel(cur), { size: 14, color: COLORS.text, wrap: dw - 80 });
+      c.add(lt);
+      const sv = itemPrestige(cur);
+      c.add(uiIcon(this, dx + 72, y + lt.height + 14, 'prestige', 14));
+      c.add(txt(this, dx + 82, y + lt.height + 6, `Saygınlık ${prestigeLabel(sv)}`, { size: 13, bold: true, color: sv > 0 ? '#cfe6b8' : sv < 0 ? COLORS.textRed : COLORS.textDim }));
+      y += Math.max(52, lt.height + 30);
       c.add(new Button(this, dx + dw / 2, y + 24, `Çıkar: ${ITEMS[cur].name}`, () => {
         unequip(G.p as any, s);
         this.world.player.refreshLayers();

@@ -1,6 +1,8 @@
 // Yan görevler ve pano şablonları (Bölüm II). Joseph G rütbesine yükselip ilk kadehini içtikten sonra açılır.
 // Yan görevler elle yazılmıştır; pano görevleri her sabah şablonlardan seçilir (günde 3–4 ilan).
 // Ödüller (E7): G 15–40 bronz, F 60–90 bronz. F görevleri risklidir: başarısızlıkta −30 puan ve ödülün iki katı ceza.
+// EXP (0.5.0): yan ve pano görevleri az EXP verir (2–6); aynı süre canavar avlamak belirgin biçimde daha çok verir.
+// Ana görevler hiç EXP vermez (tests/systems.test.ts).
 import type { QuestDef } from '../core/quests';
 
 const NPC = (map: string, npc: string) => ({ map, npc });
@@ -28,7 +30,7 @@ export const SIDE_QUESTS: QuestDef[] = [
       { type: 'collect', label: 'Elma topla', target: 'apple', count: 6 },
       { type: 'talk', label: 'Elmaları Brunhild\'e götür', target: 'baker', where: { map: 'world', npc: 'baker', point: 'bakery_front' }, sequential: true },
     ],
-    reward: { money: 30, items: [{ id: 'honey_bun', qty: 1 }] },
+    reward: { money: 30, items: [{ id: 'honey_bun', qty: 1 }], exp: 4 },
   },
   {
     id: 'sq_tanner_pelts', kind: 'side', chapter: 2, title: 'Gorm\'un Postları', giver: 'tanner',
@@ -37,7 +39,7 @@ export const SIDE_QUESTS: QuestDef[] = [
       { type: 'collect', label: 'Tavşan postu topla', target: 'rabbit_pelt', count: 3 },
       { type: 'talk', label: 'Postları Gorm\'a götür', target: 'tanner', where: { map: 'world', npc: 'tanner', point: 'tannery_yard' }, sequential: true },
     ],
-    reward: { money: 45 },
+    reward: { money: 45, exp: 5 },
   },
   {
     id: 'sq_smith_jelly', kind: 'side', chapter: 2, title: 'Su Verme Jölesi', giver: 'smith',
@@ -46,7 +48,7 @@ export const SIDE_QUESTS: QuestDef[] = [
       { type: 'collect', label: 'Sümüksü jölesi topla', target: 'slime_jelly', count: 4 },
       { type: 'talk', label: 'Jöleleri Gunnar\'a götür', target: 'smith', where: NPC('smithy', 'smith'), sequential: true },
     ],
-    reward: { money: 50 },
+    reward: { money: 50, exp: 5 },
   },
   {
     id: 'sq_healer_salve', kind: 'side', chapter: 2, title: 'Nine\'nin Merhemi', giver: 'healer',
@@ -55,7 +57,7 @@ export const SIDE_QUESTS: QuestDef[] = [
       { type: 'collect', label: 'Şifalı ot topla', target: 'herb', count: 6, where: { map: 'world', point: 'forest_edge', radius: 6 } },
       { type: 'talk', label: 'Otları Ilse Nine\'ye götür', target: 'healer', where: NPC('healer', 'healer'), sequential: true },
     ],
-    reward: { money: 35, items: [{ id: 'hp_potion_s', qty: 1 }] },
+    reward: { money: 35, items: [{ id: 'hp_potion_s', qty: 1 }], exp: 4 },
   },
   {
     id: 'sq_tailor_parcel', kind: 'side', chapter: 2, title: 'Kâhyaya Kumaş', giver: 'tailor',
@@ -64,7 +66,7 @@ export const SIDE_QUESTS: QuestDef[] = [
       { type: 'deliver', label: 'Paketi Kâhya Edric\'e götür (Saygınlık +3)', target: 'steward', where: { map: 'world', npc: 'steward', point: 'manor_front' } },
       { type: 'talk', label: 'Mirelle\'e haber ver', target: 'tailor', where: { map: 'world', npc: 'tailor', point: 'tailor_front' }, sequential: true },
     ],
-    reward: { money: 40 },
+    reward: { money: 40, exp: 3 },
   },
   {
     id: 'sq_mill_sacks', kind: 'side', chapter: 2, title: 'Un Çuvalı', giver: 'oswin',
@@ -73,7 +75,7 @@ export const SIDE_QUESTS: QuestDef[] = [
       { type: 'deliver', label: 'Paketi Fırıncı Brunhild\'e götür', target: 'baker', where: { map: 'world', npc: 'baker', point: 'bakery_front' } },
       { type: 'talk', label: 'Oswin\'e dön', target: 'oswin', where: { map: 'world', npc: 'oswin', point: 'mill_yard' }, sequential: true },
     ],
-    reward: { money: 25 },
+    reward: { money: 25, exp: 2 },
   },
   {
     id: 'sq_hunter_fangs', kind: 'side', chapter: 2, title: 'Kurt Dişleri', giver: 'hunter',
@@ -82,7 +84,7 @@ export const SIDE_QUESTS: QuestDef[] = [
       { type: 'collect', label: 'Kurt dişi topla', target: 'wolf_fang', count: 3 },
       { type: 'talk', label: 'Dişleri Garrick\'e götür', target: 'hunter', where: { map: 'world', npc: 'hunter', point: 'lodge_yard' }, sequential: true },
     ],
-    reward: { money: 60 },
+    reward: { money: 60, exp: 6 },
   },
   {
     id: 'sq_kids_ball', kind: 'side', chapter: 2, title: 'Kayıp Top', giver: 'pip',
@@ -91,7 +93,7 @@ export const SIDE_QUESTS: QuestDef[] = [
       { type: 'go', label: 'Göletin kenarında topu bul', target: 'pond', where: W('pond', 3) },
       { type: 'talk', label: 'Topu Pip\'e ver', target: 'pip', where: { map: 'world', npc: 'pip', point: 'plaza' }, sequential: true },
     ],
-    reward: { money: 5, text: 'Pip\'in sonsuz minneti' },
+    reward: { money: 5, text: 'Pip\'in sonsuz minneti', exp: 2 },
   },
   {
     id: 'sq_merchant_guard', kind: 'side', chapter: 2, title: 'Paralı Askerin Rütbesi', giver: 'merchant',
@@ -100,13 +102,13 @@ export const SIDE_QUESTS: QuestDef[] = [
       { type: 'custom', label: 'Varg\'ı Appraisal ile incele', target: 'appraise_varg' },
       { type: 'talk', label: 'Aurelio\'ya söyle', target: 'merchant', where: { map: 'world', npc: 'merchant', point: 'manor_front' }, sequential: true },
     ],
-    reward: { money: 40 },
+    reward: { money: 40, exp: 3 },
   },
   {
     id: 'sq_nim_bread', kind: 'side', chapter: 2, title: 'Nim\'in Ekmeği', giver: 'vagrant',
     desc: 'Köksüz Nim iki gündür bir şey yememiş. Kimse ona ekmek satmıyor. Bana satarlar. Bir ekmek götürsem...',
     objectives: [{ type: 'deliver', label: 'Nim\'e bir ekmek götür', target: 'vagrant', where: { map: 'world', npc: 'vagrant', point: 'beggar_spot' } }],
-    reward: { text: 'Nim\'in anlattıkları' },
+    reward: { text: 'Nim\'in anlattıkları', exp: 2 },
   },
 ];
 
@@ -222,6 +224,9 @@ export const BOARD_TEMPLATES: BoardTemplate[] = [
     make: () => ({ objectives: [{ type: 'collect', label: 'Kurt dişi topla', target: 'wolf_fang', count: 3 }, turnIn] }) },
 ];
 
+/** Pano görevi EXP'si (harfe göre, az). */
+export const BOARD_EXP: Record<'G' | 'F', number> = { G: 3, F: 6 };
+
 /** Basit belirleyici rastgele (gün tohumu). */
 function rng(seed: number) {
   let s = seed >>> 0 || 1;
@@ -256,7 +261,7 @@ export function boardForDay(day: number): QuestDef[] {
     const money = Math.round(t.reward[0] + r() * (t.reward[1] - t.reward[0]));
     return {
       id, kind: 'board', chapter: 2, rank: t.rank, guild: true, title: t.title, desc: t.desc, giver: 'celeste', days: 3,
-      ...t.make(id), reward: { money },
+      ...t.make(id), reward: { money, exp: BOARD_EXP[t.rank] },
     } as QuestDef;
   });
 }

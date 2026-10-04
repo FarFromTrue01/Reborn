@@ -5,16 +5,17 @@ import { subRankLetterIndex, type SubRank } from './ranks';
  *  ≥2 : sadece Title
  *   1 : + Irk, Cinsiyet, Yaş, Lonca Rütbesi, Level
  *   0 : + Statlar, Max HP/MP, Ekipman
- *  -1 : + Skill'ler ve Envanter
+ *  -1 : + Skill'ler
  * ≤-2 : her şey, skill EXP ilerlemesine kadar
- * Trait'ler hiçbir rütbede görünmez.
+ * Trait'ler hiçbir rütbede görünmez. Envanter Appraisal ile okunmaz (panelde bölümü yok).
+ * Saygınlık yalnızca kendi kartında görünür (görünürlük kademesi değil, panel kuralı).
  */
 export interface AppraisalView {
   diff: number;
   title: true;
   identity: boolean; // ırk, cinsiyet, yaş, lonca rütbesi, level
   stats: boolean; // statlar, max HP/MP, ekipman
-  skills: boolean; // skill'ler, envanter
+  skills: boolean; // skill'ler
   skillExp: boolean; // skill EXP ilerlemesi
   traits: false;
 }
@@ -34,6 +35,16 @@ export function appraisalView(mine: SubRank, target: SubRank): AppraisalView {
     skillExp: diff <= -2,
     traits: false,
   };
+}
+
+/** Panelin sağ üstündeki fark metni: hedefin Appraisal rütbesinin seninkine göre harf farkı (B1). */
+export function appraisalDiffText(diff: number, self = false): string {
+  if (self) return 'Kendine bakıyorsun.';
+  if (diff >= 2) return 'Hedefin Appraisal\'ı seninkinden çok yüksek: yalnızca Title okunabiliyor.';
+  if (diff === 1) return 'Hedefin Appraisal\'ı seninkinden bir harf yüksek.';
+  if (diff === 0) return 'Appraisal\'larınız aynı harfte.';
+  if (diff === -1) return 'Hedefin Appraisal\'ı seninkinden bir harf düşük.';
+  return 'Hedefin Appraisal\'ı seninkinin çok altında: her şey okunuyor.';
 }
 
 /** Hedef seni appraise ettiğinde fark eder misin? Seninki onunkinden yüksekse. */

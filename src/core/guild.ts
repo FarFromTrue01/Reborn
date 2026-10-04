@@ -66,14 +66,25 @@ export interface GuildState {
   points: number;
   /** Loncaya borç (bronz); sonraki ödüllerden düşülür. */
   debt: number;
-  /** Ertesi gün işlenecek terfi (Celeste: "Kayıtlar yarın işlenir."). */
-  pending: { rank: SubRank; day: number } | null;
   /** Kart kaç kez alındı. */
   revoked: number;
 }
 
 export function newGuildState(): GuildState {
-  return { member: false, points: 0, debt: 0, pending: null, revoked: 0 };
+  return { member: false, points: 0, debt: 0, revoked: 0 };
+}
+
+/**
+ * Terfi (0.5.0): puan eşiği (ve Level şartı) sağlanınca "Terfi" görevi açılır; Celeste'yle konuşunca terfi o anda
+ * işlenir. Eski "kayıtlar yarın işlenir" bekleyişi (guild.pending) kalktı; eski kayıtlardaki bekleyen terfi
+ * yüklenirken Terfi görevine dönüştürülür (save.ts, v5 → v6).
+ */
+export function rankupQuestId(target: SubRank): string {
+  return `m_rankup_${target}`;
+}
+
+export function isRankupQuest(id: string): boolean {
+  return /^m_rankup_\d+$/.test(id);
 }
 
 /** Puana göre ulaşılabilecek en yüksek kademe (Level şartı ve sınavsız terfiler dahil, sınavlılar hariç). */
@@ -138,7 +149,6 @@ export function applyPenalty(g: GuildState, points: number, reward: number, wall
     cardRevoked = true;
     g.member = false;
     g.points = 0;
-    g.pending = null;
     g.revoked++;
   }
   return { points, fine, paid, addedDebt, cardRevoked };
@@ -148,7 +158,6 @@ export function applyPenalty(g: GuildState, points: number, reward: number, wall
 export function reRegister(g: GuildState) {
   g.member = true;
   g.points = 0;
-  g.pending = null;
 }
 
 /** Görev alınırken gösterilen risk metni. */

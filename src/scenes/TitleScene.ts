@@ -243,11 +243,12 @@ export class TitleScene extends Phaser.Scene {
     c.add(this.add.rectangle(0, 0, W, H, 0x000000, 0.6).setOrigin(0, 0).setInteractive());
     const pw = Math.min(820, W - 40), ph = Math.min(610, H - 30);
     const g = this.add.graphics();
-    drawFrame(g, (W - pw) / 2, (H - ph) / 2, pw, ph);
+    drawFrame(g, (W - pw) / 2, (H - ph) / 2, pw, ph, { alpha: 1 });
     c.add(g);
     const inner = this.add.container((W - pw) / 2 + 40, (H - ph) / 2 + 30);
-    buildSettings(this, inner, pw - 80);
     c.add(inner);
+    // kaydırma alanı "Kapat" düğmesinin üstünde biter; düğme sabit kalır
+    buildSettings(this, inner, pw - 80, ph - 30 - 92);
     c.add(new Button(this, W / 2, (H + ph) / 2 - 44, 'Kapat', () => {
       c.destroy();
       this.panel = null;

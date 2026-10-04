@@ -1,12 +1,12 @@
 // Menü → Görevler sekmesi (C2/B6): solda görev listesi, sağda ayrıntı (açıklama, amaçlar, ödül, rütbe, puan, risk).
 import Phaser from 'phaser';
 import { G } from '../game/G';
-import { Q, KIND_NAMES } from '../game/questrt';
+import { Q, KIND_NAMES, questExp } from '../game/questrt';
 import { visibleObjectives, objectiveDone } from '../core/quests';
 import { QUEST_POINTS, groupPoints } from '../core/guild';
 import { COLORS, FONT, txt, uiIcon, Button } from './kit';
 import { ScrollList, confirmBox } from './panels';
-import { KIND_ICON } from './hudQuests';
+import { KIND_ICON, loadQuestHudPrefs, saveQuestHudPref } from './hudQuests';
 import { richLine } from './coins';
 import { NPC_BY_ID } from '../data/npcs';
 import { ornamentLine } from './appraisalPanel';
@@ -21,7 +21,21 @@ export function renderQuestsTab(scene: Phaser.Scene & { render(): void }, c: Pha
   const g0 = G.state.guild;
   if (g0.member) c.add(txt(scene, w, 6, `Lonca Puanı ${g0.points}${g0.debt ? ` · Borç ${g0.debt} bronz` : ''}`, { size: 14, bold: true, color: '#f3dc95' }).setOrigin(1, 0));
   const lw = Math.floor(w * 0.42);
-  const list = new ScrollList(scene, 0, 44, lw, h - 52);
+  // HUD'da hangi kategoriler görünsün: iki anahtar (listenin altında)
+  const prefs = loadQuestHudPrefs();
+  const bw = (lw - 20) / 2;
+  (['main', 'side'] as const).forEach((cat, i) => {
+    const on = prefs[cat];
+    const b = new Button(scene, bw / 2 + i * (bw + 6), h - 30, `        ${cat === 'main' ? 'Ana görevleri göster' : 'Yan görevleri göster'}`, () => {
+      saveQuestHudPref(cat, !on);
+      G.events.emit('quests');
+      scene.render();
+    }, { w: bw, h: 44, size: 13, textColor: on ? COLORS.text : COLORS.textDim });
+    b.add(uiIcon(scene, -bw / 2 + 18, 0, on ? 'check' : 'cross', 16).setAlpha(on ? 1 : 0.6));
+    b.setName('hud_' + cat);
+    c.add(b);
+  });
+  const list = new ScrollList(scene, 0, 44, lw, h - 52 - 56);
   c.add(list);
   list.updateMask();
   let y = 0;
@@ -122,6 +136,8 @@ export function renderQuestsTab(scene: Phaser.Scene & { render(): void }, c: Pha
   const rw: string[] = [];
   if (def.reward.money) rw.push(`{m:${def.reward.money}}`);
   if (def.reward.text) rw.push(def.reward.text);
+  const xp = questExp(def);
+  if (xp > 0) rw.push(`+${xp} EXP`);
   if (rw.length) {
     c.add(uiIcon(scene, dx + 28, yy + 10, 'reward', 20));
     c.add(richLine(scene, dx + 44, yy + 10, 'Ödül: ' + rw.join(' · '), { size: 15, color: '#cfe6b8' }));

@@ -6,8 +6,8 @@ Dört aşamalı plan. Her oturum yalnızca kendi grubunu yapar; bitince bu dosya
 | --- | --- | --- |
 | **1. Çökme, bug, altyapı** | Pages dağıtımı, sahne sıfırlama, joystick önceliği, handa donma, performans, uygulama değişiminde çökme, PWA kurulumu | ✅ 0.3.1 |
 | **2. Denge ve dövüş** | Düşman/Joseph sayıları, hasar ve EXP eğrileri, dövüş mekanikleri | ✅ 0.4.0 |
-| **3. Arayüz** | HUD, menüler, ayarlar paneli düzeni, dokunmatik butonlar, okunurluk, yaratık Appraisal paneli | sırada |
-| **4. İçerik, görevler, animasyon** | Yeni görevler/bölümler, NPC diyalogları, animasyonlar | bekliyor |
+| **3. Arayüz** | Appraisal paneli (NPC/kendi/yaratık), eşya rütbeleri, saygınlık gösterimi, HUD görev kategorileri, Lonca Kartı barı, terfi görevi ve animasyonu, görev bitiş animasyonu, görev EXP kuralı, Ayarlar paneli | ✅ 0.5.0 |
+| **4. İçerik, görevler, animasyon** | Yeni görevler/bölümler, NPC diyalogları, animasyonlar | sırada |
 
 ## Grup 1'de yapılanlar (0.3.1)
 
@@ -65,15 +65,39 @@ Başsız tarayıcıda FPS'i yazılım GPU'nun doldurma hızı sınırlıyor; DPR
   - Goblinin hazırlığı normal vuruşla kesildi. 12 sn boyunca 0,25 sn arayla vuruş: 7 hazırlık, 3 iptal, 4 tamamlanan saldırı — kilitlenmiyor. İlk ölçümde geri tepme ve vuruş donması düşman YZ'sini tamamen durdurduğu için iptal beklemesine rağmen düşman hiç saldıramıyordu → düzeltildi (ikisi artık yalnızca hareketi etkiliyor). Goblin Şefi normal vuruşla kesilmedi, ağır vuruşla kesildi.
   - Joystick hep sonda: koş → 0'da nefes nefese yürü → %100'de kendiliğinden koş → … döngü tekrarlıyor.
 
+## Grup 3'te yapılanlar (0.5.0)
+
+- **Appraisal paneli** (`src/ui/appraisalPanel.ts`): iki sütun, kaydırmasız (700 px). Sol sütun sabit 170 px: portre (`ensurePortrait`; yaratıkta `monsterPortraitKey` — sprite sayfasının ilk karesi, saydam kenarlar kırpılır; goblinler LPC; yüklenemezse baş harf + siluet), Level ve Lonca kutucukları, HP/MP. Sağ sütun: Irk/Cinsiyet/Yaş/Title, 7 stat, 11 slotluk ekipman ızgarası (boş: kesik çizgi + "—"). Skill etiketleri altta, yarıçap 6. Gizli bilgi "???". Envanter bölümü ve `core/appraisal` yorumlarındaki envanter kalktı. Sağ üst metin `appraisalDiffText` ("direnç" → "Appraisal"). Saygınlık yalnızca kendi kartında (toplam + eşya başına, +0 dahil; boş gövde/bacak cezası da yazar). **Yaratık:** koyu kırmızı zemin, sağ üstte rütbe (G−/G/G+), stat/lonca/ekipman yok, drop tablosu (`dropsVisible`), yaş/cinsiyet yoksa "—", Title yalnızca tanımlıysa.
+- **Kit:** `itemRankBadge` (lonca rozeti, alt kademesiz), `drawTile`, `dashedRoundedRect`, `fitText`. Atlasa 🔊/🎮 eklendi (mevcut kareler aynı kaldı).
+- **Eşya rütbeleri:** tüm malzeme ve çöp eşyalara rütbe (`items.ts`); envanter, dükkân, eşya ayrıntısı, ekipman kutucukları ve Appraisal'da rozet. Test: kuşanılabilir + malzemede zorunlu.
+- **Saygınlık:** `prestigeLabel` her zaman işaretli ("+0", "−2"); Status/Ekipman kutucuklarında, eşya ayrıntısında ve dükkânda.
+- **HUD görevleri:** Ana Görevler / Yan Görevler (pano dahil) başlıkları, boş kategori çizilmez (`hudQuestGroups`); Menü → Görevler'de iki anahtar, `localStorage` (`elonth.questbox.main/side`).
+- **Lonca Kartı:** `RANK_THRESHOLDS` ile ilerleme barı, sonunda hedef rozet, kalan puan / "Level N gerekir" / "Terfi hazır".
+- **Terfi:** `guild.pending` kalktı. Eşik + Level şartı → `Q.checkPromotion()` dinamik "Terfi" görevi açar (`m_rankup_<kademe>`, duyurulur). Celeste'de `promotionTalk` → `Q.promote()` o anda; `'promotion'` olayı → `playRankUp` (`src/ui/celebrations.ts`). Level atlayınca da kontrol edilir. Otlak görevinin tesliminde aynı konuşmada işlenir. Kayıt v6: bekleyen terfi Terfi görevine dönüşür. Sınavlı kademeler (E−'den itibaren) akış dışında. Geliştirici panelinde "Eşiğe" ve "Terfi (anında)".
+- **Görev bitişi:** `Q.complete` → `'questdone'` → `playQuestComplete`: para sayarak, EXP barı (level atlarsa vurgu), eşyalar, Lonca Puanı; dokununca sona atlar, ikinci dokunuş kapatır, ~1,8 sn sonra kendiliğinden kapanır. Kutlamalar sistem bildirimleriyle aynı kuyrukta; hikâye `ui.whenOverlaysIdle()` ile bekler. Sessiz tamamlanan hikâye geçişleri animasyon oynatmaz ("G- Rütbe" artık sessiz değil).
+- **Görev EXP:** `reward.exp`; ana görevler hiç vermez (`questExp`), yan 2–6, pano G 3 / F 6. Test: yan/pano EXP ≤ aynı sürede fare avının üçte biri.
+- **Ayarlar:** `buildSettings(scene, c, w, h)` — ScrollList içinde Görüntü / Ses / Oynanış / Kontroller (+ Geliştirici); kaydırıcı sürüklerken liste kaymaz (`holdPointer`), maske dışındaki düğmeler tepki vermez (`containsPointer`). Başlık ekranında "Kapat" kaydırma alanının dışında.
+- Testler: 428 → 446 (`tests/ui.test.ts`). QA: `URL='http://localhost:4173/?qa=1' node tools/qa/shot.mjs g3` (`ONLY=title,appr,quest,rank,settings,inv`).
+
+### Elle test (başsız Chromium, 1280×854, DPR 1,5)
+
+- **NPC Appraisal (Muhafız Hob):** iki sütun, LPC portre, Level 4 / Lonca "Yok", HP 93/93, 3 dolu (Demir Mızrak, Demir Miğfer, Kapitone Zırh — F rozetleri; Deri Çizme G) ve 8 kesik çizgili boş slot; saygınlık satırı yok. Celeste (Appraisal'ı iki harf üstün): yalnızca Title okunuyor ("İnsan Okuyan"); isim, kimlik, Level, Lonca, HP/MP, 7 stat, 11 slot ve skill "???" ama kutucukların hepsi yerinde.
+- **Kendi Appraisal'ım:** başlığın sağında "Saygınlık −4", her dolu slotta katkı (Çatlak Sopa −2, Keten Gömlek +1, Yırtık Şort −3, Bez Ayakkabı +0, Kemirilmiş Yüzük +0).
+- **Yaratık:** fare — koyu kırmızı zemin, kırpılmış sprite portresi, sağ üstte G−, Irk Canavar / Cinsiyet — / Yaş —, drop tablosu %64 / %8,5 / %1,3 (nadir), stat ve ekipman yok. Goblin Şefi — LPC portre, F+, Title "Kampın Şefi (F)", oranlar "???" ("Appraisal F+ gerekir").
+- **Terfi:** G−, 36 puan → Lonca Kartı barı 36/40, "4 puan kaldı", sonda G rozeti. +10 → "Terfi" görevi açıldı (`m_rankup_1`), rütbe hâlâ G−. Celeste'yle konuşunca rütbe o anda G, animasyon oynadı (eski rozet titreyip dönüyor, ışık patlaması, büyük "G", "G− → G"), görev kapandı.
+- **Görev bitişi (Elmalı Çörek, EXP 98/100):** para 0→30 sayarak, +4 EXP barı dolup "LEVEL ATLADIN!", Ballı Çörek ×1; sonra "Devam etmek için dokun". Level 1, 2/200 EXP.
+- **HUD:** "ANA GÖREVLER" altında Hana Git, "YAN GÖREVLER" altında iki görev; ana görevler gizlenince yalnızca yan başlık.
+- **Ayarlar:** menüde 944 px içerik 596 px alanda kayıyor; başlık ekranında Kapat sabit, en alta kaydırınca Kontroller bölümü görünüyor.
+- Gerçek tablette dokunmatik kaydırma ve animasyon akıcılığı denenemedi (yalnızca başsız tarayıcı).
+
 ## Sonraki oturum için notlar
 
-- **Grup 3 (arayüz) için Grup 2'den kalanlar:** yaratık Appraisal paneli (ayrı düzen, koyu kırmızı zemin, stat/lonca/envanter bölümleri yok, portre) — şimdilik yalnızca drop satırı eklendi. `fmtHp` 10 altını hep bir ondalık gösterir ("HP 5,0 / 5,0"); tasarımda daha sade bir HUD isteniyorsa kural tek yerden değişir.
+- **Grup 4 için Grup 3'ten kalanlar:** sessiz tamamlanan hikâye görevleri (Hana Git, Bertram'ın İşi, Hasat, İlk Kadeh…) bitiş animasyonu oynatmaz — istenirse `silent` yerine kısa bir sahne arasında çağrılabilir. Terfi animasyonu için ayrı bir ses bestesi yok (mevcut `levelup` + `holy`). Yaratık portresi sayfanın ilk karesi (fare/tavşan arkadan görünüyor); istenirse aşağı bakan kare seçilebilir. `fmtHp` 10 altını hep bir ondalık gösterir ("HP 5,0 / 5,0").
 - Eski plandaki "yardımlı savaş, yoldaş YZ" maddeleri Grup 2 talimatında yoktu, dokunulmadı (yoldaşlar silah ×2'den dolaylı güçlendi: düşük HP'li ilk yaratıkları hızlı bitirirler, Joseph'in EXP'si yalnızca kendi vurduklarından gelir). Gerekirse ayrı bir oturumda.
 - **Grup 4 için:** Tarla Faresi yalnızca otlak görevinde doğuyor; dünyaya (güney tarlaları) yerleştirmek içerik işi. `pack_hunter` title'ı artık otlak görevinden değil, ormandaki kurtlardan gelir.
 
 - **Varsayılan dal hâlâ `claude/vigilant-darwin-hcoqh5`.** Araçlarla değiştirilemiyor; kullanıcı Settings → General → Default branch → `main` yapmalı, sonra eski dal silinebilir.
 - Gerçek tablet FPS'i ölçülemedi (yalnızca başsız tarayıcı). Kullanıcıdan Ayarlar → FPS göstergesi ile açık dünya / meydan / han değerlerini istemek iyi olur.
-- Ayarlar paneli dolu: not satırı başlık ekranında "Kapat" düğmesine yakın, geliştirici modunda bir satır daha ekleniyor → Grup 3'te paneli iki sütunlu/kaydırılır yapmak gerek.
 - Joseph'in portre dokusu her ekipman kombinasyonu için ayrı (`portrait_lpc_joseph_…`, 128×128); küçük bir birikim, kullanılan dokuyu silmek riskli olduğu için bırakıldı.
 - Yoldaşlar (`companion.ts`) hâlâ kendi `findPath`'ini senkron çağırıyor (saniyede en fazla bir kez, ≤5000 adım); gerekirse `PathQueue`'ya alınabilir.
 - `manifest.webmanifest` `orientation: landscape` korundu; Android'de açılışta sorun sürerse ilk aday bu.

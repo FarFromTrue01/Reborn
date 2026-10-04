@@ -15,6 +15,8 @@ import { Sound } from './audio/audio';
 import * as R from './game/rules';
 import { fpsLoopConfig } from './game/settings';
 import { qualityDprCap } from './game/display';
+import { createMonster } from './core/monster';
+import { NPC_BY_ID } from './data/npcs';
 
 declare const __APP_VERSION__: string;
 export const APP_VERSION = __APP_VERSION__;
@@ -94,6 +96,9 @@ async function start() {
   });
   (window as any).__R = R;
   (window as any).__Display = Display;
+  // QA betikleri (tools/qa) için
+  (window as any).__createMonster = createMonster;
+  (window as any).__NPC_BY_ID = NPC_BY_ID;
   (window as any).Phaser = Phaser;
   const onResize = () => {
     Display.compute();

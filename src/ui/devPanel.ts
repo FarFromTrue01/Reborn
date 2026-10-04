@@ -13,6 +13,7 @@ import { canonicalCoins, emptyWallet, walletTotal } from '../core/money';
 import { advance as advTime } from '../core/time';
 import { activeQuests, currentObjective } from '../core/quests';
 import { MAIN_QUESTS } from '../data/quests';
+import { RANK_THRESHOLDS } from '../core/guild';
 import { fmtExp, fmtHp } from './format';
 
 type Scn = Phaser.Scene & { render(): void; world: any; ui: any; close(): void };
@@ -116,8 +117,9 @@ export function renderDevPanel(scene: Scn, c: Phaser.GameObjects.Container, w: n
   rowLabel(`Lonca Puanı ${G.state.guild.points} · Borç ${G.state.guild.debt} · Rütbe ${p.guildRank === null ? 'yok' : subRankToString(p.guildRank)}`);
   x = 420;
   x = btn(x, '−10', () => (G.state.guild.points -= 10), 60);
-  x = btn(x, '+10', () => { G.state.guild.points += 10; Q.checkPromotion(true); }, 60);
-  x = btn(x, 'Terfi', () => { if (G.state.guild.pending) G.state.guild.pending.day = 0; Q.checkPromotion(); }, 70);
+  x = btn(x, '+10', () => { G.state.guild.points += 10; Q.checkPromotion(); }, 60);
+  x = btn(x, 'Eşiğe', () => { const r = G.p.guildRank; if (r !== null && r + 1 < RANK_THRESHOLDS.length) G.state.guild.points = Math.max(G.state.guild.points, RANK_THRESHOLDS[r + 1]); Q.checkPromotion(); }, 76);
+  x = btn(x, 'Terfi (anında)', () => { Q.checkPromotion(); Q.promote(); }, 140);
   y += 44;
   for (const id of activeQuests(G.state.quests)) {
     const def = Q.def(id);

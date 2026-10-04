@@ -1,6 +1,6 @@
 // Bölüm II — "G- Rütbe". Lonca kaydından sonra başlar ve şehir kapısında, giriş kartıyla biter.
 // Akış: silah (Bertram) → pano (Celeste, G görevleri) → G1/G2/G3 → "Biraz hava" → yaralı Vera ve Lina →
-// ertesi gün dostluk ve ilk ortak F görevi (otlaktaki fareler) → G rütbe (ertesi gün işlenir) → ilk kadeh →
+// ertesi gün dostluk ve ilk ortak F görevi (otlaktaki fareler) → G rütbe (Terfi: Celeste o anda işler) → ilk kadeh →
 // kâhyanın kesesi → ikinci ortak F görevi (değirmen bodrumu) → 10 gümüş → veda → giriş kartı ve şehir manzarası.
 // Yan görevler ve pano ilanları ilk kadehten sonra açılır.
 import Phaser from 'phaser';
@@ -17,6 +17,7 @@ import { SIDE_QUESTS, SIDE_SCRIPTS, boardForDay } from '../data/sidequests';
 import { currentObjective, activeQuests, type QuestDef } from '../core/quests';
 import { questDef } from '../data/quests';
 import { canTakeQuest, riskText, QUEST_POINTS, reRegister, REREGISTER_FEE, pointsToNext } from '../core/guild';
+import { subRankToString } from '../core/ranks';
 import { equip, transact } from '../core/transactions';
 import { walletTotal } from '../core/money';
 import { buyCard, hasValidCard, CARD_PRICE, CARD_DAYS, CITY_NAMES } from '../core/cards';
@@ -215,13 +216,14 @@ export class Chapter2 {
       R.sysmsg('LONCA KAYDI', ['Rütbe: G-', 'Lonca Puanı: 0', g.debt ? `Borç: {m:${g.debt}}` : 'Borç yok']);
       return true;
     }
+    // terfi: puan eşiği geçildiyse "Terfi" görevi açıktır; konuşunca terfi o anda işlenir
+    if (Q.rankupActive()) {
+      await this.promotionTalk();
+      return true;
+    }
     // teslimler
     for (const id of activeQuests(G.state.quests)) {
       if (this.at(id, 'talk', 'celeste')) {
-        if (id === 'm_promotion' && g.pending) {
-          await this.say('celeste', 'Kayıtlar yarın işlenir. Yarın. Bugün değil.', 'normal');
-          return true;
-        }
         await this.turnIn(id);
         return true;
       }
@@ -244,7 +246,6 @@ export class Chapter2 {
     acts.push(async () => {
       const nx = pointsToNext(g.points, G.p.guildRank!);
       await this.say('celeste', `Lonca Puanı ${g.points}.${nx !== null ? ` Bir sonraki kademeye ${nx} puan.` : ''}${g.debt ? ` Loncaya ${g.debt} bronz borcun var; sonraki ödüllerinden keseriz.` : ''}`, 'normal');
-      if (g.pending) await this.say('celeste', 'Terfin kayıtlarda. Kayıtlar yarın işlenir.', 'normal');
     });
     opts.push('Hoşça kal.');
     acts.push(async () => {});
@@ -252,6 +253,29 @@ export class Chapter2 {
     const c = await this.ui.choice(opts);
     await acts[c]();
     return true;
+  }
+
+  /**
+   * Terfi (0.5.0): Celeste kayıtları işler ve terfi o anda gerçekleşir; ekranda rütbe atlama animasyonu oynar.
+   * inline: başka bir teslimin ortasında (Celeste zaten konuşuyor), giriş cümlesi atlanır.
+   */
+  async promotionTalk(inline = false) {
+    if (!inline) await this.say('celeste', 'Lonca Puanın eşiği geçmiş. Kartını ver, kayıtlarını işleyeyim.', 'normal');
+    const r = Q.promote();
+    if (!r) {
+      await this.say('celeste', 'Hm. Puanın eşiğin altına düşmüş. Bu kayıt işlenmez.', 'normal');
+      return;
+    }
+    // animasyon bitene (ya da oyuncu dokunup geçene) kadar bekle
+    this.ui.closeDialogue();
+    await this.ui.whenOverlaysIdle();
+    const to = subRankToString(r.to);
+    await this.say('celeste', r.to === 1 ? 'G. Kartını damgaladım. ...Tebrikler. Sanırım.' : `${to}. Damgalandı. Tebrikler, maceracı.`, r.to === 1 ? 'normal' : 'gulen');
+    // eski kayıtlarda (0.4.x) açık kalan "Kayıtlar Yarın İşlenir" görevi: hikâye ilk kadehle sürer
+    if (Q.active('m_promotion')) {
+      Q.complete('m_promotion', { silent: true });
+      if (!Q.status('m_celebrate')) Q.start('m_celebrate');
+    }
   }
 
   /** Görevi Celeste'ye teslim et. */
@@ -282,11 +306,14 @@ export class Chapter2 {
         await this.think('Kimse benim payımdan kesmedi. İlk kez.');
         for (const c of ['vera', 'lina']) this.w.removeCompanion(c);
         this.w.player.burden = 1;
-        if (G.state.guild.pending) {
-          await this.say('celeste', 'Kırk beş puan. G eşiğini geçtin. Kayıtlar yarın işlenir.', 'normal');
-          Q.start('m_promotion');
+        if (Q.rankupActive()) {
+          await this.say('celeste', 'Kırk beş puan. G eşiğini geçtin. Dur, kaydını hemen işleyeyim.', 'normal');
+          await this.promotionTalk(true);
         }
-        await this.say('vera', 'Yarın G olursun, köksüz. Akşam handa ol. Kutlarız. Geç kalma.', 'normal');
+        if (G.p.guildRank !== null && G.p.guildRank >= 1) {
+          await this.say('vera', 'G oldun, köksüz. Akşam handa ol. Kutlarız. Geç kalma.', 'normal');
+          if (!Q.status('m_celebrate')) Q.start('m_celebrate');
+        } else await this.say('vera', 'G eşiğine az kaldı, köksüz. Akşam handa ol yine de. Geç kalma.', 'normal');
         break;
       case 'f_cellar':
         await this.say('celeste', 'Değirmen bodrumu. Dört dev fare. Otuz bronz kişi başı, on beş puan.', 'normal');
@@ -298,9 +325,10 @@ export class Chapter2 {
         Q.start('m_silver');
         break;
       case 'm_promotion':
-        await this.say('celeste', 'G. Kartını ver, damgalayayım. ...Tebrikler. Sanırım.', 'normal');
+        // eski kayıtlar (0.4.x): terfi zaten işlendiyse yalnızca hikâye sürer
+        await this.say('celeste', 'Kartın damgalı. Tebrikler. Sanırım.', 'normal');
         Q.complete(id, { silent: true });
-        Q.start('m_celebrate');
+        if (!Q.status('m_celebrate')) Q.start('m_celebrate');
         break;
       default:
         if (def.kind === 'board') {
@@ -312,7 +340,7 @@ export class Chapter2 {
     if (Q.done(id)) Q.notify('custom', id);
     // üç G görevi bitince
     if (Q.active('m_grank') && ['g1_rats', 'g2_herbs', 'g3_letter'].every((g) => Q.done(g))) {
-      Q.complete('m_grank', { silent: true });
+      Q.complete('m_grank');
       R.sysmsg('G GÖREVLERİ TAMAM', [`Lonca Puanı: ${G.state.guild.points}/40`, 'G rütbesine 10 puan kaldı.'], { sound: 'title' });
       this.ui.closeDialogue();
       await this.think('Yetmiş bronz. Hayatımda kazandığım en çok para. Bu paraya şimdi dokunamam; bir sonraki iş için lazım.');

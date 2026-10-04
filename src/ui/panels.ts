@@ -17,6 +17,8 @@ export class ScrollList extends Phaser.GameObjects.Container {
   private vel = 0;
   private lastMoveT = 0;
   private handlers: [string, (...a: any[]) => void][] = [];
+  /** Bu işaretçinin bir sonraki basışı kaydırma başlatmaz (ör. kaydırıcı sürükleniyor). */
+  private heldId = -1;
 
   constructor(scene: Phaser.Scene, x: number, y: number, public w: number, public h: number) {
     super(scene, x, y);
@@ -32,6 +34,10 @@ export class ScrollList extends Phaser.GameObjects.Container {
     // Sürükleme sahne düzeyinde dinlenir: satırların (butonların) üstünden başlayan
     // dokunmatik sürüklemeler de listeyi kaydırır.
     const down = (p: Phaser.Input.Pointer) => {
+      if (p.id === this.heldId) {
+        this.heldId = -1;
+        return;
+      }
       if (!this.active || !this.visible || !this.inside(p)) return;
       this.dragY = p.y;
       this.dragId = p.id;
@@ -70,6 +76,19 @@ export class ScrollList extends Phaser.GameObjects.Container {
     scene.events.on('update', tick);
     this.handlers.push(['__update', tick]);
     scene.add.existing(this);
+  }
+
+  /**
+   * İçerideki bir nesne bu basışı kendisi kullanıyor (kaydırıcı): liste kaydırmasın. Nesnenin pointerdown'u sahne
+   * düzeyindeki dinleyiciden önce çalışır.
+   */
+  holdPointer(id: number) {
+    this.heldId = id;
+  }
+
+  /** İşaretçi listenin görünen alanında mı? (Maske dışında kalan, kaydırılmış nesnelere dokunuşu ayıklamak için.) */
+  containsPointer(p: Phaser.Input.Pointer) {
+    return this.inside(p);
   }
 
   private inside(p: Phaser.Input.Pointer) {

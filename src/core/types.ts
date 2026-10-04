@@ -46,6 +46,7 @@ export interface ItemDef {
   kind: ItemKind;
   /** Kuşanılabilir eşyanın slot türü; yüzükler 'ring'. */
   slot?: Exclude<EquipSlot, 'ring1' | 'ring2'> | 'ring';
+  /** Eşya rütbesi (alt kademesiz harf). Kuşanılabilir eşyalarda ve malzemelerde zorunlu (tests/systems.test.ts). */
   rank?: Letter;
   /** Saygınlık katkısı (C1): kaliteli eşya artı, paçavra eksi. Yalnızca kuşanılınca sayılır. */
   saygınlık?: number;

@@ -59,7 +59,7 @@ export function josephStatusOf(prestige: number, guildMember: boolean): 'naked' 
   return guildMember ? 'adventurer' : 'rootless';
 }
 
-/** Ekranda gösterim: işaretli tamsayı. */
+/** Ekranda gösterim: her zaman işaretli tamsayı (0 → "+0", −2 → "−2"; eksi işareti tipografik). */
 export function prestigeLabel(n: number): string {
-  return n > 0 ? `+${n}` : `${n}`;
+  return n < 0 ? `−${Math.abs(n)}` : `+${n}`;
 }

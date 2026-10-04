@@ -38,8 +38,9 @@ export function onNewDay() {
 }
 
 // ------------------------------------------------------------------ karakter EXP
-export function gainExp(amount: number) {
-  if (amount <= 0) return;
+/** Karakter EXP'si verir (title/skill çarpanı dahil); gerçekten eklenen miktarı döndürür. */
+export function gainExp(amount: number): number {
+  if (amount <= 0) return 0;
   const p = G.p;
   const amt = Math.round(amount * G.d.expMult);
   onNewDay();
@@ -65,6 +66,7 @@ export function gainExp(amount: number) {
     G.events.emit('levelup', p.level);
   }
   G.events.emit('stats');
+  return amt;
 }
 
 /** Ölüm cezası: o gün kazanılan EXP kaybedilir (level düşmez). */

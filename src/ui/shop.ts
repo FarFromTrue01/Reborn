@@ -7,7 +7,8 @@ import { SHOPS } from '../data/shops';
 import { ITEMS } from '../data/items';
 import { sellPrice } from '../core/money';
 import { coinRow } from './coins';
-import { COLORS, FONT, txt, drawFrame, Button, iconImage } from './kit';
+import { COLORS, FONT, txt, drawFrame, Button, iconImage, itemRankBadge, uiIcon } from './kit';
+import { itemPrestige, prestigeLabel } from '../core/prestige';
 import { ScrollList } from './panels';
 import { itemLabel, itemEffectsText } from './format';
 import * as R from '../game/rules';
@@ -105,6 +106,7 @@ export function openShop(ui: UIScene, shopId: string, tab: 'buy' | 'sell' = 'buy
         }
         row.add(bg);
         row.add(iconImage(ui, 30, 29, it.icon, 36));
+        if (it.rank) row.add(itemRankBadge(ui, 14, 14, it.rank, 18));
         row.add(txt(ui, 58, 8, itemLabel(id), { size: 15, bold: true, wrap: listW - 200 }));
         const price = mode === 'buy' ? buyPrice(id) : sellP(id);
         if (price === 0 && mode === 'buy') row.add(txt(ui, listW - 20, 18, 'Bedava', { size: 15, color: COLORS.textGreen, bold: true }).setOrigin(1, 0));
@@ -141,7 +143,19 @@ export function openShop(ui: UIScene, shopId: string, tab: 'buy' | 'sell' = 'buy
       const dw = pw * 0.38;
       detail.add(iconImage(ui, 36, 36, it.icon, 64));
       detail.add(txt(ui, 80, 6, it.name, { size: 20, bold: true, font: FONT.title, color: COLORS.textGold, wrap: dw - 80 }));
-      if (it.rank) detail.add(txt(ui, 80, 38, `Rütbe ${it.rank}`, { size: 14, color: COLORS.textDim }));
+      let rx = 80;
+      if (it.rank) {
+        detail.add(itemRankBadge(ui, rx + 10, 48, it.rank, 20));
+        const rt = txt(ui, rx + 24, 39, `Rütbe ${it.rank}`, { size: 14, bold: true, color: COLORS.textGold });
+        detail.add(rt);
+        rx += 36 + rt.width;
+      }
+      if (it.slot) {
+        // Saygınlık katkısı (0 olsa bile +0)
+        const sv = itemPrestige(id);
+        detail.add(uiIcon(ui, rx + 8, 48, 'prestige', 16));
+        detail.add(txt(ui, rx + 20, 39, `Saygınlık ${prestigeLabel(sv)}`, { size: 14, bold: true, color: sv > 0 ? '#cfe6b8' : sv < 0 ? COLORS.textRed : COLORS.textDim }));
+      }
       detail.add(txt(ui, 0, 82, itemLabel(id), { size: 15, color: COLORS.textBlue, wrap: dw }));
       const eff = itemEffectsText(id);
       detail.add(txt(ui, 0, 112, it.desc + (eff ? `\n${eff}` : '') + (it.special ? `\nÖzel: ${it.special}` : ''), { size: 15, color: COLORS.text, wrap: dw, lineSpacing: 3 }));

@@ -33,6 +33,11 @@ export interface QuestReward {
   items?: { id: string; qty: number }[];
   /** Lonca Puanı (pano/lonca görevleri). */
   points?: number;
+  /**
+   * Karakter EXP'si (0.5.0 kuralı): ana görevler EXP vermez; yan ve pano görevleri az verir. EXP'nin asıl ve en hızlı
+   * yolu canavar avlamaktır (tests/systems.test.ts sınırları denetler).
+   */
+  exp?: number;
   text?: string;
 }
 
@@ -198,4 +203,39 @@ export function expired(log: QuestLog, day: number, lookup: DefLookup): string[]
 
 export function activeQuests(log: QuestLog): string[] {
   return log.order.filter((id) => log.quests[id]?.status === 'active');
+}
+
+/** HUD kategorisi: ana görevler ve yan görevler (pano görevleri yan görevlerle aynı kategoride). */
+export type QuestCategory = 'main' | 'side';
+
+export function questCategory(kind: QuestKind): QuestCategory {
+  return kind === 'main' ? 'main' : 'side';
+}
+
+export interface QuestHudPrefs {
+  main: boolean;
+  side: boolean;
+}
+
+/**
+ * HUD görev kutusunun grupları: önce Ana Görevler, sonra Yan Görevler. Gizlenen ya da boş kategori listede yer almaz
+ * (başlığı da çizilmez). Sıra günlükteki başlama sırasıdır.
+ */
+export function hudQuestGroups(ids: string[], kindOf: (id: string) => QuestKind | undefined, prefs: QuestHudPrefs): { cat: QuestCategory; ids: string[] }[] {
+  const out: { cat: QuestCategory; ids: string[] }[] = [];
+  for (const cat of ['main', 'side'] as const) {
+    if (!prefs[cat]) continue;
+    const list = ids.filter((id) => {
+      const k = kindOf(id);
+      return k !== undefined && questCategory(k) === cat;
+    });
+    if (list.length) out.push({ cat, ids: list });
+  }
+  return out;
+}
+
+/** Görevin verdiği karakter EXP'si: ana görevler hiç vermez (tanımda yazsa bile). */
+export function questExp(def: QuestDef): number {
+  if (def.kind === 'main') return 0;
+  return Math.max(0, def.reward.exp ?? 0);
 }

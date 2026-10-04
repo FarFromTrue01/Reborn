@@ -55,9 +55,13 @@ export class Director {
   constructor(public w: WorldScene) {
     G.events.on('awakening', () => this.tryPending());
     G.events.on('discovery', () => this.tryPending());
+    // Terfinin Level şartı sonradan sağlanabilir: level atlayınca Terfi görevi açılır mı bak
+    const onLevel = () => Q.checkPromotion();
+    G.events.on('levelup', onLevel);
     w.events.once('shutdown', () => {
       G.events.off('awakening');
       G.events.off('discovery');
+      G.events.off('levelup', onLevel);
     });
     w.time.addEvent({ delay: 1500, loop: true, callback: () => this.tryPending() });
   }
@@ -208,7 +212,7 @@ export class Director {
 
   onNewDay() {
     G.setFlag('worked_today', 0);
-    // C3: "Kayıtlar yarın işlenir." — bekleyen terfi ertesi gün işlenir
+    // C3: terfi hakkı varsa Terfi görevi açılır (terfiyi Celeste o anda işler)
     Q.checkPromotion();
     this.ch2.onNewDay();
   }

@@ -5,16 +5,21 @@ import {
   startQuest, advance, setProgress, notify, finishQuest, isActive, isDone, allObjectivesDone, currentObjective, pickNextTracked,
   type QuestDef, type ObjectiveType, type QuestTarget,
 } from '../core/quests';
-import { questDef } from '../data/quests';
-import { QUEST_POINTS, applyReward, applyPenalty, earnedRank, examRequired, riskText } from '../core/guild';
+import { questDef, rankupQuest } from '../data/quests';
+import { QUEST_POINTS, applyReward, applyPenalty, earnedRank, examRequired, riskText, isRankupQuest } from '../core/guild';
+import { activeQuests, questExp } from '../core/quests';
+import type { SubRank } from '../core/ranks';
 import { subRankToString } from '../core/ranks';
 import { walletTotal } from '../core/money';
 import { pay } from './rules';
-import { ITEMS } from '../data/items';
+import type { QuestDoneInfo } from '../ui/celebrations';
+import { addExp } from '../core/formulas';
 
 const lookup = (id: string) => G.state.quests.quests[id]?.def ?? questDef(id);
 
 export const KIND_NAMES: Record<string, string> = { main: 'Ana görev', side: 'Yan görev', board: 'Pano görevi' };
+
+export { questExp };
 
 function changed() {
   G.events.emit('quests');
@@ -97,24 +102,28 @@ export const Q = {
     if (!def || !finishQuest(G.state.quests, id, 'done', G.state.time.day)) return 0;
     const money = opts.money ?? def.reward.money ?? 0;
     let paid = money;
-    const lines: string[] = [def.title];
+    let toDebt = 0;
+    let points = 0;
     if (def.guild && def.rank) {
       const r = applyReward(G.state.guild, def.reward.points ?? QUEST_POINTS[def.rank], money, !!def.group);
       paid = r.paid;
-      lines.push(`+${r.points} Lonca Puanı${def.group ? ' (grup görevi: yarısı)' : ''} · Toplam ${G.state.guild.points}`);
-      if (r.toDebt) lines.push(`Loncaya borçtan düşüldü: {m:${r.toDebt}}`);
-      Q.checkPromotion(true);
+      toDebt = r.toDebt;
+      points = r.points;
     }
-    if (paid > 0) {
-      R.giveMoney(paid, 'Görev ödülü: ' + def.title, true);
-      lines.push(`Ödül: {m:${paid}}`);
+    // Ödül animasyonu önce kuyruğa girsin: arkasından gelen "LEVEL ATLADIN" ve "YENİ ANA GÖREV: Terfi" sırayı bozmasın
+    const info: QuestDoneInfo = { title: def.title, kind: def.kind, money: paid, toDebt, points, pointsTotal: G.state.guild.points, items: def.reward.items ?? [], exp: null, text: def.reward.text };
+    const expReward = questExp(def);
+    if (expReward > 0) {
+      // gainExp ile aynı hesap (çarpan dahil); sahne sonucu önceden bilsin, level bildirimi sahneden sonra gelsin
+      const amount = Math.round(expReward * G.d.expMult);
+      const r = addExp(G.p.level, G.p.exp, amount);
+      info.exp = { amount, levelBefore: G.p.level, expBefore: G.p.exp, levelAfter: r.level, expAfter: r.exp };
     }
-    if (def.reward.items?.length) {
-      R.giveItems(def.reward.items, 'Görev ödülü', true);
-      for (const it of def.reward.items) lines.push(`+${it.qty} ${ITEMS[it.id]?.name ?? it.id}`);
-    }
-    if (def.reward.text && !paid) lines.push(def.reward.text);
-    if (!opts.silent) R.sysmsg('GÖREV TAMAMLANDI', lines, { sound: 'title' });
+    if (!opts.silent) G.events.emit('questdone', info);
+    if (paid > 0) R.giveMoney(paid, 'Görev ödülü: ' + def.title, true);
+    if (def.reward.items?.length) R.giveItems(def.reward.items, 'Görev ödülü', true);
+    if (expReward > 0) R.gainExp(expReward);
+    if (def.guild && def.rank) Q.checkPromotion();
     G.state.quests.tracked = G.state.quests.tracked ?? pickNextTracked(G.state.quests, lookup);
     changed();
     return paid;
@@ -148,30 +157,47 @@ export const Q = {
     if (!def.guild || !def.rank) return '';
     return riskText(def.reward.points ?? QUEST_POINTS[def.rank], def.reward.money ?? 0);
   },
+  /** Açık Terfi görevi (varsa). */
+  rankupActive(): string | null {
+    return activeQuests(G.state.quests).find(isRankupQuest) ?? null;
+  },
   /**
-   * Terfi: puan eşiği geçildiyse ertesi gün işlenir ("Kayıtlar yarın işlenir.").
-   * schedule: yeni bekleyen terfi oluştur; aksi hâlde günü gelen terfiyi uygula.
+   * Terfi hakkı: puan eşiği (ve Level şartı) sağlandıysa "Terfi" görevi açılır ve duyurulur; terfi Celeste'yle
+   * konuşunca o anda işlenir (Q.promote). Sınavlı kademeler bu akışın dışında ('exam' döner, görev açılmaz).
    */
-  checkPromotion(schedule = false): string | null {
+  checkPromotion(): 'quest' | 'exam' | null {
     const g = G.state.guild;
     if (!g.member || G.p.guildRank === null) return null;
     const cur = G.p.guildRank;
-    if (schedule) {
-      const target = earnedRank(g.points, cur, G.p.level);
-      if (target > cur && (!g.pending || g.pending.rank < target)) g.pending = { rank: target, day: G.state.time.day + 1 };
-      if (target === cur && examRequired(cur + 1) && g.points >= 0) return 'exam';
-      return g.pending ? 'pending' : null;
+    const target = earnedRank(g.points, cur, G.p.level);
+    if (target > cur) {
+      if (!Q.rankupActive()) Q.start(rankupQuest(target).id, false, rankupQuest(target));
+      return 'quest';
     }
-    if (g.pending && G.state.time.day >= g.pending.day) {
-      const to = g.pending.rank;
-      g.pending = null;
-      G.p.guildRank = to;
-      R.sysmsg('TERFİ', [`Maceracılar Loncası: ${subRankToString(cur)} → ${subRankToString(to)}`, `Lonca Puanı: ${g.points}`], { sound: 'levelup', big: true });
-      G.events.emit('rank', to);
-      G.scheduleSave();
-      return 'promoted';
-    }
+    if (examRequired(cur + 1) && cur + 1 < 26) return 'exam';
     return null;
+  },
+  /**
+   * Terfiyi şimdi uygula (Celeste): ulaşılabilen en yüksek kademeye çıkar, Terfi görevini kapatır, rütbe atlama
+   * animasyonu için 'promotion' olayını yayar. Puan eşiğin altına düştüyse görevi bırakır ve null döner.
+   */
+  promote(): { from: SubRank; to: SubRank } | null {
+    const g = G.state.guild;
+    const open = Q.rankupActive();
+    if (!g.member || G.p.guildRank === null) return null;
+    const from = G.p.guildRank;
+    const to = earnedRank(g.points, from, G.p.level);
+    if (to <= from) {
+      if (open && finishQuest(G.state.quests, open, 'abandoned', G.state.time.day)) changed();
+      return null;
+    }
+    G.p.guildRank = to;
+    if (open) Q.complete(open, { silent: true });
+    G.state.history.push({ speaker: 'Sistem', text: `Terfi: ${subRankToString(from)} → ${subRankToString(to)}`, kind: 'system' });
+    G.events.emit('rank', to);
+    G.events.emit('promotion', { from, to, points: g.points });
+    G.scheduleSave();
+    return { from, to };
   },
   /** Takip edilen görevin şu anki amacının hedefi. */
   target(): { id: string; def: QuestDef; t: QuestTarget } | null {
