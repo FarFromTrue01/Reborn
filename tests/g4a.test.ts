@@ -262,3 +262,41 @@ describe('Kayıt göçü v6 → v7 (0.6.0)', () => {
     expect(m.quests.quests[b.id].def.objectives[0].where).toBeDefined();
   });
 });
+
+// ---------------------------------------------------------------------------------------------- şifalı ot (4)
+import { buildMaps } from '../src/world/maps';
+import { HERBS_AT_FOREST_EDGE, type BuildingMeta } from '../src/world/worldgen';
+import buildingsJson from '../assets/gfx/buildings/buildings.json';
+import terrainJson from '../assets/gfx/tiles/terrain.json';
+import { TILE } from '../src/world/types';
+
+const maps = buildMaps(buildingsJson as unknown as Record<string, BuildingMeta>, (terrainJson as any).floors);
+
+describe('Şifalı ot: toplama noktası ↔ görsel bire bir (4)', () => {
+  const w = maps.world;
+  it('Her toplama noktasının tam bir görseli var, her ot görselinin bir toplama noktası', () => {
+    for (const g of w.gathers) {
+      const ps = w.props.filter((p) => p.gather === g.id);
+      expect(ps.length, g.id).toBe(1);
+      if (g.kind === 'herb') {
+        expect(ps[0].key).toBe('herb_plant');
+        expect(Math.floor(ps[0].x / TILE)).toBe(g.x);
+        expect(Math.floor(ps[0].y / TILE)).toBe(g.y);
+      }
+    }
+    for (const p of w.props.filter((p) => p.key === 'herb_plant')) expect(w.gathers.some((g) => g.id === p.gather), `${p.x},${p.y}`).toBe(true);
+    for (const m of Object.values(maps.interiors)) expect(m.props.some((p) => p.key === 'herb_plant'), m.id).toBe(false);
+  });
+  it('Otların üstünde ağaç ya da çalı yok, ot karosu yürünebilir', () => {
+    for (const g of w.gathers.filter((g) => g.kind === 'herb')) expect(w.solid[g.y * w.w + g.x], g.id).toBe(0);
+  });
+  it('Görev işaretinin (forest_edge, yarıçap 6) içinde görevlerin istediğinden fazla ot var', () => {
+    const fe = w.points.forest_edge;
+    const inside = w.gathers.filter((g) => g.kind === 'herb' && Math.hypot(g.x - fe.x, g.y - fe.y) <= 6);
+    const need = Math.max(...[...MAIN_QUESTS, ...SIDE_QUESTS, ...BOARD_TEMPLATES.map((t) => ({ objectives: t.make('x').objectives }))]
+      .flatMap((q) => q.objectives).filter((o) => o.type === 'collect' && o.target === 'herb').map((o) => o.count ?? 1));
+    expect(need).toBe(6);
+    expect(inside.length).toBeGreaterThanOrEqual(HERBS_AT_FOREST_EDGE);
+    expect(inside.length).toBeGreaterThan(need);
+  });
+});

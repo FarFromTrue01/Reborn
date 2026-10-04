@@ -22,6 +22,8 @@ export const WORLD_H = 120;
 export const BARRIER_X = 152;
 /** Köyün batı sınırı (nehrin doğusu). */
 export const VILLAGE_X0 = 62;
+/** Şifalı ot görevlerinin işaretli bölgesindeki (forest_edge) sabit ot sayısı. */
+export const HERBS_AT_FOREST_EDGE = 9;
 /** Ormanda ağaçlar arasına fazladan bir karo boşluk bırakılma olasılığı (0.3.0: ~%30 seyrek orman). */
 const GAP_P = 0.3;
 
@@ -331,7 +333,7 @@ export function buildWorld(bmeta: Record<string, BuildingMeta>): MapData {
   fenceLine(66, 78, 85);
   // meyve ağaçları (elma toplama)
   for (const [x, y, id] of [[90, 41, 'apple1'], [110, 64, 'apple2'], [64, 62, 'apple3']] as [number, number, string][]) {
-    prop('tree_round', x, y, { tint: 0xffffff });
+    prop('tree_round', x, y, { tint: 0xffffff, gather: id });
     gathers.push({ id, x, y: y + 1, item: 'apple', kind: 'apple' });
   }
   rect(TERRAIN.farm, 66, 81, 75, 84);
@@ -389,7 +391,7 @@ export function buildWorld(bmeta: Record<string, BuildingMeta>): MapData {
   points.woodcut = { x: 103, y: 110 };
   // Meyve ağaçları
   for (const [x, y, id] of [[122, 94, 'apple4'], [148, 75, 'apple5']] as [number, number, string][]) {
-    prop('tree_round', x, y);
+    prop('tree_round', x, y, { gather: id });
     gathers.push({ id, x, y: y + 1, item: 'apple', kind: 'apple' });
   }
   // Fenerler
@@ -506,15 +508,33 @@ export function buildWorld(bmeta: Record<string, BuildingMeta>): MapData {
   sp('camp_shaman', 'goblin_shaman', 20, 10, 3, 1, 900);
   sp('camp_chief', 'goblin_chief', 15, 13, 2, 1, 1440 * 3);
 
-  // Toplama noktaları: şifalı ot
+  // Toplama noktaları: şifalı ot. Her toplama noktasının tam bir görseli var (prop.gather); üstüne ağaç/çalı konmaz.
   let hid = 0;
-  for (let i = 0; i < 400 && hid < 30; i++) {
+  const herbTile = new Uint8Array(W * H);
+  const herb = (x: number, y: number) => {
+    const id = 'herb' + hid++;
+    gathers.push({ id, x, y, item: 'herb', kind: 'herb' });
+    props.push({ key: 'herb_plant', x: x * TILE + 16, y: y * TILE + 28, sway: true, gather: id });
+    reserve(x - 1, y - 1, x + 1, y + 1);
+    herbTile[idx(x, y)] = 1;
+  };
+  // 0.6.0: görev işaretinin (forest_edge, yarıçap 6) içinde sabit bir küme — en çok ot isteyen görevden (6) fazlası
+  const fe = points.forest_edge;
+  const ring: [number, number][] = [];
+  for (let dy = -5; dy <= 5; dy++) for (let dx = -5; dx <= 5; dx++) if (dx * dx + dy * dy <= 25) ring.push([fe.x + dx, fe.y + dy]);
+  ring.sort((a, b) => Math.hypot(a[0] - fe.x - 1.3, a[1] - fe.y - 0.7) - Math.hypot(b[0] - fe.x - 1.3, b[1] - fe.y - 0.7));
+  let cluster = 0;
+  for (const [x, y] of ring) {
+    if (cluster >= HERBS_AT_FOREST_EDGE) break;
+    const t = get(x, y);
+    if ((t !== TERRAIN.forest && t !== TERRAIN.grass && t !== TERRAIN.flowers) || reserved[idx(x, y)] || solid[idx(x, y)]) continue;
+    herb(x, y);
+    cluster++;
+  }
+  for (let i = 0; i < 400 && hid < 30 + cluster; i++) {
     const x = 3 + Math.floor(rnd() * 52), y = 3 + Math.floor(rnd() * (H - 8));
     if (get(x, y) !== TERRAIN.forest || reserved[idx(x, y)]) continue;
-    gathers.push({ id: 'herb' + hid, x, y, item: 'herb', kind: 'herb' });
-    props.push({ key: 'herb_plant', x: x * TILE + 16, y: y * TILE + 28, sway: true });
-    reserve(x - 1, y - 1, x + 1, y + 1);
-    hid++;
+    herb(x, y);
   }
 
   // ============================================================ yol kenarı dekorları ve çitler
@@ -594,7 +614,7 @@ export function buildWorld(bmeta: Record<string, BuildingMeta>): MapData {
     const x = Math.floor(rnd() * W), y = Math.floor(rnd() * H);
     const t = get(x, y);
     if (t !== TERRAIN.forest && t !== TERRAIN.grass && t !== TERRAIN.flowers) continue;
-    if (occ[idx(x, y)] || solid[idx(x, y)] || x >= BARRIER_X) continue;
+    if (occ[idx(x, y)] || solid[idx(x, y)] || herbTile[idx(x, y)] || x >= BARRIER_X) continue;
     if (reserved[idx(x, y)] && rnd() < 0.85) continue;
     const villageArea = x > VILLAGE_X0 && x < BARRIER_X - 4 && y > 26 && y < H - 6;
     if (villageArea && rnd() < 0.85) continue;

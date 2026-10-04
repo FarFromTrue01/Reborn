@@ -247,8 +247,8 @@ const ROOMS: RoomSpec[] = [
       b.wallProp('dish_shelf', 4, 1);
       b.prop('pots', 6, 3);
       b.prop('bed', 8, 5);
-      b.prop('herb_plant', 1, 6);
-      b.prop('herb_plant', 1, 7);
+      // kurutulan otlar: saksı (toplanabilir şifalı ot görseli yalnızca dünyadaki toplama noktalarında)
+      b.prop('pots', 1, 7);
       b.prop('side_table', 7, 7);
       b.wallProp('torch_wall', 7, 1, { light: { radius: 120, color: 0xffd090, flicker: true } });
     },

@@ -50,6 +50,8 @@ export interface PropPlacement {
   anim?: string[];
   alpha?: number;
   tint?: number;
+  /** Bu dekor bir toplama noktasının görseli (0.6.0: bire bir eşleşme; toplandığı gün soluk görünür). */
+  gather?: string;
 }
 
 export interface BuildingPlacement {

@@ -1021,9 +1021,26 @@ export class Chapter2 {
   }
 
   // ============================================================ olaylar
+  /** Ortak F görevlerinde Vera ve Lina hep Joseph'in yanında (eski kayıt, ara sahne ya da harita geçişi ne olursa olsun). */
+  ensureParty() {
+    const need = (Q.active('f_wolves') && this.objIdx('f_wolves') <= 1) || (Q.active('f_cellar') && this.objIdx('f_cellar') <= 1);
+    if (!need) return;
+    for (const c of ['vera', 'lina']) if (!this.w.companion(c)) this.w.addCompanion(c);
+  }
+
   onEnterMap(id: string) {
     this.spawned.clear();
     this.applyEscort();
+    this.ensureParty();
+    // 0.6.0: sopayı alınca loncaya dönen Joseph'e pano aynı gün açılır
+    if (id === 'guild' && Q.active('m_board') && this.w.npc('celeste')) {
+      this.d.scene(async () => this.boardOpening());
+      return;
+    }
+    if (id === 'inn' && this.canSit()) {
+      this.placeAtTable('vera', 'table_vera');
+      this.placeAtTable('lina', 'table_lina');
+    }
     if (id === 'inn' && Q.active('m_celebrate') && this.objIdx('m_celebrate') === 0 && hourOf(G.state.time) >= 18) {
       this.d.scene(async () => this.celebrateArrive());
       return;
@@ -1142,6 +1159,7 @@ export class Chapter2 {
     }
     if (id === 'm_celebrate') return false;
     if (id === 'f_wolves' && idx === 0) {
+      this.ensureParty();
       this.d.scene(async () => {
         await this.say('shepherd', 'Maceracılar! Tanrıya şükür! Fareler tarladan taşıp otlağa indi, bir sürü!');
         await this.veraLesson();
@@ -1252,7 +1270,8 @@ export class Chapter2 {
         return;
       }
     }
-    // E5: hırsızlık — ilk kadehten sonraki gün, gündüz
+    // E5: hırsızlık — ilk kadehten sonraki gün, gündüz (eski kayıtta gün bayrağı yoksa bugün)
+    if (Q.done('m_celebrate') && !Q.status('m_theft') && !G.flag('theft_day')) G.setFlag('theft_day', this.day);
     if (w.mapData.id === 'world' && Q.done('m_celebrate') && !Q.status('m_theft') && this.day >= Number(G.flag('theft_day') || 999) && h >= 8 && h < 18) {
       this.d.scene(async () => this.theftScene());
       return;

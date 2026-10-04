@@ -228,6 +228,7 @@ export class WorldScene extends Phaser.Scene {
     this.assistMarkT = 0;
     this.assistLast = null;
     this.npcMarks = {};
+    this.gatherDay = -1;
     this.sideMarks = {};
     this.buildingMarks = new Map();
     this.camFollow = true;
@@ -406,6 +407,7 @@ export class WorldScene extends Phaser.Scene {
     this.spawnEnemies();
     this.spawnNpcs();
     this.spawnCompanions();
+    this.applyGatherVisuals();
     // ortam
     if (!m.indoor) this.makeRays();
     this.zone = null;
@@ -734,6 +736,7 @@ export class WorldScene extends Phaser.Scene {
     }
   }
   updateMarkers() {
+    if (this.gatherDay !== G.state.time.day) this.applyGatherVisuals();
     const side = this.director.sideMarks();
     this.sideMarks = side;
     const marks: Record<string, MarkerKind> = { ...side, ...this.director.ch2.npcMarkers() };
@@ -1520,7 +1523,8 @@ export class WorldScene extends Phaser.Scene {
     for (const p of this.r.propImages) if (p.p.interact && this.director.propAvailable(p.p.interact)) consider(p.p.x, p.p.y - 8, this.interactLabel(p.p.interact), 'prop', p.p, p.p.interact === 'sit_table' ? 52 : 38);
     for (const g of this.mapData.gathers) {
       const avail = (G.state.gathered[g.id] ?? 0) !== G.state.time.day;
-      if (avail) consider(g.x * TILE + 16, g.y * TILE + 16, 'Topla', 'gather', g, 30);
+      // görseli olmayan toplama noktası olmaz (bire bir: worldgen prop.gather)
+      if (avail && this.gatherImg(g.id)) consider(g.x * TILE + 16, g.y * TILE + 16, 'Topla', 'gather', g, 30);
     }
     for (const w of this.mapData.warps) consider(w.x * TILE + 16, w.y * TILE + 8, w.to ? (this.mapData.indoor && w.y === this.mapData.h - 1 ? 'Çık' : 'Gir') : 'Kapı', 'warp', w, 30);
     const b = best as any;
@@ -1561,8 +1565,24 @@ export class WorldScene extends Phaser.Scene {
       R.gainSkillExp('gathering', usageExp(1.5, 0, 0));
       G.count('gathered');
       R.checkDiscoveries();
-      // otu haritadan gizle (gün boyu)
-      for (const p of this.r.propImages) if (p.p.key === 'herb_plant' && Math.abs(p.p.x - (g.x * TILE + 16)) < 2 && Math.abs(p.p.y - (g.y * TILE + 28)) < 2) p.img.setAlpha(0.25);
+    }
+    this.applyGatherVisuals();
+  }
+
+  /** Toplama noktasının görseli (prop.gather). */
+  gatherImg(id: string): Phaser.GameObjects.Image | null {
+    return this.r?.propImages.find((p) => p.p.gather === id)?.img ?? null;
+  }
+
+  /** "Bugün toplandı" durumu görsele: toplanan ot soluk; yeni günde ve harita her yüklendiğinde yeniden uygulanır. */
+  private gatherDay = -1;
+  applyGatherVisuals() {
+    if (!this.r) return;
+    const day = G.state.time.day;
+    this.gatherDay = day;
+    for (const p of this.r.propImages) {
+      if (!p.p.gather || p.p.key !== 'herb_plant') continue;
+      p.img.setAlpha((G.state.gathered[p.p.gather] ?? 0) === day ? 0.25 : 1);
     }
   }
 
