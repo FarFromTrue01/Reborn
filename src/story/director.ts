@@ -9,7 +9,7 @@ import type { Npc } from '../world/npc';
 import type { PropPlacement, Warp } from '../world/types';
 import { TILE } from '../world/types';
 import { NPC_BY_ID, TONE_LINES } from '../data/npcs';
-import { SHOPS, shopOpen } from '../data/shops';
+import { SHOPS, shopOpen, GUILD_HOURS } from '../data/shops';
 import { FEES, LESSONS, JOBS } from '../data/economy';
 import { TRAINING_SPOTS, type TrainingSpot } from '../data/props';
 import * as R from '../game/rules';
@@ -182,7 +182,7 @@ export class Director {
     if (map === 'guild' && id === 'celeste') {
       const h = hourOf(G.state.time);
       const p = this.w.mapData.points.celeste;
-      return h >= 7 && h < 21 ? [p.x, p.y] : null;
+      return h >= GUILD_HOURS[0] && h < GUILD_HOURS[1] ? [p.x, p.y] : null;
     }
     return undefined;
   }
@@ -276,7 +276,7 @@ export class Director {
       G.setFlag('checkpoint_seen');
       this.scene(async () => {
         await this.pan(this.w.mapData.points.city.x * TILE, this.w.mapData.points.city.y * TILE, 1600);
-        await this.think('Yol bir kontrol noktasında bitiyor. Ötesinde... o surlar. Kuzeydeki kraliyet şehri.');
+        await this.think('Yol bir kontrol noktasında bitiyor. Ötesinde... o surlar. Eros. Elonth\'un şehirlerinden biri, ama buradan bakınca dünyanın kendisi gibi.');
         await this.think('Muhafızlar yolu tutmuş. Öyle elini kolunu sallayarak geçilecek gibi değil.');
         await this.pan(this.w.player.actor.x, this.w.player.actor.y, 900);
         this.follow();
@@ -377,7 +377,7 @@ export class Director {
       if (kn) kn.scripted = true;
       this.face(st.actor, a);
       if (kn) this.face(kn.actor, a);
-      if (kn) await this.say('knight', 'Yol açın! Valmont Baronu\'nun kâhyası geçiyor!', 'kizgin');
+      if (kn) await this.say('knight', 'Yol açın! Baron Merrow\'un kâhyası geçiyor!', 'kizgin');
       // çevredeki köylüler eğilir
       for (const n of this.w.npcs) {
         if (n === st || n === kn || n.prestige > 2) continue;
@@ -861,7 +861,7 @@ export class Director {
     if (c1 === 1) await this.say('bertram', 'Say, say. Elli tane. Ben kimseyi kandırmam. Ama otur, sana bir şey anlatacağım. Bir kez anlatacağım.');
     else await this.say('bertram', 'İşte onu konuşacağız. Otur. Bir kez anlatacağım, iyi dinle.');
     await this.say('bertram', 'Bu dünyada herkes sıfırdan doğar. Level 0. Kral da, fare de. Ama herkes aynı yerden başlamaz.');
-    await this.say('bertram', 'En tepede soylular. Toprak, vergi, yasa onların. Baron Valmont\'un kâhyası köye gelince herkes yolun kenarına çekilir, şapkasını çıkarır. Gördün mü daha?');
+    await this.say('bertram', 'En tepede soylular. Toprak, vergi, yasa onların. Baron Merrow\'un kâhyası köye gelince herkes yolun kenarına çekilir, şapkasını çıkarır. Gördün mü daha?');
     await this.say('bertram', 'Sonra yüksek rütbeli maceracılar. C, B, A... Kılıçları soyluların bile işine yarar. O yüzden şöminenin önündeki masa onlarındır.');
     await this.say('bertram', 'Sonra tüccarlar ve zanaatkârlar. Gunnar, Marta, Brunhild, ben. Bir dükkânın, bir adın varsa insanlar sana selam verir.');
     await this.say('bertram', 'Sonra köylüler. Tarla, hayvan, vergi. Ve en altta...');
@@ -1095,7 +1095,7 @@ export class Director {
 
   async talkCaptain() {
     const hasCard = !!G.p.inventory.guild_card;
-    await this.say('captain', 'Dur. Bu yol kraliyet şehrine çıkar. Kimsin, nereye?');
+    await this.say('captain', 'Dur. Bu yol Eros\'a çıkar. Kimsin, nereye?');
     if (!hasCard) {
       await this.say('captain', 'Lonca kartın yok, soyadın yok, paran yok. Geçiş ücreti beş gümüş, kartlı olsan bile. Geri dön.', 'kizgin');
       return;

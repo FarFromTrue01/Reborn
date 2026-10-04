@@ -67,6 +67,9 @@ export const SHOPS: Record<string, ShopDef> = {
   },
 };
 
+/** Maceracılar Loncası'nın açık olduğu saatler (bina kapısı ve Celeste'nin programı aynı değeri kullanır). */
+export const GUILD_HOURS: [number, number] = [5, 24];
+
 /** Dükkân şu an (bu haritada, bu saatte) hizmet veriyor mu? */
 export function shopOpen(shop: ShopDef, mapId: string, hour: number): boolean {
   return mapId === shop.map && hour >= shop.hours[0] && hour < shop.hours[1];

@@ -45,7 +45,7 @@ export default async ({ page, wait, shot, evalG }) => {
   await evalG(() => window.__game.scene.getScene('UI').advanceDialogue());
   await evalG(() => window.__game.scene.getScene('UI').advanceDialogue());
   await wait(500);
-  await evalG(() => { const w = window.__game.scene.getScene('World'); w.director.scene(async () => { await w.ui.say('captain', 'Dur. Bu yol kraliyet şehrine çıkar.'); }); });
+  await evalG(() => { const w = window.__game.scene.getScene('World'); w.director.scene(async () => { await w.ui.say('captain', 'Dur. Bu yol Eros\'a çıkar.'); }); });
   await wait(1500);
   await shot('v3ui_05_dialogue_captain');
   await evalG(() => window.__game.scene.getScene('UI').advanceDialogue());

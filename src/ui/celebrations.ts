@@ -4,6 +4,7 @@
 import Phaser from 'phaser';
 import { Display } from '../game/display';
 import { Sound } from '../audio/audio';
+import { RealClock } from '../core/clock';
 import { COLORS, FONT, txt, drawFrame, uiIcon, rankBadge, iconImage, itemRankBadge, fitText } from './kit';
 import { coinRow, richLine } from './coins';
 import { expToNext } from '../core/formulas';
@@ -46,6 +47,8 @@ interface Part {
 }
 
 /** Ortak iskelet: tam ekran perde + zaman çizelgesi + dokununca atla/kapat. */
+const nowMs = () => (typeof performance !== 'undefined' ? performance.now() : Date.now());
+
 function overlay(scene: Phaser.Scene, depth: number, shadeAlpha: number, holdMs: number, onDone: () => void) {
   const W = Display.uiW, H = Display.uiH;
   const root = scene.add.container(0, 0).setDepth(depth);
@@ -55,6 +58,7 @@ function overlay(scene: Phaser.Scene, depth: number, shadeAlpha: number, holdMs:
   let t = 0;
   let total = 0;
   let closing = false;
+  const clock = new RealClock(nowMs());
   const hint = txt(scene, W / 2, H - 34, 'Devam etmek için dokun', { size: 14, italic: true, color: '#cfc3a6', stroke: true }).setOrigin(0.5).setAlpha(0).setDepth(depth + 1);
   const finish = () => {
     if (closing) return;
@@ -73,9 +77,9 @@ function overlay(scene: Phaser.Scene, depth: number, shadeAlpha: number, holdMs:
     }
     hint.setAlpha(t >= total ? Math.min(1, (t - total) / 300) : 0);
   };
-  const tick = (_time: number, dt: number) => {
+  const tick = () => {
     if (closing) return;
-    t += Math.min(dt, 250);
+    t += clock.step(nowMs());
     render();
     if (t >= total + holdMs) finish();
   };

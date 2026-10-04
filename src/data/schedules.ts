@@ -3,6 +3,7 @@
 // (bkz. data/npcs.ts → planFor). Dükkân sahipleri her planda çalışma saatlerinde dükkânlarındadır.
 // Konumlar dünya haritasındaki adlandırılmış noktalardır (world/worldgen.ts) ya da iç mekân noktaları.
 import type { ScheduleEntry } from './npcs';
+import { GUILD_HOURS } from './shops';
 
 type Act = ScheduleEntry['act'];
 const e = (from: number, to: number, map: string, at: string | [number, number], act: Act = 'work', wander = 0): ScheduleEntry => ({ from, to, map, at, act, wander });
@@ -40,7 +41,7 @@ export const SCHEDULES: Record<string, NpcSchedule> = {
       [e(8, 11, 'inn', 'table_lina', 'sit'), e(11, 16, 'world', 'plaza_e', 'talk', 2), e(16, 23, 'inn', 'table_lina', 'drink'), hide(23, 8, 'table_lina')],
     ],
   },
-  celeste: { base: [e(7, 21, 'guild', 'celeste'), hide(21, 7, 'celeste')] },
+  celeste: { base: [e(GUILD_HOURS[0], GUILD_HOURS[1], 'guild', 'celeste'), hide(GUILD_HOURS[1] % 24, GUILD_HOURS[0], 'celeste')] },
 
   // ------------------------------------------------------------- esnaf
   smith: {

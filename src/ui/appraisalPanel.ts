@@ -3,9 +3,9 @@
 // ızgarası ya da yaratıklarda drop tablosu); skill'ler altta tam genişlikte. Gizli bilgi kutucuğu kaldırmaz: "???".
 // Görünürlük core/appraisal kurallarına uyar; trait'ler hiçbir rütbede görünmez. Saygınlık yalnızca kendi kartında.
 import Phaser from 'phaser';
-import { COLORS, FONT, txt, uiIcon, rankBadge, iconImage, itemRankBadge, drawTile, fitText } from './kit';
+import { COLORS, FONT, txt, uiIcon, rankBadge, iconImage, itemRankBadge, drawTile, fitText, shrinkText } from './kit';
 import { appraisalView, dropsVisible, appraisalDiffText, type AppraisalView } from '../core/appraisal';
-import { MONSTERS, type MonsterDef } from '../data/monsters';
+import { MONSTERS, monsterPortraitFrame, type MonsterDef } from '../data/monsters';
 import { dropTable } from '../core/monster';
 import { derive } from '../core/creature';
 import { subRankToString, skillThreshold, SUBRANK_MAX, type SubRank } from '../core/ranks';
@@ -101,7 +101,9 @@ export function buildAppraisalPanel(scene: Phaser.Scene, c: any, npc: NpcDef | n
     cont.add(fitText(txt(scene, lx, yy + 4, label, { size: 11, bold: true, color: LABEL }), w - (lx - x) - 6));
     const hidden = value === Q;
     const vt = txt(scene, x + 8, yy + h - 24, value, { size: o.valueSize ?? 15, bold: true, color: hidden ? DIM : o.color ?? COLORS.text });
-    cont.add(fitText(vt, w - 14));
+    // uzun Title / lonca etiketi kesilmez: küçülür, gerekirse iki satır (0.6.0)
+    cont.add(shrinkText(vt, w - 14, { min: 10, maxH: h - 18 }));
+    vt.y = yy + h - 5 - vt.height;
     return vt;
   };
 
@@ -126,7 +128,10 @@ export function buildAppraisalPanel(scene: Phaser.Scene, c: any, npc: NpcDef | n
       const vt = tile(gx, ly, halfW, 50, 'guild', 'Lonca', npc?.guildLabel ?? rankText(rank), { color: COLORS.textGold });
       cont.add(rankBadge(scene, gx + 18, ly + 36, rank, 22));
       vt.x = gx + 32;
-      fitText(vt, halfW - 38);
+      vt.setFontSize(15);
+      vt.setWordWrapWidth(null as unknown as number);
+      shrinkText(vt, halfW - 38, { min: 10, maxH: 50 - 18 });
+      vt.y = ly + 50 - 5 - vt.height;
     } else tile(gx, ly, halfW, 50, 'guild', 'Lonca', npc?.guildLabel ?? 'Yok');
   }
   ly += 58;
@@ -371,7 +376,10 @@ function addPortrait(scene: Phaser.Scene, cont: Phaser.GameObjects.Container, un
       if (mdef.sprite.startsWith('m_goblin')) {
         const sheet = mdef.sprite.slice(2);
         put(scene.textures.exists(sheet) ? lpcPortraitKey(scene, sheet) : null);
-      } else put(monsterPortraitKey(scene, mdef.sprite));
+      } else {
+        const meta = scene.cache.json.get('monstersMeta')?.[mdef.sprite];
+        put(monsterPortraitKey(scene, mdef.sprite, meta ? monsterPortraitFrame(meta, mdef.portraitFrame) : mdef.portraitFrame ?? 0));
+      }
     }
   } catch {
     /* portre üretilemedi: baş harf kalır */

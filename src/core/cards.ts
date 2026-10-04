@@ -14,7 +14,14 @@ export interface EntryCard {
   boughtDay: number;
 }
 
-export const CITY_NAMES: Record<string, string> = { capital: 'Kraliyet Şehri Valmont' };
+/**
+ * Şehir adları. Anahtar ('capital') kayıttaki giriş kartlarında durduğu için korunuyor; Eros başkent değil,
+ * Elonth'un şehirlerinden biri (0.6.0). Kısa ad listelerde, uzun ad kartlarda ve manzara başlığında.
+ */
+export const CITY_NAMES: Record<string, string> = { capital: 'Eros' };
+export const CITY_FULL_NAMES: Record<string, string> = { capital: 'Eros Şehri' };
+/** Manzara başlığı: şehir — ülke. */
+export const CITY_TITLES: Record<string, string> = { capital: 'Eros — Elonth' };
 
 /** Bir şehir için yeni kart: varsa son kartın bitişinden sonra başlar. */
 export function buyCard(cards: EntryCard[], city: string, today: number, days = CARD_DAYS): EntryCard {

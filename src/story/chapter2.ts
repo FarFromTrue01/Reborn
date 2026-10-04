@@ -13,14 +13,14 @@ import type { Npc } from '../world/npc';
 import type { Warp } from '../world/types';
 import type { Director } from './director';
 import { NPC_BY_ID } from '../data/npcs';
-import { SIDE_QUESTS, SIDE_SCRIPTS, boardForDay } from '../data/sidequests';
+import { SIDE_QUESTS, SIDE_SCRIPTS, boardForDay, MAX_BOARD_QUESTS } from '../data/sidequests';
 import { currentObjective, activeQuests, type QuestDef } from '../core/quests';
 import { questDef } from '../data/quests';
 import { canTakeQuest, riskText, QUEST_POINTS, reRegister, REREGISTER_FEE, pointsToNext } from '../core/guild';
 import { subRankToString } from '../core/ranks';
 import { equip, transact } from '../core/transactions';
 import { walletTotal } from '../core/money';
-import { buyCard, hasValidCard, CARD_PRICE, CARD_DAYS, CITY_NAMES } from '../core/cards';
+import { buyCard, hasValidCard, CARD_PRICE, CARD_DAYS, CITY_FULL_NAMES, CITY_TITLES } from '../core/cards';
 import { hourOf } from '../core/time';
 import { Display } from '../game/display';
 import { ITEMS } from '../data/items';
@@ -273,7 +273,7 @@ export class Chapter2 {
     await this.say('celeste', r.to === 1 ? 'G. Kartını damgaladım. ...Tebrikler. Sanırım.' : `${to}. Damgalandı. Tebrikler, maceracı.`, r.to === 1 ? 'normal' : 'gulen');
     // eski kayıtlarda (0.4.x) açık kalan "Kayıtlar Yarın İşlenir" görevi: hikâye ilk kadehle sürer
     if (Q.active('m_promotion')) {
-      Q.complete('m_promotion', { silent: true });
+      Q.complete('m_promotion', { quiet: true });
       if (!Q.status('m_celebrate')) Q.start('m_celebrate');
     }
   }
@@ -327,7 +327,7 @@ export class Chapter2 {
       case 'm_promotion':
         // eski kayıtlar (0.4.x): terfi zaten işlendiyse yalnızca hikâye sürer
         await this.say('celeste', 'Kartın damgalı. Tebrikler. Sanırım.', 'normal');
-        Q.complete(id, { silent: true });
+        Q.complete(id, { quiet: true });
         if (!Q.status('m_celebrate')) Q.start('m_celebrate');
         break;
       default:
@@ -351,7 +351,7 @@ export class Chapter2 {
     G.save('auto');
   }
 
-  /** Pano: günün ilanları (3–4). En fazla iki pano görevi aynı anda. */
+  /** Pano: günün ilanları (3–4). En fazla üç pano görevi aynı anda (MAX_BOARD_QUESTS). */
   async boardMenu() {
     const posts = boardForDay(this.day).filter((q) => !Q.status(q.id));
     const activeBoard = activeQuests(G.state.quests).filter((id) => Q.def(id)?.kind === 'board');
@@ -359,8 +359,8 @@ export class Chapter2 {
       await this.say('celeste', 'Bugünün ilanları bitti. Yarın sabah yenileri asılır.', 'normal');
       return;
     }
-    if (activeBoard.length >= 2) {
-      await this.say('celeste', 'Elinde iki ilan var. Önce onları bitir. Lonca açgözlü maceracı sevmez.', 'alayci');
+    if (activeBoard.length >= MAX_BOARD_QUESTS) {
+      await this.say('celeste', 'Elinde üç ilan var. Önce onları bitir. Lonca açgözlü maceracı sevmez.', 'alayci');
       return;
     }
     const opts = posts.map((q) => `${q.rank} · ${q.title} · {m:${q.reward.money}}`);
@@ -561,7 +561,7 @@ export class Chapter2 {
       return true;
     }
     const valid = hasValidCard(G.state.cards, 'capital', this.day);
-    await this.say('captain', 'Dur. Bu yol kraliyet şehrine çıkar.');
+    await this.say('captain', 'Dur. Bu yol Eros\'a çıkar.');
     if (valid) {
       await this.say('captain', 'Kartın geçerli. Ama kapı bugün de kapalı. Kral emri. Bekle.');
       return true;
@@ -892,8 +892,8 @@ export class Chapter2 {
     }
     Sound.sfx('coin');
     const card = buyCard(G.state.cards, 'capital', this.day);
-    R.toast(`+1 Giriş Kartı: ${CITY_NAMES.capital}`, 'item', 'card');
-    R.sysmsg('GİRİŞ KARTI', [`${CITY_NAMES.capital}`, `Geçerli: ${card.from}. gün – ${card.until}. gün (${CARD_DAYS} gün)`, 'Envanter → Giriş Kartları'], { big: true });
+    R.toast(`+1 Giriş Kartı: ${CITY_FULL_NAMES.capital}`, 'item', 'card');
+    R.sysmsg('GİRİŞ KARTI', [`${CITY_FULL_NAMES.capital}`, `Geçerli: ${card.from}. gün – ${card.until}. gün (${CARD_DAYS} gün)`, 'Envanter → Giriş Kartları'], { big: true });
     await this.say('captain', 'Kartın. Kaybetme, yenisi yine on gümüş. Kapıdan bak bakalım, köksüz. İşte orası.', 'normal');
     Q.complete('m_gate', { silent: true });
     G.setFlag('ch2_done', this.day);
@@ -951,7 +951,7 @@ export class Chapter2 {
     g.fillStyle(0x8a6a4a, 1);
     g.fillTriangle(cx - 40, base + 30, cx + 40, base + 30, cx + 200, H);
     g.fillTriangle(cx - 40, base + 30, cx - 200, H, cx + 200, H);
-    const rnd = new Phaser.Math.RandomDataGenerator(['valmont']);
+    const rnd = new Phaser.Math.RandomDataGenerator(['eros']);
     for (let i = 0; i < 90; i++) {
       const t = rnd.frac();
       const y = base + 34 + t * (H - base - 40);
@@ -963,7 +963,7 @@ export class Chapter2 {
       g.fillCircle(x, y - s * 2.6, s * 0.55);
     }
     c.add(g);
-    const t1 = ui.add.text(W / 2, H * 0.12, CITY_NAMES.capital, { fontFamily: 'Cinzel, serif', fontSize: '40px', color: '#f3dc95', stroke: '#1a1020', strokeThickness: 6 }).setOrigin(0.5);
+    const t1 = ui.add.text(W / 2, H * 0.12, CITY_TITLES.capital, { fontFamily: 'Cinzel, serif', fontSize: '40px', color: '#f3dc95', stroke: '#1a1020', strokeThickness: 6 }).setOrigin(0.5);
     const t2 = ui.add.text(W / 2, H * 0.12 + 50, 'Surlar, kuleler ve kapının önünde bekleyen bir kalabalık.', { fontFamily: 'Alegreya, serif', fontSize: '20px', color: '#efe6d2', stroke: '#1a1020', strokeThickness: 4 }).setOrigin(0.5);
     c.add([t1, t2]);
     await ui.curtain(0, 300);

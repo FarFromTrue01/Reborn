@@ -362,7 +362,7 @@ const RAW_NPCS: Omit<NpcDef, 'schedule' | 'title'>[] = [
     talk: {
       any: [
         'Elonth\'ta herkes Level 0 doğar, evlat. Kral da, ejderha da. Gerisi ter ve kandır.',
-        'Kuzeydeki surları görüyor musun? Kraliyet şehri. Orada S rütbe kahramanlar var derler. İkisi ya da üçü... Ejderhalarla savaşırlarmış.',
+        'Kuzeydeki surları görüyor musun? Eros. Elonth\'un en kalabalık şehirlerinden. Orada S rütbe kahramanlar var derler. İkisi ya da üçü... Ejderhalarla savaşırlarmış.',
         'Appraisal\'ı herkes bilir ama herkes aynı göremez. Gözün keskinleştikçe dünya açılır.',
         'Trait... Ha, o kelimeyi duydun mu? Kimse kimseninkini bilemez. Taş bile göremez onu.',
         'Gençler sistemi sorar hep. "Neden?" derler. Sistem cevap vermez. Sadece sayar.',
@@ -436,13 +436,13 @@ const RAW_NPCS: Omit<NpcDef, 'schedule' | 'title'>[] = [
   {
     id: 'dorn', name: 'Dorn', sheet: 'adventurer_m', voice: 'male', portrait: 'adventurer_m', personality: 'proud', caste: 'elite',
     creature: creature('dorn', 'Dorn', 'İnsan', 'Erkek', 26, 8, { STR: 10, AGI: 8, DEX: 7, VIT: 6, LUK: 1 }, {
-      appraisal: 'F+', skills: [['sword_mastery', 'E'], ['evasion', 'F'], ['athletics', 'E-']], guildRank: parseSubRank('E-'),
+      appraisal: 'F+', skills: [['sword_mastery', 'E'], ['evasion', 'F'], ['athletics', 'E-']], guildRank: parseSubRank('F+'),
       equipment: { weapon: 'iron_shortsword', chest: 'padded_armor', pants: 'sturdy_pants', boots: 'hobnail_boots', cape: 'traveler_cape' },
     }),
     bubbles: {
       naked: ['Ha! Bu da ne?', 'Haydutlara yakalanmışsın, çaylak.'],
       rootless: ['Bertram\'ın yeni köpeği.'],
-      adventurer: ['G-... Ben bir yılda E\'ye çıktım. Sen kaç yılda çıkarsın?'],
+      adventurer: ['G-... Ben bir yılda F+\'ya çıktım. Sen kaç yılda çıkarsın?'],
     },
     talk: {
       naked: ['Uzak dur benden. Ve Celeste\'den.'],
@@ -615,18 +615,18 @@ const RAW_NPCS: Omit<NpcDef, 'schedule' | 'title'>[] = [
   },
   {
     id: 'steward', name: 'Kâhya Edric', sheet: 'steward', voice: 'male_old', portrait: 'steward', personality: 'proud', caste: 'noble',
-    creature: creature('steward', 'Edric Valmont', 'İnsan', 'Erkek', 52, 6, { INT: 9, LUK: 3, VIT: 3 }, {
+    creature: creature('steward', 'Edric Fenwick', 'İnsan', 'Erkek', 52, 6, { INT: 9, LUK: 3, VIT: 3 }, {
       appraisal: 'E', titles: ['npc_steward'], equipment: { ring1: 'copper_ring', boots: 'leather_boots', cape: 'traveler_cape' },
     }),
     bubbles: {
-      any: ['Baron Valmont\'un vergisi bu ay yüzde on artmıştır.', 'Muhtar nerede? Defterler eksik.'],
+      any: ['Baron Merrow\'un vergisi bu ay yüzde on artmıştır.', 'Muhtar nerede? Defterler eksik.'],
       naked: ['Bu... şey... neden yolda? Cedric!'],
       rootless: ['Köksüz. Gözlerini yere indir.', 'Baronun topraklarında köksüze yer yok. Ama sen yine de buradasın.'],
       adventurer: ['G- bir kart. Baron, G- maceracıları kuş korkuluğu olarak kullanır. Ucuzdur.'],
     },
     talk: {
       naked: ['(Seninle konuşmuyor. Yanındaki şövalye elini kılıcına götürüyor.)'],
-      rootless: ['Benimle konuşmak için ya bir soyadın ya bir dilekçen olmalı. İkisi de yok. Çekil.', 'Köksüzler Baron Valmont\'un ekmeğini yer ama vergisini ödemez. Sen de onlardan mısın?'],
+      rootless: ['Benimle konuşmak için ya bir soyadın ya bir dilekçen olmalı. İkisi de yok. Çekil.', 'Köksüzler Baron Merrow\'un ekmeğini yer ama vergisini ödemez. Sen de onlardan mısın?'],
       adventurer: ['Lonca kartı soyadı yerine geçmez, maceracı. Ama vergini ödersen adını defterime yazarım.'],
     },
   },

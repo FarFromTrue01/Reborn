@@ -1,6 +1,25 @@
 import type { Stats } from '../core/formulas';
 import { parseSubRank, type SubRank } from '../core/ranks';
 
+/** Yaratık sprite sayfası düzeni (assets/gfx/monsters/monsters.json): her animasyon dört yön satırı (yukarı, sol, aşağı, sağ). */
+export interface MonsterSheetMeta {
+  cols: number;
+  anims: Record<string, { row: number; frames: number; fps: number }>;
+}
+
+/** Sayfadaki yön satırı sırası (LPC ile aynı: data/manifest DIR_INDEX). */
+const DOWN_ROW = 2;
+
+/**
+ * Yaratık portresinin karesi (0.6.0): tanımda portraitFrame varsa o; yoksa bekleme (yoksa yürüme) animasyonunun
+ * aşağı, yani kameraya bakan ilk karesi. Eskiden sayfanın ilk karesiydi: fare ve tavşan sırtı dönük görünüyordu.
+ */
+export function monsterPortraitFrame(meta: MonsterSheetMeta, override?: number): number {
+  if (override !== undefined) return override;
+  const a = meta.anims.idle ?? meta.anims.walk;
+  return (a.row + DOWN_ROW) * meta.cols;
+}
+
 export interface DropDef {
   id: string;
   chance: number; // 0..1, LUK çarpanı uygulanır
@@ -41,6 +60,8 @@ export interface MonsterDef {
    */
   cornered?: { after: number; range: number; calm: number; calmRange: number };
   sprite: string;
+  /** Appraisal portresi için sprite sayfasındaki kare (yoksa aşağı/kameraya bakan ilk kare: monsterPortraitFrame). */
+  portraitFrame?: number;
   scale?: number;
   boss?: boolean;
   title?: string;

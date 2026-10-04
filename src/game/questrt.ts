@@ -21,6 +21,12 @@ export const KIND_NAMES: Record<string, string> = { main: 'Ana görev', side: 'Y
 
 export { questExp };
 
+/**
+ * Ara sahnenin ortasında sessiz tamamlanan görevlerin bitiş animasyonları (0.6.0): sahne bitince (diyalog
+ * kapandı, cutscene false) sırayla oynar. Oturum içi; kayda yazılmaz.
+ */
+const deferredDone: QuestDoneInfo[] = [];
+
 function changed() {
   G.events.emit('quests');
   G.scheduleSave();
@@ -95,9 +101,11 @@ export const Q = {
   },
   /**
    * Görevi bitir ve ödülü ver. Lonca görevlerinde puan eklenir ve önce loncaya olan borç kapatılır.
+   * silent: bitiş animasyonu sahne bitince oynar (ertelenir). quiet: hiç oynamaz (terfi animasyonu yerine geçer ya
+   * da yalnızca bir bekleme adımıydı).
    * Döner: gerçekten ödenen para.
    */
-  complete(id: string, opts: { money?: number; silent?: boolean } = {}): number {
+  complete(id: string, opts: { money?: number; silent?: boolean; quiet?: boolean } = {}): number {
     const def = lookup(id);
     if (!def || !finishQuest(G.state.quests, id, 'done', G.state.time.day)) return 0;
     const money = opts.money ?? def.reward.money ?? 0;
@@ -119,7 +127,9 @@ export const Q = {
       const r = addExp(G.p.level, G.p.exp, amount);
       info.exp = { amount, levelBefore: G.p.level, expBefore: G.p.exp, levelAfter: r.level, expAfter: r.exp };
     }
-    if (!opts.silent) G.events.emit('questdone', info);
+    if (opts.quiet) { /* animasyon yok */ }
+    else if (opts.silent) deferredDone.push(info);
+    else G.events.emit('questdone', info);
     if (paid > 0) R.giveMoney(paid, 'Görev ödülü: ' + def.title, true);
     if (def.reward.items?.length) R.giveItems(def.reward.items, 'Görev ödülü', true);
     if (expReward > 0) R.gainExp(expReward);
@@ -127,6 +137,19 @@ export const Q = {
     G.state.quests.tracked = G.state.quests.tracked ?? pickNextTracked(G.state.quests, lookup);
     changed();
     return paid;
+  },
+  /** Ertelenmiş bitiş animasyonlarını kuyruğa al (sahne bitince WorldScene çağırır). */
+  flushDeferred(): number {
+    const n = deferredDone.length;
+    while (deferredDone.length) G.events.emit('questdone', deferredDone.shift());
+    return n;
+  },
+  /** Bekleyen ertelenmiş bitişler (testler ve oturum sıfırlama). */
+  deferredCount(): number {
+    return deferredDone.length;
+  },
+  clearDeferred() {
+    deferredDone.length = 0;
   },
   /** Başarısızlık ya da yarıda bırakma: lonca görevlerinde ceza, borç, gerekirse kartın alınması. */
   fail(id: string, abandoned = false) {
@@ -192,7 +215,7 @@ export const Q = {
       return null;
     }
     G.p.guildRank = to;
-    if (open) Q.complete(open, { silent: true });
+    if (open) Q.complete(open, { quiet: true });
     G.state.history.push({ speaker: 'Sistem', text: `Terfi: ${subRankToString(from)} → ${subRankToString(to)}`, kind: 'system' });
     G.events.emit('rank', to);
     G.events.emit('promotion', { from, to, points: g.points });

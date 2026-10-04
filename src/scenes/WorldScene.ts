@@ -222,6 +222,7 @@ export class WorldScene extends Phaser.Scene {
     this.camX = 0;
     this.camY = 0;
     this.casteT = 0;
+    Q.clearDeferred();
   }
 
   create() {
@@ -920,6 +921,8 @@ export class WorldScene extends Phaser.Scene {
     if (this.questT <= 0 && !this.cutscene) {
       this.questT = 0.5;
       this.questTick();
+      // ara sahnede sessiz biten görevlerin bitiş animasyonları: sahne ve diyalog kapandıktan sonra sırayla
+      if (!this.ui.dialogueOpen() && !this.director.isBusy) Q.flushDeferred();
     }
     // ışık
     this.updateLighting(dt);

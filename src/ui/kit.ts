@@ -362,6 +362,31 @@ export function drawTile(g: Phaser.GameObjects.Graphics, x: number, y: number, w
 }
 
 /** Metni verilen genişliğe sığdırır (sonuna "…"). */
+/**
+ * Metni kesmeden sığdırır (0.6.0, Appraisal kutucukları): önce yazı boyutunu küçültür (en az `min`), sığmazsa
+ * sözcük sınırından en fazla `lines` satıra böler (yükseklik `maxH`'i aşmadan). Hâlâ sığmıyorsa en küçük boyutta
+ * fitText ile kısaltır.
+ */
+export function shrinkText(t: Phaser.GameObjects.Text, maxW: number, o: { min?: number; lines?: number; maxH?: number } = {}) {
+  const base = parseFloat(String(t.style.fontSize)) || 15;
+  const min = Math.min(base, o.min ?? 10);
+  const lines = o.lines ?? 2;
+  for (let s = base; s >= min; s--) {
+    t.setFontSize(s);
+    if (t.width <= maxW) return t;
+  }
+  if (lines > 1) {
+    for (let s = base; s >= min; s--) {
+      t.setFontSize(s);
+      t.setWordWrapWidth(maxW, false);
+      if (t.width <= maxW && t.getWrappedText().length <= lines && (!o.maxH || t.height <= o.maxH)) return t;
+    }
+    t.setWordWrapWidth(null as unknown as number);
+  }
+  t.setFontSize(min);
+  return fitText(t, maxW);
+}
+
 export function fitText(t: Phaser.GameObjects.Text, maxW: number) {
   if (t.width <= maxW) return t;
   const full = t.text;

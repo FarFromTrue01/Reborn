@@ -158,7 +158,7 @@ export const MAIN_QUESTS: QuestDef[] = [
   },
   {
     id: 'm_gate', kind: 'main', chapter: 2, title: 'Şehir Kapısı', giver: 'bertram',
-    desc: 'Kontrol noktasında Kaptan Roderick\'ten giriş kartı alacağım. Ötesi: kraliyet şehri.',
+    desc: 'Kontrol noktasında Kaptan Roderick\'ten giriş kartı alacağım. Ötesi: Eros.',
     objectives: [{ type: 'talk', label: 'Kaptan Roderick\'ten giriş kartı al (10 gümüş)', target: 'captain', where: { map: 'world', npc: 'captain', point: 'checkpoint' } }],
     reward: { text: 'Giriş Kartı (3 ay)' },
   },

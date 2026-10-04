@@ -224,6 +224,9 @@ export const BOARD_TEMPLATES: BoardTemplate[] = [
     make: () => ({ objectives: [{ type: 'collect', label: 'Kurt dişi topla', target: 'wolf_fang', count: 3 }, turnIn] }) },
 ];
 
+/** Panodan aynı anda en fazla bu kadar ilan alınabilir. */
+export const MAX_BOARD_QUESTS = 3;
+
 /** Pano görevi EXP'si (harfe göre, az). */
 export const BOARD_EXP: Record<'G' | 'F', number> = { G: 3, F: 6 };
 

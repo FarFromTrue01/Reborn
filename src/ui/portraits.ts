@@ -141,14 +141,14 @@ export const EXPR_GLYPH: Record<string, { ch: string; color: string } | null> = 
 };
 
 /**
- * Yaratık portresi: canavar sprite sayfasının ilk karesi, saydam kenarlar kırpılıp ortalanır.
+ * Yaratık portresi: canavar sprite sayfasının verilen karesi (monsterPortraitFrame: kameraya bakan kare), saydam kenarlar kırpılıp ortalanır.
  * (Goblinler LPC karakter sayfası kullanır; onlar için lpcPortraitKey yeterli.) Sayfa yoksa null.
  */
-export function monsterPortraitKey(scene: Phaser.Scene, sheet: string): string | null {
-  const key = 'portrait_mon_' + sheet;
+export function monsterPortraitKey(scene: Phaser.Scene, sheet: string, frame = 0): string | null {
+  const key = `portrait_mon_${sheet}_${frame}`;
   if (scene.textures.exists(key)) return key;
   if (!scene.textures.exists(sheet)) return null;
-  const fr = scene.textures.getFrame(sheet, 0);
+  const fr = scene.textures.getFrame(sheet, frame) ?? scene.textures.getFrame(sheet, 0);
   if (!fr) return null;
   const src = fr.source.image as HTMLImageElement;
   // ilk kareyi ayrı bir tuvale al, saydam olmayan piksellerin sınırını bul

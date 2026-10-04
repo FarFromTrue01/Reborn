@@ -3,6 +3,7 @@
 // 0.3.0: köy yaklaşık %60'ına sıkıştırıldı (bina sayısı aynı), şehir yolu kısaldı,
 // çarpışma iki katmanlı: sert karolar (hard) + dekorların piksel kutuları (colliders).
 import { TERRAIN, TILE, type MapData, type PropPlacement, type BuildingPlacement, type SpawnDef, type Zone, type Gather, type Warp, type Trigger, type DoorDef, type ColliderRect } from './types';
+import { GUILD_HOURS } from '../data/shops';
 import { PROP_INFO, TREE_KEYS_FOREST, TREE_KEYS_LIGHT, BUSH_KEYS, ROADSIDE, propBox, rectTiles } from '../data/props';
 
 export function mulberry32(a: number) {
@@ -17,7 +18,7 @@ export function mulberry32(a: number) {
 
 export const WORLD_W = 169;
 export const WORLD_H = 120;
-/** Kontrol noktası bariyeri: bu x'ten doğusu kraliyet şehrine giden yol (geçilmez). */
+/** Kontrol noktası bariyeri: bu x'ten doğusu Eros'a giden yol (geçilmez). */
 export const BARRIER_X = 152;
 /** Köyün batı sınırı (nehrin doğusu). */
 export const VILLAGE_X0 = 62;
@@ -253,7 +254,7 @@ export function buildWorld(bmeta: Record<string, BuildingMeta>): MapData {
 
   // Batı Meydanı çevresi
   place('inn', 'Yorgun Yaban Domuzu Hanı', 72, 52, { map: 'inn', x: 7, y: 12 }, { sign: 'sign_inn' });
-  place('guild', 'Maceracılar Loncası', 88, 53, { map: 'guild', x: 6, y: 11 }, { sign: 'sign_sword', hours: [7, 21] });
+  place('guild', 'Maceracılar Loncası', 88, 53, { map: 'guild', x: 6, y: 11 }, { sign: 'sign_sword', hours: GUILD_HOURS });
   place('smithy', 'Demirci', 68, 66, { map: 'smithy', x: 4, y: 9 }, { sign: 'sign_tools', hours: [8, 18] });
   place('shop', 'Genel Dükkân', 87, 71, { map: 'shop', x: 4, y: 8 }, { sign: 'sign_bag', hours: [8, 19] });
   place('healer', 'Şifacı', 95, 71, { map: 'healer', x: 4, y: 8 }, { sign: 'sign_potion', hours: [9, 17] });
