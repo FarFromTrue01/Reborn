@@ -118,10 +118,11 @@ export default async ({ page, wait, shot, evalG }) => {
   // uzaklaş → yine ürkek
   await evalG(() => { const w = window.__game.scene.getScene('World'); const e = window.__qaRab; const pl = w.player.actor; pl.setPosition(e.x + 8 * 32, e.y); pl.body2.reset(pl.x, pl.y); });
   let calm = null;
-  for (let i = 0; i < 100; i++) {
+  const calm0 = await evalG(() => window.__game.scene.getScene('World').playClock);
+  for (let i = 0; i < 600; i++) {
     await evalG(() => { const w = window.__game.scene.getScene('World'); const e = window.__qaRab; const pl = w.player.actor; if (Math.hypot(pl.x - e.x, pl.y - e.y) < 7 * 32) { pl.setPosition(e.x + 8 * 32, e.y); pl.body2.reset(pl.x, pl.y); } });
     const c = await evalG(() => window.__qaRab.corner.cornered);
-    if (!c) { calm = i / 10; break; }
+    if (!c) { calm = ((await evalG(() => window.__game.scene.getScene('World').playClock)) - calm0).toFixed(1); break; }
     await wait(100);
   }
   log('TAVŞAN sakinleşti (~sn):', calm, 'davranış:', await evalG(() => window.__qaRab.behavior));
@@ -164,13 +165,14 @@ export default async ({ page, wait, shot, evalG }) => {
   // Hızlı bir saldırgan gibi: oyun zamanıyla her 0,25 sn'de bir vuruş (~4 vuruş/sn), 12 oyun saniyesi.
   await evalG(() => { window.__qaLast = -1; });
   for (let i = 0; i < 2000; i++) {
-    const r = await evalG(() => { const w = window.__game.scene.getScene('World'); const e = window.__qaGob; const pl = w.player.actor; pl.setPosition(e.x - 30, e.y); pl.body2.reset(pl.x, pl.y); window.__G.p.hp = 999; if (w.playClock - window.__qaLast < 0.25) return null; window.__qaLast = w.playClock; const before = e.state; w.hitEnemy(e, { dir: new window.Phaser.Math.Vector2(1, 0), physical: true }); return { before, after: e.state, t: w.playClock }; });
+    const r = await evalG(() => { const w = window.__game.scene.getScene('World'); const e = window.__qaGob; const pl = w.player.actor; window.__G.p.hp = 999; if (w.playClock - window.__qaLast < 0.25) return null; window.__qaLast = w.playClock; const before = e.state; window.__qaFlip = -(window.__qaFlip || 1); const dx = e.x - e.home.x > 0 ? -1 : 1; pl.setPosition(e.x - dx * 30, e.y); pl.body2.reset(pl.x, pl.y); w.hitEnemy(e, { dir: new window.Phaser.Math.Vector2(dx, 0), physical: true }); window.__qaHist = window.__qaHist || {}; window.__qaHist[before] = (window.__qaHist[before] || 0) + 1; return { before, after: e.state, t: w.playClock }; });
     if (r && r.before === 'windup' && r.after === 'hurt') cancels++;
     if ((await evalG(() => window.__game.scene.getScene('World').playClock)) - lockT0 > 12) break;
     await wait(30);
   }
   struck = await evalG(() => window.__qaGob._qaStrike);
   const lockGame = (await evalG(() => window.__game.scene.getScene('World').playClock)) - lockT0;
+  log('KİLİTLEME vuruş anındaki durumlar', JSON.stringify(await evalG(() => window.__qaHist)));
   log('KİLİTLEME oyun sn:', lockGame.toFixed(1), '· sürekli vuruş → iptal:', cancels, 'düşmanın tamamladığı saldırı:', struck, 'windup sayısı:', (await evalG(() => window.__qaGob.attackCount)) - strikes0);
   // c) boss: normal vuruş kesmez, ağır keser
   await evalG(() => { const w = window.__game.scene.getScene('World'); window.__qaGob.setState('dead'); const b = w.spawnAt('goblin_chief', 36, 20, 1, 0, 'qaboss')[0]; b.c.hp = 999; window.__qaBoss = b; b.becomeAware(false); });
