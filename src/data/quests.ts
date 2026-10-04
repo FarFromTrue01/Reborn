@@ -26,8 +26,9 @@ export const MAIN_QUESTS: QuestDef[] = [
     id: 'm_harvest', kind: 'main', chapter: 1, title: 'Haldor\'un Hasadı', giver: 'bertram',
     desc: 'Bertram\'ın eski dostu Yaşlı Haldor\'un buğday tarlası köyün kuzeydoğusunda. Hasada yardım edersem elli bronz verecek.',
     objectives: [
-      { type: 'talk', label: 'Yaşlı Haldor\'u bul', target: 'haldor', where: { map: 'world', npc: 'haldor', point: 'haldor_field' } },
-      { type: 'custom', label: 'Hasada yardım et (06:00–16:00)', target: 'harvest', where: { map: 'world', npc: 'haldor', point: 'haldor_field' }, sequential: true },
+      // 0.6.0: hedef Haldor'un kendisi (gün içinde tarla ↔ çiftlik evi arasında gidip gelir; bkz. world/reach)
+      { type: 'talk', label: 'Yaşlı Haldor\'u bul', target: 'haldor', where: NPC('world', 'haldor') },
+      { type: 'custom', label: 'Hasada yardım et (06:00–16:00)', target: 'harvest', where: NPC('world', 'haldor'), sequential: true },
     ],
     reward: { money: 50 },
   },
@@ -35,7 +36,7 @@ export const MAIN_QUESTS: QuestDef[] = [
     id: 'm_register', kind: 'main', chapter: 1, title: 'Lonca Kaydı', giver: 'bertram',
     desc: 'Maceracılar Loncası kimin oğlu olduğuna bakmaz, rütbene bakar. Kayıt bir gümüş.',
     objectives: [
-      { type: 'custom', label: 'Bir gümüş biriktir (100 bronz)', target: 'silver' },
+      { type: 'custom', label: 'Bir gümüş biriktir (100 bronz)', target: 'silver', where: NPC('guild', 'celeste') },
       { type: 'talk', label: 'Loncada Celeste\'ye kaydol', target: 'celeste', where: NPC('guild', 'celeste'), sequential: true },
     ],
     reward: { text: 'Lonca Kartı (G-)' },
@@ -49,12 +50,19 @@ export const MAIN_QUESTS: QuestDef[] = [
     reward: { text: 'Bir silah... sayılır.' },
   },
   {
+    // 0.6.0: "pano yarın açılır" beklemesi kalktı; sopayı alınca aynı gün loncaya dönülür.
+    id: 'm_board', kind: 'main', chapter: 2, title: 'Pano', giver: 'bertram',
+    desc: 'Elimde bir sopa var. Sopa sayılırsa. Artık panodan iş alabilirim; ilanları Celeste dağıtıyor.',
+    objectives: [{ type: 'custom', label: 'Loncaya dön, panodan görev al', target: 'board_open', where: NPC('guild', 'celeste') }],
+    reward: {},
+  },
+  {
     id: 'm_grank', kind: 'main', chapter: 2, title: 'G- Rütbe', giver: 'celeste',
     desc: 'Pano açıldı. Celeste bana yalnızca G görevlerini gösteriyor. G rütbesine yükselmek için 40 Lonca Puanı lazım.',
     objectives: [
-      { type: 'custom', label: 'G görevi: Ahırdaki Fareler', target: 'g1_rats' },
-      { type: 'custom', label: 'G görevi: Şifacıya Ot', target: 'g2_herbs' },
-      { type: 'custom', label: 'G görevi: Kontrol Noktasına Mektup', target: 'g3_letter' },
+      { type: 'custom', label: 'G görevi: Ahırdaki Fareler', target: 'g1_rats', where: W('barn_yard', 4) },
+      { type: 'custom', label: 'G görevi: Şifacıya Ot', target: 'g2_herbs', where: W('forest_edge', 6) },
+      { type: 'custom', label: 'G görevi: Kontrol Noktasına Mektup', target: 'g3_letter', where: NPC('world', 'captain') },
     ],
     reward: { text: '30 Lonca Puanı' },
   },
@@ -81,7 +89,7 @@ export const MAIN_QUESTS: QuestDef[] = [
     id: 'g3_letter', kind: 'main', chapter: 2, rank: 'G', guild: true, title: 'Kontrol Noktasına Mektup', giver: 'celeste',
     desc: 'Lonca mühürlü bir mektubu Kaptan Roderick\'e götür. Ödül 30 bronz.',
     objectives: [
-      { type: 'deliver', label: 'Mektubu Kaptan Roderick\'e ver', target: 'captain', where: { map: 'world', npc: 'captain', point: 'checkpoint' } },
+      { type: 'deliver', label: 'Mektubu Kaptan Roderick\'e ver', target: 'captain', where: NPC('world', 'captain') },
       { type: 'talk', label: 'Celeste\'den ödülü al', target: 'celeste', where: NPC('guild', 'celeste'), sequential: true },
     ],
     reward: { money: 30, points: 10 },
@@ -99,6 +107,13 @@ export const MAIN_QUESTS: QuestDef[] = [
       { type: 'go', label: 'Lina\'yı taşı; Vera\'yla şifacıya git', target: 'healer', where: W('door_healer', 1.5) },
       { type: 'custom', label: 'Ilse Nine\'ye tedaviyi öde (30 bronz)', target: 'pay_healer', where: NPC('healer', 'healer'), sequential: true },
     ],
+    reward: {},
+  },
+  {
+    // Bekleme adımı (0.6.0): yaralılar şifa evinde bir gece kalır; ertesi gün dostluk ve ilk ortak F görevi.
+    id: 'm_vl_rest', kind: 'main', chapter: 2, title: 'Vera ve Lina',
+    desc: 'Vera ve Lina bu geceyi Ilse Nine\'nin yanında geçirecek. Yarın onlara bir bakmalıyım. Teşekkür beklemiyorum. Vera\'dan hiç beklemiyorum.',
+    objectives: [{ type: 'custom', label: 'Vera ve Lina\'yı bul', target: 'vl_talk', where: NPC('inn', 'vera') }],
     reward: {},
   },
   {
@@ -122,17 +137,41 @@ export const MAIN_QUESTS: QuestDef[] = [
   {
     id: 'm_celebrate', kind: 'main', chapter: 2, title: 'İlk Kadeh', giver: 'vera',
     desc: 'Vera akşam handa beklediğini söyledi. "Geç kalma, köksüz."',
-    objectives: [{ type: 'go', label: 'Akşam (18:00 sonrası) hana git', target: 'inn_evening', where: W('door_inn', 1.5) }],
+    objectives: [
+      { type: 'go', label: 'Akşam (18:00 sonrası) hana git', target: 'inn_evening', where: W('door_inn', 1.5) },
+      { type: 'custom', label: 'Vera\'yla masaya otur', target: 'sit_table', where: { map: 'inn', point: 'table_joseph', radius: 1.5 }, sequential: true },
+    ],
+    reward: {},
+  },
+  {
+    // Kutlamadan sonra G rütbesine yetmeyen puan (0.6.0, nadir): panodan G ilanlarıyla tamamlanır.
+    id: 'm_gpoints', kind: 'main', chapter: 2, title: 'G Rütbesi', giver: 'celeste',
+    desc: 'G eşiğine az kaldı. Panodaki G ilanlarıyla 40 Lonca Puanına ulaşmalıyım; Vera kutlamayı ona saklıyor.',
+    objectives: [{ type: 'custom', label: '40 Lonca Puanına ulaş (pano)', target: 'g_points', where: NPC('guild', 'celeste') }],
+    reward: {},
+  },
+  {
+    // Bekleme adımı (0.6.0): kesenin çalınması ilk kadehin ertesi günü, gündüz meydanda.
+    id: 'm_next_day', kind: 'main', chapter: 2, title: 'Ertesi Gün',
+    desc: 'Dün gece ilk kez bir masada oturdum ve kimse "dolu" demedi. Bugün köyde bir şey dönüyor; meydana bir bakayım.',
+    objectives: [{ type: 'custom', label: 'Gündüz köy meydanına uğra', target: 'theft_day', where: W('plaza', 4) }],
     reward: {},
   },
   {
     id: 'm_theft', kind: 'main', chapter: 2, title: 'Kâhyanın Kesesi', giver: 'steward',
     desc: 'Kâhya Edric\'in kesesi çalındı. Köksüz olduğum için ilk şüpheli benim. Hırsız düşük rütbeli biriymiş: Appraisal ile okuyabilirim.',
     objectives: [
-      { type: 'custom', label: 'Şüphelileri Appraisal ile incele', target: 'suspects', count: 4 },
-      { type: 'custom', label: 'Hırsızı bir muhafıza göster', target: 'accuse', where: { map: 'world', npc: 'guard_hob', point: 'guardpost' }, sequential: true },
+      { type: 'custom', label: 'Şüphelileri incele (Appraisal)', target: 'suspects', count: 4, where: W('plaza', 8) },
+      { type: 'custom', label: 'Hırsızı bir muhafıza göster', target: 'accuse', where: NPC('world', 'guard_hob'), sequential: true },
     ],
     reward: { text: 'Birkaç bronz ve bir "Dikkatli ol, köksüz."' },
+  },
+  {
+    // Bekleme adımı (0.6.0): kese teslim edildikten sonraki gün Vera ve Lina ikinci ortak işi getirir.
+    id: 'm_vl_cellar', kind: 'main', chapter: 2, title: 'Yeni İş',
+    desc: 'Kese sahibine döndü, cebimde beş tozlu bronz. Vera ve Lina\'nın yanında iş hep çıkıyor. Yarın onları bulmalıyım.',
+    objectives: [{ type: 'custom', label: 'Vera ve Lina\'yla konuş', target: 'vl_cellar', where: NPC('inn', 'vera') }],
+    reward: {},
   },
   {
     id: 'f_cellar', kind: 'main', chapter: 2, rank: 'F', guild: true, group: true, title: 'Değirmen Bodrumundaki Dev Fareler', giver: 'vera',
@@ -147,7 +186,7 @@ export const MAIN_QUESTS: QuestDef[] = [
   {
     id: 'm_silver', kind: 'main', chapter: 2, title: '10 Gümüş',
     desc: 'Şehre giriş kartı üç aylık ve 10 gümüş. Yan görevler, pano, av ve toplayıcılıkla biriktirmem lazım.',
-    objectives: [{ type: 'custom', label: '10 gümüş biriktir (1.000 bronz)', target: 'silver10', count: 1000 }],
+    objectives: [{ type: 'custom', label: '10 gümüş biriktir (1.000 bronz)', target: 'silver10', count: 1000, where: NPC('guild', 'celeste') }],
     reward: {},
   },
   {
@@ -159,7 +198,7 @@ export const MAIN_QUESTS: QuestDef[] = [
   {
     id: 'm_gate', kind: 'main', chapter: 2, title: 'Şehir Kapısı', giver: 'bertram',
     desc: 'Kontrol noktasında Kaptan Roderick\'ten giriş kartı alacağım. Ötesi: Eros.',
-    objectives: [{ type: 'talk', label: 'Kaptan Roderick\'ten giriş kartı al (10 gümüş)', target: 'captain', where: { map: 'world', npc: 'captain', point: 'checkpoint' } }],
+    objectives: [{ type: 'talk', label: 'Kaptan Roderick\'ten giriş kartı al (10 gümüş)', target: 'captain', where: NPC('world', 'captain') }],
     reward: { text: 'Giriş Kartı (3 ay)' },
   },
 ];

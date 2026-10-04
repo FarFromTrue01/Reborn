@@ -167,12 +167,13 @@ export const SCHEDULES: Record<string, NpcSchedule> = {
 
   // ------------------------------------------------------------- üst kast
   merchant: {
-    base: [e(9, 11, 'world', 'ep_s', 'talk', 2), e(11, 13, 'tailor', 'queue', 'talk'), e(13, 16, 'world', 'plaza_e', 'talk', 3), e(16, 18, 'tannery', 'queue', 'talk'), e(18, 23, 'inn', 'good_3', 'drink'), hide(23, 9, 'manor_front')],
+    // 0.6.0: sabahları konağın önünde (yan görev "Paralı Askerin Rütbesi" burada verilir)
+    base: [e(9, 11, 'world', 'manor_front', 'talk', 2), e(11, 13, 'tailor', 'queue', 'talk'), e(13, 16, 'world', 'plaza_e', 'talk', 3), e(16, 18, 'tannery', 'queue', 'talk'), e(18, 23, 'inn', 'good_3', 'drink'), hide(23, 9, 'manor_front')],
     plans: [[e(9, 12, 'world', 'manor_front', 'talk', 2), e(12, 16, 'world', 'ep_s', 'talk', 3), e(16, 18, 'tannery', 'queue', 'talk'), hide(18, 9, 'manor_front')]],
   },
   merc_guard: {
     planKey: 'merchant',
-    base: [e(9, 11, 'world', 'ep_s', 'talk', 1), e(11, 13, 'tailor', [2, 5]), e(13, 16, 'world', 'plaza_e', 'talk', 1), e(16, 18, 'tannery', [2, 6]), e(18, 23, 'inn', 'good_6', 'drink'), hide(23, 9, 'manor_front')],
+    base: [e(9, 11, 'world', 'manor_front', 'talk', 1), e(11, 13, 'tailor', [2, 5]), e(13, 16, 'world', 'plaza_e', 'talk', 1), e(16, 18, 'tannery', [2, 6]), e(18, 23, 'inn', 'good_6', 'drink'), hide(23, 9, 'manor_front')],
     plans: [[e(9, 12, 'world', 'manor_front', 'talk', 1), e(12, 16, 'world', 'ep_s', 'talk', 1), e(16, 18, 'tannery', [2, 6]), hide(18, 9, 'manor_front')]],
   },
   steward: {

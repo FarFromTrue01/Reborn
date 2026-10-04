@@ -33,6 +33,18 @@ function changed() {
 }
 
 export const Q = {
+  /**
+   * Görevin şu anki amacı beklemedeyse metni ("Haldor 14:00'te tarlada olur — o saate kadar bekle"). WorldScene
+   * kurar (harita ve program bilgisi orada); HUD ve görev sekmesi okur.
+   */
+  waitOf: null as ((id: string) => string | null) | null,
+  wait(id: string): string | null {
+    try {
+      return Q.waitOf?.(id) ?? null;
+    } catch {
+      return null;
+    }
+  },
   def(id: string): QuestDef | undefined {
     return lookup(id);
   },

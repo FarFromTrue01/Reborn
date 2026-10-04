@@ -60,6 +60,10 @@ export class UIScene extends Phaser.Scene {
   minimap!: Phaser.GameObjects.Image;
   minimapTex!: Phaser.Textures.CanvasTexture;
   minimapT = 0;
+  /** Mini haritadaki yan görev işaretleri (mavi ışık ve dalgalar): her kare çizilir, yalnızca işaret varken. */
+  minimapMarks: Phaser.GameObjects.Graphics | null = null;
+  /** Son mini harita çiziminin dönüşümü ve işaret noktaları (mini harita pikseli). */
+  mmMarks: { x: number; y: number; kind: string; building: boolean }[] = [];
   touch!: Phaser.GameObjects.Container;
   touchButtons: Record<string, Button> = {};
   skillBtns: Button[] = [];
@@ -122,6 +126,9 @@ export class UIScene extends Phaser.Scene {
     this.minimap = undefined!;
     this.minimapTex = undefined!;
     this.minimapT = 0;
+    this.minimapMarks = null;
+    this.mmMarks = [];
+    this.mmMarksDrawn = false;
     this.touch = undefined!;
     this.touchButtons = {};
     this.skillBtns = [];
@@ -259,6 +266,8 @@ export class UIScene extends Phaser.Scene {
     this.minimap.setInteractive({ useHandCursor: true });
     this.minimap.on('pointerup', () => this.openMenu('map'));
     this.hud.add(this.minimap);
+    this.minimapMarks = this.add.graphics().setPosition(W - 178, 12);
+    this.hud.add(this.minimapMarks);
     const mf = this.add.graphics();
     drawFrame(mf, W - 180, 10, 164, 164, { alpha: 0, ornate: true });
     this.hud.add(mf);
@@ -386,6 +395,7 @@ export class UIScene extends Phaser.Scene {
       this.minimapT = 0.25;
       this.drawMinimap(false);
     }
+    this.drawMinimapMarks();
     this.tickDialogue(dt);
     if (this.fpsText) this.fpsText.setText(`${Math.round(this.game.loop.actualFps)} FPS`);
     const hide = this.hideHud || this.menuIsOpen;
@@ -561,6 +571,19 @@ export class UIScene extends Phaser.Scene {
       ctx.fillStyle = '#ff4030';
       ctx.fillRect(ox + (e.x / TILE) * scale - 1, oy + (e.y / TILE) * scale - 1, 2.5, 2.5);
     }
+    // yan görev işaretleri (0.6.0): konumlar burada, ışık ve dalgalar her kare drawMinimapMarks'ta
+    this.mmMarks = [];
+    if (!m.indoor) {
+      for (const s of w.sideMarkSpots?.() ?? []) {
+        const x = ox + s.x * scale, y = oy + s.y * scale;
+        if (x >= 4 && y >= 4 && x <= S - 4 && y <= S - 4) this.mmMarks.push({ x, y, kind: s.kind, building: !!s.building });
+      }
+    } else {
+      for (const n of w.npcs) {
+        const k = w.sideMarks?.[n.def.id];
+        if (k && n.markerKind) this.mmMarks.push({ x: ox + (n.x / TILE) * scale, y: oy + (n.y / TILE) * scale, kind: k, building: false });
+      }
+    }
     // oyuncu
     ctx.fillStyle = '#ffffff';
     ctx.beginPath();
@@ -570,6 +593,33 @@ export class UIScene extends Phaser.Scene {
     ctx.lineWidth = 1;
     ctx.stroke();
     this.minimapTex.refresh();
+  }
+
+  /** Mavi parlayan nokta ve genişleyip sönen halkalar (yalnızca işaret varken; ekran dışı işaretler zaten atlandı). */
+  private mmMarksDrawn = false;
+  drawMinimapMarks() {
+    const g = this.minimapMarks;
+    if (!g) return;
+    if (!this.mmMarks.length) {
+      if (this.mmMarksDrawn) g.clear();
+      this.mmMarksDrawn = false;
+      return;
+    }
+    this.mmMarksDrawn = true;
+    g.clear();
+    const t = this.time.now / 1000;
+    for (const mk of this.mmMarks) {
+      const col = mk.kind === 'turnin' ? 0x9fdcff : 0x4aa8ff;
+      for (let k = 0; k < 2; k++) {
+        const ph = (t / 1.6 + k / 2) % 1;
+        g.lineStyle(1.5, col, 0.85 * (1 - ph));
+        g.strokeCircle(mk.x, mk.y, 3 + ph * (mk.building ? 13 : 10));
+      }
+      g.fillStyle(col, 0.35);
+      g.fillCircle(mk.x, mk.y, mk.building ? 6 : 4.5);
+      g.fillStyle(0xe6f6ff, 1);
+      g.fillCircle(mk.x, mk.y, 2.2);
+    }
   }
 
   onMapChanged() {

@@ -4,6 +4,7 @@ import { CURRENT_SAVE_VERSION, newGameState, OLD_WORLD_W, OLD_WORLD_H, V2_WORLD_
 import { newGuildState } from './guild';
 import { newQuestLog, startQuest, type QuestLog } from './quests';
 import { questDef, rankupQuest } from '../data/quests';
+import { BOARD_TEMPLATES } from '../data/sidequests';
 import { STAT_POINTS_PER_LEVEL } from './formulas';
 import { normalizeWallet, emptyWallet } from './money';
 
@@ -85,7 +86,36 @@ const MIGRATIONS: ((d: any) => any)[] = [
   (d) => migrateV4toV5(d),
   // v5 → v6 (0.5.0): "kayıtlar yarın işlenir" kalktı; bekleyen terfi Terfi görevine dönüşür.
   (d) => migrateV5toV6(d),
+  // v6 → v7 (0.6.0): İlk Kadeh'e "masaya otur" amacı eklendi (ilerleme dizileri tanımla eşitlenir); kayıttaki pano
+  // ilanlarına yönlendirme (where) eklenir. Eksik ana görev ve bekleme adımları oyunda ensureMainQuest ile açılır.
+  (d) => migrateV6toV7(d),
 ];
+
+/** 0.5.x kaydını 0.6.0'a taşır (tests/g4a.test.ts). */
+export function migrateV6toV7(d: any): any {
+  const log = d.quests;
+  if (log?.quests) {
+    for (const st of Object.values<any>(log.quests)) {
+      // kayıttaki dinamik pano ilanı: şablondan yönlendirmeyi al
+      const m = /^b\d+_(.+)$/.exec(st.id);
+      if (st.def && m) {
+        const t = BOARD_TEMPLATES.find((x) => x.key === m[1]);
+        const fresh = t?.make(st.id).objectives;
+        if (fresh) st.def.objectives.forEach((o: any, i: number) => { if (!o.where && fresh[i]?.where) o.where = fresh[i].where; });
+      }
+      const def = st.def ?? questDef(st.id);
+      if (!def || !Array.isArray(st.progress)) continue;
+      const n = def.objectives.length;
+      while (st.progress.length < n) {
+        const o = def.objectives[st.progress.length];
+        st.progress.push(st.status === 'done' ? o.count ?? 1 : 0);
+      }
+      if (st.progress.length > n) st.progress.length = n;
+    }
+  }
+  d.saveVersion = 7;
+  return d;
+}
 
 /** 0.2.0 kaydını 0.3.0'a taşır (testli: tests/save.test.ts). */
 export function migrateV3toV4(d: any): any {

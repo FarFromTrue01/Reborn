@@ -57,7 +57,7 @@ export class QuestBox extends Phaser.GameObjects.Container {
     const log = G.state.quests;
     const ids = activeQuests(log);
     const prefs = loadQuestHudPrefs();
-    const key = JSON.stringify([this.collapsed, prefs, log.tracked, ids.map((id) => [id, log.quests[id].progress])]);
+    const key = JSON.stringify([this.collapsed, prefs, log.tracked, ids.map((id) => [id, log.quests[id].progress, Q.wait(id)])]);
     if (key === this.key && !force) return;
     this.key = key;
     this.removeAll(true);
@@ -140,7 +140,10 @@ export class QuestBox extends Phaser.GameObjects.Container {
     const prog = o && (o.count ?? 1) > 1 ? ` ${st.progress[def.objectives.indexOf(o)]}/${o.count}` : '';
     const t1 = txt(this.scene, 32, 2, def.title, { size: 14, bold: true, color: tracked ? '#ffe9a0' : COLORS.text, stroke: true });
     const t2 = txt(this.scene, 32, 20, (o?.label ?? '') + prog, { size: 12, color: tracked ? '#cfe6b8' : COLORS.textDim, wrap: W - 44, stroke: true });
-    const rh = Math.max(40, 22 + t2.height + 4);
+    // bekleme (0.6.0): "Haldor 14:00'te tarlada olur — o saate kadar bekle"
+    const wait = Q.wait(id);
+    const t3 = wait ? txt(this.scene, 32, 20 + t2.height + 1, '⏳ ' + wait, { size: 11, italic: true, color: '#a9c8ff', wrap: W - 44, stroke: true }) : null;
+    const rh = Math.max(40, 22 + t2.height + (t3 ? t3.height + 2 : 0) + 4);
     const bg = this.scene.add.graphics();
     if (tracked) {
       bg.fillStyle(0xd9b45a, 0.14);
@@ -152,6 +155,7 @@ export class QuestBox extends Phaser.GameObjects.Container {
     row.add(uiIcon(this.scene, 17, 14, KIND_ICON[def.kind] ?? 'quests', 20));
     if (tracked) row.add(uiIcon(this.scene, W - 18, 14, 'target', 18));
     row.add([t1, t2]);
+    if (t3) row.add(t3);
     const z = this.scene.add.zone(0, 0, W, rh).setOrigin(0, 0).setInteractive({ useHandCursor: true });
     z.on('pointerdown', (_p: any, _x: number, _y: number, ev: any) => {
       ev?.stopPropagation?.();

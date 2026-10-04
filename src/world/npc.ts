@@ -9,6 +9,13 @@ import { derive } from '../core/creature';
 import { npcPrestige } from '../core/prestige';
 import { G } from '../game/G';
 
+export type MarkerKind = 'offer' | 'turnin' | 'suspect';
+export const MARKER_STYLE: Record<MarkerKind, { ch: string; color: string; stroke: string }> = {
+  offer: { ch: '!', color: '#7cc8ff', stroke: '#0a1a3a' },
+  turnin: { ch: '?', color: '#7cc8ff', stroke: '#0a1a3a' },
+  suspect: { ch: '?', color: '#ffd75e', stroke: '#3a2410' },
+};
+
 /** Geliştirici etiketinin gösterildiği en büyük uzaklık (karo). */
 const DEV_TAG_RANGE = 12;
 
@@ -48,6 +55,13 @@ export class Npc {
   gone = false;
   /** Görüş alanının dışında: hafif güncelleme (WorldScene her kare belirler). */
   far = false;
+  /**
+   * Başının üstündeki görev işareti (0.6.0): mavi "!" (yan görev verebilir), mavi "?" (teslim edilebilir), sarı "?"
+   * (incelenecek şüpheli). Metin dokusu yalnızca tür değişince çizilir; konum her kare (yalnızca yakındayken).
+   */
+  marker: Phaser.GameObjects.Text | null = null;
+  markerKind: MarkerKind | '' = '';
+  private markerPhase = Math.random() * Math.PI * 2;
 
   constructor(public w: WorldScene, public def: NpcDef, x: number, y: number) {
     this.actor = new Actor(w, x, y, [def.sheet], 'lpc');
@@ -106,8 +120,31 @@ export class Npc {
     return [Math.floor(this.x / TILE), Math.floor(this.y / TILE)];
   }
 
+  setMarker(kind: MarkerKind | '') {
+    if (kind === this.markerKind) return;
+    this.markerKind = kind;
+    this.marker?.destroy();
+    this.marker = null;
+    if (!kind) return;
+    const st = MARKER_STYLE[kind];
+    const t = this.w.add.text(this.x, this.y - 74, st.ch, {
+      fontFamily: 'Cinzel, serif', fontSize: '22px', fontStyle: 'bold', color: st.color, stroke: st.stroke, strokeThickness: 4,
+    }).setOrigin(0.5, 1).setDepth(968000);
+    t.setResolution(this.w.cameras.main.zoom * 1.5);
+    this.marker = t;
+  }
+
+  /** İşaretin konumu: yukarı aşağı hafif salınım. */
+  private placeMarker() {
+    const m = this.marker;
+    if (!m) return;
+    const k = Math.sin(this.w.time.now / 260 + this.markerPhase);
+    m.setPosition(this.actor.x, this.actor.y - 70 - (this.bubble ? 26 : 0) + k * 3);
+  }
+
   destroy() {
     this.gone = true;
+    this.marker?.destroy();
     this.w.pathQueue?.cancel(this);
     this.actor.destroy();
     this.nameTag.destroy();
@@ -247,6 +284,7 @@ export class Npc {
       this.devText = this.devColor = '';
     }
     this.nameTag.setAlpha(Phaser.Math.Clamp((4 - dist) / 2, 0, 1) * (this.bubble ? 0 : 1));
+    this.placeMarker();
     // balon
     if (this.bubble) {
       this.bubbleT -= dt;

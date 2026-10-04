@@ -9,20 +9,23 @@ import { Q } from '../game/questrt';
 import * as R from '../game/rules';
 import { Sound } from '../audio/audio';
 import { TILE } from '../world/types';
-import type { Npc } from '../world/npc';
+import type { Npc, MarkerKind } from '../world/npc';
 import type { Warp } from '../world/types';
 import type { Director } from './director';
 import { NPC_BY_ID } from '../data/npcs';
 import { SIDE_QUESTS, SIDE_SCRIPTS, boardForDay, MAX_BOARD_QUESTS } from '../data/sidequests';
-import { currentObjective, activeQuests, type QuestDef } from '../core/quests';
+import { currentObjective, activeQuests, type QuestDef, type QuestTarget } from '../core/quests';
 import { questDef } from '../data/quests';
 import { canTakeQuest, riskText, QUEST_POINTS, reRegister, REREGISTER_FEE, pointsToNext } from '../core/guild';
 import { subRankToString } from '../core/ranks';
 import { equip, transact } from '../core/transactions';
 import { walletTotal } from '../core/money';
 import { buyCard, hasValidCard, CARD_PRICE, CARD_DAYS, CITY_FULL_NAMES, CITY_TITLES } from '../core/cards';
-import { hourOf } from '../core/time';
+import { hourOf, whenLabel } from '../core/time';
+import { absMinute } from '../core/sleep';
 import { Display } from '../game/display';
+import { SIDE_POSTS, atPostNow, visibleGiverMarks, type SideMark, type SideQuestView } from './sideposts';
+import { ensureMainQuest } from './mainline';
 import { ITEMS } from '../data/items';
 
 const wait = (scene: Phaser.Scene, ms: number) => new Promise<void>((r) => scene.time.delayedCall(ms, r));
@@ -90,9 +93,10 @@ export class Chapter2 {
     return !!G.flag('guild_registered');
   }
 
+  /** Pano açık mı? 0.6.0: silah alınınca aynı gün açılır (eski kayıtlar: kaydın ertesi günü). */
   boardOpen() {
     const s = Number(G.flag('ch2_start_day') || 0);
-    return this.started() && this.day > s;
+    return this.started() && (Q.done('m_weapon') || this.day > s);
   }
 
   sideUnlocked() {
@@ -145,10 +149,9 @@ export class Chapter2 {
     }
     R.sysmsg('EKİPMAN', ['Çatlak Sopa (G) [Hasar 1–1]', 'Dükkândaki en kötü silahtan bile zayıf.', 'Saygınlık −2: insanlar sopana bakıp gülümseyecek.'], { sound: 'system' });
     Q.complete('m_weapon', { silent: true });
-    if (!this.boardOpen()) {
-      await this.say('bertram', 'Pano yarın sabah açılır. Celeste\'nin lafına güven, saatine güvenme.');
-      await this.think('Yarın sabah. Loncaya.');
-    } else await this.say('bertram', 'Hadi. Pano açık. Celeste seni bekletmesin.');
+    await this.say('bertram', 'Şimdi loncaya git. Celeste sopanı görünce burun kıvırır ama ilanını verir. Gün daha bitmedi, evlat.');
+    await this.think('Bir sopa ve bir kart. Loncaya dönüp panodan bir iş alacağım.');
+    if (!Q.status('m_grank')) Q.start('m_board');
     G.save('auto');
   }
 
@@ -157,19 +160,12 @@ export class Chapter2 {
     G.setFlag('ch2_board_open', this.day);
     const w = this.w;
     const a = w.player.actor;
-    await this.say('celeste', 'Pano açıldı. Merak etme, senin için de bir şey var.', 'alayci');
+    // Vera ve Lina goblin ilanını kapar: programları ne derse desin sahnede olsunlar (kapıdan girerler)
+    const cast = await this.d.ensureActors(['vera', 'lina'], { from: 'door' });
+    const vera = cast.npcs.vera;
+    const lina = cast.npcs.lina;
+    await this.say('celeste', 'Pano açık. Sopanı gördüm; gülmeyeceğim. Merak etme, senin için de bir şey var.', 'alayci');
     await this.say('celeste', 'G görevleri. Üç tane. Senin rütbende başka bir şey yok zaten.', 'normal');
-    // Vera ve Lina goblin ilanını kapar
-    const extras: Npc[] = [];
-    for (const id of ['vera', 'lina']) {
-      let n = w.npc(id);
-      if (!n && w.mapData.points[id]) {
-        n = w.addNpc(NPC_BY_ID[id], w.mapData.points[id].x, w.mapData.points[id].y, true);
-        extras.push(n);
-      } else if (n) n.scripted = true;
-    }
-    const vera = w.npc('vera');
-    const lina = w.npc('lina');
     if (vera) this.d.face(vera.actor, a);
     if (lina) this.d.face(lina.actor, a);
     await this.say('vera', 'Goblin kampı keşfi. F görevi. Seksen bronz. Bu bizim.', 'alayci');
@@ -180,12 +176,9 @@ export class Chapter2 {
       await this.say('vera', 'Hıh. Akıllı köksüz. Nadir bulunur.', 'saskin');
     } else await this.say('vera', 'Fareler seni bekliyor, bulaşıkçı. Selam söyle.', 'alayci');
     await this.say('lina', 'Hihi, yarın görüşürüz! Belki!', 'gulen');
-    for (const n of extras) w.removeNpc(n);
-    for (const id of ['vera', 'lina']) {
-      const n = w.npc(id);
-      if (n) n.scripted = false;
-    }
+    this.d.releaseActors(cast);
     Q.start('m_grank');
+    if (Q.active('m_board')) Q.complete('m_board', { quiet: true });
     Q.start('g1_rats', true);
     Q.start('g2_herbs', true);
     Q.start('g3_letter', true);
@@ -229,7 +222,7 @@ export class Chapter2 {
       }
     }
     if (!this.boardOpen()) {
-      await this.say('celeste', 'Pano yarın sabah açılıyor. Bugün kâğıt bile kalmadı.', 'normal');
+      await this.say('celeste', 'Eli boş maceracıya ilan vermem. Fare seni yer, ceza bana kalır. Önce kendine bir silah bul.', 'alayci');
       return true;
     }
     if (!Q.status('m_grank')) {
@@ -384,7 +377,7 @@ export class Chapter2 {
   async board(): Promise<boolean> {
     if (!this.started()) return false;
     if (!this.boardOpen()) {
-      await this.think('Pano boş. Altta bir not: "Yeni ilanlar yarın sabah."');
+      await this.think('Panoda ilanlar var. Ama elimde silah yokken Celeste bana hiçbirini vermez. Bertram\'a sormalıyım.');
       return true;
     }
     if (!Q.status('m_grank')) {
@@ -492,6 +485,7 @@ export class Chapter2 {
         return true;
       }
       if (qid === 'sq_nim_bread') {
+        if (await this.awayFromPost(n)) return true;
         if (!G.p.inventory.bread) {
           await this.think('Elimde ekmek yok. Fırından ya da handan almalıyım.');
           return true;
@@ -519,9 +513,44 @@ export class Chapter2 {
     return false;
   }
 
-  /** Yan görev teklifleri ve teslimleri. */
+  // ============================================================ yan görev iş yerleri (0.6.0)
+  sideView(): SideQuestView {
+    return {
+      status: (id) => Q.status(id),
+      objective: (id) => this.objIdx(id),
+      unlocked: this.sideUnlocked(),
+      declinedToday: (id) => G.flag('decline_' + id) === this.day,
+      has: (item) => (G.p.inventory[item] ?? 0) > 0,
+    };
+  }
+
+  /** Görev işaretleri: iş yerinde olan (programa göre) verenler. */
+  sideMarks(): Record<string, SideMark> {
+    return visibleGiverMarks(this.sideView(), NPC_BY_ID, this.day, G.state.time.minute / 60, (m) => this.w.pointsOf(m));
+  }
+
+  /** Bu NPC şu an gerçekten iş yerinde mi (bu haritada, bu konumda, bu saatte)? */
+  atPost(n: Npc): boolean {
+    return atPostNow(n.def.id, this.w.mapData.id, { x: n.x / TILE, y: n.y / TILE }, G.state.time.minute / 60, (m) => this.w.pointsOf(m));
+  }
+
+  /** Bu kişinin yan görevle ilgili söyleyecek bir şeyi var mı (teklif, bekleyen ya da teslim)? */
+  hasSideBusiness(id: string): boolean {
+    return SIDE_QUESTS.some((q) => q.giver === id && (Q.status(q.id) === 'active' || (!Q.status(q.id) && this.sideUnlocked() && G.flag('decline_' + q.id) !== this.day)));
+  }
+
+  /** İş yeri dışında: görevden bahsetmez, kısa bir yönlendirme söyler. */
+  async awayFromPost(n: Npc): Promise<boolean> {
+    const gp = SIDE_POSTS[n.def.id];
+    if (!gp || !this.hasSideBusiness(n.def.id) || this.atPost(n)) return false;
+    await this.say(n.def.id, gp.away);
+    return true;
+  }
+
+  /** Yan görev teklifleri ve teslimleri (yalnızca verenin iş yerinde). */
   async sideTalk(n: Npc): Promise<boolean> {
     const id = n.def.id;
+    if (await this.awayFromPost(n)) return true;
     for (const q of SIDE_QUESTS) {
       if (q.giver !== id) continue;
       const sc = SIDE_SCRIPTS[q.id];
@@ -821,8 +850,13 @@ export class Chapter2 {
     const g = this.w.npc(guard);
     if (wynn && g) {
       wynn.scripted = true;
+      g.scripted = true;
+      // Joseph muhafızı kendiliğinden izler (kontroller kapalı, kamera onu takip eder); muhafızın yanına varınca biter
+      const follow = this.d.followUntilNear(this.w.player.actor, g.actor, 1.6);
       await this.d.walk(g.actor, Math.floor(wynn.x / TILE) - 1, Math.floor(wynn.y / TILE), 3);
       this.d.face(g.actor, wynn.actor);
+      await follow;
+      this.d.face(this.w.player.actor, wynn.actor);
       wynn.say('Ne? Ne yapıyorsun? Bırak!', 2);
       await wait(this.w, 1200);
     }
@@ -990,8 +1024,8 @@ export class Chapter2 {
   onEnterMap(id: string) {
     this.spawned.clear();
     this.applyEscort();
-    if (id === 'inn' && Q.active('m_celebrate') && hourOf(G.state.time) >= 18) {
-      this.d.scene(async () => this.celebrate());
+    if (id === 'inn' && Q.active('m_celebrate') && this.objIdx('m_celebrate') === 0 && hourOf(G.state.time) >= 18) {
+      this.d.scene(async () => this.celebrateArrive());
       return;
     }
     if (id === 'inn' && this.boardOpen() && !G.flag('inn_stand') && hourOf(G.state.time) >= 17 && !Q.done('m_celebrate')) {
@@ -1029,29 +1063,59 @@ export class Chapter2 {
     await this.think('Ayakta yerim o zaman. Duvarın dibinde.');
   }
 
-  async celebrate() {
+  /** İlk kadeh, 1. kısım (0.6.0): Joseph akşam hana gelir; Vera ve Lina masada, Vera yer gösterir. */
+  async celebrateArrive() {
     const w = this.w;
     const a = w.player.actor;
-    const ensure = (id: string, pt: string) => {
-      let n = w.npc(id);
-      const p = w.mapData.points[pt];
-      if (!n && p) n = w.addNpc(NPC_BY_ID[id], p.x, p.y, true);
-      if (n) n.scripted = true;
-      return n;
-    };
-    const vera = ensure('vera', 'table_vera');
-    const lina = ensure('lina', 'table_lina');
+    const vera = this.placeAtTable('vera', 'table_vera');
+    const lina = this.placeAtTable('lina', 'table_lina');
     await wait(w, 400);
     if (vera) this.d.face(vera.actor, a);
     if (lina) this.d.face(lina.actor, a);
-    await this.say('vera', 'Geldin! Otur köksüz. Hayır, burası dolu değil. Burası senin.', 'gulen');
+    await this.say('vera', 'Geldin! Buraya, köksüz. Masaya otur. Hayır, burası dolu değil. Burası senin.', 'gulen');
+    await this.say('lina', 'Hihi! Sandalyeyi senin için sakladık. Kimseye vermedik! Dorn bile soracaktı!', 'gulen');
+    Q.advance('m_celebrate', 0);
+    this.ui.toastInfo('Vera\'nın masasına git ve "Otur"a bas.');
+  }
+
+  /** Vera ve Lina'yı masadaki yerlerine koy (programları ne derse desin) ve orada tut. */
+  placeAtTable(id: string, pt: string): Npc | null {
+    const w = this.w;
+    const p = w.mapData.points[pt];
+    let n = w.npc(id);
+    if (!n && p) n = w.addNpc(NPC_BY_ID[id], p.x, p.y, true);
+    if (n) {
+      n.scripted = true;
+      n.stopWalking();
+      n.state = 'idle';
+    }
+    return n;
+  }
+
+  /** Masaya oturma etkileşimi ("Otur"): yalnızca ilk kadehte, Vera yer gösterdikten sonra. */
+  canSit(): boolean {
+    return Q.active('m_celebrate') && this.objIdx('m_celebrate') === 1 && this.w.mapData.id === 'inn';
+  }
+
+  /** İlk kadeh, 2. kısım: Joseph oturunca. */
+  async celebrate() {
+    const w = this.w;
+    const a = w.player.actor;
+    const vera = this.placeAtTable('vera', 'table_vera');
+    const lina = this.placeAtTable('lina', 'table_lina');
+    const seat = w.mapData.points.table_joseph;
+    if (seat) await this.d.walk(a, seat.x, seat.y, 2.4);
+    a.face('right');
+    await wait(w, 300);
+    if (vera) this.d.face(vera.actor, a);
+    if (lina) this.d.face(lina.actor, a);
     await this.ui.narrate('Vera bir sandalye çekiyor. Etraftaki masalar susuyor.');
     await this.say('lina', 'G rütbe köksüze! Hihi! Şerefe!', 'gulen');
     await this.say('vera', 'Şerefe. Bir ayda F olmazsan seni kendim döverim.', 'alayci');
     Sound.sfx('laugh', 0.6);
     await this.ui.narrate('Bertram tezgâhın arkasından başını salladı. Tek kelime etmedi. Etmesine gerek yoktu.');
     await this.think('İlk kez bir masada oturuyorum. Kimse "dolu" demedi.');
-    Q.advance('m_celebrate', 0);
+    Q.advance('m_celebrate', 1);
     Q.complete('m_celebrate', { silent: true });
     G.setFlag('side_unlocked', this.day);
     G.setFlag('theft_day', this.day + 1);
@@ -1194,8 +1258,8 @@ export class Chapter2 {
       return;
     }
     // ilk kadeh: Joseph akşam zaten handaysa
-    if (w.mapData.id === 'inn' && Q.active('m_celebrate') && h >= 18) {
-      this.d.scene(async () => this.celebrate());
+    if (w.mapData.id === 'inn' && Q.active('m_celebrate') && this.objIdx('m_celebrate') === 0 && h >= 18) {
+      this.d.scene(async () => this.celebrateArrive());
       return;
     }
     // E7: on gümüş
@@ -1278,6 +1342,12 @@ export class Chapter2 {
 
   /** Bu NPC bu haritada nerede olmalı? */
   npcPlacement(id: string, map: string): [number, number] | null | undefined {
+    // yaralılar görevi: Ilse Nine saat kaç olursa olsun şifa evinde
+    if (id === 'healer' && Q.active('m_wounded')) {
+      if (map !== 'healer') return null;
+      const p = this.w.pointsOf('healer').healer;
+      return p ? [p.x, p.y] : undefined;
+    }
     // yaralılar iyileşme gecesi şifacıda
     if ((id === 'vera' || id === 'lina') && Number(G.flag('vl_healed_day') || -1) === this.day) {
       if (map === 'healer') return id === 'vera' ? [7, 6] : [8, 6];
@@ -1287,7 +1357,7 @@ export class Chapter2 {
     if (Q.active('m_theft') && THEFT_SUSPECTS[id]) {
       if (G.flag('wynn_jailed') && id === 'washer') return null;
       if (map !== 'world') return null;
-      const p = this.w.mapData.points[THEFT_SUSPECTS[id].at];
+      const p = this.w.pointsOf('world')[THEFT_SUSPECTS[id].at];
       return p ? [p.x, p.y] : undefined;
     }
     if (id === 'washer' && G.flag('wynn_jailed')) return null;
@@ -1300,10 +1370,111 @@ export class Chapter2 {
     return b[Math.floor(Math.random() * b.length)];
   }
 
+  // ============================================================ ana görev güvencesi (0.6.0)
+  /** Hiç aktif ana görev kalmasın: eksik halkayı (ya da bekleme adımını) aç, gereksiz adımları kapat. */
+  ensureMain(): string | null {
+    return ensureMainQuest({
+      status: (id) => Q.status(id),
+      flag: (k) => G.flag(k),
+      rank: G.state.guild.member ? G.p.guildRank : null,
+      active: () => activeQuests(G.state.quests),
+      start: (id) => {
+        Q.start(id);
+        this.onAutoStart(id);
+      },
+      closeStep: (id) => Q.complete(id, { quiet: true }),
+    });
+  }
+
+  /** Güvencenin açtığı görev için gereken hikâye hazırlığı (geliştirici araçlarıyla atlanan sahneler dahil). */
+  onAutoStart(id: string) {
+    if ((id === 'f_wolves' || id === 'f_cellar') && G.flag('friends_vl')) {
+      for (const c of ['vera', 'lina']) if (!this.w.companion(c)) this.w.addCompanion(c);
+    }
+  }
+
+  // ============================================================ bekleme ve hedef (0.6.0)
+  /**
+   * Hikâye kapıları: amaç belli bir saatten önce yapılamıyorsa bekleme metni ve saati (mutlak dakika).
+   * NPC programı ve kapalı binalar WorldScene.questWait'te genel olarak hesaplanır.
+   */
+  objectiveWait(id: string, idx: number): { text: string; until: number } | null {
+    const now = absMinute(this.day, G.state.time.minute);
+    const at = (day: number, hour: number) => absMinute(day, hour * 60);
+    const gate = (until: number, text: (when: string) => string) => (now < until ? { until, text: text(whenLabel(now, until)) } : null);
+    switch (id) {
+      case 'm_vl_rest': {
+        const healed = Number(G.flag('vl_healed_day') || this.day);
+        return gate(at(healed + 1, 8), (w) => `Vera ve Lina şifa evinde dinleniyor — ${w} onları bul`);
+      }
+      case 'm_vl_cellar': {
+        const d = Number(G.flag('cellar_offer_day') || this.day);
+        return gate(at(d, 8), (w) => `Vera ve Lina ${w} ortalıkta olur — o saate kadar bekle`);
+      }
+      case 'm_next_day': {
+        const d = Number(G.flag('theft_day') || this.day);
+        const h = G.state.time.minute / 60;
+        let until = at(d, 8);
+        if (now >= until && h >= 18) until = at(this.day + 1, 8);
+        else if (now >= until && h < 8) until = at(this.day, 8);
+        return gate(until, (w) => `Köy ${w} uyanır — o saate kadar bekle`);
+      }
+      case 'm_harvest': {
+        if (idx !== 1) return null;
+        const h = G.state.time.minute / 60;
+        if (h >= 6 && h < 16) return null;
+        const until = at(h >= 16 ? this.day + 1 : this.day, 6);
+        return gate(until, (w) => `Hasat ${w} başlar — o saate kadar bekle`);
+      }
+      case 'm_celebrate':
+        if (idx === 0) return gate(at(this.day, 18), (w) => `Vera akşamı bekliyor — ${w} hana git`);
+        return null;
+    }
+    return null;
+  }
+
+  /** Amacın hedefini hikâye belirliyorsa (ör. sıradaki şüpheli). */
+  targetOverride(id: string): QuestTarget | null {
+    if (id === 'm_theft' && this.objIdx('m_theft') === 0) {
+      const next = this.nextSuspect();
+      return next ? { map: 'world', npc: next } : null;
+    }
+    return null;
+  }
+
+  /** Başı işaretli NPC'ler: incelenecek şüpheliler (yan görev işaretleri sideMarkers'tan eklenir). */
+  npcMarkers(): Record<string, MarkerKind> {
+    const out: Record<string, MarkerKind> = {};
+    if (Q.active('m_theft') && this.objIdx('m_theft') === 0) {
+      const data = G.state.quests.quests.m_theft?.data ?? {};
+      for (const s of Object.keys(THEFT_SUSPECTS)) if (!data['sus_' + s]) out[s] = 'suspect';
+    }
+    return out;
+  }
+
+  /** Henüz Appraisal yapılmamış ilk şüpheli (yakın olan önce). */
+  nextSuspect(): string | null {
+    const data = G.state.quests.quests.m_theft?.data ?? {};
+    const left = Object.keys(THEFT_SUSPECTS).filter((s) => !data['sus_' + s]);
+    if (!left.length) return null;
+    const a = this.w.player.actor;
+    const dist = (s: string) => {
+      const n = this.w.npc(s);
+      return n ? Math.hypot(n.x - a.x, n.y - a.y) : Infinity;
+    };
+    return left.sort((x, y) => dist(x) - dist(y))[0];
+  }
+
+  /** Kapı istisnası: yaralılar görevi sürerken şifa evi saatten bağımsız açık. undefined: normal saatler. */
+  doorOverride(w: Warp): boolean | undefined {
+    if (w.to === 'healer' && Q.active('m_wounded')) return true;
+    return undefined;
+  }
+
   // ============================================================ bilgi
   /** Dev paneli ve testler için: hikâye adımının adı. */
   stage(): string {
-    const order = ['m_weapon', 'm_grank', 'm_air', 'm_wounded', 'f_wolves', 'm_promotion', 'm_celebrate', 'm_theft', 'f_cellar', 'm_silver', 'm_farewell', 'm_gate'];
+    const order = ['m_weapon', 'm_board', 'm_grank', 'm_air', 'm_wounded', 'm_vl_rest', 'f_wolves', 'm_promotion', 'm_gpoints', 'm_celebrate', 'm_next_day', 'm_theft', 'm_vl_cellar', 'f_cellar', 'm_silver', 'm_farewell', 'm_gate'];
     for (const id of order) if (Q.active(id)) return id;
     return G.flag('ch2_done') ? 'done' : 'none';
   }

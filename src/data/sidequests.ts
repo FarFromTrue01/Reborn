@@ -7,6 +7,10 @@ import type { QuestDef } from '../core/quests';
 
 const NPC = (map: string, npc: string) => ({ map, npc });
 const W = (point: string, radius = 2) => ({ map: 'world', point, radius });
+/** Öldürme amacı: yaratığın oyuncuya en yakın doğma bölgesi. */
+const MON = (monster: string) => ({ map: 'world', monster, radius: 4 });
+/** Toplama amacı: eşyanın oyuncuya en yakın kaynağı (toplama noktası ya da düşüren yaratık). */
+const ITEM = (item: string) => ({ map: 'world', item, radius: 4 });
 
 /** Yan görevin konuşma metinleri. {n}: Joseph'in adı yok, düz metin. */
 export interface SideScript {
@@ -27,8 +31,8 @@ export const SIDE_QUESTS: QuestDef[] = [
     id: 'sq_baker_apples', kind: 'side', chapter: 2, title: 'Elmalı Çörek', giver: 'baker',
     desc: 'Fırıncı Brunhild yarın pazar için elmalı çörek pişirecek ama elması bitmiş. Altı elma istiyor.',
     objectives: [
-      { type: 'collect', label: 'Elma topla', target: 'apple', count: 6 },
-      { type: 'talk', label: 'Elmaları Brunhild\'e götür', target: 'baker', where: { map: 'world', npc: 'baker', point: 'bakery_front' }, sequential: true },
+      { type: 'collect', label: 'Elma topla', target: 'apple', count: 6, where: ITEM('apple') },
+      { type: 'talk', label: 'Elmaları Brunhild\'e götür (fırın)', target: 'baker', where: NPC('bakery', 'baker'), sequential: true },
     ],
     reward: { money: 30, items: [{ id: 'honey_bun', qty: 1 }], exp: 4 },
   },
@@ -36,8 +40,8 @@ export const SIDE_QUESTS: QuestDef[] = [
     id: 'sq_tanner_pelts', kind: 'side', chapter: 2, title: 'Gorm\'un Postları', giver: 'tanner',
     desc: 'Tabakçı Gorm tavşan postu bekliyor. Üç tane. Kokusuna katlanırsan parasını verecek.',
     objectives: [
-      { type: 'collect', label: 'Tavşan postu topla', target: 'rabbit_pelt', count: 3 },
-      { type: 'talk', label: 'Postları Gorm\'a götür', target: 'tanner', where: { map: 'world', npc: 'tanner', point: 'tannery_yard' }, sequential: true },
+      { type: 'collect', label: 'Tavşan postu topla', target: 'rabbit_pelt', count: 3, where: ITEM('rabbit_pelt') },
+      { type: 'talk', label: 'Postları Gorm\'a götür (tabakhane)', target: 'tanner', where: NPC('tannery', 'tanner'), sequential: true },
     ],
     reward: { money: 45, exp: 5 },
   },
@@ -45,8 +49,8 @@ export const SIDE_QUESTS: QuestDef[] = [
     id: 'sq_smith_jelly', kind: 'side', chapter: 2, title: 'Su Verme Jölesi', giver: 'smith',
     desc: 'Gunnar bıçak çeliğine su verirken sümüksü jölesi kullanıyormuş. Dört jöle istiyor. "Sorma neden. İşe yarıyor."',
     objectives: [
-      { type: 'collect', label: 'Sümüksü jölesi topla', target: 'slime_jelly', count: 4 },
-      { type: 'talk', label: 'Jöleleri Gunnar\'a götür', target: 'smith', where: NPC('smithy', 'smith'), sequential: true },
+      { type: 'collect', label: 'Sümüksü jölesi topla', target: 'slime_jelly', count: 4, where: ITEM('slime_jelly') },
+      { type: 'talk', label: 'Jöleleri Gunnar\'a götür (demirhane)', target: 'smith', where: NPC('smithy', 'smith'), sequential: true },
     ],
     reward: { money: 50, exp: 5 },
   },
@@ -55,7 +59,7 @@ export const SIDE_QUESTS: QuestDef[] = [
     desc: 'Ilse Nine kış için merhem kaynatacak. Altı şifalı ot lazım. Bu sefer kayıt masrafı yok.',
     objectives: [
       { type: 'collect', label: 'Şifalı ot topla', target: 'herb', count: 6, where: { map: 'world', point: 'forest_edge', radius: 6 } },
-      { type: 'talk', label: 'Otları Ilse Nine\'ye götür', target: 'healer', where: NPC('healer', 'healer'), sequential: true },
+      { type: 'talk', label: 'Otları Ilse Nine\'ye götür (şifa evi)', target: 'healer', where: NPC('healer', 'healer'), sequential: true },
     ],
     reward: { money: 35, items: [{ id: 'hp_potion_s', qty: 1 }], exp: 4 },
   },
@@ -63,8 +67,8 @@ export const SIDE_QUESTS: QuestDef[] = [
     id: 'sq_tailor_parcel', kind: 'side', chapter: 2, title: 'Kâhyaya Kumaş', giver: 'tailor',
     desc: 'Terzi Mirelle kâhya için ince kumaş dikmiş. Paketi götürmem lazım. Ama kâhya köksüzleri kapıdan çevirir; düzgün giyinmeliyim (Saygınlık en az +3).',
     objectives: [
-      { type: 'deliver', label: 'Paketi Kâhya Edric\'e götür (Saygınlık +3)', target: 'steward', where: { map: 'world', npc: 'steward', point: 'manor_front' } },
-      { type: 'talk', label: 'Mirelle\'e haber ver', target: 'tailor', where: { map: 'world', npc: 'tailor', point: 'tailor_front' }, sequential: true },
+      { type: 'deliver', label: 'Paketi Kâhya Edric\'e götür (Saygınlık +3)', target: 'steward', where: NPC('world', 'steward') },
+      { type: 'talk', label: 'Mirelle\'e haber ver (terzi)', target: 'tailor', where: NPC('tailor', 'tailor'), sequential: true },
     ],
     reward: { money: 40, exp: 3 },
   },
@@ -72,8 +76,8 @@ export const SIDE_QUESTS: QuestDef[] = [
     id: 'sq_mill_sacks', kind: 'side', chapter: 2, title: 'Un Çuvalı', giver: 'oswin',
     desc: 'Değirmenci Oswin\'in fırına götürülecek bir paketi var. Kendisi bodrumdaki fare işinden sonra kapıdan çıkmak istemiyor.',
     objectives: [
-      { type: 'deliver', label: 'Paketi Fırıncı Brunhild\'e götür', target: 'baker', where: { map: 'world', npc: 'baker', point: 'bakery_front' } },
-      { type: 'talk', label: 'Oswin\'e dön', target: 'oswin', where: { map: 'world', npc: 'oswin', point: 'mill_yard' }, sequential: true },
+      { type: 'deliver', label: 'Paketi Fırıncı Brunhild\'e götür', target: 'baker', where: NPC('bakery', 'baker') },
+      { type: 'talk', label: 'Oswin\'e dön (değirmen)', target: 'oswin', where: NPC('world', 'oswin'), sequential: true },
     ],
     reward: { money: 25, exp: 2 },
   },
@@ -81,8 +85,8 @@ export const SIDE_QUESTS: QuestDef[] = [
     id: 'sq_hunter_fangs', kind: 'side', chapter: 2, title: 'Kurt Dişleri', giver: 'hunter',
     desc: 'Garrick kolye yapacakmış. Üç kurt dişi istiyor. Kurtlar kuzeybatıdaki ormanda.',
     objectives: [
-      { type: 'collect', label: 'Kurt dişi topla', target: 'wolf_fang', count: 3 },
-      { type: 'talk', label: 'Dişleri Garrick\'e götür', target: 'hunter', where: { map: 'world', npc: 'hunter', point: 'lodge_yard' }, sequential: true },
+      { type: 'collect', label: 'Kurt dişi topla', target: 'wolf_fang', count: 3, where: ITEM('wolf_fang') },
+      { type: 'talk', label: 'Dişleri Garrick\'e götür (avcı kulübesi)', target: 'hunter', where: NPC('lodge', 'hunter'), sequential: true },
     ],
     reward: { money: 60, exp: 6 },
   },
@@ -91,7 +95,7 @@ export const SIDE_QUESTS: QuestDef[] = [
     desc: 'Pip\'in bez topu göletin oradaki sazlara kaçmış. Annesi Anna oraya gitmesini yasaklamış.',
     objectives: [
       { type: 'go', label: 'Göletin kenarında topu bul', target: 'pond', where: W('pond', 3) },
-      { type: 'talk', label: 'Topu Pip\'e ver', target: 'pip', where: { map: 'world', npc: 'pip', point: 'plaza' }, sequential: true },
+      { type: 'talk', label: 'Topu Pip\'e ver (meydan)', target: 'pip', where: NPC('world', 'pip'), sequential: true },
     ],
     reward: { money: 5, text: 'Pip\'in sonsuz minneti', exp: 2 },
   },
@@ -99,15 +103,15 @@ export const SIDE_QUESTS: QuestDef[] = [
     id: 'sq_merchant_guard', kind: 'side', chapter: 2, title: 'Paralı Askerin Rütbesi', giver: 'merchant',
     desc: 'Tüccar Aurelio, paralı askeri Varg\'ın rütbesi hakkında yalan söylediğinden şüpheleniyor. Appraisal ile Varg\'ı okuyup Aurelio\'ya söylemem lazım.',
     objectives: [
-      { type: 'custom', label: 'Varg\'ı Appraisal ile incele', target: 'appraise_varg' },
-      { type: 'talk', label: 'Aurelio\'ya söyle', target: 'merchant', where: { map: 'world', npc: 'merchant', point: 'manor_front' }, sequential: true },
+      { type: 'custom', label: 'Varg\'ı Appraisal ile incele', target: 'appraise_varg', where: NPC('world', 'merc_guard') },
+      { type: 'talk', label: 'Aurelio\'ya söyle (konağın önü)', target: 'merchant', where: NPC('world', 'merchant'), sequential: true },
     ],
     reward: { money: 40, exp: 3 },
   },
   {
     id: 'sq_nim_bread', kind: 'side', chapter: 2, title: 'Nim\'in Ekmeği', giver: 'vagrant',
     desc: 'Köksüz Nim iki gündür bir şey yememiş. Kimse ona ekmek satmıyor. Bana satarlar. Bir ekmek götürsem...',
-    objectives: [{ type: 'deliver', label: 'Nim\'e bir ekmek götür', target: 'vagrant', where: { map: 'world', npc: 'vagrant', point: 'beggar_spot' } }],
+    objectives: [{ type: 'deliver', label: 'Nim\'e bir ekmek götür (hanın önü)', target: 'vagrant', where: NPC('world', 'vagrant') }],
     reward: { text: 'Nim\'in anlattıkları', exp: 2 },
   },
 ];
@@ -193,35 +197,35 @@ const turnIn = { type: 'talk' as const, label: 'Celeste\'ye teslim et', target: 
 
 export const BOARD_TEMPLATES: BoardTemplate[] = [
   { key: 'rats_forest', rank: 'G', title: 'Orman Kenarındaki Fareler', desc: 'Değirmenin arkasından ormana yayılan fareler tarlalara iniyor. Beşini temizle.', reward: [15, 25],
-    make: () => ({ objectives: [{ type: 'kill', label: 'Fare avla', target: 'rat', count: 5 }, turnIn] }) },
+    make: () => ({ objectives: [{ type: 'kill', label: 'Fare avla', target: 'rat', count: 5, where: MON('rat') }, turnIn] }) },
   { key: 'herbs', rank: 'G', title: 'Şifalı Ot Toplama', desc: 'Şifacının stoğu için dört şifalı ot. Lonca aracılık eder.', reward: [18, 28],
     make: () => ({ objectives: [{ type: 'collect', label: 'Şifalı ot topla', target: 'herb', count: 4, where: { map: 'world', point: 'forest_edge', radius: 6 } }, turnIn] }) },
   { key: 'slimes', rank: 'G', title: 'Sümüksü Temizliği', desc: 'Güney yolundaki sümüksüler arabalara yapışıyor. Üçünü temizle.', reward: [22, 32],
-    make: () => ({ objectives: [{ type: 'kill', label: 'Sümüksü temizle', target: 'slime', count: 3 }, turnIn] }) },
+    make: () => ({ objectives: [{ type: 'kill', label: 'Sümüksü temizle', target: 'slime', count: 3, where: MON('slime') }, turnIn] }) },
   { key: 'rabbits', rank: 'G', title: 'Tavşan Eti', desc: 'Han için tavşan eti. Üç parça.', reward: [20, 30],
-    make: () => ({ objectives: [{ type: 'collect', label: 'Tavşan eti topla', target: 'rabbit_meat', count: 3 }, turnIn] }) },
+    make: () => ({ objectives: [{ type: 'collect', label: 'Tavşan eti topla', target: 'rabbit_meat', count: 3, where: ITEM('rabbit_meat') }, turnIn] }) },
   { key: 'apples', rank: 'G', title: 'Elma Hasadı', desc: 'Muhtarın sofrası için beş elma. Evet, lonca bunu da ilan ediyor.', reward: [15, 20],
-    make: () => ({ objectives: [{ type: 'collect', label: 'Elma topla', target: 'apple', count: 5 }, turnIn] }) },
+    make: () => ({ objectives: [{ type: 'collect', label: 'Elma topla', target: 'apple', count: 5, where: ITEM('apple') }, turnIn] }) },
   { key: 'letter_haldor', rank: 'G', title: 'Haldor\'a Mektup', desc: 'Loncanın Yaşlı Haldor\'a bir bildirisi var. Elden teslim.', reward: [15, 22],
-    make: () => ({ objectives: [{ type: 'deliver', label: 'Mektubu Haldor\'a ver', target: 'haldor', where: { map: 'world', npc: 'haldor', point: 'haldor_field' } }, turnIn] }) },
+    make: () => ({ objectives: [{ type: 'deliver', label: 'Mektubu Haldor\'a ver', target: 'haldor', where: NPC('world', 'haldor') }, turnIn] }) },
   { key: 'letter_garrick', rank: 'G', title: 'Avcıya Haber', desc: 'Garrick\'e ormandaki iz raporu iletilecek.', reward: [18, 25],
-    make: () => ({ objectives: [{ type: 'deliver', label: 'Raporu Garrick\'e ver', target: 'hunter', where: { map: 'world', npc: 'hunter', point: 'lodge_yard' } }, turnIn] }) },
+    make: () => ({ objectives: [{ type: 'deliver', label: 'Raporu Garrick\'e ver', target: 'hunter', where: NPC('world', 'hunter') }, turnIn] }) },
   { key: 'rat_tails', rank: 'G', title: 'Kuyruk Sayımı', desc: 'Muhtarlık fare sayımı yapıyor. Altı fare kuyruğu.', reward: [25, 40],
-    make: () => ({ objectives: [{ type: 'collect', label: 'Fare kuyruğu topla', target: 'rat_tail', count: 6 }, turnIn] }) },
+    make: () => ({ objectives: [{ type: 'collect', label: 'Fare kuyruğu topla', target: 'rat_tail', count: 6, where: ITEM('rat_tail') }, turnIn] }) },
   { key: 'jelly', rank: 'G', title: 'Jöle Siparişi', desc: 'Demirci üç sümüksü jölesi istiyor. Lonca üzerinden.', reward: [28, 40],
-    make: () => ({ objectives: [{ type: 'collect', label: 'Sümüksü jölesi topla', target: 'slime_jelly', count: 3 }, turnIn] }) },
+    make: () => ({ objectives: [{ type: 'collect', label: 'Sümüksü jölesi topla', target: 'slime_jelly', count: 3, where: ITEM('slime_jelly') }, turnIn] }) },
   { key: 'pelts', rank: 'G', title: 'Post Siparişi', desc: 'Tabakhane için iki tavşan postu.', reward: [25, 35],
-    make: () => ({ objectives: [{ type: 'collect', label: 'Tavşan postu topla', target: 'rabbit_pelt', count: 2 }, turnIn] }) },
+    make: () => ({ objectives: [{ type: 'collect', label: 'Tavşan postu topla', target: 'rabbit_pelt', count: 2, where: ITEM('rabbit_pelt') }, turnIn] }) },
   { key: 'wolves_north', rank: 'F', title: 'Kuzey Korusunda Kurtlar', desc: 'Kuzeybatı korusunda bir kurt sürüsü oduncuları korkutuyor. Üç kurt. Risklidir.', reward: [70, 90],
-    make: () => ({ objectives: [{ type: 'kill', label: 'Kurt avla', target: 'wolf', count: 3 }, turnIn] }) },
+    make: () => ({ objectives: [{ type: 'kill', label: 'Kurt avla', target: 'wolf', count: 3, where: MON('wolf') }, turnIn] }) },
   { key: 'wolf_pelts', rank: 'F', title: 'Kurt Postu', desc: 'Şehirli bir tüccar iki kurt postu istiyor. Risklidir.', reward: [60, 80],
-    make: () => ({ objectives: [{ type: 'collect', label: 'Kurt postu topla', target: 'wolf_pelt', count: 2 }, turnIn] }) },
+    make: () => ({ objectives: [{ type: 'collect', label: 'Kurt postu topla', target: 'wolf_pelt', count: 2, where: ITEM('wolf_pelt') }, turnIn] }) },
   { key: 'goblin_ears', rank: 'F', title: 'Goblin Kulakları', desc: 'Kampın dışında dolaşan goblin keşifçileri. İki kulak getir. Ölmek de bir ihtimal.', reward: [75, 90],
-    make: () => ({ objectives: [{ type: 'collect', label: 'Goblin kulağı topla', target: 'goblin_ear', count: 2 }, turnIn] }) },
+    make: () => ({ objectives: [{ type: 'collect', label: 'Goblin kulağı topla', target: 'goblin_ear', count: 2, where: ITEM('goblin_ear') }, turnIn] }) },
   { key: 'slime_cores', rank: 'F', title: 'Renkli Çekirdek', desc: 'Simyacılar renkli çekirdek arıyor. Bir tane yeter. Bulmak şans işi.', reward: [60, 75],
-    make: () => ({ objectives: [{ type: 'collect', label: 'Renkli çekirdek bul', target: 'color_core', count: 1 }, turnIn] }) },
+    make: () => ({ objectives: [{ type: 'collect', label: 'Renkli çekirdek bul', target: 'color_core', count: 1, where: ITEM('color_core') }, turnIn] }) },
   { key: 'wolf_fangs', rank: 'F', title: 'Kurt Dişi', desc: 'Lonca deposu için üç kurt dişi. Risklidir.', reward: [65, 85],
-    make: () => ({ objectives: [{ type: 'collect', label: 'Kurt dişi topla', target: 'wolf_fang', count: 3 }, turnIn] }) },
+    make: () => ({ objectives: [{ type: 'collect', label: 'Kurt dişi topla', target: 'wolf_fang', count: 3, where: ITEM('wolf_fang') }, turnIn] }) },
 ];
 
 /** Panodan aynı anda en fazla bu kadar ilan alınabilir. */

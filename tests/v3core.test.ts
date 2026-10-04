@@ -297,7 +297,7 @@ describe('Kayıt göçü v3 (0.2.0) → v4 (0.3.0)', () => {
     s.pos = { map: 'world', x: 172, y: 74, facing: 'down' };
     return Object.assign(s, extra);
   };
-  it('Sürüm 6', () => expect(CURRENT_SAVE_VERSION).toBe(6));
+  it('Sürüm 7', () => expect(CURRENT_SAVE_VERSION).toBe(7));
   it('Bertram\'ın işinin ortasında: 3/4 vardiya → 2/3 (son vardiyada ödeme alır), görev aktif', () => {
     const d = migrate(v3({ woke: true, inn_met: true, bertram_deal: true }, 3), 3);
     expect(d.counters.workDays).toBe(2);
@@ -340,10 +340,10 @@ describe('Kayıt göçü v3 (0.2.0) → v4 (0.3.0)', () => {
     const st = new MemoryStorage();
     const s = newGameState();
     writeSave(st, 'auto', s);
-    expect(readSave(st, 'auto')!.saveVersion).toBe(6);
+    expect(readSave(st, 'auto')!.saveVersion).toBe(7);
     st.setItem('elonth.save.manual1', JSON.stringify({ v: 1, savedAt: 1, summary: 'x', data: { ...v3({ woke: true }), saveVersion: 1 } }));
     const r = readSave(st, 'manual1')!;
-    expect(r.saveVersion).toBe(6);
+    expect(r.saveVersion).toBe(7);
     expect(r.guild).toBeTruthy();
     expect(r.quests.tracked).toBe('m_inn');
   });

@@ -15,9 +15,10 @@ import { TRAINING_SPOTS, type TrainingSpot } from '../data/props';
 import * as R from '../game/rules';
 import { transact, equip } from '../core/transactions';
 import { walletTotal, emptyWallet, formatPrice } from '../core/money';
-import { nextMorning, hourOf, clockLabel } from '../core/time';
+import { nextMorning, hourOf, clockLabel, fromAbsMinute } from '../core/time';
 import { canSleep, absMinute } from '../core/sleep';
 import { dirFromVec } from '../world/actor';
+import { nearestFree } from '../world/path';
 import { openShop } from '../ui/shop';
 import { DIVINE_BY_ID, divineOffer } from '../data/divine';
 import { SKILLS, RARITY_NAMES } from '../data/skills';
@@ -39,6 +40,12 @@ const BOARD_EXCUSES = [
   'Kuzeydeki şehirden ilan torbası gelmedi. Pano yarın açılıyor.',
   'Pano mu? Yarın. Bugün kâğıt bile kalmadı.',
 ];
+
+/** ensureActors sonucu: karakterler (yoldaşsa null) ve sahneye sonradan getirilenler. */
+export interface Cast {
+  npcs: Record<string, Npc | null>;
+  added: Npc[];
+}
 
 export class Director {
   musicOverride = false;
@@ -95,6 +102,7 @@ export class Director {
     } catch (e) {
       console.error(e);
     }
+    this.releaseAutoCast();
     this.unlock();
     this.busy = false;
   }
@@ -130,6 +138,49 @@ export class Director {
     });
   }
 
+  /**
+   * Bir aktörü (ör. Joseph) yürüyen bir hedefin peşinden götür: hedef durup aktör `near` karo yakınına varınca
+   * biter. Hız mesafeyle artar (geride kalmaz, üstüne binmez). Takılırsa süre sonunda hedefin yanına geçer.
+   */
+  followUntilNear(actor: any, target: any, near = 1.5, timeoutMs = 9000): Promise<void> {
+    return new Promise((resolve) => {
+      const t0 = this.w.time.now;
+      const done = () => {
+        ev.remove();
+        actor.body2?.setVelocity(0, 0);
+        actor.play('idle');
+        resolve();
+      };
+      const ev = this.w.time.addEvent({
+        delay: 16, loop: true, callback: () => {
+          const dx = target.x - actor.x, dy = target.y - actor.y;
+          const d = Math.hypot(dx, dy);
+          const tv = target.body2?.velocity;
+          const moving = !!tv && Math.hypot(tv.x, tv.y) > 5;
+          if (d <= near * TILE) {
+            actor.body2?.setVelocity(0, 0);
+            if (actor.anim !== 'idle') actor.play('idle');
+            if (!moving) done();
+            return;
+          }
+          if (this.w.time.now - t0 > timeoutMs) {
+            const m = this.w.mapData;
+            const [fx, fy] = nearestFree(m.solid, m.w, m.h, Math.floor((target.x - Math.sign(dx) * TILE) / TILE), Math.floor(target.y / TILE));
+            actor.setPosition(fx * TILE + 16, fy * TILE + 22);
+            actor.body2?.reset(actor.x, actor.y);
+            done();
+            return;
+          }
+          const sp = Math.min(3.4, 1.4 + (d / TILE - near) * 0.9) * TILE;
+          actor.body2?.setVelocity((dx / d) * sp, (dy / d) * sp);
+          actor.face(dirFromVec(dx, dy));
+          if (actor.anim !== 'walk') actor.play('walk');
+          actor.animSpeed = sp / (2.4 * TILE);
+        },
+      });
+    });
+  }
+
   face(actor: any, target: any) {
     actor.face(dirFromVec(target.x - actor.x, target.y - actor.y));
   }
@@ -149,7 +200,92 @@ export class Director {
   }
 
   say(id: string, text: string, expr?: any) {
+    this.ensureSpeaker(id);
     return this.ui.say(id, text, { expr });
+  }
+
+  // ============================================================ sahnedeki karakterler (0.6.0)
+  /** Bu sahne için sonradan sahneye getirilen NPC'ler: sahne bitince programlarına dönerler. */
+  private autoCast: Npc[] = [];
+
+  /** Bu karakter şu an haritada mı (NPC ya da yoldaş)? */
+  present(id: string): { actor: any } | null {
+    return this.w.npc(id) ?? this.w.companion(id) ?? null;
+  }
+
+  /** Oyuncunun yanındaki boş bir karo (sahneye getirilen karakterler için). */
+  private spotNearPlayer(i = 0): [number, number] {
+    const a = this.w.player.actor;
+    const ax = Math.floor(a.x / TILE), ay = Math.floor((a.y - 6) / TILE);
+    const offs: [number, number][] = [[2, 0], [-2, 0], [1, 2], [-1, 2], [2, 1], [-2, 1], [0, -2]];
+    const [ox, oy] = offs[i % offs.length];
+    const m = this.w.mapData;
+    return nearestFree(m.solid, m.w, m.h, Math.max(1, Math.min(m.w - 2, ax + ox)), Math.max(1, Math.min(m.h - 2, ay + oy)));
+  }
+
+  /**
+   * Konuşan karakter sahnede değilse diyalog havaya oynamasın: ara sahne sürerken konuşmacı haritada yoksa
+   * yanına getirilir (sahne bitince programına döner). Joseph ve anlatıcı hariç.
+   */
+  ensureSpeaker(id: string) {
+    if (id === 'joseph' || !this.busy || !NPC_BY_ID[id] || this.present(id)) return;
+    const [x, y] = this.spotNearPlayer(this.autoCast.length);
+    const n = this.w.addNpc(NPC_BY_ID[id], x, y, true);
+    this.face(n.actor, this.w.player.actor);
+    this.w.fx.dust(n.x, n.y, 3);
+    this.autoCast.push(n);
+  }
+
+  /**
+   * Sahne başında gerekli karakterleri garanti et: haritada değillerse kapıdan girip yerlerine yürürler (iç mekân)
+   * ya da Joseph'in yanına gelirler. Hepsi sahne boyunca senaryoya bağlı (scripted). releaseActors ile bırakılır.
+   */
+  async ensureActors(ids: string[], o: { from?: 'door' | 'near'; at?: Record<string, [number, number]> } = {}): Promise<Cast> {
+    const out: Record<string, Npc | null> = {};
+    const added: Npc[] = [];
+    const walks: Promise<void>[] = [];
+    const m = this.w.mapData;
+    ids.forEach((id, i) => {
+      if (this.w.companion(id)) {
+        out[id] = null;
+        return;
+      }
+      let n = this.w.npc(id);
+      if (n) {
+        n.scripted = true;
+        n.stopWalking();
+        out[id] = n;
+        return;
+      }
+      const pt = o.at?.[id] ?? (m.points[id] ? [m.points[id].x, m.points[id].y] as [number, number] : this.spotNearPlayer(i));
+      const door = m.indoor ? m.points.exit ?? m.points.entrance : null;
+      if (o.from === 'door' && door) {
+        n = this.w.addNpc(NPC_BY_ID[id], door.x, Math.max(1, door.y - 1), true);
+        walks.push(this.walk(n.actor, pt[0], pt[1], 3.2));
+      } else n = this.w.addNpc(NPC_BY_ID[id], pt[0], pt[1], true);
+      added.push(n);
+      out[id] = n;
+    });
+    if (walks.length) await Promise.all(walks);
+    return { npcs: out, added };
+  }
+
+  /** ensureActors ile alınan karakterleri bırak: sonradan gelenler programlarına (gerekirse kapıdan çıkarak) döner. */
+  releaseActors(cast: Cast) {
+    for (const n of Object.values(cast.npcs)) {
+      if (!n || n.gone) continue;
+      n.scripted = false;
+      if (cast.added.includes(n)) n.entry = null;
+    }
+  }
+
+  private releaseAutoCast() {
+    for (const n of this.autoCast) {
+      if (n.gone) continue;
+      n.scripted = false;
+      n.entry = null;
+    }
+    this.autoCast = [];
   }
 
   think(text: string) {
@@ -162,26 +298,36 @@ export class Director {
     return undefined;
   }
 
+  /** Yan görev işaretleri (iş yerindeki verenler). */
+  sideMarks() {
+    return this.ch2.sideMarks();
+  }
+
+  /** Kapı saat istisnası (hikâye): true/false zorla, undefined normal saatler. */
+  doorOverride(w: Warp): boolean | undefined {
+    return this.ch2.doorOverride(w);
+  }
+
   /** Zorunlu yerleşim: [x,y] veya null (bu haritada olmasın) veya undefined (programa göre). */
   npcPlacement(id: string, map: string): [number, number] | null | undefined {
     const c2 = this.ch2.npcPlacement(id, map);
     if (c2 !== undefined) return c2;
     if (!G.flag('inn_met') && map === 'inn' && (id === 'vera' || id === 'lina')) {
-      const p = this.w.mapData.points[id === 'vera' ? 'table_vera' : 'table_lina'];
+      const p = this.w.pointsOf(map)[id === 'vera' ? 'table_vera' : 'table_lina'];
       return [p.x, p.y];
     }
     if (!G.flag('inn_met') && (id === 'vera' || id === 'lina') && map !== 'inn') return null;
     if (this.registering && map === 'guild' && (id === 'vera' || id === 'lina' || id === 'dorn')) {
-      const p = this.w.mapData.points[id === 'dorn' ? 'adv1' : id];
+      const p = this.w.pointsOf(map)[id === 'dorn' ? 'adv1' : id];
       return [p.x, p.y];
     }
     if (map === 'inn' && id === 'bertram') {
-      const p = this.w.mapData.points.bertram;
+      const p = this.w.pointsOf(map).bertram;
       return hourOf(G.state.time) >= 5 ? [p.x, p.y] : null;
     }
     if (map === 'guild' && id === 'celeste') {
       const h = hourOf(G.state.time);
-      const p = this.w.mapData.points.celeste;
+      const p = this.w.pointsOf(map).celeste;
       return h >= GUILD_HOURS[0] && h < GUILD_HOURS[1] ? [p.x, p.y] : null;
     }
     return undefined;
@@ -355,8 +501,15 @@ export class Director {
   // ============================================================ karşılaşmalar
   private encounterT = 0;
   /** Düzenli kontrol: kâhya geçerken ilk karşılaşma sahnesi. */
+  private mainT = 0;
   checkEncounters(dt: number) {
     if (!this.busy) this.ch2.tick(dt);
+    // ana görev güvencesi: sahne dışında yarım saniyede bir
+    this.mainT -= dt;
+    if (this.mainT <= 0 && !this.busy && !this.w.cutscene && !this.ui.dialogueOpen()) {
+      this.mainT = 0.5;
+      this.ch2.ensureMain();
+    }
     this.encounterT -= dt;
     if (this.encounterT > 0 || this.busy || this.w.cutscene || this.w.mapData.id !== 'world') return;
     this.encounterT = 0.5;
@@ -1058,8 +1211,8 @@ export class Director {
     G.setFlag('guild_registered');
     R.toast('+1 Lonca Kartı (G-)', 'item', 'card');
     R.sysmsg('LONCA KAYDI', ['Maceracılar Loncası — Brindlewood Şubesi', 'Rütbe: G-', 'Görevler: kendi harfin ve bir üstü (G, F)'], { big: true });
-    await this.say('celeste', 'Kartını kaybetme. Yenisi beş gümüş. Görev panosu...', 'normal');
-    await this.say('celeste', BOARD_EXCUSES[0], 'normal');
+    await this.say('celeste', 'Kartını kaybetme. Yenisi beş gümüş. Görev panosu orada.', 'normal');
+    await this.say('celeste', 'Ama elinde bir silah görmeden sana ilan vermem. Çıplak elle fare kovalayan G-\'nin cenazesini lonca ödemez.', 'alayci');
     await this.say('vera', 'Hoş geldin, G- maceracı! Dikkat et, fareler ısırır!', 'alayci');
     this.registering = false;
     for (const n of [vera, lina, dorn]) n.scripted = false;
@@ -1264,6 +1417,12 @@ export class Director {
   }
 
   // ============================================================ prop etkileşimi
+  /** Bu etkileşim şu an sunulsun mu? (ör. "Otur" yalnızca ilk kadehte) */
+  propAvailable(id: string): boolean {
+    if (id === 'sit_table') return this.ch2.canSit();
+    return true;
+  }
+
   interactProp(id: string, p: PropPlacement) {
     if (this.busy) return;
     if (TRAINING_SPOTS[id]) return this.training(TRAINING_SPOTS[id]);
@@ -1286,6 +1445,11 @@ export class Director {
           if (!G.flag('guild_registered')) await this.think('Mavi bir taş. İçinde ışık dönüyor. Kayıt için kullanıyorlarmış.');
           else await this.think('Taş artık sessiz. Kayıttan sonra bir daha dokunmama izin vermezler herhalde.');
         });
+      case 'sit_table':
+        return this.scene(async () => {
+          if (this.ch2.canSit()) await this.ch2.celebrate();
+          else await this.think('Vera\'nın masası. Davetsiz oturursam bıçağını çatalla karıştırır.');
+        });
       case 'archery_target':
         return this.scene(async () => {
           await this.think(R.hasSkill('archery') ? 'Bir yayım olsa burada atış çalışabilirim.' : 'Ok izleriyle dolu bir hedef. Biri sık sık çalışıyor.');
@@ -1304,7 +1468,18 @@ export class Director {
     this.w.sleep({ map: 'inn_attic', x: bed.x, y: bed.y });
     const t = G.state.time;
     const now = absMinute(t.day, t.minute);
-    if (!canSleep(t.minute, now, G.state.awakeSince)) {
+    // 0.6.0: görev bir saati bekliyorsa (lonca kapalı, NPC yok, ertesi gün) o saate kadar uyunabilir; bu seçenek
+    // "20:00 sonrası ya da 8 saat uyanık" kuralına takılmaz.
+    const qw = this.w.questWaitSoonest();
+    let questSleep = false;
+    if (qw) {
+      const u = fromAbsMinute(qw.until);
+      const when = `${u.day > t.day ? 'yarın ' : ''}${clockLabel(u)}`;
+      const c = await this.ui.choice(['Uyu', `Görev saatine kadar uyu (${when})`, 'Vazgeç']);
+      if (c === 2) return;
+      questSleep = c === 1;
+    }
+    if (!questSleep && !canSleep(t.minute, now, G.state.awakeSince)) {
       G.save('auto');
       G.events.emit('saved');
       R.sysmsg('YENİDEN DOĞMA NOKTASI', ['Tavan arasındaki yatak. Oyun kaydedildi.'], { sound: 'system' });
@@ -1315,15 +1490,19 @@ export class Director {
     Sound.play('night');
     const late = t.minute >= 20 * 60 || t.minute < 4 * 60;
     const morning = nextMorning(t);
-    const wake = late ? morning : (() => {
+    const wake = questSleep ? fromAbsMinute(qw!.until) : late ? morning : (() => {
       const a = absMinute(morning.day, morning.minute), b = now + 8 * 60;
       const m = Math.min(a, b);
       return { day: Math.floor(m / 1440) + 1, minute: m % 1440 };
     })();
     G.state.time = wake;
     G.state.awakeSince = absMinute(wake.day, wake.minute);
-    R.onNewDay();
-    this.onNewDay();
+    // gün değişimi: görev uykusunda geçilen her gün için bir kez (normal uykuda eskisi gibi bir kez)
+    const days = questSleep ? Math.max(0, wake.day - t.day) : 1;
+    for (let i = 0; i < days; i++) {
+      R.onNewDay();
+      this.onNewDay();
+    }
     G.p.hp = G.d.maxHp;
     G.p.mp = G.d.maxMp;
     G.p.stamina = G.d.maxStamina;

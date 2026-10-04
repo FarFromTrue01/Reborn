@@ -69,3 +69,25 @@ export function daylight(t: GameTime): number {
   if (h < 18) return 1;
   return Math.max(0, 1 - (h - 18) / 2.5);
 }
+
+/** Türkçe saat eki: "14:00'te", "06:00'da" (saatin okunuşuna göre: on dörtte, altıda). */
+export function hourAt(hour: number): string {
+  const h = ((hour % 24) + 24) % 24;
+  const SUFFIX = ['da', 'de', 'de', 'te', 'te', 'te', 'da', 'de', 'de', 'da', 'da', 'de', 'de', 'te', 'te', 'te', 'da', 'de', 'de', 'da', 'de', 'de', 'de', 'te'];
+  return `${String(h).padStart(2, '0')}:00'${SUFFIX[h]}`;
+}
+
+/** Mutlak dakikayı (gün, dakika) çiftine çevirir. */
+export function fromAbsMinute(abs: number): GameTime {
+  return { day: Math.floor(abs / MINUTES_PER_DAY) + 1, minute: abs % MINUTES_PER_DAY };
+}
+
+/** "14:00'te", "yarın 06:00'da", "5. gün 08:00'de" (now ve until mutlak dakika; until saat başı). */
+export function whenLabel(nowAbs: number, untilAbs: number): string {
+  const now = fromAbsMinute(nowAbs);
+  const u = fromAbsMinute(untilAbs);
+  const at = hourAt(Math.floor(u.minute / 60));
+  if (u.day === now.day) return at;
+  if (u.day === now.day + 1) return `yarın ${at}`;
+  return `${u.day}. gün ${at}`;
+}

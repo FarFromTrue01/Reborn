@@ -130,6 +130,12 @@ export function renderQuestsTab(scene: Phaser.Scene & { render(): void }, c: Pha
     const ot = txt(scene, dx + 44, yy, o.label + n, { size: 15, color: ok ? COLORS.textDim : COLORS.text, wrap: dw - 70 });
     c.add(ot);
     yy += Math.max(24, ot.height + 4);
+    const wait = !ok && st.status === 'active' && i === visibleObjectives(def, st).filter((j) => !objectiveDone(def, st, j))[0] ? Q.wait(id0) : null;
+    if (wait) {
+      const wt = txt(scene, dx + 44, yy - 2, '⏳ ' + wait, { size: 13, italic: true, color: '#a9c8ff', wrap: dw - 70 });
+      c.add(wt);
+      yy += wt.height + 6;
+    }
   }
   yy += 6;
   // ödül

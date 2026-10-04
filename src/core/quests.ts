@@ -15,6 +15,10 @@ export interface QuestTarget {
   npc?: string;
   /** "git" amacı için yarıçap (karo). */
   radius?: number;
+  /** Öldürme amacı: bu yaratığın doğduğu bölgelerden oyuncuya en yakını (0.6.0). */
+  monster?: string;
+  /** Toplama amacı: bu eşyanın toplama noktası ya da onu düşüren yaratığın bölgesi, oyuncuya en yakını (0.6.0). */
+  item?: string;
 }
 
 export interface ObjectiveDef {

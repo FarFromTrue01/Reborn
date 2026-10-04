@@ -99,7 +99,7 @@ const ROOMS: RoomSpec[] = [
       b.wallProp('torch_wall', 1, 1, { light: { radius: 120, color: 0xffb060, flicker: true } });
       b.wallProp('torch_wall', 12, 1, { light: { radius: 120, color: 0xffb060, flicker: true } });
       // Masalar
-      b.prop('tavern_table', 4, 9);
+      b.prop('tavern_table', 4, 9, { interact: 'sit_table' });
       b.prop('tavern_table', 9, 9);
       b.prop('tavern_table2', 11, 6);
       b.prop('tavern_table2', 8, 6);
@@ -117,6 +117,8 @@ const ROOMS: RoomSpec[] = [
       b.points.good_6 = { x: 12, y: 8 };
       b.points.table_vera = { x: 5, y: 10 };
       b.points.table_lina = { x: 5, y: 8 };
+      // İlk kadeh (0.6.0): Joseph Vera'nın masasına oturur
+      b.points.table_joseph = { x: 3, y: 9 };
       b.points.seat_m1 = { x: 2, y: 8 };
       b.points.seat_m3 = { x: 2, y: 10 };
       b.points.seat_m5 = { x: 7, y: 8 };

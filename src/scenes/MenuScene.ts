@@ -970,6 +970,25 @@ export class MenuScene extends Phaser.Scene {
       c.add(uiIcon(this, tx, ty, ic, 22));
       c.add(txt(this, tx, ty + 12, name, { size: 11, stroke: true, color: COLORS.textDim }).setOrigin(0.5, 0));
     }
+    // yan görev verenler (0.6.0): mavi parlayan nokta, genişleyip sönen halkalar; binadaysa bina parlar
+    for (const s of world.sideMarkSpots?.() ?? []) {
+      const sx = ox + s.x * scale, sy = oy + s.y * scale;
+      const col = s.kind === 'turnin' ? 0x9fdcff : 0x4aa8ff;
+      if (s.building) {
+        const bw = (bmeta[s.building]?.w ?? 96) / TILE * scale;
+        const glow = this.add.rectangle(sx, sy + 4, bw + 8, bw * 0.75 + 8, col, 0.28).setStrokeStyle(2, col, 0.9);
+        c.add(glow);
+        this.tweens.add({ targets: glow, alpha: 0.35, yoyo: true, repeat: -1, duration: 700, ease: 'Sine.easeInOut' });
+      }
+      for (let k = 0; k < 2; k++) {
+        const ring = this.add.circle(sx, sy, 6, col, 0).setStrokeStyle(2, col, 0.9);
+        c.add(ring);
+        this.tweens.add({ targets: ring, scale: 3.2, alpha: 0, repeat: -1, duration: 1600, delay: k * 800 });
+      }
+      c.add(this.add.circle(sx, sy, 7, col, 0.45));
+      c.add(this.add.circle(sx, sy, 3.5, 0xe6f6ff, 1));
+      c.add(txt(this, sx, sy - 9, s.kind === 'turnin' ? '?' : '!', { size: 18, bold: true, font: FONT.title, color: '#7cc8ff', stroke: true }).setOrigin(0.5, 1));
+    }
     // takip edilen görevin hedefi
     const qt = world.questTargetPx?.() as { x: number; y: number } | null;
     if (qt && !world.mapData.indoor) {

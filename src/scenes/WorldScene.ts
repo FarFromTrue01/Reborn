@@ -10,7 +10,7 @@ import { Lighting } from '../world/lighting';
 import { FX } from '../world/fx';
 import { Player } from '../world/player';
 import { Enemy } from '../world/enemy';
-import { Npc } from '../world/npc';
+import { Npc, MARKER_STYLE, type MarkerKind } from '../world/npc';
 import { Companion } from '../world/companion';
 import { TILE, type MapData, type Zone, type PropPlacement } from '../world/types';
 import { COMPANIONS } from '../data/companions';
@@ -40,6 +40,16 @@ import { Director } from '../story/director';
 import { Q } from '../game/questrt';
 import { scheduleAt as schedAt } from '../data/npcs';
 import { PathQueue, ArrivalQueue } from '../world/npcQueue';
+import { nextReach, waitText, type ReachCtx } from '../world/reach';
+import { whenLabel } from '../core/time';
+import { absMinute } from '../core/sleep';
+import { activeQuests, currentObjective, type QuestTarget } from '../core/quests';
+import { MONSTERS } from '../data/monsters';
+
+/** Kapı adları (bekleme metinleri: "Lonca 05:00'te açılır"). */
+const DOOR_NAMES: Record<string, string> = {
+  guild: 'Lonca', healer: 'Şifa Evi', smithy: 'Demirhane', shop: 'Dükkân', bakery: 'Fırın', tailor: 'Terzi', tannery: 'Tabakhane', lodge: 'Avcı kulübesi',
+};
 
 /** Görüş alanının kenarından bu kadar karo dışarıdaki NPC'ler hafif güncellenir (oyuncu fark etmez). */
 const NPC_FAR_PAD = 6;
@@ -217,6 +227,9 @@ export class WorldScene extends Phaser.Scene {
     this.questT = 0;
     this.assistMarkT = 0;
     this.assistLast = null;
+    this.npcMarks = {};
+    this.sideMarks = {};
+    this.buildingMarks = new Map();
     this.camFollow = true;
     this.viewRect = new Phaser.Geom.Rectangle();
     this.camX = 0;
@@ -286,6 +299,8 @@ export class WorldScene extends Phaser.Scene {
     const onSettings = () => (this.lighting.quality = G.settings.quality);
     G.events.on('settings', onSettings);
     this.events.once('shutdown', () => G.events.off('settings', onSettings));
+    Q.waitOf = (id) => this.questWait(id)?.text ?? null;
+    this.events.once('shutdown', () => (Q.waitOf = null));
     this.questArrow = this.add.graphics().setDepth(966000);
     this.assistMark = this.add.graphics().setDepth(-40500);
     this.time.delayedCall(50, () => this.director.onWorldReady());
@@ -346,6 +361,8 @@ export class WorldScene extends Phaser.Scene {
     for (const p of this.pickups) p.img.destroy();
     for (const p of this.projectiles) p.img.destroy();
     for (const r of this.rays) r.destroy();
+    for (const t of this.buildingMarks.values()) t.destroy();
+    this.buildingMarks.clear();
     this.enemies = [];
     this.npcs = [];
     this.pathQueue.clear();
@@ -595,11 +612,174 @@ export class WorldScene extends Phaser.Scene {
     }
   }
 
-  /** Takip edilen görevin bu haritadaki hedefi (piksel). İç mekânda yalnızca hedef aynı mekândaysa. */
+  // ================================================================= görev hedefleri ve beklemeler (0.6.0)
+  /** Bir haritanın adlandırılmış noktaları (yüklü olmasa da). */
+  pointsOf(map: string): Record<string, { x: number; y: number }> {
+    return getMap(this, map).points;
+  }
+
+  /** Bir kapı bu saatte açık mı? (Hikâye istisnaları: ör. yaralılar görevi sırasında şifa evi.) */
+  warpOpen(w: MapData['warps'][number], hour: number): boolean {
+    if (!w.to) return false;
+    const ov = this.director.doorOverride(w);
+    if (ov !== undefined) return ov;
+    if (!w.hours) return true;
+    return hour >= w.hours[0] && hour < w.hours[1];
+  }
+
+  /** Dünyadan bu iç mekâna bu saatte girilebilir mi? (NPC'ye ulaşılabilirlik) */
+  reachCtx(): ReachCtx {
+    const warps = getMap(this, 'world').warps;
+    return {
+      open: (map, hour) => {
+        if (map === 'world') return true;
+        const w = warps.find((x) => x.to === map);
+        return w ? this.warpOpen(w, hour) : false;
+      },
+    };
+  }
+
+  /**
+   * Görevin şu anki amacı beklemede mi? Hikâye kapısı (ertesi gün, akşam), kapalı bina ya da hedef NPC'ye şu an
+   * ulaşılamıyor. Beklemedeyken yön oku gösterilmez; metin HUD'da ve görev sekmesinde görünür, uyku menüsü
+   * "Görev saatine kadar uyu" sunar.
+   */
+  questWait(id: string): { text: string; until: number | null } | null {
+    const def = Q.def(id);
+    const st = G.state.quests.quests[id];
+    if (!def || !st || st.status !== 'active') return null;
+    const i = currentObjective(def, st);
+    if (i < 0) return null;
+    const story = this.director.ch2.objectiveWait(id, i);
+    if (story) return story;
+    const t = this.director.ch2.targetOverride(id) ?? def.objectives[i].where;
+    if (!t) return null;
+    const now = this.absMinute();
+    const hour = G.state.time.minute / 60;
+    if (t.map !== 'world' && t.map !== this.mapData.id) {
+      const w = getMap(this, 'world').warps.find((x) => x.to === t.map);
+      if (w && w.hours && !this.warpOpen(w, hour)) {
+        const day = G.state.time.day + (hour >= w.hours[0] ? 1 : 0);
+        const until = absMinute(day, w.hours[0] * 60);
+        return { text: `${DOOR_NAMES[t.map] ?? w.label ?? 'Kapı'} ${whenLabel(now, until)} açılır`, until };
+      }
+    }
+    if (t.npc) {
+      if (this.npc(t.npc) || this.companion(t.npc)) return null;
+      const forced = this.director.npcPlacement(t.npc, t.map);
+      if (Array.isArray(forced)) return null;
+      const nd = this.npcDef(t.npc);
+      if (!nd) return null;
+      const r = nextReach(nd, G.state.time.day, G.state.time.minute, this.reachCtx());
+      if (r?.now) return null;
+      return { text: waitText(nd, now, r), until: r?.abs ?? null };
+    }
+    return null;
+  }
+
+  /** Görev işaretleri (yarım saniyede bir): NPC başları; yan görev işaretleri haritalara da yansır. */
+  npcMarks: Record<string, MarkerKind> = {};
+  sideMarks: Record<string, 'offer' | 'turnin'> = {};
+  /** Dünyada, içinde görev veren biri olan binaların üstündeki işaretler. */
+  buildingMarks = new Map<string, Phaser.GameObjects.Text>();
+
+  /**
+   * Yan görev işaretlerinin haritadaki yerleri (mini harita ve tam harita): kişi dünyadaysa kendisi (ya da
+   * programındaki yer), bir binadaysa o bina (dünya karosu; building: bina kimliği).
+   */
+  sideMarkSpots(): { id: string; kind: 'offer' | 'turnin'; x: number; y: number; building?: string }[] {
+    const out: { id: string; kind: 'offer' | 'turnin'; x: number; y: number; building?: string }[] = [];
+    const wm = getMap(this, 'world');
+    const bmeta = this.cache.json.get('buildingsMeta');
+    const hour = G.state.time.minute / 60;
+    for (const [id, kind] of Object.entries(this.sideMarks)) {
+      const def = NPC_BY_ID[id];
+      if (!def) continue;
+      const e = scheduleAt(def, hour, G.state.time.day);
+      if (e.map === 'world') {
+        const n = this.mapData.id === 'world' ? this.npc(id) : null;
+        const p = n ? { x: n.x / TILE, y: n.y / TILE } : Array.isArray(e.at) ? { x: e.at[0], y: e.at[1] } : wm.points[e.at];
+        if (p) out.push({ id, kind, x: p.x, y: p.y });
+      } else {
+        const b = wm.buildings.find((b) => b.enter?.map === e.map);
+        if (b && bmeta[b.id]) out.push({ id, kind, x: b.tx + bmeta[b.id].w / TILE / 2, y: b.tyBottom - 2.5, building: b.id });
+      }
+    }
+    return out;
+  }
+
+  /** Dünyada bina üstü işaretleri: içeride görev verebilecek biri varsa binanın çatısında mavi "!" ya da "?". */
+  updateBuildingMarks() {
+    const want = new Map<string, 'offer' | 'turnin'>();
+    if (this.mapData.id === 'world') for (const s of this.sideMarkSpots()) if (s.building && (want.get(s.building) !== 'turnin')) want.set(s.building, s.kind);
+    for (const [b, t] of this.buildingMarks) {
+      if (want.get(b) === (t as any).kind) continue;
+      this.tweens.killTweensOf(t);
+      t.destroy();
+      this.buildingMarks.delete(b);
+    }
+    if (!want.size) return;
+    const bmeta = this.cache.json.get('buildingsMeta');
+    for (const [bid, kind] of want) {
+      if (this.buildingMarks.has(bid)) continue;
+      const b = this.mapData.buildings.find((x) => x.id === bid);
+      if (!b || !bmeta[bid]) continue;
+      const st = MARKER_STYLE[kind];
+      const x = b.tx * TILE + bmeta[bid].w / 2, y = b.tyBottom * TILE - bmeta[bid].h - 6;
+      const t = this.add.text(x, y, st.ch, { fontFamily: 'Cinzel, serif', fontSize: '34px', fontStyle: 'bold', color: st.color, stroke: st.stroke, strokeThickness: 5 }).setOrigin(0.5, 1).setDepth(967000);
+      t.setResolution(this.cameras.main.zoom * 1.5);
+      (t as any).kind = kind;
+      this.tweens.add({ targets: t, y: y - 6, yoyo: true, repeat: -1, duration: 700, ease: 'Sine.easeInOut' });
+      this.buildingMarks.set(bid, t);
+    }
+  }
+  updateMarkers() {
+    const side = this.director.sideMarks();
+    this.sideMarks = side;
+    const marks: Record<string, MarkerKind> = { ...side, ...this.director.ch2.npcMarkers() };
+    this.npcMarks = marks;
+    // başın üstündeki işaret: yan görevde kişi gerçekten iş yerindeyken (yola çıkmışken değil)
+    for (const n of this.npcs) {
+      const k = marks[n.def.id];
+      n.setMarker(k && (k === 'suspect' || this.director.ch2.atPost(n)) ? k : '');
+    }
+    this.updateBuildingMarks();
+  }
+
+  /** Aktif ana (yoksa takip edilen) görevlerin en yakın bekleme saati: uyku menüsü için. */
+  questWaitSoonest(): { until: number; text: string } | null {
+    const log = G.state.quests;
+    const ids = activeQuests(log);
+    const order = [...(log.tracked ? [log.tracked] : []), ...ids.filter((id) => Q.def(id)?.kind === 'main')];
+    const now = this.absMinute();
+    let best: { until: number; text: string } | null = null;
+    for (const id of order) {
+      const w = this.questWait(id);
+      if (!w || w.until === null || w.until <= now || w.until - now > 36 * 60) continue;
+      if (!best || w.until < best.until) best = { until: w.until, text: w.text };
+    }
+    return best;
+  }
+
+  /** Bir eşyanın ya da yaratığın dünyadaki kaynakları (doğma bölgesi, toplama noktası). */
+  sourcesOf(t: QuestTarget): { x: number; y: number }[] {
+    const wm = getMap(this, 'world');
+    const out: { x: number; y: number }[] = [];
+    if (t.monster) for (const s of wm.spawns) if (s.monster === t.monster) out.push({ x: s.x, y: s.y });
+    if (t.item) {
+      for (const g of wm.gathers) if (g.item === t.item) out.push({ x: g.x, y: g.y });
+      const droppers = Object.values(MONSTERS).filter((md) => md.drops.some((d) => d.id === t.item)).map((md) => md.id);
+      for (const s of wm.spawns) if (droppers.includes(s.monster)) out.push({ x: s.x, y: s.y });
+    }
+    return out;
+  }
+
+  /** Takip edilen görevin bu haritadaki hedefi (piksel). İç mekândan dışarıdaki hedefe: çıkış. */
   questTargetPx(): { x: number; y: number; r: number } | null {
     const tg = Q.target();
     if (!tg) return null;
-    const t = tg.t;
+    if (this.questWait(tg.id)) return null;
+    const t = this.director.ch2.targetOverride(tg.id) ?? tg.t;
     const m = this.mapData;
     const r = (t.radius ?? 1.5) * TILE;
     if (t.npc) {
@@ -612,20 +792,33 @@ export class WorldScene extends Phaser.Scene {
       return d ? { x: d.x * TILE + 16, y: d.y * TILE + 16, r: 1.2 * TILE } : null;
     };
     let map = t.map;
-    let pt: { x: number; y: number } | null = t.map !== m.id ? null : t.point ? m.points[t.point] ?? null : t.x !== undefined && t.y !== undefined ? { x: t.x, y: t.y } : null;
-    // NPC haritada değilse: programındaki yer
+    // NPC hedefinde sabit nokta kullanılmaz: kişi gün içinde yer değiştirir (programdan bulunur)
+    let pt: { x: number; y: number } | null = t.map !== m.id || t.npc ? null : t.point ? m.points[t.point] ?? null : t.x !== undefined && t.y !== undefined ? { x: t.x, y: t.y } : null;
+    // NPC haritada değilse: programındaki (ulaşılabilir) yer
     if (t.npc && !pt) {
       const def = this.npcDef(t.npc);
-      if (def) {
-        const e = schedAt(def, G.state.time.minute / 60, G.state.time.day);
-        if (e.map !== 'hidden') {
-          map = e.map;
-          if (e.map === m.id) pt = Array.isArray(e.at) ? { x: e.at[0], y: e.at[1] } : m.points[e.at] ?? null;
+      const rr = def ? nextReach(def, G.state.time.day, G.state.time.minute, this.reachCtx()) : null;
+      if (rr?.now) {
+        map = rr.entry.map;
+        if (map === m.id) pt = Array.isArray(rr.entry.at) ? { x: rr.entry.at[0], y: rr.entry.at[1] } : m.points[rr.entry.at] ?? null;
+      }
+    }
+    // yaratık / eşya: oyuncuya en yakın kaynak
+    if ((t.monster || t.item) && !pt) {
+      map = 'world';
+      if (m.id === 'world') {
+        const a = this.player.actor;
+        let bd = Infinity;
+        for (const s of this.sourcesOf(t)) {
+          const d = Math.hypot(s.x * TILE - a.x, s.y * TILE - a.y);
+          if (d < bd) { bd = d; pt = s; }
         }
+        if (pt) return { x: pt.x * TILE + 16, y: pt.y * TILE + 16, r: 4 * TILE };
       }
     }
     if (map === m.id && pt) return { x: pt.x * TILE + 16, y: pt.y * TILE + 16, r };
     if (!m.indoor && map !== 'world') return doorOf(map);
+    if (m.indoor && map !== m.id && m.points.exit) return { x: m.points.exit.x * TILE + 16, y: (m.points.exit.y + 1) * TILE, r: 1.2 * TILE };
     return null;
   }
 
@@ -923,6 +1116,7 @@ export class WorldScene extends Phaser.Scene {
       this.questTick();
       // ara sahnede sessiz biten görevlerin bitiş animasyonları: sahne ve diyalog kapandıktan sonra sırayla
       if (!this.ui.dialogueOpen() && !this.director.isBusy) Q.flushDeferred();
+      this.updateMarkers();
     }
     // ışık
     this.updateLighting(dt);
@@ -1296,7 +1490,7 @@ export class WorldScene extends Phaser.Scene {
     }
     if (w.hours) {
       const h = G.state.time.minute / 60;
-      if (h < w.hours[0] || h >= w.hours[1]) {
+      if (!this.warpOpen(w, h)) {
         if (this.lockedMsgT <= 0) {
           this.ui.toastInfo(`${w.label ?? 'Burası'} kapalı. (${w.hours[0]}:00–${w.hours[1]}:00)`);
           this.lockedMsgT = 3;
@@ -1323,7 +1517,7 @@ export class WorldScene extends Phaser.Scene {
       if (d < range && (!best || d < best.d)) best = { label, kind, ref, d };
     };
     for (const n of this.npcs) consider(n.x, n.y - 10, 'Konuş', 'npc', n, 40);
-    for (const p of this.r.propImages) if (p.p.interact) consider(p.p.x, p.p.y - 8, this.interactLabel(p.p.interact), 'prop', p.p, 38);
+    for (const p of this.r.propImages) if (p.p.interact && this.director.propAvailable(p.p.interact)) consider(p.p.x, p.p.y - 8, this.interactLabel(p.p.interact), 'prop', p.p, p.p.interact === 'sit_table' ? 52 : 38);
     for (const g of this.mapData.gathers) {
       const avail = (G.state.gathered[g.id] ?? 0) !== G.state.time.day;
       if (avail) consider(g.x * TILE + 16, g.y * TILE + 16, 'Topla', 'gather', g, 30);
@@ -1336,6 +1530,7 @@ export class WorldScene extends Phaser.Scene {
   interactLabel(id: string) {
     if (id.startsWith('train')) return 'Antrenman';
     if (id.startsWith('bed')) return 'Uyu';
+    if (id === 'sit_table') return 'Otur';
     if (id === 'quest_board' || id === 'rank_table' || id === 'archery_target') return 'İncele';
     if (id === 'appraisal_stone') return 'İncele';
     return 'Etkileşim';
