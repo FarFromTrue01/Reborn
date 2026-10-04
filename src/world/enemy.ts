@@ -349,7 +349,8 @@ export class Enemy {
     if (this.state === 'windup' || this.state === 'strike') return;
     if (!corneredStep(this.corner, this.def.cornered!, distTiles, dt)) return;
     if (this.corner.cornered) {
-      // Kaçamıyor: dönüp tekme atar.
+      // Kaçamıyor: olduğu yerde dönüp tekme atar (kaçarken evinden uzaklaştı; geri dönmeye kalkmasın).
+      this.home = { x: this.x, y: this.y };
       this.aware = false;
       this.becomeAware(false);
       this.w.bubbleAt(this.actor, '!', 1);

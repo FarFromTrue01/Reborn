@@ -140,7 +140,7 @@ export default async ({ page, wait, shot, evalG }) => {
   const lockT0 = await evalG(() => window.__game.scene.getScene('World').playClock);
   let struck = 0, cancels = 0;
   await evalG(() => { const e = window.__qaGob; e._qaStrike = 0; const orig = e.strike.bind(e); e.strike = () => { e._qaStrike++; orig(); }; });
-  for (let i = 0; i < 60; i++) {
+  for (let i = 0; i < 200; i++) {
     const r = await evalG(() => { const w = window.__game.scene.getScene('World'); const e = window.__qaGob; const pl = w.player.actor; pl.setPosition(e.x - 30, e.y); pl.body2.reset(pl.x, pl.y); const before = e.state; w.hitEnemy(e, { dir: new window.Phaser.Math.Vector2(1, 0), physical: true }); return { before, after: e.state }; });
     if (r.before === 'windup' && r.after === 'hurt') cancels++;
     await wait(150);
@@ -152,7 +152,7 @@ export default async ({ page, wait, shot, evalG }) => {
   await evalG(() => { const w = window.__game.scene.getScene('World'); window.__qaGob.setState('dead'); const b = w.spawnAt('goblin_chief', 36, 20, 1, 0, 'qaboss')[0]; b.c.hp = 999; window.__qaBoss = b; b.becomeAware(false); });
   let bossNormal = null, bossHeavy = null;
   for (let i = 0; i < 600 && (bossNormal === null || bossHeavy === null); i++) {
-    const st = await evalG(() => window.__qaBoss.state);
+    const st = await evalG(() => { const w = window.__game.scene.getScene('World'); const e = window.__qaBoss; const pl = w.player.actor; pl.setPosition(e.x - 34, e.y); pl.body2.reset(pl.x, pl.y); window.__G.p.hp = 999; return e.state; });
     if (st === 'windup') {
       const heavy = bossNormal !== null;
       const since = await evalG(() => window.__qaBoss.sinceInterrupt);
