@@ -85,8 +85,93 @@ export const JOSEPH_LAYERS: Record<string, { file: string; z: number }> = {
   w_spear_bg: { file: 'assets/gfx/chars/joseph/w_spear_bg.png', z: 9 },
   w_bow: { file: 'assets/gfx/chars/joseph/w_bow.png', z: 140 },
   w_bow_bg: { file: 'assets/gfx/chars/joseph/w_bow_bg.png', z: -1 },
+  /** Metal başlı çekiç/topuz (ileride gürz için; şu an hiçbir eşya kullanmıyor). */
   w_club: { file: 'assets/gfx/chars/joseph/w_club.png', z: 140 },
+  // Grup 4B — tools/build_weapons.py üretir
+  w_stick: { file: 'assets/gfx/chars/joseph/w_stick.png', z: 140 },
+  w_stick_cracked: { file: 'assets/gfx/chars/joseph/w_stick_cracked.png', z: 140 },
+  w_arming_rusty: { file: 'assets/gfx/chars/joseph/w_arming_rusty.png', z: 140 },
+  w_arming_rusty_bg: { file: 'assets/gfx/chars/joseph/w_arming_rusty_bg.png', z: 9 },
+  w_arming_steel: { file: 'assets/gfx/chars/joseph/w_arming_steel.png', z: 140 },
+  w_arming_steel_bg: { file: 'assets/gfx/chars/joseph/w_arming_steel_bg.png', z: 9 },
 };
+
+/**
+ * Büyük kare silah sayfaları (LPC jeneratörünün özel animasyonları): kare boyutu 128 ya da 192 px,
+ * 4 yön satırı. Karenin merkezi Joseph'in 64 px karesinin merkeziyle çakışır.
+ */
+export const JOSEPH_BIG: Record<string, { file: string; size: number }> = {
+  w_stick_atk: { file: 'assets/gfx/chars/joseph/w_stick_atk.png', size: 192 },
+  w_stick_atk_bg: { file: 'assets/gfx/chars/joseph/w_stick_atk_bg.png', size: 192 },
+  w_stick_cracked_atk: { file: 'assets/gfx/chars/joseph/w_stick_cracked_atk.png', size: 192 },
+  w_stick_cracked_atk_bg: { file: 'assets/gfx/chars/joseph/w_stick_cracked_atk_bg.png', size: 192 },
+  w_arming_rusty_atk: { file: 'assets/gfx/chars/joseph/w_arming_rusty_atk.png', size: 128 },
+  w_arming_rusty_atk_bg: { file: 'assets/gfx/chars/joseph/w_arming_rusty_atk_bg.png', size: 128 },
+  w_arming_steel_atk: { file: 'assets/gfx/chars/joseph/w_arming_steel_atk.png', size: 128 },
+  w_arming_steel_atk_bg: { file: 'assets/gfx/chars/joseph/w_arming_steel_atk_bg.png', size: 128 },
+  w_cleaver_walk: { file: 'assets/gfx/chars/joseph/w_cleaver_walk.png', size: 128 },
+  w_cleaver_walk_bg: { file: 'assets/gfx/chars/joseph/w_cleaver_walk_bg.png', size: 128 },
+  w_cleaver_atk: { file: 'assets/gfx/chars/joseph/w_cleaver_atk.png', size: 128 },
+  w_cleaver_atk_bg: { file: 'assets/gfx/chars/joseph/w_cleaver_atk_bg.png', size: 128 },
+};
+
+/** Taşıma (sırt/bel) katmanlarının z değerleri: önde (sırtı dönükken pelerinin üstünde) ve gövdenin arkasında. */
+export const CARRY_Z = { fg: 90, bg: 6 };
+
+/**
+ * Silah görünümleri: eşyanın `visual` alanı buradaki bir anahtardır. Yeni bir silah eklemek yalnızca
+ * veridir: 64 px el katmanları (`hand`, JOSEPH_LAYERS anahtarları), büyük kare sayfalar (`big`,
+ * JOSEPH_BIG anahtarları) ve taşıma katmanları (`<anahtar>_carry`, `_carry_bg`, `_item` dosyaları;
+ * konumlar weapons.json'da). Kod değişmez.
+ */
+export interface WeaponVisual {
+  hand: string[];
+  big?: { key: string; anim: 'slash' | 'walk'; z: number; reverse?: boolean }[];
+  /** Sırt/bel katmanları üretildi mi (tools/build_weapons.py). */
+  carry: boolean;
+  /** Elde yürüme karesi yok: yürürken/dururken taşıma görünümü (yay, mızrak). */
+  walkCarried?: boolean;
+}
+
+export const WEAPON_VISUALS: Record<string, WeaponVisual> = {
+  w_stick: {
+    hand: ['w_stick'], carry: true,
+    big: [{ key: 'w_stick_atk', anim: 'slash', z: 140, reverse: true }, { key: 'w_stick_atk_bg', anim: 'slash', z: 9, reverse: true }],
+  },
+  w_stick_cracked: {
+    hand: ['w_stick_cracked'], carry: true,
+    big: [{ key: 'w_stick_cracked_atk', anim: 'slash', z: 140, reverse: true }, { key: 'w_stick_cracked_atk_bg', anim: 'slash', z: 9, reverse: true }],
+  },
+  w_arming_rusty: {
+    hand: ['w_arming_rusty', 'w_arming_rusty_bg'], carry: true,
+    big: [{ key: 'w_arming_rusty_atk', anim: 'slash', z: 150 }, { key: 'w_arming_rusty_atk_bg', anim: 'slash', z: 8 }],
+  },
+  w_arming_steel: {
+    hand: ['w_arming_steel', 'w_arming_steel_bg'], carry: true,
+    big: [{ key: 'w_arming_steel_atk', anim: 'slash', z: 150 }, { key: 'w_arming_steel_atk_bg', anim: 'slash', z: 8 }],
+  },
+  w_cleaver: {
+    hand: [], carry: true,
+    big: [
+      { key: 'w_cleaver_walk', anim: 'walk', z: 140 }, { key: 'w_cleaver_walk_bg', anim: 'walk', z: 9 },
+      { key: 'w_cleaver_atk', anim: 'slash', z: 140 }, { key: 'w_cleaver_atk_bg', anim: 'slash', z: 9 },
+    ],
+  },
+  w_dagger: { hand: ['w_dagger', 'w_dagger_bg'], carry: true },
+  w_spear: { hand: ['w_spear', 'w_spear_bg'], carry: true, walkCarried: true },
+  w_bow: { hand: ['w_bow', 'w_bow_bg'], carry: true, walkCarried: true },
+  w_club: { hand: ['w_club'], carry: false },
+};
+
+/** Taşıma katmanı anahtarları (JOSEPH_LAYERS'a eklenir) ve havada süzülen silah görüntüsü. */
+for (const [k, v] of Object.entries(WEAPON_VISUALS)) {
+  if (!v.carry) continue;
+  JOSEPH_LAYERS[k + '_carry'] = { file: `assets/gfx/chars/joseph/${k}_carry.png`, z: CARRY_Z.fg };
+  JOSEPH_LAYERS[k + '_carry_bg'] = { file: `assets/gfx/chars/joseph/${k}_carry_bg.png`, z: CARRY_Z.bg };
+}
+export const WEAPON_ITEM_IMAGES: Record<string, string> = Object.fromEntries(
+  Object.entries(WEAPON_VISUALS).filter(([, v]) => v.carry).map(([k]) => [k, `assets/gfx/chars/joseph/${k}_item.png`]),
+);
 
 export const MONSTER_SHEETS: Record<string, string> = {
   m_rat: 'assets/gfx/monsters/rat.png',
@@ -116,6 +201,8 @@ export const JSONS: Record<string, string> = {
   buildingsMeta: 'assets/gfx/buildings/buildings.json',
   monstersMeta: 'assets/gfx/monsters/monsters.json',
   credits: 'assets/credits.json',
+  /** Silah taşıma konumları (tools/build_weapons.py). */
+  weaponsMeta: 'assets/gfx/chars/joseph/weapons.json',
   artIndex: 'art-index.json',
 };
 

@@ -1,5 +1,5 @@
 import Phaser from 'phaser';
-import { ATLASES, BUILDINGS, CHAR_SHEETS, IMAGES, JOSEPH_LAYERS, JSONS, MONSTER_SHEETS, LPC_FRAME } from '../data/manifest';
+import { ATLASES, BUILDINGS, CHAR_SHEETS, IMAGES, JOSEPH_BIG, JOSEPH_LAYERS, JSONS, MONSTER_SHEETS, LPC_FRAME, WEAPON_ITEM_IMAGES } from '../data/manifest';
 import { G } from '../game/G';
 import { makeCoinTextures } from '../ui/coins';
 import { warmCache } from '../game/pwa';
@@ -28,6 +28,8 @@ export class BootScene extends Phaser.Scene {
     });
     for (const [k, p] of Object.entries(CHAR_SHEETS)) this.load.spritesheet(k, p, { frameWidth: LPC_FRAME, frameHeight: LPC_FRAME });
     for (const [k, l] of Object.entries(JOSEPH_LAYERS)) this.load.spritesheet('j_' + k, l.file, { frameWidth: LPC_FRAME, frameHeight: LPC_FRAME });
+    for (const [k, l] of Object.entries(JOSEPH_BIG)) this.load.spritesheet('j_' + k, l.file, { frameWidth: l.size, frameHeight: l.size });
+    for (const [k, f] of Object.entries(WEAPON_ITEM_IMAGES)) this.load.image('j_' + k + '_item', f);
     for (const [k, p] of Object.entries(MONSTER_SHEETS)) this.load.spritesheet(k, p, { frameWidth: 64, frameHeight: 64 });
     for (const [k, p] of Object.entries(IMAGES)) this.load.image(k, p);
     for (const b of BUILDINGS) this.load.image('b_' + b, `assets/gfx/buildings/${b}.png`);

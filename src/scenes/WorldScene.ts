@@ -1065,7 +1065,12 @@ export class WorldScene extends Phaser.Scene {
   // ================================================================= ana döngü
   update(_time: number, deltaMs: number) {
     let dt = Math.min(0.05, deltaMs / 1000);
-    if (this.paused || this.frozen) return;
+    if (this.paused || this.frozen) {
+      // menü, dükkân, Appraisal, mini oyun: kimse yürür pozda donmasın
+      this.player?.holdStill();
+      for (const c of this.companions) c.holdStill();
+      return;
+    }
     this.playClock += dt;
     // ağır çekim
     if (this.slowmoT > 0) {
@@ -1149,6 +1154,10 @@ export class WorldScene extends Phaser.Scene {
       Input.moveX = x / l;
       Input.moveY = y / l;
       Input.run = k.shift.isDown;
+    } else {
+      // joystick basılı kaldıysa (etkileşim boyunca da) yürüme kaldığı yerden sürer
+      Input.moveX = Input.touchX;
+      Input.moveY = Input.touchY;
     }
     this.player.sneaking = k.ctrl.isDown;
     if (this.cutscene || this.ui.dialogueOpen() || this.ui.menuOpen()) {
@@ -1579,7 +1588,14 @@ export class WorldScene extends Phaser.Scene {
     G.state.gathered[g.id] = G.state.time.day;
     let qty = 1;
     if (Math.random() < G.d.gatherBonus) qty++;
-    this.player.actor.play('thrust', { loop: false, restart: true, speed: 1.2, onDone: () => this.player.actor.play('idle') });
+    // toplarken durur ve otu koparır (kısa 'cast' durumu: hareket yok, bitince idle)
+    const pl = this.player;
+    if (pl.state === 'free') {
+      pl.setState('cast');
+      pl.actor.body2.setVelocity(0, 0);
+      pl.actor.face(dirFromVec(g.x * TILE + 16 - pl.actor.x, g.y * TILE + 20 - pl.actor.y, pl.actor.dir));
+    }
+    pl.actor.play('thrust', { loop: false, restart: true, speed: 1.2 });
     R.giveItems([{ id: g.item, qty }], 'Toplama');
     Sound.sfx('pickup');
     this.fx.pickupSparkle(g.x * TILE + 16, g.y * TILE + 20);
@@ -1832,6 +1848,17 @@ export class WorldScene extends Phaser.Scene {
   // ================================================================= dövüş
   enterCombat() {
     this.player.combatT = 0;
+    this.player.drawForCombat();
+  }
+
+  /**
+   * Silahın sırtta durması gereken durum: 'scene' (hikâye sahnesi, diyalog — hemen sırta),
+   * 'safe' (iç mekân, köyün güvenli bölgesi — kısa süre sonra sırta), null (açık alan: 6 sn kuralı).
+   */
+  weaponCalm(): 'scene' | 'safe' | null {
+    if (this.cutscene || this.ui?.dialogueOpen() || this.director?.isBusy) return 'scene';
+    if (this.mapData?.indoor || this.zone?.safe) return 'safe';
+    return null;
   }
 
   updateCombatState(dt: number) {
@@ -1842,6 +1869,8 @@ export class WorldScene extends Phaser.Scene {
       if (!this.inBattle) {
         this.inBattle = true;
         this.updateMusic();
+        // düşman fark etti: silah sırttaysa çekilir
+        this.player.drawForCombat();
       }
     } else if (this.inBattle) {
       this.battleT += dt;
@@ -2350,6 +2379,8 @@ export class WorldScene extends Phaser.Scene {
     }
     G.p.mp -= t.mp;
     pl.skillCd[id] = t.cooldown;
+    // silahla yapılan beceri: silah sırttaysa hemen ele
+    if (t.weapon || t.kind === 'melee_multi') pl.drawNow();
     const dir = this.aimAssist(t.range ?? 2);
     pl.actor.face(dirFromVec(dir.x, dir.y, pl.actor.dir));
     const skill = this.techSkill(id);

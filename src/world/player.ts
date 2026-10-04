@@ -4,7 +4,9 @@ import { Actor, dirFromVec, dirVec, type Dir } from './actor';
 import { G } from '../game/G';
 import { Input } from '../game/input';
 import { ITEMS } from '../data/items';
-import { JOSEPH_LAYERS } from '../data/manifest';
+import { JOSEPH_BIG, JOSEPH_LAYERS, WEAPON_VISUALS } from '../data/manifest';
+import type { LayerDef } from './actor';
+import { attackFrameAt, attackPlan, impactTime, windupEnd, type AttackPlan } from './attackPlan';
 import { TILE } from './types';
 import { EQUIP_SLOTS } from '../core/types';
 import type { WorldScene } from '../scenes/WorldScene';
@@ -14,9 +16,47 @@ import { LIGHT_MAX, LIGHT_DECAY_PER_SEC } from '../core/divine';
 import { runStep, RUN_THRESHOLD, type RunLock } from '../core/stamina';
 import type { EvadeCost } from '../core/combat';
 
-export type PState = 'free' | 'attack' | 'heavy' | 'dodge' | 'hurt' | 'dead' | 'cast' | 'locked' | 'dash';
+export type PState = 'free' | 'attack' | 'heavy' | 'dodge' | 'hurt' | 'dead' | 'cast' | 'locked' | 'dash' | 'draw';
 
 export const BASE_SPEED = 5.2; // kare/saniye (1.0x insanda)
+
+/** Savaş/saldırı olmadan silahın sırta konmasına kadar geçen süre (sn); güvenli yerde daha kısa. */
+export const SHEATHE_AFTER = 6;
+export const SHEATHE_AFTER_SAFE = 1.5;
+/** Sırta koyma, çekme ve saldırıya bağlı hızlı çekme süreleri (sn). */
+export const STOW_DUR = 0.35;
+export const DRAW_DUR = 0.25;
+export const QUICK_DRAW_DUR = 0.17;
+
+/** Elde tutulan silahın (64 px karede) tutma noktası ve uç yönü (derece, ekran) — havada süzülme animasyonu için. */
+const HAND_POSE: Record<Dir, { x: number; y: number; a: number }> = {
+  down: { x: 42, y: 45, a: 80 },
+  up: { x: 22, y: 45, a: 100 },
+  left: { x: 27, y: 45, a: 125 },
+  right: { x: 37, y: 45, a: 55 },
+};
+
+/** Elden sırta giden yolun kontrol noktası (karesel Bezier): omzun üstünden / sırt kenarından geçer, yüzün önünden değil. */
+const CARRY_PATH_CTRL: Record<Dir, { x: number; y: number }> = {
+  down: { x: 50, y: 20 },
+  up: { x: 14, y: 22 },
+  left: { x: 48, y: 38 },
+  right: { x: 16, y: 38 },
+};
+
+interface CarryMeta {
+  item: { px: number; py: number; a: number };
+  carry: Record<Dir, { x: number; y: number; a: number; front: boolean }>;
+}
+
+interface SheathAnim {
+  kind: 'draw' | 'stow';
+  t: number;
+  dur: number;
+  then: (() => void) | null;
+  float: Phaser.GameObjects.Image | null;
+  shown: boolean;
+}
 
 export class Player {
   actor: Actor;
@@ -51,11 +91,26 @@ export class Player {
   t = 0;
   regenT = 0;
   buffs: { id: string; t: number; amount?: number }[] = [];
+  /** Saldırı zaman çizelgesi (beceri saldırılarında null: eski davranış). */
+  plan: AttackPlan | null = null;
+  swingStarted = false;
+  /** Eldeki silahın görünümü (WEAPON_VISUALS anahtarı). */
+  weaponVisual: string | null = null;
+  /** Silah sırtta/belde mi? */
+  sheathed = false;
+  /** Son saldırıdan beri geçen süre (sırta koyma için). */
+  sinceAttack = 99;
+  sheath: SheathAnim | null = null;
+  /** Sırta koyma/çekme sırasında gövde elle sürülen thrust karelerinde (kol omza uzanır). */
+  posing = false;
 
   constructor(public w: WorldScene, x: number, y: number) {
     this.actor = new Actor(w, x, y, ['j_body'], 'lpc');
     this.actor.enablePhysics(9);
     this.refreshLayers();
+    // oyun açılışında savaş yoktur: silah sırtta başlar
+    this.sheathed = this.canSheathe();
+    this.applyWeaponMode();
     this.actor.dir = (G.state.pos.facing as Dir) ?? 'down';
     this.actor.play('idle');
   }
@@ -72,25 +127,200 @@ export class Player {
 
   refreshLayers() {
     const eq = G.p.equipment;
-    const list: { key: string; z: number }[] = [
-      { key: 'j_body', z: 10 },
-      { key: 'j_head', z: 100 },
+    const list: { def: LayerDef; z: number }[] = [
+      { def: { key: 'j_body' }, z: 10 },
+      { def: { key: 'j_head' }, z: 100 },
     ];
+    this.weaponVisual = null;
     for (const s of EQUIP_SLOTS) {
       const id = eq[s];
       if (!id) continue;
       const v = ITEMS[id]?.visual;
       if (!v) continue;
-      if (JOSEPH_LAYERS[v]) list.push({ key: 'j_' + v, z: JOSEPH_LAYERS[v].z });
-      if (JOSEPH_LAYERS[v + '_bg']) list.push({ key: 'j_' + v + '_bg', z: JOSEPH_LAYERS[v + '_bg'].z });
+      const wv = WEAPON_VISUALS[v];
+      if (wv) {
+        this.weaponVisual = v;
+        for (const h of wv.hand) if (JOSEPH_LAYERS[h]) list.push({ def: { key: 'j_' + h, role: 'hand' }, z: JOSEPH_LAYERS[h].z });
+        for (const b of wv.big ?? []) {
+          const sh = JOSEPH_BIG[b.key];
+          if (sh) list.push({ def: { key: 'j_' + b.key, role: 'hand', big: { size: sh.size, anim: b.anim, reverse: b.reverse } }, z: b.z });
+        }
+        if (wv.carry) {
+          list.push({ def: { key: 'j_' + v + '_carry', role: 'carry' }, z: JOSEPH_LAYERS[v + '_carry'].z });
+          list.push({ def: { key: 'j_' + v + '_carry_bg', role: 'carry' }, z: JOSEPH_LAYERS[v + '_carry_bg'].z });
+        }
+        continue;
+      }
+      if (JOSEPH_LAYERS[v]) list.push({ def: { key: 'j_' + v }, z: JOSEPH_LAYERS[v].z });
+      if (JOSEPH_LAYERS[v + '_bg']) list.push({ def: { key: 'j_' + v + '_bg' }, z: JOSEPH_LAYERS[v + '_bg'].z });
     }
     list.sort((a, b) => a.z - b.z);
-    this.actor.setLayers(list.map((l) => l.key));
+    const wv = this.weaponVisual ? WEAPON_VISUALS[this.weaponVisual] : null;
+    this.actor.walkCarried = !!wv?.walkCarried;
+    this.actor.slashReverse = !!wv?.big?.some((b) => b.reverse);
+    this.cancelSheath();
+    this.actor.setLayers(list.map((l) => l.def));
+    if (!this.canSheathe()) this.sheathed = false;
+    this.applyWeaponMode();
+  }
+
+  // ================================================================= silahı sırta koyma / çekme
+  canSheathe(): boolean {
+    return G.settings.sheathWeapon !== false && !!this.weaponVisual && this.actor.hasCarry();
+  }
+
+  applyWeaponMode() {
+    this.actor.weaponMode = this.sheath ? 'none' : this.sheathed ? 'carry' : 'hand';
+    this.actor.applyFrame();
+  }
+
+  private carryMeta(): CarryMeta | null {
+    const all = this.w.cache.json.get('weaponsMeta') as Record<string, CarryMeta> | undefined;
+    return (this.weaponVisual && all?.[this.weaponVisual]) || null;
+  }
+
+  /** Animasyonsuz: silahı hemen sırta koy / ele al. */
+  setSheathed(on: boolean) {
+    this.cancelSheath();
+    this.sheathed = on && this.canSheathe();
+    this.applyWeaponMode();
+  }
+
+  private cancelSheath() {
+    if (!this.sheath) return;
+    this.sheath.float?.destroy();
+    this.sheath = null;
+    this.endPose();
+  }
+
+  private endPose() {
+    if (this.posing) {
+      this.posing = false;
+      if (this.actor.manualFrame !== null) this.actor.play('idle');
+    }
+  }
+
+  /** Sırta koyma ya da çekme animasyonunu başlat. `then`: bitince (hızlı çekmede saldırı). */
+  beginSheath(kind: 'draw' | 'stow', fast = false, then: (() => void) | null = null) {
+    this.cancelSheath();
+    const meta = this.carryMeta();
+    const key = 'j_' + this.weaponVisual + '_item';
+    if (!meta || !this.w.textures.exists(key)) {
+      this.sheathed = kind === 'stow';
+      this.applyWeaponMode();
+      then?.();
+      return;
+    }
+    const img = this.w.add.image(this.actor.x, this.actor.y, key);
+    img.setOrigin(meta.item.px / img.width, meta.item.py / img.height).setVisible(false);
+    this.sheath = { kind, t: 0, dur: kind === 'stow' ? STOW_DUR : fast ? QUICK_DRAW_DUR : DRAW_DUR, then, float: img, shown: false };
+    if (kind === 'draw') this.sheathed = false;
+    this.applyWeaponMode();
+    Sound.sfx(kind === 'stow' ? 'sheathe' : 'draw', kind === 'stow' ? 0.45 : 0.6);
+  }
+
+  /** Savaş başlayınca: silah sırttaysa çek (animasyonlu, oyuncuyu durdurmaz). */
+  drawForCombat() {
+    if (!this.canSheathe() || this.state === 'locked' || this.state === 'dead' || this.w.cutscene) return;
+    if (this.sheath?.kind === 'draw') return;
+    if (this.sheathed || this.sheath?.kind === 'stow') this.beginSheath('draw');
+  }
+
+  /** Beceri saldırısı: silah hemen elde. */
+  drawNow() {
+    if (this.sheathed || this.sheath) this.setSheathed(false);
+    this.sinceAttack = 0;
+  }
+
+  /** Her kare: süzülen silahı ilerlet, otomatik sırta koymayı denetle. `still`: oyuncu duruyor. */
+  private tickSheath(dt: number, still: boolean) {
+    if (!this.canSheathe()) {
+      if (this.sheathed || this.sheath) this.setSheathed(false);
+      return;
+    }
+    const sh = this.sheath;
+    if (sh) {
+      sh.t += dt;
+      this.updateFloat(sh, still);
+      if (sh.t >= sh.dur) {
+        sh.float?.destroy();
+        this.sheath = null;
+        this.sheathed = sh.kind === 'stow';
+        this.applyWeaponMode();
+        this.endPose();
+        sh.then?.();
+      }
+      return;
+    }
+    if (this.sheathed) return;
+    const calm = this.w.weaponCalm();
+    if (calm === 'scene') {
+      // hikâye sahnesi / diyalog: silah sırtta dursun
+      this.setSheathed(true);
+      return;
+    }
+    const limit = calm === 'safe' ? SHEATHE_AFTER_SAFE : SHEATHE_AFTER;
+    if (this.state === 'free' && Math.min(this.sinceAttack, this.combatT) >= limit) this.beginSheath('stow');
+  }
+
+  /** Süzülen silah: elden sırta (ya da tersi) yay çizerek; durarken gövde spellcast kareleriyle kolu kaldırır. */
+  private updateFloat(sh: SheathAnim, still: boolean) {
+    const a = this.actor;
+    const meta = this.carryMeta()!;
+    const k = Math.min(1, sh.t / sh.dur);
+    const hand = HAND_POSE[a.dir];
+    const back = meta.carry[a.dir];
+    // yolculuk k ∈ [0.1, 0.75]
+    const u = Math.max(0, Math.min(1, (k - 0.1) / 0.65));
+    const e = u * u * (3 - 2 * u);
+    const p = sh.kind === 'stow' ? e : 1 - e;
+    const c = CARRY_PATH_CTRL[a.dir];
+    const x = (1 - p) * (1 - p) * hand.x + 2 * (1 - p) * p * c.x + p * p * back.x;
+    const y = (1 - p) * (1 - p) * hand.y + 2 * (1 - p) * p * c.y + p * p * back.y;
+    let da = back.a - hand.a;
+    da = ((da + 540) % 360) - 180;
+    const ang = hand.a + da * p - meta.item.a;
+    const f = sh.float;
+    const arrived = k >= 0.75;
+    if (f) {
+      f.setVisible(!arrived);
+      f.setPosition(Math.floor(a.x) + x - 32, Math.floor(a.y) + y - 61 - a.liftY);
+      f.setAngle(ang);
+      // elden çıkınca gövdenin arkasından geçer (sırtı dönükken sırtın üstünde): yüzün önünden geçmez
+      const front = p < 0.15 ? a.dir !== 'up' : back.front;
+      f.setDepth(a.depth + (front ? 0.5 : -0.5));
+    }
+    if (arrived && !sh.shown) {
+      sh.shown = true;
+      if (sh.kind === 'stow') this.sheathed = true;
+      // görünüm: sırtta (stow) ya da elde (draw)
+      a.weaponMode = sh.kind === 'stow' ? 'carry' : 'hand';
+      a.applyFrame();
+      if (sh.kind === 'draw') {
+        this.w.fx.glint(Math.floor(a.x) + hand.x - 32, Math.floor(a.y) + hand.y - 64);
+        this.endPose();
+      }
+    }
+    // gövde: yalnızca dururken (yürürken bacaklar yürümeye devam eder). Thrust 1–3: kol omza/sırta uzanır.
+    if (still && !(sh.kind === 'draw' && arrived) && (this.state === 'free' || this.state === 'draw')) {
+      const seq = sh.kind === 'stow' ? (k < 0.2 ? 1 : k < 0.45 ? 2 : k < 0.8 ? 3 : 1) : (k < 0.3 ? 3 : k < 0.55 ? 2 : 1);
+      if (!this.posing || a.anim !== 'thrust') a.play('thrust', { loop: false });
+      this.posing = true;
+      a.setManualFrame(seq);
+    } else if (!still && this.posing) this.posing = false;
+  }
+
+  /** Dünya duraklatılmışken (menü, Appraisal, dükkân): hız sıfır, yürüme yerine idle. */
+  holdStill() {
+    const a = this.actor;
+    a.body2?.setVelocity(0, 0);
+    if ((this.state === 'free' || this.state === 'locked') && (a.anim === 'walk' || a.anim === 'run')) a.play('idle');
   }
 
   setState(s: PState) {
     this.state = s;
     this.stateT = 0;
+    if (s !== 'attack' && s !== 'heavy') this.plan = null;
   }
 
   weaponReach(): number {
@@ -144,6 +374,12 @@ export class Player {
       if (this.shieldT <= 0 || this.shield <= 0) this.endShield();
     }
 
+    this.sinceAttack += dt;
+    {
+      const moving = Math.hypot(Input.moveX, Input.moveY) > 0.08 && (this.state === 'free');
+      if (this.state !== 'dead') this.tickSheath(dt, !moving);
+    }
+
     if (a.frozenT > 0) {
       body.setVelocity(0, 0);
       return;
@@ -159,18 +395,23 @@ export class Player {
     const mx = Input.moveX, my = Input.moveY;
     const mlen = Math.min(1, Math.hypot(mx, my));
     switch (this.state) {
-      case 'locked':
+      case 'locked': {
+        // diyalog/ara sahne: yerinde yürümesin. Senaryo Joseph'i yürütürken hızı her kare kendisi verir
+        // (director.walk / followUntilNear zamanlayıcıları bu güncellemeden önce çalışır).
+        const scripted = body.velocity.lengthSq() > 1;
         body.setVelocity(0, 0);
+        if (!scripted && (a.anim === 'walk' || a.anim === 'run')) a.play('idle');
         if (!this.w.cutscene && Input.consume('appraise')) this.w.appraiseNearest();
         break;
+      }
       case 'dead':
         body.setVelocity(0, 0);
         break;
       case 'free': {
         // eylemler
         if (Input.consume('dodge')) { this.tryDodge(); break; }
-        if (Input.consume('attack')) { this.startAttack(false); break; }
-        if (Input.consume('heavy')) { this.startAttack(true); break; }
+        if (Input.consume('attack')) { this.attackPressed(false); break; }
+        if (Input.consume('heavy')) { this.attackPressed(true); break; }
         for (let i = 1; i <= 4; i++) if (Input.consume(('skill' + i) as any)) this.w.useSkillSlot(i - 1);
         for (let i = 1; i <= 3; i++) if (Input.consume(('div' + i) as any)) this.w.useDivineSlot(i - 1);
         if (Input.consume('interact')) this.w.interact();
@@ -210,12 +451,28 @@ export class Player {
           }
         } else {
           body.setVelocity(0, 0);
-          a.play('idle');
+          // sırta koyma/çekme sırasında gövde spellcast karelerini oynatır (tickSheath)
+          if (!(this.sheath && this.posing)) a.play('idle');
         }
+        break;
+      }
+      case 'draw': {
+        // saldırı tuşuyla hızlı çekme: bitince saldırı hemen gelir (tickSheath → then)
+        body.setVelocity(body.velocity.x * 0.7, body.velocity.y * 0.7);
+        if (Input.consume('dodge')) {
+          this.setSheathed(false);
+          this.setState('free');
+          this.tryDodge();
+        } else if (!this.sheath) this.setState('free');
         break;
       }
       case 'attack':
       case 'heavy': {
+        if (this.plan) {
+          this.updateAttack(dt);
+          break;
+        }
+        // beceri saldırıları (zaman çizelgesiz): eski davranış
         body.setVelocity(body.velocity.x * 0.8, body.velocity.y * 0.8);
         const hitAt = this.attackDur * (this.state === 'heavy' ? 0.6 : 0.45);
         if (!this.attackHitDone && this.stateT >= hitAt) {
@@ -306,6 +563,28 @@ export class Player {
     this.w.fx.glow(this.actor.x, this.actor.y - 20, 0xffe9a0, 50);
   }
 
+  /** Saldırı tuşu: silah sırttaysa önce hızlıca çek, saldırı hemen arkasından. */
+  attackPressed(heavy: boolean) {
+    const sh = this.sheath;
+    if (sh?.kind === 'stow' && !sh.shown) {
+      // sırta koyarken: silah henüz elden çıkmadı, doğrudan saldır
+      this.setSheathed(false);
+    } else if (this.sheathed || sh) {
+      if (sh?.kind !== 'draw') this.beginSheath('draw', true);
+      else sh.dur = Math.min(sh.dur, Math.max(sh.t + 0.05, QUICK_DRAW_DUR));
+      if (this.sheath) {
+        this.sheath.then = () => {
+          if (this.state === 'draw') this.setState('free');
+          if (this.state === 'free') this.startAttack(heavy);
+        };
+        this.setState('draw');
+        this.sinceAttack = 0;
+        return;
+      }
+    }
+    this.startAttack(heavy);
+  }
+
   startAttack(heavy: boolean) {
     const p = G.p;
     if (heavy) {
@@ -316,6 +595,7 @@ export class Player {
       p.stamina -= 18;
       this.staminaDelay = 0.8;
     }
+    if (this.sheathed || this.sheath) this.setSheathed(false);
     const aim = this.w.aimAssist(this.weaponReach());
     this.attackDir.copy(aim);
     this.actor.face(dirFromVec(aim.x, aim.y, this.actor.dir));
@@ -323,12 +603,80 @@ export class Player {
     this.attackDur = (base / this.d.attackSpeed) * (heavy ? 1.7 : 1);
     this.attackHitDone = false;
     this.setState(heavy ? 'heavy' : 'attack');
-    const wt = this.d.weaponType;
-    const anim = wt === 'bow' ? 'shoot' : wt === 'spear' ? 'thrust' : 'slash';
-    const frames = anim === 'shoot' ? 13 : anim === 'thrust' ? 8 : 6;
-    const fps = anim === 'shoot' ? 24 : anim === 'thrust' ? 18 : 16;
-    this.actor.play(anim, { loop: false, restart: true, speed: frames / fps / this.attackDur });
-    Sound.sfx(heavy ? 'heavy' : 'swing', 0.7);
+    this.plan = attackPlan(this.d.weaponType, heavy);
+    this.swingStarted = false;
+    this.sinceAttack = 0;
+    this.actor.play(this.plan.anim, { loop: false, restart: true });
+    this.actor.setManualFrame(0);
+    if (this.plan.hold > 0 && this.plan.anim !== 'shoot') Sound.sfx('windup', 0.35);
+  }
+
+  /** Saldırı zaman çizelgesi: kareler, hazırlanma (kaçışla iptal), savuruş/atılma, darbe karesinde hasar. */
+  private updateAttack(_dt: number) {
+    const p = this.plan!;
+    const a = this.actor;
+    const body = a.body2;
+    const D = this.attackDur, t = this.stateT;
+    const heavy = this.state === 'heavy';
+    const fr = attackFrameAt(p, t, D);
+    a.setManualFrame(fr.frame);
+    const dir = this.attackDir;
+    if (fr.phase !== 'swing') {
+      // hazırlanma: silahı geriye çekerken hafifçe geri kayar; kaçış iptal eder
+      const wd = Math.max(0.05, windupEnd(p, D));
+      const back = fr.phase === 'hold' ? p.pullBack / wd : 0;
+      body.setVelocity(-dir.x * back, -dir.y * back);
+      if (fr.phase === 'hold' && Input.peek('dodge')) {
+        Input.consume('dodge');
+        this.plan = null;
+        this.setState('free');
+        a.play('idle');
+        this.tryDodge();
+      }
+      return;
+    }
+    if (!this.swingStarted) {
+      this.swingStarted = true;
+      if (p.anim !== 'shoot') Sound.sfx(heavy ? 'heavy' : 'swing', 0.7);
+      if (p.trail) {
+        const reach = this.weaponReach() * TILE;
+        const thrust = p.anim === 'thrust';
+        this.w.fx.swingTrail(a.x + dir.x * (thrust ? 10 : 2), a.y - 16 + dir.y * (thrust ? 10 : 2), dir.angle(), 0xffe2a0,
+          thrust ? reach * 0.85 : Math.max(26, reach * 0.9), thrust ? 0.35 : 2.6, thrust ? 110 : 150);
+      }
+    }
+    // öne adım / atılma: savuruşun başında hızlı, sonra azalır
+    const wEnd = windupEnd(p, D);
+    const k = Math.min(1, (t - wEnd) / Math.max(0.05, D - wEnd));
+    if (p.lunge > 0 && k < 0.6) {
+      const v = p.lunge * TILE * (1 - k / 0.6);
+      body.setVelocity(dir.x * v, dir.y * v);
+      if (heavy && Math.floor(t / 0.05) !== Math.floor((t - _dt) / 0.05)) this.w.fx.dust(a.x, a.y, 1);
+    } else body.setVelocity(body.velocity.x * 0.75, body.velocity.y * 0.75);
+    if (!this.attackHitDone && t >= impactTime(p, D)) {
+      this.attackHitDone = true;
+      this.w.playerStrike(heavy, dir);
+      if (p.release) {
+        Sound.sfx('bowstring', heavy ? 0.9 : 0.6);
+        this.w.fx.bowRelease(a.x + dir.x * 14, a.y - 24 + dir.y * 10, dir.angle(), heavy);
+      }
+    }
+    if (p.release && heavy && this.attackHitDone) {
+      // güçlü atışın geri tepmesi
+      const r = 70 * Math.max(0, 1 - (t - impactTime(p, D)) / 0.2);
+      body.setVelocity(-dir.x * r, -dir.y * r);
+    }
+    if (t >= D) {
+      this.plan = null;
+      this.setState('free');
+      a.play('idle');
+    } else if (t > D * 0.75 && Input.peek('dodge')) {
+      // geç iptal: kaçış ile
+      Input.consume('dodge');
+      this.plan = null;
+      this.setState('free');
+      this.tryDodge();
+    }
   }
 
   startShield(amount: number, dur: number) {

@@ -1,0 +1,44 @@
+[
+ {
+  "file": "weapon/blunt/club",
+  "notes": "",
+  "authors": [
+   "bluecarrot16"
+  ],
+  "licenses": [
+   "OGA-BY 3.0+",
+   "GPL 3.0",
+   "CC-BY 4.0"
+  ],
+  "urls": [
+   "https://opengameart.org/content/lpc-more-weapons"
+  ]
+ },
+ {
+  "file": "weapon/sword/arming",
+  "notes": "",
+  "authors": [
+   "ElizaWy; walk and down by JaidynReiman"
+  ],
+  "licenses": [
+   "OGA-BY 3.0"
+  ],
+  "urls": [
+   "https://github.com/ElizaWy/LPC/tree/main/Characters/Props/Sword%2001%20-%20Arming%20Sword",
+   "https://opengameart.org/content/expanded-universal-lpc-spritesheet-idle-run-jump-lpc-revised-combat-and-assets"
+  ]
+ },
+ {
+  "file": "weapon/sword/scimitar",
+  "notes": "",
+  "authors": [
+   "Pierre Vigier and DCSS artists (see https://github.com/crawl/tiles/blob/master/ARTISTS.md)"
+  ],
+  "licenses": [
+   "OGA-BY 3.0"
+  ],
+  "urls": [
+   "https://opengameart.org/content/lpc-dcss-swords"
+  ]
+ }
+]

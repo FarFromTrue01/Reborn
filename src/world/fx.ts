@@ -69,6 +69,46 @@ export class FX {
     this.scene.tweens.add({ targets: s, scale: 1.1 * scale, alpha: 0, duration: 180, ease: 'Quad.Out', onComplete: () => s.destroy() });
   }
 
+  /** Ağır vuruşun belirgin savurma izi: açıyı süpüren, kalınlaşıp sönen yay. */
+  swingTrail(x: number, y: number, angle: number, color = 0xffe2a0, r = 30, sweep = 2.4, dur = 150) {
+    const g = this.scene.add.graphics().setDepth(931000).setBlendMode(Phaser.BlendModes.ADD);
+    g.setPosition(x, y);
+    const st = { k: 0 };
+    const a0 = angle - sweep / 2;
+    const draw = () => {
+      g.clear();
+      const end = a0 + sweep * Math.min(1, st.k * 1.4);
+      const fade = Math.max(0, 1 - Math.max(0, st.k - 0.55) / 0.45);
+      for (let i = 0; i < 4; i++) {
+        g.lineStyle(7 - i * 1.6, color, (0.16 + i * 0.2) * fade);
+        g.beginPath();
+        g.arc(0, 0, r - i * 1.5, Math.max(a0, end - 1.6 + i * 0.25), end, false);
+        g.strokePath();
+      }
+    };
+    draw();
+    this.scene.tweens.add({ targets: st, k: 1, duration: dur * 2, onUpdate: draw, onComplete: () => g.destroy() });
+  }
+
+  /** Kısa metal parıltısı (silahı çekince). */
+  glint(x: number, y: number, color = 0xf4fbff) {
+    const s = this.scene.add.image(x, y, 'spark').setTint(color).setDepth(941000).setBlendMode(Phaser.BlendModes.ADD).setScale(0.2).setRotation(Math.PI / 4);
+    this.scene.tweens.add({ targets: s, scale: 1.3, angle: s.angle + 90, alpha: 0, duration: 260, ease: 'Quad.Out', onComplete: () => s.destroy() });
+    const h = this.scene.add.image(x, y, 'spark').setTint(color).setDepth(941000).setBlendMode(Phaser.BlendModes.ADD).setScale(0.15);
+    this.scene.tweens.add({ targets: h, scaleX: 1.8, scaleY: 0.25, alpha: 0, duration: 220, ease: 'Quad.Out', onComplete: () => h.destroy() });
+  }
+
+  /** Yay bırakınca: kirişin çekiş halkası ve oka doğru kısa çizgiler. */
+  bowRelease(x: number, y: number, angle: number, strong = false) {
+    this.ring(x, y, strong ? 0xffe9a0 : 0xe8f2ff, strong ? 26 : 16, strong ? 320 : 220);
+    const n = strong ? 5 : 3;
+    for (let i = 0; i < n; i++) {
+      const a = angle + (Math.random() - 0.5) * 0.5;
+      const p = this.scene.add.image(x, y, 'spark').setTint(0xfff6d8).setDepth(941000).setBlendMode(Phaser.BlendModes.ADD).setScale(0.9, 0.18).setRotation(a);
+      this.scene.tweens.add({ targets: p, x: x + Math.cos(a) * (strong ? 30 : 20), y: y + Math.sin(a) * (strong ? 30 : 20), alpha: 0, duration: 200, onComplete: () => p.destroy() });
+    }
+  }
+
   dust(x: number, y: number, n = 4, color = 0xd8c8a0) {
     for (let i = 0; i < n; i++) {
       const p = this.scene.add.image(x + (Math.random() - 0.5) * 10, y, 'soft').setTint(color).setAlpha(0.45).setScale(0.12 + Math.random() * 0.1).setDepth(y - 1);
@@ -98,6 +138,7 @@ export class FX {
   ghost(src: Phaser.GameObjects.Container, tint = 0x9fd6ff) {
     const layers = (src as any).layers as Phaser.GameObjects.Sprite[];
     for (const l of layers) {
+      if (!l.visible) continue;
       const g = this.scene.add.sprite(src.x, src.y, l.texture.key, l.frame.name).setOrigin(l.originX, l.originY).setTintFill(tint).setAlpha(0.45).setDepth(src.y - 1).setScale(src.scale);
       this.scene.tweens.add({ targets: g, alpha: 0, duration: 260, onComplete: () => g.destroy() });
     }

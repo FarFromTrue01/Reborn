@@ -25,6 +25,8 @@ export interface Settings {
   assistCombat: boolean;
   /** Geliştirici modu (C6): başlık ekranında sürüme 7 kez dokununca açılır. */
   devMode: boolean;
+  /** Silahı sırta koy (0.7.0): savaş dışında silah sırtta/belde; kapalıyken hep elde. */
+  sheathWeapon: boolean;
 }
 
 export const FPS_CAPS = [60, 120, 144, 0] as const;
@@ -40,7 +42,7 @@ export function fpsLoopConfig(cap: FpsCap, qa: boolean): { target: number; limit
 }
 
 const KEY = 'elonth.settings';
-export const SETTINGS_VERSION = 2;
+export const SETTINGS_VERSION = 3;
 
 export const MOVE_SPEED_MIN = 0.75;
 export const MOVE_SPEED_MAX = 2;
@@ -71,6 +73,7 @@ export function defaultSettings(touch = isTouchDevice()): Settings {
     moveSpeed: 1,
     assistCombat: true,
     devMode: false,
+    sheathWeapon: true,
   };
 }
 
@@ -81,6 +84,7 @@ export const DEFAULT_SETTINGS: Settings = defaultSettings(false);
  * Ayar değerlerini geçerli aralığa çeker ve eski sürümleri taşır.
  * - Bilinmeyen joystick değeri cihazın varsayılanına döner (dokunmatikte sabit).
  * - Sürüm 1 (0.2.0) ayarlarında oyuncu bilerek seçim yapmadıysa dokunmatik cihazda bir kez 'fixed' yapılır.
+ * - Sürüm 2 → 3 (0.7.0): `sheathWeapon` (Silahı sırta koy) açık olarak eklenir.
  */
 export function sanitizeSettings(s: Partial<Settings> & Record<string, any>, touch = isTouchDevice()): Settings {
   const def = defaultSettings(touch);
@@ -91,6 +95,8 @@ export function sanitizeSettings(s: Partial<Settings> & Record<string, any>, tou
     if (touch && !s.joyChosen) r.joystick = 'fixed';
     if (typeof s.assistCombat !== 'boolean') r.assistCombat = true;
   }
+  // Sürüm 3 (0.7.0): silahı sırta koyma ayarı eklendi, varsayılan açık
+  if (ver < 3 || typeof r.sheathWeapon !== 'boolean') r.sheathWeapon = true;
   if (typeof r.moveSpeed !== 'number' || !isFinite(r.moveSpeed)) r.moveSpeed = 1;
   r.moveSpeed = Math.min(MOVE_SPEED_MAX, Math.max(MOVE_SPEED_MIN, r.moveSpeed));
   if (!['low', 'medium', 'high'].includes(r.quality)) r.quality = 'high';

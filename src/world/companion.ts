@@ -79,6 +79,12 @@ export class Companion {
 
   swung = false;
 
+  /** Dünya duraklatılmışken: yürüme pozunda donmasın. */
+  holdStill() {
+    this.actor.body2?.setVelocity(0, 0);
+    if (this.actor.anim === 'walk' || this.actor.anim === 'run') this.actor.play('idle');
+  }
+
   setState(s: CState) {
     this.state = s;
     this.stateT = 0;

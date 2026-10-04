@@ -117,7 +117,7 @@ export class MinigameScene extends Phaser.Scene {
     if (serve) {
       this.info.setY(py + 64).setFontSize(15);
       const world = this.scene.get('World') as any;
-      const keys: string[] = world?.player?.actor?.layers?.map((l: Phaser.GameObjects.Sprite) => l.texture.key) ?? ['j_body', 'j_head'];
+      const keys: string[] = world?.player?.actor?.portraitKeys() ?? ['j_body', 'j_head'];
       this.serve = new ServeGame(this, px, py, pw, ph, this.serveDay, keys);
     } else this.buildStage();
     if (serve) {
@@ -162,7 +162,7 @@ export class MinigameScene extends Phaser.Scene {
   buildStage() {
     const W = Display.uiW, H = Display.uiH;
     const world = this.scene.get('World') as any;
-    const keys: string[] = world?.player?.actor?.layers?.map((l: Phaser.GameObjects.Sprite) => l.texture.key) ?? ['j_body', 'j_head'];
+    const keys: string[] = world?.player?.actor?.portraitKeys() ?? ['j_body', 'j_head'];
     this.joe = this.add.container(0, 0);
     this.joeLayers = keys.filter((k) => this.textures.exists(k)).map((k) => this.add.sprite(0, 0, k, 0).setOrigin(0.5, 61 / 64));
     this.joe.add(this.joeLayers);

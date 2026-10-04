@@ -761,13 +761,15 @@ export class UIScene extends Phaser.Scene {
     const len = Math.min(1, Math.hypot(dx, dy) / max);
     const dead = 0.12;
     if (len < dead) {
-      Input.moveX = 0;
-      Input.moveY = 0;
+      Input.touchX = 0;
+      Input.touchY = 0;
     } else {
       const k = (len - dead) / (1 - dead) / Math.max(0.001, Math.hypot(dx, dy));
-      Input.moveX = dx * k;
-      Input.moveY = dy * k;
+      Input.touchX = dx * k;
+      Input.touchY = dy * k;
     }
+    Input.moveX = Input.touchX;
+    Input.moveY = Input.touchY;
   }
 
   onUp(p: Phaser.Input.Pointer) {
@@ -780,6 +782,8 @@ export class UIScene extends Phaser.Scene {
       this.joy = null;
       Input.moveX = 0;
       Input.moveY = 0;
+      Input.touchX = 0;
+      Input.touchY = 0;
       Input.touchMove = false;
     }
   }
@@ -949,7 +953,7 @@ export class UIScene extends Phaser.Scene {
     if (kind === 'say' && speaker) {
       const npc = NPC_BY_ID[speaker];
       const pid = speaker === 'joseph' ? 'joseph' : npc?.portrait ?? speaker;
-      const layers = speaker === 'joseph' ? (this.world?.player?.actor.layers.map((l) => l.texture.key) ?? ['j_body', 'j_head']) : undefined;
+      const layers = speaker === 'joseph' ? (this.world?.player?.actor.portraitKeys() ?? ['j_body', 'j_head']) : undefined;
       const { key } = await ensurePortrait(this, pid, opts.expr ?? 'normal', layers);
       const ps = 140;
       const px = x + 18, py = y - 30;
@@ -1139,7 +1143,7 @@ export class UIScene extends Phaser.Scene {
     const shade = this.add.rectangle(0, 0, W, H, 0x000000, 0.35).setOrigin(0, 0).setInteractive();
     shade.on('pointerdown', () => this.closeAppraisal());
     root.add(shade);
-    const josephLayers = self ? this.world?.player?.actor.layers.map((l) => l.texture.key) : undefined;
+    const josephLayers = self ? this.world?.player?.actor.portraitKeys() : undefined;
     const panel = buildAppraisalPanel(this, c, npc, { self, mineRank: mine, dropMult: G.d.dropMult, josephLayers });
     const pw = (panel as any).panelW, ph = (panel as any).panelH;
     const sc = Math.min(1, (H - 30) / ph, (W - 30) / pw);

@@ -162,10 +162,14 @@ export function buildSettings(scene: Phaser.Scene, c: Phaser.GameObjects.Contain
   toggle(scene, list, bx0, y + 25, bw, 'Otomatik ilerleme', () => s.autoAdvance, (v) => (s.autoAdvance = v)).setName('set_auto');
   toggle(scene, list, bx1, y + 25, bw, 'Yardımlı savaş', () => s.assistCombat, (v) => (s.assistCombat = v)).setName('set_assist');
   y += BR;
+  toggle(scene, list, bx0, y + 25, bw, 'Silahı sırta koy', () => s.sheathWeapon, (v) => (s.sheathWeapon = v)).setName('set_sheath');
+  y += BR;
   if (!isTouchDevice()) {
     inner.add(txt(scene, 0, y, 'Yardımlı savaş: saldırınca menzildeki en yakın düşmana döner.', { size: 13, italic: true, color: COLORS.textDim, wrap: W }));
     y += 26;
   }
+  inner.add(txt(scene, 0, y, 'Silahı sırta koy: savaş dışında silah sırtta/belde durur, savaşta ya da ilk saldırıda çekilir.', { size: 13, italic: true, color: COLORS.textDim, wrap: W }));
+  y += 26;
 
   // ------------------------------------------------------------ Kontroller
   section('Kontroller', 'joystick');

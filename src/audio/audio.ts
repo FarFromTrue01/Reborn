@@ -189,6 +189,19 @@ class AudioEngine {
       case 'dodge':
         this.noise(t, 0.22, 0.2 * v, B, { type: 'bandpass', f: 600, f2: 200, q: 0.7 });
         break;
+      case 'draw':
+        // silahı çekme: kınından sıyrılan metal + kısa çınlama
+        this.noise(t, 0.16, 0.18 * v, B, { type: 'bandpass', f: 2600, f2: 5200, q: 2.5 });
+        this.osc('triangle', 2350, t + 0.1, 0.22, 0.05 * v, this.reverbSend, { glide: 0.02 });
+        break;
+      case 'sheathe':
+        this.noise(t, 0.2, 0.12 * v, B, { type: 'bandpass', f: 3000, f2: 1400, q: 2 });
+        this.noise(t + 0.18, 0.05, 0.12 * v, B, { type: 'lowpass', f: 900 });
+        break;
+      case 'bowstring':
+        this.osc('triangle', 180, t, 0.18, 0.22 * v, B, { glide: -0.35 });
+        this.noise(t, 0.08, 0.2 * v, B, { type: 'bandpass', f: 1200, q: 3 });
+        break;
       case 'perfect':
         this.osc('sine', 1046, t, 0.5, 0.2 * v, this.reverbSend);
         this.osc('sine', 1568, t + 0.04, 0.5, 0.15 * v, this.reverbSend);

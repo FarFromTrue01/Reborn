@@ -7,6 +7,9 @@ class InputState {
   moveY = 0;
   run = false;
   touchMove = false;
+  /** Joystick'in son konumu: etkileşim (diyalog, menü) bitince yürüme, parmak kaldırılmadan sürsün. */
+  touchX = 0;
+  touchY = 0;
   /** Fare ile hedef yönü (dünya koordinatı); null ise hareket yönü kullanılır. */
   aim: { x: number; y: number } | null = null;
   private pressed = new Set<Action>();

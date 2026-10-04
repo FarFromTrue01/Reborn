@@ -213,7 +213,7 @@ export class MenuScene extends Phaser.Scene {
 
   /** Joseph'in o anki görünümü (giysi katmanlarıyla). */
   josephSprite(parent: Phaser.GameObjects.Container, x: number, y: number, scale: number) {
-    const keys: string[] = this.world?.player?.actor?.layers?.map((l: Phaser.GameObjects.Sprite) => l.texture.key) ?? ['j_body', 'j_head'];
+    const keys: string[] = this.world?.player?.actor?.portraitKeys() ?? ['j_body', 'j_head'];
     const c = this.add.container(x, y);
     c.add(this.add.ellipse(0, 0, 40, 10, 0x000000, 0.35));
     for (const k of keys) if (this.textures.exists(k)) c.add(this.add.sprite(0, 0, k, 130).setOrigin(0.5, 61 / 64));

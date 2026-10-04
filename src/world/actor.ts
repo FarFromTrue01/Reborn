@@ -15,6 +15,24 @@ export interface MonsterSheetMeta {
 
 const LPC_COLS = 13;
 
+/** Katmanın rolü: gövde/giysi, elde taşınan silah, sırtta/belde taşınan silah. */
+export type LayerRole = 'base' | 'hand' | 'carry';
+
+/** Katman tanımı. `big`: LPC jeneratörünün büyük kare sayfası (128/192 px), merkezi 64 px karenin merkeziyle çakışır. */
+export interface LayerDef {
+  key: string;
+  role?: LayerRole;
+  big?: { size: number; anim: 'slash' | 'walk'; reverse?: boolean };
+}
+
+/** Silahın görünümü: elde, sırtta ya da (sırta koyma/çekme sırasında) hiçbiri. */
+export type WeaponMode = 'hand' | 'carry' | 'none';
+
+interface LayerInfo {
+  role: LayerRole;
+  big?: { size: number; anim: 'slash' | 'walk'; reverse?: boolean; cols: number };
+}
+
 export function dirFromVec(x: number, y: number, fallback: Dir = 'down'): Dir {
   if (Math.abs(x) < 0.001 && Math.abs(y) < 0.001) return fallback;
   if (Math.abs(x) > Math.abs(y)) return x < 0 ? 'left' : 'right';
@@ -27,7 +45,17 @@ export function dirVec(d: Dir): [number, number] {
 
 export class Actor extends Phaser.GameObjects.Container {
   kind: 'lpc' | 'monster';
+  /** Tüm çizim katmanları (z sırasıyla; büyük kareler dahil). */
   layers: Phaser.GameObjects.Sprite[] = [];
+  private info = new Map<Phaser.GameObjects.Sprite, LayerInfo>();
+  /** Silah katmanlarının görünümü (bkz. WeaponMode). */
+  weaponMode: WeaponMode = 'hand';
+  /** Elde yürüme karesi olmayan silahlar (yay, mızrak): yürürken/dururken taşıma katmanı görünür. */
+  walkCarried = false;
+  /** Slash gövde karelerini tersten oynat (LPC "slash_reverse": sopa yukarıdan aşağı iner). */
+  slashReverse = false;
+  /** Elle sürülen kare (saldırı zaman çizelgesi); null ise animasyon kendi ilerler. */
+  manualFrame: number | null = null;
   shadow: Phaser.GameObjects.Image;
   dir: Dir = 'down';
   anim: AnimName = 'idle';
@@ -63,10 +91,19 @@ export class Actor extends Phaser.GameObjects.Container {
     this.applyFrame();
   }
 
-  addLayer(key: string, index?: number) {
-    const sp = this.scene.add.sprite(0, 0, key, 0);
-    if (this.kind === 'lpc') sp.setOrigin(0.5, 61 / 64);
-    else sp.setOrigin(0.5, (this.mmeta!.frameH - 6) / this.mmeta!.frameH);
+  addLayer(key: string | LayerDef, index?: number) {
+    const def: LayerDef = typeof key === 'string' ? { key } : key;
+    const sp = this.scene.add.sprite(0, 0, def.key, 0);
+    if (def.big) {
+      const off = (def.big.size - 64) / 2;
+      sp.setOrigin(0.5, (61 + off) / def.big.size);
+      const cols = Math.max(1, Math.floor(sp.texture.getSourceImage().width / def.big.size));
+      this.info.set(sp, { role: def.role ?? 'hand', big: { ...def.big, cols } });
+    } else {
+      if (this.kind === 'lpc') sp.setOrigin(0.5, 61 / 64);
+      else sp.setOrigin(0.5, (this.mmeta!.frameH - 6) / this.mmeta!.frameH);
+      this.info.set(sp, { role: def.role ?? 'base' });
+    }
     if (index === undefined) {
       this.layers.push(sp);
       this.add(sp);
@@ -77,11 +114,24 @@ export class Actor extends Phaser.GameObjects.Container {
     return sp;
   }
 
-  setLayers(keys: string[]) {
+  setLayers(keys: (string | LayerDef)[]) {
     for (const l of this.layers) l.destroy();
     this.layers = [];
+    this.info.clear();
     for (const k of keys) this.addLayer(k);
     this.applyFrame();
+    this.snap();
+  }
+
+  /** Portre için 64 px katmanlar: gövde, giysi ve eldeki silah (sırttaki ve büyük kareler hariç). */
+  portraitKeys(): string[] {
+    return this.layers.filter((l) => { const i = this.info.get(l); return !i?.big && i?.role !== 'carry'; }).map((l) => l.texture.key);
+  }
+
+  /** Taşıma katmanları var mı (sırta koyma desteklenir mi)? */
+  hasCarry(): boolean {
+    for (const i of this.info.values()) if (i.role === 'carry') return true;
+    return false;
   }
 
   play(a: AnimName, opts: { loop?: boolean; speed?: number; onDone?: () => void; hold?: boolean; restart?: boolean } = {}) {
@@ -95,7 +145,22 @@ export class Actor extends Phaser.GameObjects.Container {
     this.animSpeed = opts.speed ?? 1;
     this.animDone = opts.onDone ?? null;
     this.animHold = opts.hold ?? false;
+    this.manualFrame = null;
+    this.frameCol = 0;
     this.applyFrame();
+  }
+
+  /** Kareyi elle ayarla (saldırı zaman çizelgesi). */
+  setManualFrame(f: number) {
+    if (this.manualFrame === f) return;
+    this.manualFrame = f;
+    this.frameCol = f;
+    this.applyFrame();
+  }
+
+  /** Mevcut animasyonun kare sayısı. */
+  animFrames(): number {
+    return this.animDef().frames;
   }
 
   /** Animasyon tanımı: satır, kare sayısı, fps, ilk kare. */
@@ -133,6 +198,7 @@ export class Actor extends Phaser.GameObjects.Container {
       this.frozenT -= dt;
       return;
     }
+    if (this.manualFrame !== null) return;
     const d = this.animDef();
     this.animT += dt * this.animSpeed;
     let f = Math.floor(this.animT * d.fps);
@@ -161,11 +227,38 @@ export class Actor extends Phaser.GameObjects.Container {
 
   applyFrame() {
     const d = this.animDef();
-    const col = d.start + Math.min(this.frameCol, d.frames - 1);
+    const f = Math.min(this.frameCol, d.frames - 1);
+    const isSlash = this.anim === 'slash' || this.anim === 'attack';
+    const col = d.start + (isSlash && this.slashReverse ? d.frames - 1 - f : f);
     if (this.kind === 'lpc') {
       const row = d.row + (d.perDir ? DIR_INDEX[this.dir] : 0);
       const idx = row * LPC_COLS + col;
-      for (const l of this.layers) l.setFrame(idx);
+      const walkish = this.anim === 'idle' || this.anim === 'walk' || this.anim === 'run';
+      // elde yürüme karesi olmayan silah: yürürken/dururken sırttaki görünüm
+      const handHere = this.weaponMode === 'hand' && !(this.walkCarried && walkish);
+      const carryHere = this.weaponMode === 'carry' || (this.weaponMode === 'hand' && this.walkCarried && walkish);
+      for (const l of this.layers) {
+        const info = this.info.get(l);
+        if (!info || info.role === 'base') {
+          l.setFrame(idx);
+          continue;
+        }
+        if (info.role === 'carry') {
+          l.setVisible(carryHere);
+          if (carryHere) l.setFrame(idx);
+          continue;
+        }
+        if (!info.big) {
+          l.setVisible(handHere);
+          if (handHere) l.setFrame(idx);
+          continue;
+        }
+        // büyük kare: yalnızca kendi animasyonunda görünür; gövdenin i. karesiyle silahın i. karesi aynı anda
+        const b = info.big;
+        const on = handHere && (b.anim === 'slash' ? isSlash : walkish);
+        l.setVisible(on);
+        if (on) l.setFrame(DIR_INDEX[this.dir] * b.cols + Math.min(b.cols - 1, b.anim === 'slash' ? f : col));
+      }
     } else {
       const m = this.mmeta!;
       const row = d.row + (d.perDir ? DIR_INDEX[this.dir] : 0);

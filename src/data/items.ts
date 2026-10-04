@@ -9,17 +9,17 @@ const list: ItemDef[] = [
   // ------------------------------------------------------------------ Silahlar
   {
     id: 'rusty_shortsword', name: 'Paslı Kısa Kılıç', kind: 'weapon', slot: 'weapon', rank: 'G',
-    saygınlık: 1, price: 150, dmg: [2, 4], weaponType: 'sword', icon: 'sword_rusty', visual: 'w_dagger',
+    saygınlık: 1, price: 150, dmg: [2, 4], weaponType: 'sword', icon: 'sword_rusty', visual: 'w_arming_rusty',
     desc: 'Kenarları körelmiş, pası kazınmamış bir kısa kılıç. Hiç yoktan iyidir.',
   },
   {
     id: 'cracked_stick', name: 'Çatlak Sopa', kind: 'weapon', slot: 'weapon', rank: 'G',
-    saygınlık: -2, price: 5, sell: 0, dmg: [2, 2], weaponType: 'club', icon: 'club', visual: 'w_club',
+    saygınlık: -2, price: 5, sell: 0, dmg: [2, 2], weaponType: 'club', icon: 'club', visual: 'w_stick_cracked',
     desc: 'İçini kurt yemiş, boydan boya çatlak bir sopa. Bertram verdi: "Kılıç alacak paran olunca kılıç taşırsın."',
   },
   {
     id: 'wooden_club', name: 'Budaklı Sopa', kind: 'weapon', slot: 'weapon', rank: 'G',
-    saygınlık: 0, price: 55, dmg: [2, 4], weaponType: 'club', icon: 'club', visual: 'w_club',
+    saygınlık: 0, price: 55, dmg: [2, 4], weaponType: 'club', icon: 'club', visual: 'w_stick',
     desc: 'Meşe dalından yontulmuş sopa. Ucuz ama sağlam.',
   },
   {
@@ -34,7 +34,7 @@ const list: ItemDef[] = [
   },
   {
     id: 'iron_shortsword', name: 'Demir Kısa Kılıç', kind: 'weapon', slot: 'weapon', rank: 'F',
-    saygınlık: 3, price: 550, dmg: [4, 10], weaponType: 'sword', icon: 'sword_iron', visual: 'w_dagger',
+    saygınlık: 3, price: 550, dmg: [4, 10], weaponType: 'sword', icon: 'sword_iron', visual: 'w_arming_steel',
     desc: 'Brindlewood demircisinin elinden çıkmış dengeli bir kılıç.',
   },
   {
@@ -49,7 +49,7 @@ const list: ItemDef[] = [
   },
   {
     id: 'goblin_cleaver', name: 'Goblin Satırı', kind: 'weapon', slot: 'weapon', rank: 'F',
-    saygınlık: -1, price: 450, sell: 63, dmg: [4, 10], weaponType: 'sword', stats: { STR: 1 }, icon: 'cleaver', visual: 'w_dagger',
+    saygınlık: -1, price: 450, sell: 63, dmg: [4, 10], weaponType: 'sword', stats: { STR: 1 }, icon: 'cleaver', visual: 'w_cleaver',
     special: 'Kaba ama ağır.',
     desc: 'Bir goblinin sırtında taşıdığı çentikli satır. Kimden çaldığı belli değil.',
   },
