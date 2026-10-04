@@ -13,6 +13,7 @@ import { COMPANIONS, type CompanionDef } from '../data/companions';
 import { NPC_BY_ID, type NpcDef } from '../data/npcs';
 import { findPath, nearestFree, pathBudget } from './path';
 import { BASE_SPEED } from './player';
+import { followStep } from './follow';
 import type { WorldScene } from '../scenes/WorldScene';
 import type { Enemy } from './enemy';
 
@@ -48,6 +49,10 @@ export class Companion {
   saidNoExp = false;
   /** E3: Joseph'in sırtında taşınıyor. */
   carried = false;
+  /** Takip (0.6.0): histerezisli yürü/dur durumu, yumuşatılmış hız (px/sn) ve histerezisli koşu animasyonu. */
+  following = false;
+  curSpeed = 0;
+  runAnim = false;
 
   constructor(public w: WorldScene, id: string, x: number, y: number, hp?: number) {
     this.id = id;
@@ -276,9 +281,13 @@ export class Companion {
         }
         const fp = this.followPoint();
         const df = Math.hypot(fp.x - this.x, fp.y - this.y) / TILE;
-        if (df > 0.7 && distP > 1.2) {
-          const run = df > 3.5 || w.player.running;
-          this.moveToward(fp.x, fp.y, walk * (run ? 1.65 : 1.05) * (df > 6 ? 1.15 : 1), run);
+        const pv = pa.body2 ? Math.hypot(pa.body2.velocity.x, pa.body2.velocity.y) : 0;
+        const step = followStep({ following: this.following, speed: this.curSpeed, run: this.runAnim }, df, distP, pv, walk, dt);
+        this.following = step.following;
+        this.curSpeed = step.speed;
+        this.runAnim = step.run;
+        if (step.speed > 0 && (step.following || df > 0.3)) {
+          this.moveToward(fp.x, fp.y, step.speed, step.run);
           // ilerleme yoksa ışınlan (kapı önü, dar geçit)
           this.progressT += dt;
           if (this.progressT > 1.5) {
@@ -288,7 +297,7 @@ export class Companion {
             this.lastPos = { x: this.x, y: this.y };
           }
         } else {
-          this.stop();
+          if (b.velocity.x !== 0 || b.velocity.y !== 0 || a.anim !== 'idle') this.stop();
           this.path = [];
           this.progressT = 0;
           a.face(dirFromVec(pa.x - this.x, pa.y - this.y, a.dir));

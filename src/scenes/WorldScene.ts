@@ -45,6 +45,7 @@ import { whenLabel } from '../core/time';
 import { absMinute } from '../core/sleep';
 import { activeQuests, currentObjective, type QuestTarget } from '../core/quests';
 import { MONSTERS } from '../data/monsters';
+import { SeatBook, SEAT_RE } from '../world/seats';
 
 /** Kapı adları (bekleme metinleri: "Lonca 05:00'te açılır"). */
 const DOOR_NAMES: Record<string, string> = {
@@ -109,6 +110,8 @@ export class WorldScene extends Phaser.Scene {
   npcs: Npc[] = [];
   /** Karede en fazla bir NPC yol araması (A*). */
   pathQueue = new PathQueue();
+  /** Handaki oturma yerleri rezervasyonu (0.6.0; oturma noktası olan iç mekânlarda). */
+  seatBook: SeatBook | null = null;
   /** Program gereği bu haritaya gelen NPC'ler: kapıdan teker teker, 0,3–1 sn arayla (karede en fazla bir). */
   npcArrivals = new ArrivalQueue<NpcDef>(0.3, 1);
   fx!: FX;
@@ -190,6 +193,7 @@ export class WorldScene extends Phaser.Scene {
     this.npcs = [];
     this.pathQueue = new PathQueue();
     this.npcArrivals = new ArrivalQueue<NpcDef>(0.3, 1);
+    this.seatBook = null;
     this.cutscene = false;
     this.paused = false;
     this.frozen = false;
@@ -388,6 +392,7 @@ export class WorldScene extends Phaser.Scene {
     this.r = renderMap(this, m, this.cache.json.get('terrainMeta'), this.cache.json.get('buildingsMeta'));
     this.physics.world.setBounds(0, 0, m.w * TILE, m.h * TILE);
     this.propCol = new PropCollision(m.colliders, m.w);
+    this.seatBook = this.makeSeatBook(m);
     // oyuncu
     if (!tx && !ty && m.points.wake) {
       tx = m.points.wake.x;
@@ -1030,6 +1035,7 @@ export class WorldScene extends Phaser.Scene {
       else if (Array.isArray(e.at)) t = e.at;
       else if (this.mapData.points[e.at]) t = [this.mapData.points[e.at].x, this.mapData.points[e.at].y];
       if (!t) continue;
+      if (this.seatBook) t = this.seatBook.claim(def.id, t);
       this.addNpc(def, t[0], t[1], !!forced);
     }
   }
@@ -1220,12 +1226,27 @@ export class WorldScene extends Phaser.Scene {
       const a = this.arrivalTarget(def);
       if (a) {
         const n = this.addNpc(def, a.start.x, a.start.y);
-        n.homeTile = a.at;
-        n.walkTo(a.at[0], a.at[1]);
+        // oturma yeri o anda ayrılır: dolu ise başka bir boş yer ya da ayakta bekleme yeri
+        const at = this.seatBook ? this.seatBook.claim(def.id, a.at) : a.at;
+        n.homeTile = at;
+        n.walkTo(at[0], at[1]);
       }
     }
     // karede en fazla bir yol araması
     this.pathQueue.tick(1);
+  }
+
+  /** Oturma noktası olan iç mekân (han) için rezervasyon defteri; yoksa null. */
+  makeSeatBook(m: MapData): SeatBook | null {
+    if (!m.indoor) return null;
+    const seats = Object.entries(m.points).filter(([k]) => SEAT_RE.test(k)).map(([name, p]) => ({ name, x: p.x, y: p.y }));
+    if (seats.length < 3) return null;
+    const skip = new Set(['exit', 'entrance', 'bar_front', 'bertram', 'stage', 'counter_front'].map((k) => m.points[k]).filter(Boolean).map((p) => `${p.x},${p.y}`));
+    const kitchenX = m.points.kitchen ? 14 : m.w; // handa mutfak bölmesinin (x=14) sağı müşteriye kapalı
+    const floor: [number, number][] = [];
+    for (let y = 3; y < m.h - 2; y++)
+      for (let x = 1; x < Math.min(m.w - 1, kitchenX); x++) if (!m.solid[y * m.w + x] && !skip.has(`${x},${y}`)) floor.push([x, y]);
+    return new SeatBook(seats, floor, 1.5);
   }
 
   homeBuildingOf(def: NpcDef) {

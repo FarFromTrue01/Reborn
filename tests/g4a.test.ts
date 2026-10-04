@@ -300,3 +300,103 @@ describe('Şifalı ot: toplama noktası ↔ görsel bire bir (4)', () => {
     expect(inside.length).toBeGreaterThan(need);
   });
 });
+
+// ---------------------------------------------------------------------------------------------- yoldaş takibi (12)
+import { followStep, FOLLOW_STOP, FOLLOW_GO, type FollowState } from '../src/world/follow';
+
+describe('Yoldaş takibi: hız eşleştirme ve histerezis (12)', () => {
+  const walk = 166;
+  /** Basit benzetim: oyuncu sabit hızla yürür, yoldaş takip noktasına doğru (bir boyutta). */
+  function sim(playerSpeed: number, secs: number) {
+    let s: FollowState = { following: false, speed: 0, run: false };
+    let px = 3 * 32, cx = 0;
+    const dt = 1 / 60;
+    let toggles = 0, runToggles = 0, prevMoving = false, prevRun = false;
+    const gaps: number[] = [];
+    for (let t = 0; t < secs; t += dt) {
+      px += playerSpeed * dt;
+      const fp = px - 1.4 * 32;
+      const df = Math.abs(fp - cx) / 32;
+      s = followStep(s, df, Math.abs(px - cx) / 32, playerSpeed, walk, dt);
+      cx += Math.sign(fp - cx) * s.speed * dt;
+      const moving = s.speed > 0;
+      if (t > 2) {
+        if (moving !== prevMoving) toggles++;
+        if (s.run !== prevRun) runToggles++;
+        gaps.push(df);
+      }
+      prevMoving = moving;
+      prevRun = s.run;
+    }
+    return { toggles, runToggles, maxGap: Math.max(...gaps) };
+  }
+  it('Yürüyen oyuncunun arkasında koş–dur–koş yok: hareket ve koşu durumu sabit kalır', () => {
+    const r = sim(walk, 12);
+    expect(r.toggles).toBe(0);
+    expect(r.runToggles).toBe(0);
+    expect(r.maxGap).toBeLessThan(FOLLOW_GO + 0.6);
+  });
+  it('Koşan oyuncuya da yetişir (geride kopmaz)', () => {
+    const r = sim(walk * 1.65, 12);
+    expect(r.toggles).toBe(0);
+    expect(r.maxGap).toBeLessThan(4);
+  });
+  it('Eşikler farklı (titreşmez) ve durunca yumuşakça yavaşlar', () => {
+    expect(FOLLOW_GO).toBeGreaterThan(FOLLOW_STOP);
+    let s: FollowState = { following: true, speed: walk, run: false };
+    s = followStep(s, 0.5, 1.5, 0, walk, 1 / 60);
+    expect(s.following).toBe(false);
+    expect(s.speed).toBeGreaterThan(0);
+    expect(s.speed).toBeLessThan(walk);
+    // eşik arasında (0,8–1,6) durmuşken yürümeye başlamaz
+    const idle = followStep({ following: false, speed: 0, run: false }, 1.2, 2, walk, walk, 1 / 60);
+    expect(idle.following).toBe(false);
+  });
+});
+
+// ---------------------------------------------------------------------------------------------- han oturma yerleri (11)
+import { SeatBook, SEAT_RE } from '../src/world/seats';
+import { NPCS } from '../src/data/npcs';
+
+describe('Handa oturma yerleri rezervasyonlu (11)', () => {
+  const inn = maps.interiors.inn;
+  const seats = Object.entries(inn.points).filter(([k]) => SEAT_RE.test(k)).map(([name, p]) => ({ name, x: p.x, y: p.y }));
+  const floor: [number, number][] = [];
+  for (let y = 3; y < inn.h - 2; y++) for (let x = 1; x < 14; x++) if (!inn.solid[y * inn.w + x]) floor.push([x, y]);
+  it('Akşam kalabalığı (18–21): kimse aynı karede değil, ayaktakiler birbirine 1,5 karodan yakın değil', () => {
+    for (const hour of [18, 19, 20, 21]) for (let day = 1; day <= 7; day++) {
+      const book = new SeatBook(seats, floor, 1.5);
+      const got: Record<string, [number, number]> = {};
+      for (const n of NPCS) {
+        const e = scheduleAt(n, hour, day);
+        if (e.map !== 'inn') continue;
+        const want = Array.isArray(e.at) ? e.at : [inn.points[e.at].x, inn.points[e.at].y] as [number, number];
+        got[n.id] = book.claim(n.id, want);
+      }
+      const ids = Object.keys(got);
+      expect(ids.length).toBeGreaterThan(5);
+      const keys = ids.map((id) => got[id].join(','));
+      expect(new Set(keys).size, `gün ${day} saat ${hour}`).toBe(keys.length);
+      const seatTiles = new Set(seats.map((s) => `${s.x},${s.y}`));
+      for (const a of ids) {
+        if (seatTiles.has(got[a].join(','))) continue;
+        for (const b of ids) if (a !== b) expect(Math.hypot(got[a][0] - got[b][0], got[a][1] - got[b][1]), `${a}–${b}`).toBeGreaterThanOrEqual(1.5);
+      }
+    }
+  });
+  it('Dolu koltuk: aynı türden boş yere; o da yoksa ayakta; bırakılınca boşalır', () => {
+    const book = new SeatBook(seats, floor, 1.5);
+    const sm1 = inn.points.seat_m1;
+    expect(book.claim('a', [sm1.x, sm1.y])).toEqual([sm1.x, sm1.y]);
+    const b = book.claim('b', [sm1.x, sm1.y]);
+    expect(b).not.toEqual([sm1.x, sm1.y]);
+    expect(seats.find((s) => s.x === b[0] && s.y === b[1])?.name.startsWith('seat_')).toBe(true);
+    book.release('a');
+    expect(book.ownerOf('seat_m1')).toBeNull();
+    // Vera'nın masası başkasına verilmez
+    const tv = inn.points.table_vera;
+    book.claim('vera', [tv.x, tv.y]);
+    const other = book.claim('x', [tv.x, tv.y]);
+    expect(other).not.toEqual([tv.x, tv.y]);
+  });
+});

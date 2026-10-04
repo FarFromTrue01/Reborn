@@ -144,6 +144,7 @@ export class Npc {
 
   destroy() {
     this.gone = true;
+    this.w.seatBook?.release(this.def.id);
     this.marker?.destroy();
     this.w.pathQueue?.cancel(this);
     this.actor.destroy();
@@ -356,12 +357,15 @@ export class Npc {
   onEntry(e: ScheduleEntry) {
     const mapId = this.w.mapData.id;
     if (e.map === mapId) {
-      const t = this.resolveAt(e.at);
+      let t = this.resolveAt(e.at);
+      // handa oturma yeri rezervasyonlu (0.6.0): dolu ise başka boş yer ya da ayakta bekleme yeri
+      if (t && this.w.seatBook) t = this.w.seatBook.claim(this.def.id, t);
       if (t) {
         this.homeTile = t;
         this.walkTo(t[0], t[1]);
       }
     } else {
+      this.w.seatBook?.release(this.def.id);
       // Başka bir yere gidiyor: bu haritadan ayrıl (kapıya/çıkışa yürü, sonra kaybol)
       let door: { x: number; y: number } | null = null;
       if (mapId === 'world') {
