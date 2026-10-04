@@ -1,9 +1,18 @@
 // Grup 2 (0.4.0) elle test: yumruk/sopa ile fare, tavşan kovalama, saldırı iptali ve kilitleme, koşu döngüsü.
 // Çalıştır: npm run build && npx vite preview --port 4173 & ; node tools/qa/shot.mjs g2
+import { helpers } from './helpers.mjs';
 export default async ({ page, wait, shot, evalG }) => {
+  const h = helpers(page, wait, evalG);
+  // Açık diyalog/teklif varsa kapat (teleportla arkadan yaklaşmak gizli keşif teklifini tetikleyebilir); durumu yaz.
+  const settle = async (label) => {
+    const before = await h.S();
+    if (before.cut || before.dlg || before.choice || before.busy) await h.run([1], 120);
+    const s = await h.S();
+    log('[durum]', label, 'cutscene:', before.cut, '→', s.cut, 'diyalog:', before.dlg, 'meşgul:', before.busy);
+  };
   const W = () => 'window.__game.scene.getScene("World")';
   const log = (...a) => console.log(...a);
-  await evalG(() => { window.__G.newGame(); window.__G.setFlag('woke'); window.__game.scene.getScene('Title').scene.start('World', { map: 'world', x: 34, y: 64, facing: 'right' }); });
+  await evalG(() => { window.__G.newGame(); window.__G.setFlag('woke'); for (const k of ['stealth','evasion','athletics','archery','first_aid','iron_body','sword_mastery','spear_mastery','gathering']) window.__G.state.flags['declined_' + k] = true; window.__game.scene.getScene('Title').scene.start('World', { map: 'world', x: 34, y: 64, facing: 'right' }); });
   await wait(3500);
   log('HUD', await evalG(() => window.__game.scene.getScene('UI').hudTexts.hp.text));
 
@@ -37,6 +46,7 @@ export default async ({ page, wait, shot, evalG }) => {
   await shot('g2_01_fist_rat');
   await fightRat('YUMRUK fare 2');
 
+  await settle('sopa');
   // ---------------------------------------------------------------- 2) Bertram'ın sopası
   await evalG(() => {
     const R = window.__G;
@@ -52,6 +62,7 @@ export default async ({ page, wait, shot, evalG }) => {
   await fightRat('SOPA fare 2');
   await shot('g2_02_stick_rat');
 
+  await settle('tavşan');
   // ---------------------------------------------------------------- 3) tavşan kovalama
   const rab = await evalG(() => {
     const w = window.__game.scene.getScene('World');
@@ -59,6 +70,7 @@ export default async ({ page, wait, shot, evalG }) => {
     return true;
   });
   await wait(2500);
+  await settle('tavşan haritası');
   const rabInfo = await evalG(() => {
     const w = window.__game.scene.getScene('World');
     let e = w.enemies.find((e) => e.alive && e.def.id === 'rabbit');
@@ -107,9 +119,11 @@ export default async ({ page, wait, shot, evalG }) => {
   }
   log('TAVŞAN sakinleşti (~sn):', calm, 'davranış:', await evalG(() => window.__qaRab.behavior));
 
+  await settle('iptal');
   // ---------------------------------------------------------------- 4) saldırı iptali ve kilitleme
   await evalG(() => { const w = window.__game.scene.getScene('World'); w.loadMap('world', 36, 18, 'down'); });
   await wait(2500);
+  await settle('goblin haritası');
   await evalG(() => {
     const w = window.__game.scene.getScene('World');
     for (const e of w.enemies) if (e.def.id !== 'goblin') e.setState('dead');
@@ -165,6 +179,7 @@ export default async ({ page, wait, shot, evalG }) => {
   }
   log('BOSS: normal vuruş sonrası durum', bossNormal, '· ağır vuruş sonrası', bossHeavy, '· boss durumu', await evalG(() => window.__qaBoss.state));
 
+  await settle('koşu');
   // ---------------------------------------------------------------- 5) koşu döngüsü (joystick sonda)
   await evalG(() => { const w = window.__game.scene.getScene('World'); window.__qaBoss.setState('dead'); w.loadMap('world', 100, 60, 'right'); });
   await wait(2500);
