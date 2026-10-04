@@ -4,6 +4,8 @@ import { CURRENT_SAVE_VERSION, newGameState, OLD_WORLD_W, OLD_WORLD_H, V2_WORLD_
 import { newGuildState } from './guild';
 import { newQuestLog, type QuestLog } from './quests';
 import { questDef } from '../data/quests';
+import { STAT_POINTS_PER_LEVEL } from './formulas';
+import { normalizeWallet, emptyWallet } from './money';
 
 /** 0.3.0'daki dünya boyutu (worldgen.ts WORLD_W/H ile aynı olmalı; testle doğrulanır). */
 export const NEW_WORLD_W = 169;
@@ -79,6 +81,8 @@ const MIGRATIONS: ((d: any) => any)[] = [
   // v3 → v4 (0.3.0): köy küçüldü (sis: yalnızca orman korunur, köy konumları meydana taşınır),
   // Bertram'ın işi 3 güne indi, görev sistemi, lonca puanı, giriş kartları, uyku saati, yoldaşlar.
   (d) => migrateV3toV4(d),
+  // v4 → v5 (0.4.0): level başına 6 stat puanı, normalize cüzdan.
+  (d) => migrateV4toV5(d),
 ];
 
 /** 0.2.0 kaydını 0.3.0'a taşır (testli: tests/save.test.ts). */
@@ -122,6 +126,19 @@ export function migrateV3toV4(d: any): any {
     delete f.ending_shown;
   }
   d.saveVersion = 4;
+  return d;
+}
+
+/**
+ * v4 → v5 (0.4.0, denge): level başına stat puanı 4 → 6. Önceki levellerin farkı dağıtılmamış puan olarak verilir;
+ * cüzdan normalize edilir (100 bronz → 1 gümüş …).
+ */
+export function migrateV4toV5(d: any): any {
+  if (d.player) {
+    d.player.unspent = (d.player.unspent ?? 0) + (STAT_POINTS_PER_LEVEL - 4) * (d.player.level ?? 0);
+    if (d.player.wallet) d.player.wallet = normalizeWallet({ ...emptyWallet(), ...d.player.wallet });
+  }
+  d.saveVersion = 5;
   return d;
 }
 

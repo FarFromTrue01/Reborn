@@ -1,5 +1,5 @@
 import { zeroStats, addStats } from './formulas';
-import { MONSTERS, type MonsterDef } from '../data/monsters';
+import { MONSTERS, monsterRank, type MonsterDef } from '../data/monsters';
 import type { CreatureData } from './types';
 import { derive } from './creature';
 
@@ -31,7 +31,7 @@ export function createMonster(id: string, rand: () => number = Math.random, forc
     sp: 0,
     hp: 1,
     mp: 0,
-    skills: [{ id: 'appraisal', rank: d.appraisal, exp: 0 }],
+    skills: [{ id: 'appraisal', rank: monsterRank(d), exp: 0 }],
     traits: [],
     titles: d.title ? [d.title] : [],
     equipment: {},
@@ -59,6 +59,20 @@ export function monsterExp(d: MonsterDef, level: number, rand: () => number = Ma
 export interface DropResult {
   items: { id: string; qty: number; special?: boolean }[];
   money: number;
+}
+
+export interface DropLine {
+  id: string;
+  /** LUK çarpanı uygulanmış düşme şansı (0..1). */
+  chance: number;
+  special: boolean;
+}
+
+/** Appraisal için drop tablosu: rollDrops ile aynı oranlar (LUK dahil, en fazla %100). */
+export function dropTable(d: MonsterDef, dropMult: number): DropLine[] {
+  const out: DropLine[] = d.drops.map((dr) => ({ id: dr.id, chance: Math.min(1, dr.chance * dropMult), special: false }));
+  out.push({ id: d.special.id, chance: Math.min(1, d.special.chance * dropMult), special: true });
+  return out;
 }
 
 export function rollDrops(d: MonsterDef, dropMult: number, rand: () => number = Math.random): DropResult {

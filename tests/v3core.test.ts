@@ -297,7 +297,7 @@ describe('Kayıt göçü v3 (0.2.0) → v4 (0.3.0)', () => {
     s.pos = { map: 'world', x: 172, y: 74, facing: 'down' };
     return Object.assign(s, extra);
   };
-  it('Sürüm 4', () => expect(CURRENT_SAVE_VERSION).toBe(4));
+  it('Sürüm 5', () => expect(CURRENT_SAVE_VERSION).toBe(5));
   it('Bertram\'ın işinin ortasında: 3/4 vardiya → 2/3 (son vardiyada ödeme alır), görev aktif', () => {
     const d = migrate(v3({ woke: true, inn_met: true, bertram_deal: true }, 3), 3);
     expect(d.counters.workDays).toBe(2);
@@ -340,10 +340,10 @@ describe('Kayıt göçü v3 (0.2.0) → v4 (0.3.0)', () => {
     const st = new MemoryStorage();
     const s = newGameState();
     writeSave(st, 'auto', s);
-    expect(readSave(st, 'auto')!.saveVersion).toBe(4);
+    expect(readSave(st, 'auto')!.saveVersion).toBe(5);
     st.setItem('elonth.save.manual1', JSON.stringify({ v: 1, savedAt: 1, summary: 'x', data: { ...v3({ woke: true }), saveVersion: 1 } }));
     const r = readSave(st, 'manual1')!;
-    expect(r.saveVersion).toBe(4);
+    expect(r.saveVersion).toBe(5);
     expect(r.guild).toBeTruthy();
     expect(r.quests.tracked).toBe('m_inn');
   });
@@ -366,5 +366,24 @@ describe('B2: ayarlar', () => {
     const s = sanitizeSettings({}, true);
     expect(s.assistCombat).toBe(true);
     expect(s.devMode).toBe(false);
+  });
+});
+
+describe('Kayıt göçü v4 (0.3.x) → v5 (0.4.0)', () => {
+  it('Level başına stat puanı farkı (6−4) verilir, cüzdan normalize', () => {
+    const s: any = newGameState();
+    s.saveVersion = 4;
+    s.player.level = 3;
+    s.player.unspent = 1;
+    s.player.wallet = { bronze: 250, silver: 1, platinum: 0, gold: 0, diamond: 0 };
+    const m = migrate(s, 4);
+    expect(m.saveVersion).toBe(5);
+    expect(m.player.unspent).toBe(1 + 2 * 3);
+    expect(m.player.wallet).toEqual({ bronze: 50, silver: 3, platinum: 0, gold: 0, diamond: 0 });
+  });
+  it('Level 0 kaydı değişmez', () => {
+    const s: any = newGameState();
+    s.saveVersion = 4;
+    expect(migrate(s, 4).player.unspent).toBe(0);
   });
 });

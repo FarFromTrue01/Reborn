@@ -6,6 +6,8 @@ import Phaser from 'phaser';
 import { Actor, dirFromVec } from './actor';
 import { TILE } from './types';
 import { derive, type Derived } from '../core/creature';
+import { applyDamage } from '../core/formulas';
+import { fmtHp } from '../ui/format';
 import type { CreatureData } from '../core/types';
 import { COMPANIONS, type CompanionDef } from '../data/companions';
 import { NPC_BY_ID, type NpcDef } from '../data/npcs';
@@ -171,7 +173,7 @@ export class Companion {
     let best: Enemy | null = null;
     let bd = Infinity;
     for (const e of this.w.enemies) {
-      if (!e.alive || (!e.aware && !e.damageBy.joseph) || e.def.behavior === 'flee') continue;
+      if (!e.alive || (!e.aware && !e.damageBy.joseph) || e.behavior === 'flee') continue;
       const dp = Math.hypot(e.x - pa.x, e.y - pa.y) / TILE;
       if (dp > 11) continue;
       const dm = Math.hypot(e.x - this.x, e.y - this.y) / TILE;
@@ -401,11 +403,11 @@ export class Companion {
   /** Düşmandan darbe. */
   hurt(dmg: number, dir: Phaser.Math.Vector2) {
     if (this.down || this.invulnT > 0) return;
-    this.hp = Math.max(0, this.hp - dmg);
+    this.hp = applyDamage(this.hp, dmg);
     this.invulnT = 0.35;
     this.actor.flash(0xff4030, 0.12);
     this.actor.kb.set(dir.x, dir.y).scale(140);
-    this.w.fx.number(this.x, this.y - 50, `-${dmg}`, 'hurt');
+    this.w.fx.number(this.x, this.y - 50, `-${fmtHp(dmg)}`, 'hurt');
     if (this.hp <= 0) this.goDown(false);
   }
 

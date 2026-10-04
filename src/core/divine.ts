@@ -11,17 +11,33 @@ export const DIVINE_STAT_NAMES: Record<DivineStat, string> = {
   adaptation: 'Adaptasyon',
 };
 
-/** Katsayı = 0.5 × 1.15^L × 1.5^floor(L/3) */
+/**
+ * Katsayı = 0.5 × 1.20^L × 1.32^floor(L/3).
+ * 1.20³ × 1.32 = 1.15³ × 1.5 olduğundan 3'ün katı her levelde eski formülle (1.15 / 1.5) aynı değere varılır;
+ * aradaki leveller artık boş geçmez.
+ */
 export function divineCoefficient(level: number): number {
-  return 0.5 * Math.pow(1.15, level) * Math.pow(1.5, Math.floor(level / 3));
+  return 0.5 * Math.pow(1.2, level) * Math.pow(1.32, Math.floor(level / 3));
 }
 
 export const ADAPTATION_CAP = 5;
 export const MOVE_SPEED_CAP = 1.6;
 export const DEBUFF_REDUCTION_CAP = 0.75;
 
+/**
+ * Stat tabanları: trait ilk saatlerde ceza olmasın diye Hız ve Dayanıklılık 1'in, Adaptasyon 0,75'in altına inmez.
+ * Güç ve Öğrenme ham katsayıdır. Level 3'ten (katsayı 1,14) itibaren beşi de aynı eğride ilerler.
+ */
+export const DIVINE_STAT_FLOOR: Record<DivineStat, number> = {
+  power: 0,
+  endurance: 1,
+  speed: 1,
+  learning: 0,
+  adaptation: 0.75,
+};
+
 export function divineStat(stat: DivineStat, level: number): number {
-  const c = divineCoefficient(level);
+  const c = Math.max(DIVINE_STAT_FLOOR[stat], divineCoefficient(level));
   if (stat === 'adaptation') return Math.min(ADAPTATION_CAP, c);
   return c;
 }
@@ -36,16 +52,34 @@ export function isAwakeningLevel(level: number): boolean {
 }
 
 /**
- * Meydan okuma EXP'si. d = düşman level − karakter level.
- * d<0: 0, d=0: 5, d≥1: 5×(d+1)². Boss ×3.
+ * Öldürme EXP oranı: o levelin EXP gereksiniminin yüzdesi.
+ * d = yaratığın leveli − Joseph'in NORMAL leveli.
  */
-export function challengeExp(enemyLevel: number, playerLevel: number, boss = false): number {
-  const d = enemyLevel - playerLevel;
-  let e = 0;
-  if (d < 0) e = 0;
-  else if (d === 0) e = 5;
-  else e = 5 * (d + 1) * (d + 1);
-  return boss ? e * 3 : e;
+export function challengeRate(d: number): number {
+  if (d <= -3) return 0;
+  if (d === -2) return 0.003;
+  if (d === -1) return 0.008;
+  if (d === 0) return 0.02;
+  if (d === 1) return 0.04;
+  if (d === 2) return 0.08;
+  if (d === 3) return 0.15;
+  return 0.25;
+}
+
+/** Divine levelle azalma: her 5 levelde ödül oranı yarıya iner. L = Joseph'in DIVINE leveli. */
+export function challengeDecay(divineLevel: number): number {
+  return Math.pow(0.5, divineLevel / 5);
+}
+
+export const BOSS_CHALLENGE_MULT = 3;
+
+/**
+ * Meydan okuma EXP'si (yuvarlanmamış): oran(d) × divineExpToNext(L) × 0.5^(L/5), boss ×3.
+ * d normal levelle, azalma divine levelle hesaplanır.
+ */
+export function challengeExp(enemyLevel: number, playerLevel: number, divineLevel: number, boss = false): number {
+  const rate = challengeRate(enemyLevel - playerLevel);
+  return rate * divineExpToNext(divineLevel) * challengeDecay(divineLevel) * (boss ? BOSS_CHALLENGE_MULT : 1);
 }
 
 /** Seri bonusu: önceki art arda anlamlı zafer başına +%10, en fazla +%50. */
@@ -53,10 +87,18 @@ export function streakMultiplier(previousStreak: number): number {
   return 1 + Math.min(0.5, 0.1 * Math.max(0, previousStreak));
 }
 
-/** Meydan okuma + seri bonusu (yuvarlanmış). */
-export function victoryDivineExp(enemyLevel: number, playerLevel: number, boss: boolean, previousStreak: number): number {
-  const base = challengeExp(enemyLevel, playerLevel, boss);
-  return Math.round(base * streakMultiplier(previousStreak));
+/** Son öldürmeden bu kadar saniye geçerse seri sıfırlanır. */
+export const STREAK_TIMEOUT_SEC = 30;
+
+export function streakExpired(secondsSinceKill: number): boolean {
+  return secondsSinceKill > STREAK_TIMEOUT_SEC;
+}
+
+/** Meydan okuma + seri bonusu, tam sayı. Oranı 0 olmayan her zafer en az 1 verir. */
+export function victoryDivineExp(enemyLevel: number, playerLevel: number, divineLevel: number, boss: boolean, previousStreak: number): number {
+  if (challengeRate(enemyLevel - playerLevel) === 0) return 0;
+  const base = challengeExp(enemyLevel, playerLevel, divineLevel, boss);
+  return Math.max(1, Math.round(base * streakMultiplier(previousStreak)));
 }
 
 /** Zafer anlamlı mı (seri için)? d ≥ 0 */
@@ -65,12 +107,12 @@ export function isMeaningfulVictory(enemyLevel: number, playerLevel: number): bo
 }
 
 /**
- * Antrenman: performansa (0..1) göre mevcut Divine level gereksiniminin %3–5'i.
+ * Antrenman: noktaya özgü sabit aralık (data/props.ts → TRAINING_SPOTS), performansa (0..1) göre.
+ * Divine leveline bağlı değildir: bir antrenman alanı zamanla eskir, oyuncu yeni yerler arar.
  */
-export function trainingExp(divineLevel: number, performance: number): number {
+export function trainingExp(range: [number, number], performance: number): number {
   const p = Math.max(0, Math.min(1, performance));
-  const pct = 0.03 + 0.02 * p;
-  return Math.round(divineExpToNext(divineLevel) * pct);
+  return Math.round(range[0] + (range[1] - range[0]) * p);
 }
 
 export const TRAINING_SESSIONS_PER_DAY = 3;

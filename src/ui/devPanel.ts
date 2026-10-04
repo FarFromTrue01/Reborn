@@ -13,7 +13,7 @@ import { canonicalCoins, emptyWallet, walletTotal } from '../core/money';
 import { advance as advTime } from '../core/time';
 import { activeQuests, currentObjective } from '../core/quests';
 import { MAIN_QUESTS } from '../data/quests';
-import { fmtExp } from './format';
+import { fmtExp, fmtHp } from './format';
 
 type Scn = Phaser.Scene & { render(): void; world: any; ui: any; close(): void };
 
@@ -60,7 +60,7 @@ export function renderDevPanel(scene: Scn, c: Phaser.GameObjects.Container, w: n
     xx = btn(xx, '+1', () => p.alloc[k]++);
     y += 44;
   }
-  rowLabel(`HP ${Math.ceil(p.hp)}/${G.d.maxHp} · MP ${Math.floor(p.mp)}/${G.d.maxMp}`);
+  rowLabel(`HP ${fmtHp(p.hp)}/${fmtHp(G.d.maxHp)} · MP ${Math.floor(p.mp)}/${G.d.maxMp}`);
   x = 260;
   x = btn(x, 'HP 1', () => (p.hp = 1));
   x = btn(x, 'Doldur', () => { p.hp = G.d.maxHp; p.mp = G.d.maxMp; p.stamina = G.d.maxStamina; }, 90);

@@ -98,14 +98,15 @@ describe('Appraisal', () => {
 
 describe('Canavarlar (belgedeki değerler)', () => {
   const hp = (id: string, lv: number) => derive(createMonster(id, Math.random, lv)).maxHp;
-  it('Fare Lv0 HP 3', () => expect(hp('rat', 0)).toBe(3));
-  it('Sümüksü Lv0–1 HP 4–6', () => {
-    expect(hp('slime', 0)).toBeGreaterThanOrEqual(4);
-    expect(hp('slime', 1)).toBeLessThanOrEqual(6);
+  // Tam tablo: tests/balance.test.ts
+  it('Fare Lv0 HP 1', () => expect(hp('rat', 0)).toBe(1));
+  it('Sümüksü Lv0–1 HP 2–3', () => {
+    expect(hp('slime', 0)).toBe(2);
+    expect(hp('slime', 1)).toBe(3);
   });
-  it('Goblin Lv0–2 HP 2–10', () => {
-    expect(hp('goblin', 0)).toBeGreaterThanOrEqual(2);
-    expect(hp('goblin', 2)).toBeLessThanOrEqual(10);
+  it('Goblin Lv1–2 HP 5–7', () => {
+    expect(hp('goblin', 1)).toBe(5);
+    expect(hp('goblin', 2)).toBe(7);
   });
   it('EXP aralıkları', () => {
     for (const m of Object.values(MONSTERS)) {
@@ -168,7 +169,7 @@ describe('Zaman', () => {
   });
 });
 
-import { appraisalReady, claimAppraisalExp, APPRAISAL_COOLDOWN_MS } from '../src/core/appraisal';
+import { appraisalReady, claimAppraisalExp, APPRAISAL_COOLDOWN_MS, APPRAISAL_EXP_COOLDOWN_MS, dropsVisible } from '../src/core/appraisal';
 
 describe('Appraisal spam koruması', () => {
   it('Aynı hedef için skill EXP günde bir kez', () => {
@@ -178,6 +179,29 @@ describe('Appraisal spam koruması', () => {
     expect(claimAppraisalExp(rec, 'lina', 3)).toBe(true);
     expect(claimAppraisalExp(rec, 'vera', 4)).toBe(true);
     expect(claimAppraisalExp(rec, 'vera', 4)).toBe(false);
+  });
+  it('Appraisal EXP: son kazanımdan 10 sn geçmeden hedef farklı olsa bile EXP yok', () => {
+    const rec: Record<string, number> = {};
+    const clock = { lastAt: null as number | null };
+    expect(APPRAISAL_EXP_COOLDOWN_MS).toBe(10_000);
+    expect(claimAppraisalExp(rec, 'vera', 3, clock, 0)).toBe(true);
+    expect(claimAppraisalExp(rec, 'lina', 3, clock, 2000)).toBe(false);
+    expect(claimAppraisalExp(rec, 'bertram', 3, clock, 9999)).toBe(false);
+    // beklemedeyken günlük hak harcanmadı
+    expect(rec.lina).toBeUndefined();
+    expect(claimAppraisalExp(rec, 'lina', 3, clock, 10_000)).toBe(true);
+    expect(claimAppraisalExp(rec, 'vera', 3, clock, 60_000)).toBe(false); // aynı hedef aynı gün
+    expect(claimAppraisalExp(rec, 'bertram', 3, clock, 60_000)).toBe(true);
+    // panel beklemesi (1,5 sn) ayrı ve değişmedi
+    expect(appraisalReady(2000, 0, false)).toBe(true);
+  });
+  it('Drop oranları Appraisal rütben yaratığınkine eşit ya da üstündeyse görünür', () => {
+    expect(dropsVisible(parseSubRank('G-'), parseSubRank('G-'))).toBe(true);
+    expect(dropsVisible(parseSubRank('G-'), parseSubRank('G'))).toBe(false);
+    expect(dropsVisible(parseSubRank('G'), parseSubRank('G+'))).toBe(false);
+    expect(dropsVisible(parseSubRank('G+'), parseSubRank('G+'))).toBe(true);
+    expect(dropsVisible(parseSubRank('F-'), parseSubRank('G+'))).toBe(true);
+    expect(dropsVisible(parseSubRank('F'), parseSubRank('F+'))).toBe(false);
   });
   it('~1.5 sn bekleme ve panel açıkken yeni panel yok', () => {
     expect(APPRAISAL_COOLDOWN_MS).toBe(1500);

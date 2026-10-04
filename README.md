@@ -2,7 +2,7 @@
 
 Tarayıcıda çalışan 2D aksiyon RPG. Önceki dünyasında ölen **Joseph**, her canlının Level 0 ve sıfır statla doğduğu **Elonth**'ta yeniden doğar. Elinde yırtık bir şort, Appraisal (G-) ve kimsenin göremediği bir trait vardır: **Divine Paladin (X)**.
 
-Bu sürüm (0.3.0) iki bölümdür. **Bölüm I — *Köksüz*:** prologdan lonca kaydına; Bertram'ın hanında üç günlük iş (her akşam *Servis Koşturmacası*), Yaşlı Haldor'un hasadı ve bir gümüşlük lonca kaydı. **Bölüm II — *G- Rütbe*:** Bertram'ın çatlak sopası, lonca panosu ve üç G görevi, yaralı Vera ile Lina, ilk ortak F görevi ve G rütbesi, kâhyanın çalınan kesesi, değirmen bodrumu, on gümüşlük şehir giriş kartı ve kraliyet şehrinin manzarası. Ardından **Brindlewood**'da pano ilanları ve yan görevlerle serbestçe oynamaya devam edebilirsin.
+Bu sürüm (0.4.0) iki bölümdür. **Bölüm I — *Köksüz*:** prologdan lonca kaydına; Bertram'ın hanında üç günlük iş (her akşam *Servis Koşturmacası*), Yaşlı Haldor'un hasadı ve bir gümüşlük lonca kaydı. **Bölüm II — *G- Rütbe*:** Bertram'ın çatlak sopası, lonca panosu ve üç G görevi, yaralı Vera ile Lina, ilk ortak F görevi (otlağı basan fare sürüsü) ve G rütbesi, kâhyanın çalınan kesesi, değirmen bodrumu, on gümüşlük şehir giriş kartı ve kraliyet şehrinin manzarası. Ardından **Brindlewood**'da pano ilanları ve yan görevlerle serbestçe oynamaya devam edebilirsin.
 
 **Oyna:** https://farfromtrue01.github.io/Reborn/
 
@@ -37,14 +37,16 @@ Başka bir uygulamaya geçince oyun durur, ses susar ve otomatik kaydedilir. Tar
 | Konuşmayı ilerlet | Ekrana dokun | Boşluk / Enter / E |
 
 İpuçları:
-- Düşmanlar saldırmadan önce **kırmızı parlar ve önlerinde bir uyarı alanı çizilir**. Tam o anda kaçarsan **Mükemmel Kaçış**: zaman yavaşlar ve sıradaki vuruşun ×1.5 olur.
+- Düşmanlar saldırmadan önce **kırmızı parlar ve önlerinde bir uyarı alanı çizilir**. Tam o anda kaçarsan **Mükemmel Kaçış**: zaman yavaşlar, sıradaki vuruşun ×1.5 olur ve kaçışın dayanıklılığı (Işık Adımı'nda ışığı) geri gelir — mükemmel kaçış bedavadır.
+- Kırmızı parlarken (hazırlık) vurursan saldırısını **kesersin**; savurmaya başlamışsa kesilmez. Kesilen düşman 1,2 sn boyunca yeniden kesilemez (hasar ve geri tepme yine işler), yani arka arkaya vurup kilitleyemezsin. Boss'lar yalnızca **ağır vuruşla** kesilir.
 - Seni fark etmemiş bir düşmana arkadan vurmak ×1.5 (**Gizli Saldırı**). Başlarındaki **?** göstergesi dolarsa seni fark ederler.
-- Level 0 Joseph için bir fare bile tehlikelidir. Bu kasıtlıdır.
+- Level 0 Joseph için bir fare bile tehlikelidir (5 HP; fare 1 ısırır). Bu kasıtlıdır — ama yumrukla iki, Bertram'ın sopasıyla tek vuruşta ölür.
+- Orman tavşanı kaçar; onu ~8 sn boyunca 3 karo içinde kovalarsan köşeye sıkışır ve tekmeyle karşılık verir. Uzaklaşınca yine ürker.
 - Ölünce son uyuduğun yatakta (yoksa ormanda uyandığın yerde) doğarsın; paranın %10'u ve o gün kazandığın EXP kaybolur.
-- Köydeki antrenman alanında (odun kesme kütüğü, taş, koşu parkuru) günde 3 kez Divine EXP kazanabilirsin.
+- Köydeki antrenman alanında (odun kesme kütüğü, taş, koşu parkuru) günde 3 kez Divine EXP kazanabilirsin (seans başına 12–25). Zamanla yetmez hâle gelir; yeni antrenman yerleri ve güçlü düşmanlar aramak gerekir.
 - Ağaç tepeleri ve çatıların arkasına geçen sen ya da bir canavar olunca o dekor yarı saydam olur.
 - Yemekler bekleme süresine tabidir: her yemekten sonra 10 sn, art arda 3. yemekten sonra 60 sn. Son yemekten 60 sn geçince zincir sıfırlanır.
-- Dayanıklılık biterse Joseph **nefes nefese** kalır: joystick'i eşiğin altına çekene ya da bırakana (klavyede Shift'i bırakana) kadar koşamaz.
+- Dayanıklılık biterse Joseph **nefes nefese** kalır ve yürür. Joystick'i son kademede tutmaya devam edersen dayanıklılık **%100 dolunca kendiliğinden yeniden koşar**; joystick'i eşiğin altına çekmek (Shift'i bırakmak) da kilidi kaldırır.
 - **Yardımlı savaş** (varsayılan açık): saldırı tuşu menzildeki en yakın düşmana döner ve vurur (arkandaki dahil); hedefin altında bir işaret belirir. Kapalıyken eski davranış: baktığın yöne, küçük bir nişan düzeltmesiyle.
 - Ayarlar: arayüz boyutu, metin hızı, sesler, **karakter hızı** (0.75x–2.0x, yalnızca yürüme/koşma), otomatik ilerleme, ekran sarsıntısı, FPS göstergesi, **FPS sınırı** (60 / 120 / 144 / Sınırsız; varsayılan 60 — yüksek değer daha akıcı ama pili hızlı tüketir), **grafik kalitesi** (çözünürlüğü de belirler: Yüksek en fazla 2x, Orta 1,5x, Düşük 1x cihaz pikseli; ayrıca ışık geçişi, orman sisi ve parçacıklar; menü kapanınca uygulanır), joystick modu (dokunmatikte varsayılan: sol altta sabit), **tam ekran** (iPhone'da: "Tam ekran için oyunu ana ekrana ekle"), yardımlı savaş.
 - Menü ve Appraisal paneli açıkken oyun zamanı durur (müzik sürer). Mini oyunlar ve konuşmalar eski davranışını korur.
@@ -52,12 +54,28 @@ Başka bir uygulamaya geçince oyun durur, ses susar ve otomatik kaydedilir. Tar
 
 ## Sistemler (özet)
 
-- **Statlar:** STR, VIT, AGI, DEX, MNA, INT, LUK; Max HP = 5 + 5×Level + 5×VIT, Max MP = Level + 2×MNA. Her level +4 stat puanı, +1 SP. Tüm formüller `src/core/formulas.ts` içinde ve birim testli.
+- **Statlar:** STR, VIT, AGI, DEX, MNA, INT, LUK; Max HP = 5 + 8×Level + 8×VIT, Max MP = Level + 3×MNA. Her level +6 stat puanı, +1 SP. Tüm formüller `src/core/formulas.ts` içinde ve birim testli.
+
+  | Stat | Etki (puan başına) |
+  | --- | --- |
+  | STR | Fiziksel hasar +%8 (bir levelin tamamı STR'ye: +%48) |
+  | VIT | +8 HP, dayanıklılık barı +3 |
+  | AGI | Hareket hızı +%1,5 (en çok %60), dayanıklılık barı +2, yenilenme |
+  | DEX | Saldırı hızı +%2 (en çok %70), kritik +%0,5 (en çok %20) |
+  | MNA | +3 MP, büyü gücü +%1, MP yenilenmesi +%5 |
+  | INT | Büyü gücü +%6, büyü alanı +%3 |
+  | LUK | Drop şansı +%6, kritik +%0,6 (en çok %10), şans eseri ıskalatma +%0,5 (en çok %10) |
+
+  Kritik toplamı en çok %60.
+- **Hasar:** Silah × (1 + 0,08×STR) × skill × trait (Divine Güç) × kritik ×2 × zayıf nokta ×1,5; savunma DEF / (DEF + 20 + 5×saldırgan Level), en çok %80. Yumruk [1,1]; silah aralıkları rütbeye göre G 2–4 · F 4–10 · E 10–20 · D 20–40 · C 40–80 · B 80–150 · A 150–300 · S 300–600 · X 600–1200. "En az 1 hasar" yok: **10'un altı bir ondalık** (0,5 · 1,0 · 3,7), **10 ve üstü tam sayı** (14 · 27 · 103), en düşük 0,1. HP havuzları ondalık taşır; hasar sayıları, HP barları, HUD ve Appraisal aynı biçimi kullanır (`fmtHp`, `src/ui/format.ts`).
+- **Yaratıklar:** Fare / Ahır Faresi / Orman Tavşanı 1 HP (G−), Sümüksü 2–3 (G−), Tarla Faresi 2 (G), Dev Fare 3 (G), Yaban Kurdu 6–9 (G+), Goblin 5–7 (G+), Goblin Şamanı 4 (F−), Goblin Şefi 15 (F+, boss). Kimse son canında kaçmaz. Drop oranları yalnızca Appraisal rütben yaratığın rütbesine eşit ya da üstündeyse görünür. Tablo `tests/balance.test.ts`.
 - **Rütbeler:** G → F → E → D → C → B → A → S → X (skill ve lonca rütbelerinde alt kademeler: G-, G, G+ …).
-- **Appraisal:** Gördüğün bilgi, senin ve hedefin Appraisal harfleri arasındaki farka bağlı. Trait'ler hiçbir rütbede görünmez.
+- **Appraisal:** Gördüğün bilgi, senin ve hedefin Appraisal harfleri arasındaki farka bağlı. Trait'ler hiçbir rütbede görünmez. Skill EXP'si hedef başına günde bir kez ve son EXP'den en az 10 sn sonra gelir (panel istediğin kadar açılır; panel beklemesi 1,5 sn).
 - **Skill'ler:** Kullanarak (yavaş) ve zor başarılarla (ani) gelişir. Yeni skill: Sistem Teklifi (SP), öğretmen, kitap/parşömen veya gizli keşif. Haftada en fazla 1 yeni skill.
-- **Divine Paladin:** Ayrı level/EXP; Güç, Dayanıklılık, Hız, Öğrenme, Adaptasyon katsayıları `0.5 × 1.15^L × 1.5^⌊L/3⌋`. Her 3 levelde awakening ve Divine skill seçimi (Işık barı ile kullanılır).
-- **Ekonomi:** Bronz → Gümüş → Platin → Altın → Elmas (her biri ×100), her biri kendi simgesiyle gösterilir. Her alım/satım/ödül bir işlemdir: doğrulanır, eksiksiz uygulanır, kaydedilir; yetmezse hiçbir şey değişmez.
+- **Divine Paladin:** Ayrı level/EXP (L → L+1: 500×(L+1)). Katsayı `0.5 × 1.20^L × 1.32^⌊L/3⌋` (L0 0,50 · L1 0,60 · L2 0,72 · L3 1,14 · L6 2,60 · L9 5,93 · L12 13,53; 3'ün katlarında eski `1.15^L × 1.5^⌊L/3⌋` ile aynı yere varır). Güç ve Öğrenme ham katsayı; Hız ve Dayanıklılık en az 1; Adaptasyon en az 0,75, en çok 5. L3'ten itibaren beşi aynı eğride. Her 3 levelde awakening ve Divine skill seçimi (Işık barı ile kullanılır).
+  - *Öldürme EXP'si:* oran(d) × 500×(L+1) × 0,5^(L/5); d = yaratık leveli − Joseph'in **normal** leveli, L = **divine** level. Oran: d ≤ −3 %0 · −2 %0,3 · −1 %0,8 · 0 %2 · +1 %4 · +2 %8 · +3 %15 · ≥ +4 %25. Boss ×3, seri bonusu +%10/zafer (en çok +%50; 30 sn öldürmesiz, güvenli bölgede, ölünce ve uyuyunca sıfırlanır), en az 1. Eş seviye avla level atlamak L0'da 50, L5'te 100, L10'da 197 öldürme.
+  - *Antrenman:* noktaya özgü sabit EXP (`TRAINING_SPOTS`, `src/data/props.ts`); köy alanı 12–25/seans, günde 3 seans. Tek başına L1 ≈ 8–9 gün, L2 → L3 adımı ≈ 25 gün.
+- **Ekonomi:** Bronz → Gümüş → Platin → Altın → Elmas (her biri ×100), her biri kendi simgesiyle gösterilir. Her alım/satım/ödül bir işlemdir: doğrulanır, eksiksiz uygulanır, kaydedilir; yetmezse hiçbir şey değişmez. Her işlemden sonra cüzdan normalize edilir: 100 bronz 1 gümüşe, 100 gümüş 1 platine çevrilir (`normalizeWallet`).
 - **Köy fiyatları:** Ekmek 4, Elma 3, Sıcak Güveç 12, Bez Sargı 15, Küçük HP İksiri 60, Küçük MP İksiri 90, Panzehir 45, Brindlewood Haritası 60 bronz; silah ve zırhlar ~×2.5, kitaplar ×2 (0.1.0'a göre). Han yatağı 40, şifacının yara sarması 15 bronz. Skill dersleri: Okçuluk (Garrick) 2 gümüş, İlk Yardım (Ilse Nine) 1 gümüş 50 bronz, Kılıç (Bertram) 7 gümüş 50 bronz. Tüccarlar eşyayı fiyatının %30–40'ına alır; canavar drop'larının satış değeri sabittir, al-sat ile para kasılamaz. Bkz. `src/data/economy.ts`, `src/data/items.ts`, `src/data/shops.ts`.
 - **Hikâye işleri (tek seferlik):** Bertram'ın hanı 3 vardiya (günde en fazla 1), ödeme 3. günün sonunda 50 bronz; ilk günün yemeği bedava. Her akşam **Servis Koşturmacası**: masalarda bira/güveç/ekmek siparişleri, süre bitmeden tezgâhtan alıp götür, kirli tabakları topla ve bulaşığa bırak; her gün daha çok masa ve daha sabırsız müşteri. Sonuç yalnızca Bertram'ın yorumunu değiştirir. Ardından Yaşlı Haldor'un hasadı: 50 bronz. İkisi bir gümüş = lonca kaydı.
 - **Görevler (C2):** Veriyle tanımlı ana görevler, yan görevler ve pano görevleri (`src/data/quests.ts`, `src/data/sidequests.ts`). Amaç türleri: konuş, git, topla, öldür, teslim et (+ hikâyeye özel). Ödüller: para, eşya, Lonca Puanı. Yeni ana görev otomatik takip edilir; HUD'daki *Görevler* kutusu ve Menü → *Görevler* sekmesi (açıklama, amaçlar, ödül, rütbe, puan, risk). Yön oku takip edilen hedefi gösterir; iç mekânda yalnızca hedef aynı mekândaysa. Joseph G olana kadar her şey ana görevdir; G'den sonra yan görevler (10 elle yazılmış) ve isteğe bağlı pano ilanları açılır.
@@ -71,7 +89,7 @@ Başka bir uygulamaya geçince oyun durur, ses susar ve otomatik kaydedilir. Tar
 - **Dükkânlar:** Alışveriş, satış ve dersler yalnızca esnaf kendi dükkânında ve çalışma saatindeyken açılır (Gunnar'ın Demirhanesi, Marta'nın Genel Dükkânı, Ilse Nine'nin Şifa Evi, Brunhild'in Fırını, Terzi Mirelle, Gorm'un Tabakhanesi, Garrick'in Avcı Kulübesi, Bertram'ın hanı).
 - **Kast:** Soylular → yüksek rütbeli maceracılar → tüccar ve zanaatkârlar → köylüler → köksüzler. Joseph en alttadır. NPC'ler kasta göre konuşur; köylüler soylu kâhyanın önünde eğilir, yüksek rütbeli maceracılara yol verir; handa şöminenin önündeki masalar üst kastlara ayrılır, köksüzler arkada oturur; dükkânda üst kasttan biri gelirse sıra ona geçer.
 - **Zaman:** 1 oyun günü ≈ 24 gerçek dakika. Gece-gündüz, dükkân saatleri, NPC günlük programları.
-- **Kayıt:** Otomatik (uyurken, bölge değişince, işlemlerden sonra, 3 dakikada bir) + 3 elle kayıt yuvası. Sürüm numaralı, göç destekli (0.3.0: kayıt sürümü 4).
+- **Kayıt:** Otomatik (uyurken, bölge değişince, işlemlerden sonra, 3 dakikada bir) + 3 elle kayıt yuvası. Sürüm numaralı, göç destekli (0.4.0: kayıt sürümü 5; eski kayıtlara geçmiş levellerin +2 stat puanı farkı eklenir).
 - **EXP gösterimi:** En fazla bir ondalık, virgülle ve kesilerek (3,3555 → 3,3); tam sayılar ondalıksız. Her yerde aynı (`src/ui/format.ts`).
 
 ## Ekonomi hesabı (Bölüm II)
@@ -83,7 +101,7 @@ On gümüşlük giriş kartına (1.000 bronz) giden yol kasıtlı olarak uzun tu
 | Kayıttan sonra cepte kalan | ~12 |
 | G görevleri: Fareler 20 + Ot 20 (Celeste 10 "kayıt masrafı" keser) + Mektup 30 | 70 |
 | Şifacı (Vera ve Lina) | −30 |
-| Kurtlar (120 / 3) + kese (kâhyanın attığı) + bodrum (90 / 3) | 40 + 5 + 30 |
+| Otlaktaki fareler (120 / 3) + kese (kâhyanın attığı) + bodrum (90 / 3) | 40 + 5 + 30 |
 | Yemek (güveç 12 + ekmek 4, günde ~16) | günde −16 |
 | **On Gümüş başlarken** | **~100** |
 | 10 yan görev (bir kerelik) | 330 |
@@ -139,7 +157,7 @@ Belirsiz kalan yerlerde verilen kararlar (her biri bir satır):
 
 - Köy: dünya 169×120 karo; köy bölgesi 0.2.0'ın ~%60'ı, bina sayısı aynı (32), yerleşim elle çizildi; nehir, köprü, orman kenarı, tarlalar, mera ve gölet aynı yönlerde kaldı.
 - Şehir yolu kısaldı: meydandan kontrol noktasına ~65 karo (0.2.0: ~115).
-- A1: Nefes nefese kilidi joystick eşiğin altına inince/bırakılınca ya da Shift bırakılınca açılır; dayanıklılığın dolması tek başına açmaz.
+- A1: Nefes nefese kilidi joystick eşiğin altına inince/bırakılınca ya da Shift bırakılınca açılır; 0.4.0'dan beri dayanıklılık %100 dolunca da açılır (istek sürüyorsa Joseph yeniden koşar).
 - A2: Kamera 18×12 px ölü bölgeyle izler, kaydırma tamsayı ofsetle ve sprite'lar dünya pikseline hizalanarak çizilir; `roundPixels` açık kaldı (kapatınca karo dikişleri görünüyordu); fizik adımı ekran yenilemesine bağlı (`fixedStep` kapalı). QA'da yavaş yürüyüşte yön değiştirme (titreme) sayısı 0 ölçüldü.
 - A3: "Bake" yerine parça ayıklama seçildi; yanan çalılar ve saydamlaşan ağaçlar gibi dinamik dekor bozulmasın diye.
 - A5: Çiçek, çakıl, saman tutamı, kütük parçası gibi küçük dekorun üstünden yürünür (`WALK_OVER`); diğer dekorun çarpışma kutusu görselin tabanına oturur.
@@ -168,7 +186,15 @@ Belirsiz kalan yerlerde verilen kararlar (her biri bir satır):
 - E7: Aynı anda en fazla iki pano görevi; ilan üç gün içinde teslim edilmezse başarısız sayılır.
 - E8: Şehir manzarası kodla çizildi (sur, kalabalık, kale silueti); şehir kapısı "Şehir bölümü yakında" der; kart süresi işlemeye devam eder.
 - 0.2.0 kayıtları: Bertram işinin ortasındaki kayıtlar yeni 3 günlük işe taşınır (yapılmış vardiya en fazla 2 sayılır, son vardiya ödemeyle biter); lonca kaydı yapılmışsa Bölüm II "Eli Boş Maceracı" ile başlar ve pano ertesi sabah açılır; bitiş kartı bayrağı silinir.
-- Divine Paladin dengesi (başlangıç çarpanları, hız/hasar cezaları, 5 kat zor level) değişmedi.
+- 0.4.0: Divine Paladin dengesi değişti: Hız/Dayanıklılık tabanı 1, Adaptasyon tabanı 0,75 (L0 Joseph artık yarım hızda yürümüyor, iki kat hasar almıyor); Güç ve Öğrenme ham katsayı.
+- 0.4.0: "L3 ≈ 25 gün" L2 → L3 adımı (1500 EXP) olarak okundu; köy antrenmanıyla L0'dan L3'e toplam ~50 gün.
+- 0.4.0: Ondalık gösterim tek kural: 10 altı her zaman bir ondalık ("5,0 / 5,0" dahil), 10 ve üstü tam sayı. MP ve EXP kendi biçiminde kaldı (yalnızca HP ve hasar istendi).
+- 0.4.0: Divine serisi oyun zamanıyla sayılır: menü/Appraisal açıkken 30 sn sayacı durur.
+- 0.4.0: `f_wolves` görev kimliği kayıt uyumluluğu için kaldı; düşman 5 Tarla Faresi. Tarla Faresi şimdilik yalnızca bu görevde doğar (dünyaya yerleştirmek Grup 4 içeriği).
+- 0.4.0: Goblin level aralığı 0–2 → 1–2 (tablodaki değerler). Yaratık rütbesi Appraisal direnci olarak da kullanılır (Dev Fare G+ → G, Kurt/Goblin G → G+, Şaman G+ → F−, Şef F− → F+).
+- 0.4.0: Drop oranları Appraisal panelinde tek satır olarak gösterilir (LUK çarpanı dahil); panelin yaratıklara özel tasarımı Grup 3'te.
+- 0.4.0: Mükemmel kaçışta iade bir kez yapılır (aynı kaçışta birden çok düşman savuşturulsa da); dash'te Işık Adımı'nın ışık bedeli iade edilir.
+- 0.4.0: Haldor'un bozdurma sahnesi korundu: cüzdan zaten normalize olduğu için sahne toplam paraya (≥100 bronz) bakar.
 - QA: `?qa=1` adresinde Phaser kare süresi kırpması kapalıdır (başsız tarayıcıda 5 FPS altındaki kareler 16 ms sayılıyor, oyun zamanı sürünüyordu). Oyuncu sürümünü etkilemez.
 - 0.3.1: FPS sınırının varsayılanı 60 (önceden ekranın yenileme hızıydı; 120 Hz tablette pil ve ısı için). `?qa` modunda sınır yok.
 - 0.3.1: WebGL bağlamı kaybolunca Phaser'ın yerinde onarımı yerine kayıt + tek yenileme + otomatik devam (dinamik dokular onarımdan sonra boş kalabiliyor). 30 sn içinde ikinci kayıpta otomatik yenilenmez, oyuncu dokunarak yeniler.
@@ -240,6 +266,13 @@ Oyun yalnızca `main` dalından yayınlanır (GitHub Actions → `github-pages` 
 
 ## Sürüm notları
 
+- **0.4.0** — Denge ve dövüş (Grup 2, bkz. `PLAN.md`).
+  - *Divine Paladin:* Yeni katsayı (level başına %20, awakening ×1,32); Hız ve Dayanıklılık 1'in, Adaptasyon 0,75'in altına inmiyor. Öldürme EXP'si level gereksiniminin yüzdesi, divine levelle azalıyor; antrenman noktası başına sabit EXP (köy 12–25). Seri bildirimi gerçek çarpanı gösteriyor ("seri ×1,4"), 30 sn öldürmesiz kalınca sıfırlanıyor.
+  - *Hasar:* "En az 1" kalktı; 10 altı bir ondalık, üstü tam sayı; HP ondalık taşıyor, tüm göstergeler tek biçimde. Yumruk hariç silah hasarları ×2 (Çatlak Sopa 2).
+  - *Yaratıklar:* Yeni HP tablosu (fare 1, Dev Fare 3, Şef 15), alt kademeli rütbeler ve drop görünürlüğü, yeni Tarla Faresi; kimse son canında kaçmıyor; kovalanan tavşan köşeye sıkışınca tekme atıyor. Otlak görevi artık fare sürüsü.
+  - *Statlar:* Level başına 6 puan; STR +%8, VIT +8 HP, AGI +%1,5, DEX +%2, MNA +3 MP, INT +%6, LUK +%6/+%0,6.
+  - *Dövüş:* Normal vuruş da hazırlıktaki saldırıyı kesiyor (1,2 sn bekleme, boss yalnızca ağır vuruşla); mükemmel kaçış bedava; joystick sonda kalırsa dayanıklılık dolunca koşu kendiliğinden sürüyor.
+  - *Diğer:* Appraisal EXP'sine 10 sn genel bekleme; cüzdan her işlemden sonra bozduruluyor; kayıt sürümü 5.
 - **0.3.1** — Çökme, bug ve altyapı (Grup 1, bkz. `PLAN.md`).
   - *Düzeltmeler:* Ana menüye dönüp Devam deyince HUD ve dokunmatik butonların kaybolması; tam ekrana girip çıkınca başlık ekranında Ayarlar'ın açılmaması; akşam hanında oyunun donup çökmesi (kenara çekilen NPC'nin harita dışı yol hedefi sonsuz döngüye sokuyordu); joystick'in altındaki NPC'nin Appraisal açması; başka uygulamaya geçip dönünce çökme; ana ekran uygulamasının bazen ilk dokunuşta açılmaması ve kurulumun yarıda kalması.
   - *Yenilikler:* Grafik kalitesi çözünürlüğü de belirliyor (Yüksek 2x, Orta 1,5x, Düşük 1x); FPS sınırı ayarı (60/120/144/Sınırsız); uygulamadan çıkınca otomatik kayıt ve dönüşte kaldığın yerden devam; NPC'ler hana teker teker giriyor.

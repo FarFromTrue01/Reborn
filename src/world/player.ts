@@ -12,6 +12,7 @@ import { Sound } from '../audio/audio';
 import { hpRegenPerSec, mpRegenPerSec, staminaRegenPerSec } from '../core/formulas';
 import { LIGHT_MAX, LIGHT_DECAY_PER_SEC } from '../core/divine';
 import { runStep, RUN_THRESHOLD, type RunLock } from '../core/stamina';
+import type { EvadeCost } from '../core/combat';
 
 export type PState = 'free' | 'attack' | 'heavy' | 'dodge' | 'hurt' | 'dead' | 'cast' | 'locked' | 'dash';
 
@@ -28,6 +29,8 @@ export class Player {
   dodgeStart = -10;
   dodgeVec = new Phaser.Math.Vector2();
   counterT = 0; // mükemmel kaçış sonrası karşı saldırı penceresi
+  /** Son kaçışın/atılmanın peşin bedeli; mükemmel kaçışta iade edilir (core/combat refundEvade). */
+  evadePaid: EvadeCost = { stamina: 0, light: 0 };
   staminaDelay = 0;
   running = false;
   /** E3: yük (yaralı taşırken yavaşlar, koşamaz). 1 = yok. */
@@ -175,7 +178,8 @@ export class Player {
         if (Input.consume('eat')) this.w.eatQuick();
         // hareket
         const wantRun = (Input.run || (Input.touchMove && mlen > RUN_THRESHOLD)) && mlen > 0.2 && this.burden >= 1;
-        this.running = runStep(this.runLock, wantRun, p.stamina);
+        // Kilit, istek bırakılınca ya da dayanıklılık tamamen dolunca kalkar (joystick sonda kalırsa yeniden koşar).
+        this.running = runStep(this.runLock, wantRun, p.stamina, d.maxStamina);
         // Ayarlardaki "Karakter hızı" yalnızca yürüme/koşmayı çarpar (Divine Hız hesabına dokunmaz)
         let sp = BASE_SPEED * TILE * d.moveSpeed * mlen * (G.settings.moveSpeed ?? 1) * this.burden;
         if (this.running) {
@@ -273,6 +277,7 @@ export class Player {
       return;
     }
     p.stamina -= cost;
+    this.evadePaid = { stamina: cost, light: 0 };
     this.staminaDelay = 0.7;
     const mx = Input.moveX, my = Input.moveY;
     if (Math.hypot(mx, my) > 0.2) this.dodgeVec.set(mx, my).normalize();
@@ -289,7 +294,8 @@ export class Player {
     G.state.divine.light = Math.min(LIGHT_MAX, G.state.divine.light + (this.inCombat ? 3 : 0));
   }
 
-  lightDash() {
+  lightDash(lightCost = 0) {
+    this.evadePaid = { stamina: 0, light: lightCost };
     const [fx, fy] = dirVec(this.actor.dir);
     const mx = Input.moveX, my = Input.moveY;
     if (Math.hypot(mx, my) > 0.2) this.dodgeVec.set(mx, my).normalize();

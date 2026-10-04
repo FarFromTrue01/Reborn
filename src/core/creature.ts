@@ -1,6 +1,6 @@
 import {
   addStats, critChance, dexAttackSpeedMult, agiMoveMult, maxHP, maxMP, maxStamina, zeroStats,
-  luckyMissChance, dropChanceMult, spellAreaMult, STAT_KEYS, type Stats,
+  luckyMissChance, dropChanceMult, spellAreaMult, baseHP, STAT_KEYS, type Stats,
 } from './formulas';
 import { currentPassive } from './skills';
 import { EQUIP_SLOTS, type CreatureData, type WeaponType, type EquipSlot } from './types';
@@ -134,7 +134,7 @@ export function derive(c: CreatureData, divine?: DivineContext | null): Derived 
     stats,
     statSources: sources,
     maxHp: c.hpMod
-      ? Math.max(1, Math.round((5 + 5 * c.level + 5 * stats.VIT + hpFlat) * c.hpMod.mult * (1 + hpPct)))
+      ? Math.max(1, Math.round((baseHP(c.level, stats.VIT) + hpFlat) * c.hpMod.mult * (1 + hpPct)))
       : maxHP(c.level, stats.VIT, { hpFlat, hpPct }),
     maxMp: maxMP(c.level, stats.MNA),
     maxStamina: maxStamina(stats.VIT, stats.AGI, { staminaFlat }),

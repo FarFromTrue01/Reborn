@@ -100,11 +100,12 @@ export const MAIN_QUESTS: QuestDef[] = [
     reward: {},
   },
   {
-    id: 'f_wolves', kind: 'main', chapter: 2, rank: 'F', guild: true, group: true, title: 'Otlaktaki Kurtlar', giver: 'lina',
-    desc: 'Çoban Tam\'ın otlağına kurtlar dadanmış. Vera ve Lina\'yla ortak bir F görevi: toplam 120 bronz, üçe eşit. Grup görevi: Lonca Puanının yarısı.',
+    // Kimlik (f_wolves) kayıt uyumluluğu için korunuyor; 0.4.0'dan beri düşman kurt değil, tarla faresi sürüsü.
+    id: 'f_wolves', kind: 'main', chapter: 2, rank: 'F', guild: true, group: true, title: 'Otlaktaki Fareler', giver: 'lina',
+    desc: 'Çoban Tam\'ın otlağını bir tarla faresi sürüsü basmış: ekini kemiriyor, kuzuların bacaklarını ısırıyor. Vera ve Lina\'yla ortak bir F görevi: toplam 120 bronz, üçe eşit. Grup görevi: Lonca Puanının yarısı.',
     objectives: [
       { type: 'go', label: 'Vera ve Lina\'yla otlağa git', target: 'pasture', where: W('pasture', 4) },
-      { type: 'kill', label: 'Kurtları kov', target: 'wolf', count: 3, where: W('pasture', 6), sequential: true },
+      { type: 'kill', label: 'Fare sürüsünü dağıt', target: 'field_rat', count: 5, where: W('pasture', 6), sequential: true },
       { type: 'talk', label: 'Celeste\'ye rapor ver', target: 'celeste', where: NPC('guild', 'celeste'), sequential: true },
     ],
     reward: { money: 40, points: 30, text: 'Toplam 120 bronz, kişi başı 40' },

@@ -24,7 +24,7 @@ import { ITEMS } from '../data/items';
 import { TITLES } from '../data/titles';
 import { STAT_KEYS } from '../core/formulas';
 import { EQUIP_SLOTS, EQUIP_SLOT_NAMES } from '../core/types';
-import { itemLabel, fmtExp } from '../ui/format';
+import { itemLabel, fmtExp, fmtHp } from '../ui/format';
 import type { WorldScene } from './WorldScene';
 import { fogOf } from './WorldScene';
 import { TERRAIN, TILE } from '../world/types';
@@ -429,7 +429,7 @@ export class UIScene extends Phaser.Scene {
       g.lineStyle(2, 0xff3020, pulse);
       g.strokeRect(19, 41, 278, 20);
     }
-    this.hudTexts.hp.setText(`HP ${Math.ceil(p.hp)} / ${d.maxHp}`);
+    this.hudTexts.hp.setText(`HP ${fmtHp(p.hp)} / ${fmtHp(d.maxHp)}`);
     drawBar(g, 20, 66, 276, 13, d.maxMp ? p.mp / d.maxMp : 0, COLORS.mp, 0x0a0f20);
     this.hudTexts.mp.setText(`MP ${Math.floor(p.mp)} / ${d.maxMp}`);
     drawBar(g, 20, 86, 186, 9, p.stamina / d.maxStamina, COLORS.st, 0x0a160a);
@@ -1048,7 +1048,7 @@ export class UIScene extends Phaser.Scene {
     const shade = this.add.rectangle(0, 0, W, H, 0x000000, 0.35).setOrigin(0, 0).setInteractive();
     shade.on('pointerdown', () => this.closeAppraisal());
     root.add(shade);
-    const panel = buildAppraisalPanel(this, c, npc, { self, mineRank: mine });
+    const panel = buildAppraisalPanel(this, c, npc, { self, mineRank: mine, dropMult: G.d.dropMult });
     const pw = (panel as any).panelW, ph = (panel as any).panelH;
     const sc = Math.min(1, (H - 30) / ph, (W - 30) / pw);
     panel.setScale(sc);

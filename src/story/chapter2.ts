@@ -1,6 +1,6 @@
 // Bölüm II — "G- Rütbe". Lonca kaydından sonra başlar ve şehir kapısında, giriş kartıyla biter.
 // Akış: silah (Bertram) → pano (Celeste, G görevleri) → G1/G2/G3 → "Biraz hava" → yaralı Vera ve Lina →
-// ertesi gün dostluk ve ilk ortak F görevi (kurtlar) → G rütbe (ertesi gün işlenir) → ilk kadeh →
+// ertesi gün dostluk ve ilk ortak F görevi (otlaktaki fareler) → G rütbe (ertesi gün işlenir) → ilk kadeh →
 // kâhyanın kesesi → ikinci ortak F görevi (değirmen bodrumu) → 10 gümüş → veda → giriş kartı ve şehir manzarası.
 // Yan görevler ve pano ilanları ilk kadehten sonra açılır.
 import Phaser from 'phaser';
@@ -15,6 +15,7 @@ import type { Director } from './director';
 import { NPC_BY_ID } from '../data/npcs';
 import { SIDE_QUESTS, SIDE_SCRIPTS, boardForDay } from '../data/sidequests';
 import { currentObjective, activeQuests, type QuestDef } from '../core/quests';
+import { questDef } from '../data/quests';
 import { canTakeQuest, riskText, QUEST_POINTS, reRegister, REREGISTER_FEE, pointsToNext } from '../core/guild';
 import { equip, transact } from '../core/transactions';
 import { walletTotal } from '../core/money';
@@ -417,7 +418,7 @@ export class Chapter2 {
         break;
       case 'shepherd':
         if (Q.active('f_wolves')) {
-          await this.say('shepherd', this.objIdx('f_wolves') <= 1 ? 'Kurtlar ormanın kenarından iniyor. Üç tane gördüm. Koyunlarımı yediler, maceracı!' : 'Sağ olun! Sürüm sağ olsun! Kuzuların biri size, ...şaka. Ama sağ olun.');
+          await this.say('shepherd', this.objIdx('f_wolves') <= 1 ? 'Fareler tarladan taştı, otlağa indi. Kedi kadar, bir sürü! Kuzularımın bacaklarını ısırıyorlar, maceracı!' : 'Sağ olun! Sürüm sağ olsun! Kuzuların biri size, ...şaka. Ama sağ olun.');
           return true;
         }
         break;
@@ -640,20 +641,20 @@ export class Chapter2 {
   async talkFriends(n: Npc): Promise<boolean> {
     const id = n.def.id;
     if (!G.flag('friends_vl')) return false;
-    // ilk ortak F görevi: kurtlar
+    // ilk ortak F görevi: otlaktaki fareler
     if (!Q.status('f_wolves') && Q.done('m_wounded')) {
       if (id === 'lina') {
         await this.say('lina', 'Köksüz! Dur! Bir şey diyeceğim. Vera, sen söyle. ...Peki, ben söylerim.', 'gulen');
-        await this.say('lina', 'Çoban Tam\'ın otlağına kurtlar dadanmış. F görevi. Yüz yirmi bronz. Üçümüz.', 'normal');
+        await this.say('lina', 'Çoban Tam\'ın otlağını tarla fareleri basmış. Bir sürü! F görevi. Yüz yirmi bronz. Üçümüz.', 'normal');
         await this.say('lina', 'Borcumuzu ödüyoruz, yanlış anlama. Hihi.', 'gulen');
       } else {
-        await this.say('vera', 'Köksüz. Lina sana bir şey soracaktı. Ben soruyorum: otlaktaki kurtlar. F görevi, üçümüz.', 'normal');
+        await this.say('vera', 'Köksüz. Lina sana bir şey soracaktı. Ben soruyorum: otlaktaki fare sürüsü. F görevi, üçümüz.', 'normal');
         await this.say('vera', 'Borcumuzu ödüyoruz, yanlış anlama.', 'normal');
       }
       await this.say('vera', 'Grup görevi: Lonca Puanının yarısını alırsın. Ama F görevi, G\'ninkinden çok eder.', 'normal');
       const c = await this.ui.choice(['"Tamam. Gidelim."', '"Biraz sonra."']);
       if (c !== 0) {
-        await this.say(id, id === 'vera' ? 'Kurtlar beklemez, köksüz. Ama biz bekleriz. Biraz.' : 'Hihi, tamam! Buradayız!', 'normal');
+        await this.say(id, id === 'vera' ? 'Fareler beklemez, köksüz. Ama biz bekleriz. Biraz.' : 'Hihi, tamam! Buradayız!', 'normal');
         return true;
       }
       Q.start('f_wolves');
@@ -676,11 +677,11 @@ export class Chapter2 {
     return false;
   }
 
-  /** E4: Vera'nın savaş dersi (kurtlar gelmeden önce). */
+  /** E4: Vera'nın savaş dersi (fareler gelmeden önce). */
   async veraLesson() {
     const hints: [string, string, string][] = [
       ['vera', 'Dinle köksüz. Dört şey. Bir: saldırı gelmeden kırmızı parlar. O an Kaçış\'a bas. Doğru anda kaçarsan zaman yavaşlar.', 'İPUCU: Düşman kırmızı parlayınca Kaçış — mükemmel kaçış zamanı yavaşlatır ve karşı saldırı açar.'],
-      ['vera', 'İki: kurdun önünde durma. Ben önünü tutarım, sen yanına geç. Yandan ve arkadan vurmak kolaydır.', 'İPUCU: Kuşat — yoldaşın önü tutarken yandan ya da arkadan vur.'],
+      ['vera', 'İki: sürünün önünde durma. Ben önünü tutarım, sen yanına geç. Yandan ve arkadan vurmak kolaydır.', 'İPUCU: Kuşat — yoldaşın önü tutarken yandan ya da arkadan vur.'],
       ['lina', 'Üç: koşmak dayanıklılık yer! Biterse nefes nefese kalırsın, kaçamazsın. Hihi, Vera\'ya olmuştu.', 'İPUCU: Dayanıklılık bitince koşamazsın; joystick\'i bırak ya da yavaşla, dolsun.'],
       ['vera', 'Dört: elin titriyorsa Ayarlar\'daki "Yardımlı savaş" seni en yakın düşmana çevirir. Utanılacak bir şey değil.', 'İPUCU: Ayarlar → Yardımlı savaş: menzildeki en yakın düşmana otomatik dönersin.'],
     ];
@@ -1050,7 +1051,7 @@ export class Chapter2 {
     if (id === 'm_celebrate') return false;
     if (id === 'f_wolves' && idx === 0) {
       this.d.scene(async () => {
-        await this.say('shepherd', 'Maceracılar! Tanrıya şükür! Kurtlar ormanın kenarından iniyor, üç tane!');
+        await this.say('shepherd', 'Maceracılar! Tanrıya şükür! Fareler tarladan taşıp otlağa indi, bir sürü!');
         await this.veraLesson();
         await this.say('lina', 'Geliyorlar! Kulaklarım duydu!', 'saskin');
         this.spawnQuestEnemies(true);
@@ -1125,10 +1126,10 @@ export class Chapter2 {
     }
     if (m.id === 'world' && Q.active('f_wolves') && this.objIdx('f_wolves') === 1 && !this.spawned.has('fw') && (force || near('pasture', 20))) {
       this.spawned.add('fw');
-      const left = 3 - Q.progress('f_wolves', 1);
+      const left = (questDef('f_wolves')!.objectives[1].count ?? 1) - Q.progress('f_wolves', 1);
       const p = m.points.pasture;
       if (left > 0) {
-        const es = w.spawnAt('wolf', p.x + 6, p.y - 4, left, 2, 'fw');
+        const es = w.spawnAt('field_rat', p.x + 6, p.y - 4, left, 2.5, 'fw');
         for (const e of es) e.becomeAware(true);
       }
     }

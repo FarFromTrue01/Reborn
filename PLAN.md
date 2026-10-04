@@ -5,8 +5,8 @@ Dört aşamalı plan. Her oturum yalnızca kendi grubunu yapar; bitince bu dosya
 | Grup | Kapsam | Durum |
 | --- | --- | --- |
 | **1. Çökme, bug, altyapı** | Pages dağıtımı, sahne sıfırlama, joystick önceliği, handa donma, performans, uygulama değişiminde çökme, PWA kurulumu | ✅ 0.3.1 |
-| **2. Denge ve dövüş** | Düşman/Joseph sayıları, hasar ve EXP eğrileri, yardımlı savaş, yoldaş YZ | sırada |
-| **3. Arayüz** | HUD, menüler, ayarlar paneli düzeni, dokunmatik butonlar, okunurluk | bekliyor |
+| **2. Denge ve dövüş** | Düşman/Joseph sayıları, hasar ve EXP eğrileri, dövüş mekanikleri | ✅ 0.4.0 |
+| **3. Arayüz** | HUD, menüler, ayarlar paneli düzeni, dokunmatik butonlar, okunurluk, yaratık Appraisal paneli | sırada |
 | **4. İçerik, görevler, animasyon** | Yeni görevler/bölümler, NPC diyalogları, animasyonlar | bekliyor |
 
 ## Grup 1'de yapılanlar (0.3.1)
@@ -47,7 +47,25 @@ Saat başı NPC girişi: eskiden tek karede herkes + A*; şimdi `refreshNpcPrese
 
 Başsız tarayıcıda FPS'i yazılım GPU'nun doldurma hızı sınırlıyor; DPR 1 FPS farkları gürültü düzeyinde. Asıl kazançlar kare başına iş (geliştirici modunda NPC maliyeti ~20–90 kat az, doku yüklemesi 25 → ~0), akşam hanındaki donmanın kalkması ve yüksek dpr'li ekranlarda piksel sayısı. dpr 2'lik bir tablette Yüksek kalite eskisiyle aynı çözünürlükte kalır; Orta/Düşük artık gerçekten fark yaratır.
 
+## Grup 2'de yapılanlar (0.4.0)
+
+- **Divine Paladin** (`src/core/divine.ts`): katsayı `0.5 × 1.20^L × 1.32^⌊L/3⌋`; stat tabanları `DIVINE_STAT_FLOOR` (Hız/Dayanıklılık 1, Adaptasyon 0,75, tavan 5). Öldürme EXP'si `challengeRate(d) × divineExpToNext(L) × 0.5^(L/5)` (d normal levelle, azalma divine levelle), boss ×3, seri +%50'ye kadar, en az 1. Seri bildirimi gerçek çarpanı gösterir; 30 sn öldürmesiz kalınca sıfırlanır (`WorldScene.sinceKill`, oyun zamanı). Antrenman `TRAINING_SPOTS` (`src/data/props.ts`): köy 12–25/seans — yeni şehir = yeni satır.
+- **Ondalıklı hasar:** `roundDamage` (10 altı bir ondalık, üstü tam, en az 0,1), `applyDamage` (HP'yi bir ondalığa sabitler; kayan nokta artığı yaşatmaz). Gösterim tek fonksiyon: `fmtHp` (`src/ui/format.ts`) — hasar sayıları, HUD, Status, Appraisal, geliştirici paneli, prolog.
+- **Silahlar:** yumruk hariç ×2 (`WEAPON_DAMAGE_BY_RANK`, `items.ts`); Çatlak Sopa [2,2].
+- **Yaratıklar** (`src/data/monsters.ts`): hedef HP tablosu (`tests/balance.test.ts` her yaratık/level için doğrular), `rank: 'G-'…` alanı (Appraisal direnci de bu), `fleeAt` kaldırıldı, yeni `field_rat`, tavşanda `cornered` (core/combat `corneredStep`). Drop oranları `dropsVisible` kuralıyla Appraisal panelinde tek satır.
+- **f_wolves:** kimlik korundu, düşman 5 Tarla Faresi, başlık/açıklama/diyaloglar fare sürüsü.
+- **Statlar:** level başına 6 puan; STR %8, VIT 8, AGI %1,5 (≤%60), DEX %2 (≤%70), MNA 3, INT %6, LUK %6/%0,6. Kayıt v5 göçü eski levellere +2 puan/level verir, cüzdanı normalize eder.
+- **Dövüş** (`src/core/combat.ts`): `canInterrupt` (yalnızca windup; boss yalnızca ağır vuruş; 1,2 sn bekleme), `refundEvade` (mükemmel kaçışta stamina/ışık iadesi + staminaDelay 0). **Ek düzeltme:** geri tepme artık düşman YZ'sini durdurmuyor (yalnızca hızını eziyor); yoksa iptal beklemesine rağmen sık vurarak düşman hiç saldırtılmayabiliyordu.
+- **Koşu:** `runStep(lock, want, stamina, maxStamina)` — kilit dayanıklılık dolunca da kalkar.
+- **Appraisal:** `claimAppraisalExp(..., clock, now)` 10 sn genel bekleme, oturum içi (`WorldScene.appraisalExpClock`).
+- **Para:** `normalizeWallet`, her `transact` sonunda.
+- Elle test betiği: `tools/qa/steps_g2.mjs` (`node tools/qa/shot.mjs g2`).
+
 ## Sonraki oturum için notlar
+
+- **Grup 3 (arayüz) için Grup 2'den kalanlar:** yaratık Appraisal paneli (ayrı düzen, koyu kırmızı zemin, stat/lonca/envanter bölümleri yok, portre) — şimdilik yalnızca drop satırı eklendi. `fmtHp` 10 altını hep bir ondalık gösterir ("HP 5,0 / 5,0"); tasarımda daha sade bir HUD isteniyorsa kural tek yerden değişir.
+- Eski plandaki "yardımlı savaş, yoldaş YZ" maddeleri Grup 2 talimatında yoktu, dokunulmadı (yoldaşlar silah ×2'den dolaylı güçlendi: düşük HP'li ilk yaratıkları hızlı bitirirler, Joseph'in EXP'si yalnızca kendi vurduklarından gelir). Gerekirse ayrı bir oturumda.
+- **Grup 4 için:** Tarla Faresi yalnızca otlak görevinde doğuyor; dünyaya (güney tarlaları) yerleştirmek içerik işi. `pack_hunter` title'ı artık otlak görevinden değil, ormandaki kurtlardan gelir.
 
 - **Varsayılan dal hâlâ `claude/vigilant-darwin-hcoqh5`.** Araçlarla değiştirilemiyor; kullanıcı Settings → General → Default branch → `main` yapmalı, sonra eski dal silinebilir.
 - Gerçek tablet FPS'i ölçülemedi (yalnızca başsız tarayıcı). Kullanıcıdan Ayarlar → FPS göstergesi ile açık dünya / meydan / han değerlerini istemek iyi olur.

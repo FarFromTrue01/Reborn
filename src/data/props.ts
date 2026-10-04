@@ -177,3 +177,23 @@ export function rectTiles(r: Rect, tile = 32): [number, number][] {
   for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) out.push([x, y]);
   return out;
 }
+
+// ---------------------------------------------------------------- antrenman noktaları
+// Divine antrenmanı veriyle tanımlı: yeni bir şehrin antrenman alanı için yalnızca buraya bir satır eklenir.
+// Anahtar, dekorun `interact` kimliğidir (worldgen: prop(..., { interact: 'train_chop' })).
+// divineExp: seans başına [en az, en çok] Divine EXP, performansa (0..1) göre. Günde 3 seans sınırı ortak.
+
+export type TrainingMinigame = 'chop' | 'lift' | 'run';
+
+export interface TrainingSpot {
+  name: string;
+  minigame: TrainingMinigame;
+  divineExp: [number, number];
+}
+
+export const TRAINING_SPOTS: Record<string, TrainingSpot> = {
+  // Köyün antrenman alanı: kasıtlı olarak çabuk eskiyen bir kaynak (tek başına L1 ≈ 8 gün, L3 ≈ 25 gün).
+  train_chop: { name: 'Odun Kesme', minigame: 'chop', divineExp: [12, 25] },
+  train_lift: { name: 'Taş Kaldırma', minigame: 'lift', divineExp: [12, 25] },
+  train_run: { name: 'Koşu Parkuru', minigame: 'run', divineExp: [12, 25] },
+};

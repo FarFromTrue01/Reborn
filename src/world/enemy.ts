@@ -1,7 +1,8 @@
 // Düşman yapay zekâsı.
 import Phaser from 'phaser';
 import { Actor, dirFromVec, type Dir } from './actor';
-import { MONSTERS, type MonsterDef } from '../data/monsters';
+import { MONSTERS, type MonsterDef, type MonsterBehavior } from '../data/monsters';
+import { corneredStep, newCorneredState } from '../core/combat';
 import { createMonster } from '../core/monster';
 import { derive, type Derived } from '../core/creature';
 import type { CreatureData } from '../core/types';
@@ -33,8 +34,11 @@ export class Enemy {
   telegraph: Phaser.GameObjects.Graphics;
   barShowT = 0;
   cooldownT = 0;
-  fledOnce = false;
   attackCount = 0;
+  /** Son saldırı iptalinden bu yana geçen süre (sn); core/combat canInterrupt. */
+  sinceInterrupt = 99;
+  /** Ürkek hayvanın köşeye sıkışma sayacı (def.cornered). */
+  corner = newCorneredState();
   heavyAttack = false;
   lastSeenT = 0;
   strikeHit = false;
@@ -76,6 +80,8 @@ export class Enemy {
   get y() { return this.actor.y; }
   get alive() { return this.state !== 'dead'; }
   get level() { return this.c.level; }
+  /** O anki davranış: köşeye sıkışmış ürkek hayvan saldırgana döner. */
+  get behavior(): MonsterBehavior { return this.corner.cornered ? 'aggressive' : this.def.behavior; }
 
   setState(s: EState) {
     this.state = s;
@@ -113,6 +119,7 @@ export class Enemy {
     a.tickFlash(dt);
     this.stateT += dt;
     this.cooldownT -= dt;
+    this.sinceInterrupt += dt;
     const body = a.body2;
     if (this.state === 'dead') {
       body.setVelocity(0, 0);
@@ -122,14 +129,9 @@ export class Enemy {
     const pd = p.actor;
     const speed = this.def.speed * TILE * (this.slowT > 0 ? 0.5 : 1);
     this.slowT -= dt;
-    // geri tepme
-    if (a.kb.lengthSq() > 1) {
-      body.setVelocity(a.kb.x, a.kb.y);
-      a.kb.scale(Math.pow(0.0005, dt));
-      a.setDepth(a.y);
-      this.drawUI();
-      return;
-    }
+    // Geri tepme yalnızca hareketi ezer; YZ (hazırlık sayacı, savurma, kovalama) sürer. Böylece iptal beklemesi
+    // (core/combat canInterrupt) sırasında gelen vuruşlar düşmanı itse de saldırısını durduramaz: sık vurarak kilitlenemez.
+    const knocked = a.kb.lengthSq() > 1;
     if (a.frozenT > 0) {
       body.setVelocity(0, 0);
       this.drawUI();
@@ -146,7 +148,7 @@ export class Enemy {
     const vis = playerOk ? this.canSee(pd.x, pd.y, p.d.detectionMult * (p.running ? 1.35 : 1) * (p.sneaking ? 0.7 : 1)) : { see: false, dist: 99, behind: false };
 
     // Farkındalık göstergesi
-    if (!this.aware && this.def.behavior !== 'flee') {
+    if (!this.aware && this.behavior !== 'flee') {
       if (vis.see) {
         const rate = (1.6 / Math.max(0.6, vis.dist)) * (p.running ? 1.8 : 1) * (vis.dist < 1.5 ? 4 : 1);
         this.awareness = Math.min(1, this.awareness + rate * dt);
@@ -157,7 +159,7 @@ export class Enemy {
         }
       } else this.awareness = Math.max(0, this.awareness - 0.25 * dt);
       if (this.awareness >= 1) this.becomeAware(true);
-    } else if (!this.aware && this.def.behavior === 'flee' && vis.see && vis.dist < this.def.sight) {
+    } else if (!this.aware && this.behavior === 'flee' && vis.see && vis.dist < this.def.sight) {
       this.aware = true;
       this.setState('flee');
     }
@@ -182,11 +184,14 @@ export class Enemy {
     if (vis.see) this.lastSeenT = 0;
     else this.lastSeenT += dt;
 
+    // Köşeye sıkışma (Orman Tavşanı): uzun süre yakından kovalanırsa dönüp saldırır, uzaklaşınca yine kaçar.
+    if (this.def.cornered && playerOk) this.updateCornered(Math.hypot(pd.x - this.x, pd.y - this.y) / TILE, dt);
+
     switch (this.state) {
       case 'idle':
       case 'wander': {
         if (this.aware && playerOk) {
-          this.setState(this.def.behavior === 'flee' ? 'flee' : 'chase');
+          this.setState(this.behavior === 'flee' ? 'flee' : 'chase');
           break;
         }
         if (this.state === 'idle') {
@@ -209,7 +214,6 @@ export class Enemy {
           this.setState('return');
           break;
         }
-        if (this.shouldFlee()) break;
         if (this.def.behavior === 'caster') {
           // mesafeyi koru
           if (distP < 2.8) {
@@ -284,13 +288,13 @@ export class Enemy {
         break;
       }
       case 'flee': {
-        const away = toP.clone().normalize().scale(-speed * (this.def.behavior === 'flee' ? 1 : 0.9));
+        const away = toP.clone().normalize().scale(-speed * (this.behavior === 'flee' ? 1 : 0.9));
         body.setVelocity(away.x, away.y);
         a.face(dirFromVec(away.x, away.y));
         a.play(this.def.id === 'wolf' ? 'run' : 'walk');
         a.animSpeed = 1.3;
-        if (this.stateT > (this.def.behavior === 'flee' ? 4 : 3) || distP > 9) {
-          if (this.def.behavior === 'flee') {
+        if (this.stateT > (this.behavior === 'flee' ? 4 : 3) || distP > 9) {
+          if (this.behavior === 'flee') {
             this.aware = false;
             this.setState('idle');
           } else this.setState('chase');
@@ -311,6 +315,10 @@ export class Enemy {
         if (this.stateT > 0.25) this.setState(this.aware ? 'chase' : 'idle');
         break;
       }
+    }
+    if (knocked) {
+      body.setVelocity(a.kb.x, a.kb.y);
+      a.kb.scale(Math.pow(0.0005, dt));
     }
     a.setDepth(a.y);
     this.drawUI();
@@ -336,21 +344,29 @@ export class Enemy {
     return this.foe ? this.foe.actor : this.w.player.actor;
   }
 
-  shouldFlee(): boolean {
-    if (this.def.fleeAt && !this.fledOnce && this.c.hp / this.d.maxHp <= this.def.fleeAt) {
-      this.fledOnce = true;
-      this.setState('flee');
-      this.w.bubbleAt(this.actor, this.def.id.startsWith('goblin') ? 'Kaç!' : '!', 1);
-      return true;
+  /** Köşeye sıkışma sayacını ilerletir; durum değişince davranışı çevirir. */
+  updateCornered(distTiles: number, dt: number) {
+    if (this.state === 'windup' || this.state === 'strike') return;
+    if (!corneredStep(this.corner, this.def.cornered!, distTiles, dt)) return;
+    if (this.corner.cornered) {
+      // Kaçamıyor: dönüp tekme atar.
+      this.aware = false;
+      this.becomeAware(false);
+      this.w.bubbleAt(this.actor, '!', 1);
+    } else {
+      // Oyuncu uzaklaştı: yine ürkek.
+      this.icon.setText('');
+      this.aware = false;
+      this.awareness = 0;
+      this.setState('idle');
     }
-    return false;
   }
 
   becomeAware(alertPack: boolean) {
     if (this.aware) return;
     this.aware = true;
     this.awareness = 1;
-    if (this.def.behavior !== 'flee') {
+    if (this.behavior !== 'flee') {
       this.icon.setText('!').setColor('#ff5040');
       this.w.tweens.add({ targets: this.icon, scale: { from: 1.6, to: 1 }, duration: 200 });
       Sound.sfx('alert', 0.6);

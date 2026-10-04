@@ -59,12 +59,39 @@ export function appraisalReady(now: number, lastAt: number | null, panelOpen: bo
   return lastAt === null || now - lastAt >= cooldownMs;
 }
 
+/** Son Appraisal EXP kazanımından sonra, hedef farklı olsa bile yeni EXP verilmeden önce beklenen süre (ms). */
+export const APPRAISAL_EXP_COOLDOWN_MS = 10_000;
+
+/** Oturum içi Appraisal EXP saati (kayda yazılmaz). */
+export interface AppraisalExpClock {
+  lastAt: number | null;
+}
+
 /**
- * Skill EXP aynı hedef için günde bir kez verilir. EXP verilecekse kaydı günceller ve true döner.
+ * Skill EXP aynı hedef için günde bir kez verilir; ayrıca son EXP'den 10 sn geçmeden hiçbir hedef EXP vermez
+ * (peş peşe farklı NPC'lere tıklayarak EXP biriktirilemez). Panelin açılmasını etkilemez.
+ * EXP verilecekse kaydı ve saati günceller, true döner. Beklemedeyken günlük hak harcanmaz.
  * appraised: hedef kimliği → son EXP verilen gün.
  */
-export function claimAppraisalExp(appraised: Record<string, number>, key: string, day: number): boolean {
+export function claimAppraisalExp(
+  appraised: Record<string, number>,
+  key: string,
+  day: number,
+  clock?: AppraisalExpClock,
+  now = 0,
+  cooldownMs = APPRAISAL_EXP_COOLDOWN_MS,
+): boolean {
   if (appraised[key] === day) return false;
+  if (clock && clock.lastAt !== null && now - clock.lastAt < cooldownMs) return false;
   appraised[key] = day;
+  if (clock) clock.lastAt = now;
   return true;
+}
+
+/**
+ * Yaratığın drop oranları yalnızca Joseph'in Appraisal rütbesi yaratığın rütbesine eşit veya üstündeyse görünür
+ * (alt kademeler dahil: G+ Appraisal, G+ yaratığı okur; G okuyamaz).
+ */
+export function dropsVisible(mine: SubRank, creatureRank: SubRank): boolean {
+  return mine >= creatureRank;
 }

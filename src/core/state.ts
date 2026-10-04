@@ -140,7 +140,7 @@ export function newGameState(): GameState {
   };
 }
 
-export const CURRENT_SAVE_VERSION = 4;
+export const CURRENT_SAVE_VERSION = 5;
 
 /** Dünya haritasının 0.1.x boyutları (sis haritası göçü için). */
 export const OLD_WORLD_W = 150;

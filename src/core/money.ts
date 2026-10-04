@@ -1,5 +1,6 @@
 // Para: Bronz → Gümüş → Platin → Altın → Elmas, her biri öncekinin 100 katı.
-// Para birimleri ayrı tutulur; ödemede tüccar otomatik bozdurup para üstü verir.
+// Ödemede tüccar otomatik bozdurup para üstü verir; her işlemden sonra cüzdan normalize edilir
+// (100 bronz → 1 gümüş, 100 gümüş → 1 platin …, bkz. normalizeWallet).
 
 export const COINS = ['bronze', 'silver', 'platinum', 'gold', 'diamond'] as const;
 export type Coin = (typeof COINS)[number];
@@ -48,6 +49,14 @@ export function addWallet(a: Wallet, b: Wallet): Wallet {
   const r = emptyWallet();
   for (const c of COINS) r[c] = a[c] + b[c];
   return r;
+}
+
+/**
+ * Cüzdanı normalize eder: 100 bronz → 1 gümüş, 100 gümüş → 1 platin … artanlar küçük parada kalır.
+ * Toplam değer değişmez. Her işlem (transactions.ts → transact) sonunda çağrılır.
+ */
+export function normalizeWallet(w: Wallet): Wallet {
+  return canonicalCoins(walletTotal(w));
 }
 
 export function isValidWallet(w: Wallet): boolean {

@@ -1,7 +1,8 @@
 // Oyun kuralları: EXP, level, Divine, skill, eşya — bildirimleriyle birlikte.
 import { G } from './G';
 import { addExp, STAT_POINTS_PER_LEVEL, SP_PER_LEVEL, type StatKey } from '../core/formulas';
-import { addDivineExp, victoryDivineExp, isMeaningfulVictory, trainingExp, TRAINING_SESSIONS_PER_DAY, divineExpToNext } from '../core/divine';
+import { addDivineExp, victoryDivineExp, isMeaningfulVictory, trainingExp, streakMultiplier, TRAINING_SESSIONS_PER_DAY, divineExpToNext } from '../core/divine';
+import { fmtMult, fmtHp } from '../ui/format';
 import { addSkillExp, canLearnThisWeek, weekOfDay, newSkill } from '../core/skills';
 import { SKILLS, TECHNIQUES, HIDDEN_DISCOVERIES, RARITY_NAMES } from '../data/skills';
 import { subRankToString } from '../core/ranks';
@@ -58,7 +59,7 @@ export function gainExp(amount: number) {
     sysmsg('LEVEL ATLADIN', [
       `Level ${p.level - r.levelsGained} → Level ${p.level}`,
       `+${STAT_POINTS_PER_LEVEL * r.levelsGained} stat puanı · +${SP_PER_LEVEL * r.levelsGained} SP`,
-      `Max HP ${before} → ${G.d.maxHp} · Max MP ${beforeMp} → ${G.d.maxMp}`,
+      `Max HP ${fmtHp(before)} → ${fmtHp(G.d.maxHp)} · Max MP ${beforeMp} → ${G.d.maxMp}`,
       'Stat puanlarını Status ekranından dağıtabilirsin.',
     ], { sound: 'levelup', big: true });
     G.events.emit('levelup', p.level);
@@ -112,13 +113,17 @@ export function gainDivineExp(amount: number, reason: string) {
   G.scheduleSave();
 }
 
-/** Düşman yenildiğinde: meydan okuma + seri. */
+/**
+ * Düşman yenildiğinde: meydan okuma + seri. Fark (d) normal levelle, azalma divine levelle hesaplanır.
+ * Bildirim gerçek seri çarpanını gösterir ("meydan okuma · seri ×1,4"), seri sayısını değil.
+ */
 export function divineVictory(enemyLevel: number, boss: boolean) {
   const dv = G.state.divine;
   const meaningful = isMeaningfulVictory(enemyLevel, G.p.level);
-  const e = victoryDivineExp(enemyLevel, G.p.level, boss, dv.streak);
+  const mult = streakMultiplier(dv.streak);
+  const e = victoryDivineExp(enemyLevel, G.p.level, dv.level, boss, dv.streak);
   if (meaningful) dv.streak++;
-  if (e > 0) gainDivineExp(e, dv.streak > 1 ? `meydan okuma ×${dv.streak} seri` : 'meydan okuma');
+  if (e > 0) gainDivineExp(e, mult > 1 ? `meydan okuma · seri ×${fmtMult(mult)}` : 'meydan okuma');
 }
 
 export function resetStreak() {
@@ -130,11 +135,12 @@ export function trainingAvailable(): boolean {
   return G.state.divine.trainingCount < TRAINING_SESSIONS_PER_DAY;
 }
 
-export function completeTraining(performance: number) {
+/** Antrenman seansı: EXP noktanın kendi aralığından (data/props.ts → TRAINING_SPOTS). */
+export function completeTraining(range: [number, number], performance: number) {
   onNewDay();
   const dv = G.state.divine;
   dv.trainingCount++;
-  const e = trainingExp(dv.level, performance);
+  const e = trainingExp(range, performance);
   gainDivineExp(e, 'antrenman');
   return e;
 }
@@ -299,7 +305,7 @@ export function consumeItem(id: string, eat: { state: EatState; now: number } | 
   if (!t.ok) return { ok: false, reason: t.reason };
   const p = G.p;
   for (const e of it.effects ?? []) {
-    if (e.type === 'heal') p.hp = Math.min(G.d.maxHp, p.hp + Math.round(e.amount! * G.d.healMult));
+    if (e.type === 'heal') p.hp = Math.min(G.d.maxHp, p.hp + Math.round(e.amount! * G.d.healMult * 10) / 10);
     if (e.type === 'mana') p.mp = Math.min(G.d.maxMp, p.mp + e.amount!);
     if (e.type === 'stamina') p.stamina = Math.min(G.d.maxStamina, p.stamina + e.amount!);
     if (e.type === 'regen') {

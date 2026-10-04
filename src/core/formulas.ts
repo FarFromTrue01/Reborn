@@ -21,7 +21,7 @@ export function expToNext(level: number): number {
   return 100 * (level + 1);
 }
 
-export const STAT_POINTS_PER_LEVEL = 4;
+export const STAT_POINTS_PER_LEVEL = 6;
 export const SP_PER_LEVEL = 1;
 
 export interface LevelGain {
@@ -53,15 +53,24 @@ export interface PoolBonuses {
   staminaFlat?: number;
 }
 
-/** Max HP = 5 + 5×Level + 5×VIT + bonuslar */
+export const HP_BASE = 5;
+export const HP_PER_LEVEL = 8;
+export const HP_PER_VIT = 8;
+
+/** Bonussuz HP tabanı: 5 + 8×Level + 8×VIT (canavarlar bunu kendi hpMod'larıyla ölçekler). */
+export function baseHP(level: number, vit: number): number {
+  return HP_BASE + HP_PER_LEVEL * level + HP_PER_VIT * vit;
+}
+
+/** Max HP = 5 + 8×Level + 8×VIT + bonuslar */
 export function maxHP(level: number, vit: number, b: PoolBonuses = {}): number {
-  const base = 5 + 5 * level + 5 * vit + (b.hpFlat ?? 0);
+  const base = baseHP(level, vit) + (b.hpFlat ?? 0);
   return Math.max(1, Math.floor(base * (1 + (b.hpPct ?? 0))));
 }
 
-/** Max MP = 1×Level + 2×MNA + bonuslar */
+/** Max MP = 1×Level + 3×MNA + bonuslar */
 export function maxMP(level: number, mna: number, b: PoolBonuses = {}): number {
-  const base = level + 2 * mna + (b.mpFlat ?? 0);
+  const base = level + 3 * mna + (b.mpFlat ?? 0);
   return Math.max(0, Math.floor(base * (1 + (b.mpPct ?? 0))));
 }
 
@@ -72,19 +81,19 @@ export function maxStamina(vit: number, agi: number, b: PoolBonuses = {}): numbe
 
 // ---------------------------------------------------------------- Stat etkileri
 
-/** STR: fiziksel hasar ×(1 + 0.05×STR) */
+/** STR: fiziksel hasar ×(1 + 0.08×STR) */
 export function strDamageMult(str: number): number {
-  return 1 + 0.05 * str;
+  return 1 + 0.08 * str;
 }
 
-/** AGI: hareket hızı puan başına +%1 (en fazla +%50) */
+/** AGI: hareket hızı puan başına +%1,5 (en fazla +%60) */
 export function agiMoveMult(agi: number): number {
-  return 1 + Math.min(0.5, 0.01 * agi);
+  return 1 + Math.min(0.6, 0.015 * agi);
 }
 
-/** DEX: saldırı hızı puan başına +%1.5 (en fazla +%60) */
+/** DEX: saldırı hızı puan başına +%2 (en fazla +%70) */
 export function dexAttackSpeedMult(dex: number): number {
-  return 1 + Math.min(0.6, 0.015 * dex);
+  return 1 + Math.min(0.7, 0.02 * dex);
 }
 
 export const BASE_CRIT = 0.05;
@@ -92,9 +101,9 @@ export const MAX_CRIT = 0.6;
 export const CRIT_MULT = 2;
 export const WEAK_POINT_MULT = 1.5;
 
-/** Kritik şansı: taban %5 + DEX (≤%20) + LUK (≤%10) + bonus, toplam ≤ %60 */
+/** Kritik şansı: taban %5 + DEX %0,5/puan (≤%20) + LUK %0,6/puan (≤%10) + bonus, toplam ≤ %60 */
 export function critChance(dex: number, luk: number, bonus = 0): number {
-  const c = BASE_CRIT + Math.min(0.2, 0.005 * dex) + Math.min(0.1, 0.005 * luk) + bonus;
+  const c = BASE_CRIT + Math.min(0.2, 0.005 * dex) + Math.min(0.1, 0.006 * luk) + bonus;
   return Math.min(MAX_CRIT, c);
 }
 
@@ -103,9 +112,9 @@ export function luckyMissChance(luk: number): number {
   return Math.min(0.1, 0.005 * luk);
 }
 
-/** LUK: drop şansı ×(1 + 0.05×LUK) */
+/** LUK: drop şansı ×(1 + 0.06×LUK) */
 export function dropChanceMult(luk: number): number {
-  return 1 + 0.05 * luk;
+  return 1 + 0.06 * luk;
 }
 
 /** MNA: MP yenilenmesi puan başına +%5 */
@@ -113,9 +122,9 @@ export function mnaRegenMult(mna: number): number {
   return 1 + 0.05 * mna;
 }
 
-/** Büyü gücü: INT puan başına +%5, MNA puan başına +%1 */
+/** Büyü gücü: INT puan başına +%6, MNA puan başına +%1 */
 export function spellPowerMult(int: number, mna: number): number {
-  return 1 + 0.05 * int + 0.01 * mna;
+  return 1 + 0.06 * int + 0.01 * mna;
 }
 
 /** INT: büyü alanı puan başına +%3 (en fazla +%100) */
@@ -134,7 +143,7 @@ export interface PhysicalHit {
   weakPoint?: boolean; // zayıf nokta / arkadan saldırı
 }
 
-/** Fiziksel hasar = Silah × (1+0.05×STR) × skill × trait × kritik × zayıf nokta */
+/** Fiziksel hasar = Silah × (1+0.08×STR) × skill × trait × kritik × zayıf nokta */
 export function physicalDamage(h: PhysicalHit): number {
   return (
     h.weaponBase *
@@ -156,7 +165,7 @@ export interface SpellHit {
   weakPoint?: boolean;
 }
 
-/** Büyü hasarı = Büyü tabanı × (1 + 0.05×INT + 0.01×MNA) × skill çarpanları */
+/** Büyü hasarı = Büyü tabanı × (1 + 0.06×INT + 0.01×MNA) × skill çarpanları */
 export function spellDamage(h: SpellHit): number {
   return (
     h.spellBase *
@@ -182,29 +191,41 @@ export function mitigatedDamage(raw: number, def: number, attackerLevel: number,
   return (raw * (1 - damageReduction(def, attackerLevel))) / enduranceDivisor;
 }
 
+/** En düşük hasar: isabet eden vuruş 0,1'in altına inmez ("en az 1" tabanı yok). */
+export const MIN_DAMAGE = 0.1;
+
 /**
- * Hasarı tamsayıya çevirir: isabet eden her vuruş en az 1 hasar verir,
- * kesirli kısım olasılıkla yuvarlanır (1.3 → %70 ihtimalle 1, %30 ihtimalle 2).
+ * Hasarı biçimine yuvarlar: 10'un altı bir ondalık (0,5 · 1,0 · 3,7), 10 ve üstü tam sayı (14 · 27 · 103).
+ * 9,96 gibi değerler 10'a yuvarlanır ve tam sayı kuralına geçer.
  */
-export function roundDamage(x: number, rand: () => number = Math.random): number {
-  if (x <= 1) return 1;
-  const f = Math.floor(x);
-  return f + (rand() < x - f ? 1 : 0);
+export function roundDamage(x: number): number {
+  if (!(x > 0)) return MIN_DAMAGE;
+  const r = Math.round(x * 10) / 10;
+  if (r >= 10) return Math.round(x);
+  return Math.max(MIN_DAMAGE, r);
+}
+
+/**
+ * Hasar sonrası HP: bir ondalığa sabitlenir ki 1 − 0,3 − 0,7 gibi kayan nokta artıkları
+ * yaratığı 0,0000001 HP ile hayatta bırakmasın. En az 0.
+ */
+export function applyDamage(hp: number, damage: number): number {
+  return Math.max(0, Math.round((hp - damage) * 10) / 10);
 }
 
 export const UNARMED_DAMAGE: [number, number] = [1, 1];
 
-/** Silah taban hasarı aralıkları (rütbeye göre). */
+/** Silah taban hasarı aralıkları (rütbeye göre). Yumruk hariç hepsi 0.3.x'in iki katı. */
 export const WEAPON_DAMAGE_BY_RANK: Record<string, [number, number]> = {
-  G: [1, 2],
-  F: [2, 5],
-  E: [5, 10],
-  D: [10, 20],
-  C: [20, 40],
-  B: [40, 75],
-  A: [75, 150],
-  S: [150, 300],
-  X: [300, 600],
+  G: [2, 4],
+  F: [4, 10],
+  E: [10, 20],
+  D: [20, 40],
+  C: [40, 80],
+  B: [80, 150],
+  A: [150, 300],
+  S: [300, 600],
+  X: [600, 1200],
 };
 
 // ---------------------------------------------------------------- Yenilenme

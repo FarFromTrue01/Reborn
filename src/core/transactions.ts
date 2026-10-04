@@ -2,7 +2,7 @@
 // 1) doğrula  2) verileni tam düş  3) alınanı tam ekle  4) kaydet.
 // Yetmiyorsa işlem başarısız olur ve hiçbir şey değişmez.
 
-import { addWallet, planPayment, isValidWallet, emptyWallet, walletTotal, type Wallet } from './money';
+import { addWallet, planPayment, isValidWallet, emptyWallet, walletTotal, normalizeWallet, type Wallet } from './money';
 import { ITEMS } from '../data/items';
 import type { EquipSlot } from './types';
 import { EQUIP_SLOTS } from './types';
@@ -108,6 +108,8 @@ export function transact(l: Ledger, spec: TxSpec): TxResult {
   // 3) Alınanı ekle
   for (const g of spec.give ?? []) next.inventory[g.id] = (next.inventory[g.id] ?? 0) + g.qty;
   if (spec.receive) next.wallet = addWallet(next.wallet, spec.receive);
+  // Para birimleri her işlemden sonra bozdurulur: 100 bronz cüzdanda 1 gümüş olarak durur.
+  if (spec.receive || spec.pay) next.wallet = normalizeWallet(next.wallet);
   if (!isConsistent(next)) return { ok: false, reason: 'İşlem tutarsız.' };
   commit(l, next);
   // 4) Kaydet

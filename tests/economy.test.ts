@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import {
-  canonicalCoins, emptyWallet, planPayment, walletTotal, formatPrice, sellPrice, type Wallet, COINS,
+  canonicalCoins, emptyWallet, planPayment, walletTotal, formatPrice, sellPrice, normalizeWallet, type Wallet, COINS,
 } from '../src/core/money';
 import { transact, equip, unequip, isConsistent, loseMoneyPercent, totalOwned, type Ledger } from '../src/core/transactions';
 
@@ -186,5 +186,30 @@ describe('0.2.0 köy fiyatları', () => {
           expect(sp, `${id}: ${shop.id} → ${other.id}`).toBeLessThan(buy);
         }
       }
+  });
+});
+
+describe('Cüzdan normalizasyonu', () => {
+  it('100 bronz → 1 gümüş, 100 gümüş → 1 platin, artan bronz kalır', () => {
+    expect(normalizeWallet(w({ bronze: 250 }))).toEqual(w({ silver: 2, bronze: 50 }));
+    expect(normalizeWallet(w({ silver: 105, bronze: 130 }))).toEqual(w({ platinum: 1, silver: 6, bronze: 30 }));
+    expect(walletTotal(normalizeWallet(w({ silver: 999, bronze: 999 })))).toBe(999 * 100 + 999);
+  });
+  it('Her alma ve ödeme işleminden sonra cüzdan normalize', () => {
+    const l = ledger({ wallet: w({ bronze: 80 }) });
+    expect(transact(l, { label: 'Ganimet', receive: w({ bronze: 45 }) }).ok).toBe(true);
+    expect(l.wallet).toEqual(w({ silver: 1, bronze: 25 }));
+    for (let i = 0; i < 20; i++) transact(l, { label: 'Ganimet', receive: w({ bronze: 99 }) });
+    expect(l.wallet.bronze).toBeLessThan(100);
+    expect(l.wallet.silver).toBeLessThan(100);
+    expect(walletTotal(l.wallet)).toBe(125 + 20 * 99);
+    expect(transact(l, { label: 'Alışveriş', pay: 7 }).ok).toBe(true);
+    expect(l.wallet.bronze).toBeLessThan(100);
+    expect(walletTotal(l.wallet)).toBe(125 + 20 * 99 - 7);
+  });
+  it('Elle dağınık bırakılmış cüzdan ilk işlemde toparlanır', () => {
+    const l = ledger({ wallet: w({ bronze: 340 }) });
+    transact(l, { label: 'Satış', receive: w({ bronze: 1 }) });
+    expect(l.wallet).toEqual(w({ silver: 3, bronze: 41 }));
   });
 });

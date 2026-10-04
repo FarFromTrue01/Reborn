@@ -11,6 +11,7 @@ import { TILE } from '../world/types';
 import { NPC_BY_ID, TONE_LINES } from '../data/npcs';
 import { SHOPS, shopOpen } from '../data/shops';
 import { FEES, LESSONS, JOBS } from '../data/economy';
+import { TRAINING_SPOTS, type TrainingSpot } from '../data/props';
 import * as R from '../game/rules';
 import { transact, equip } from '../core/transactions';
 import { walletTotal, emptyWallet, formatPrice } from '../core/money';
@@ -23,6 +24,7 @@ import { SKILLS, RARITY_NAMES } from '../data/skills';
 import { HIDDEN_DISCOVERIES } from '../data/skills';
 import { weekOfDay } from '../core/skills';
 import { panelChoice } from '../ui/panels';
+import { fmtHp } from '../ui/format';
 import { divineStat, DIVINE_STATS, DIVINE_STAT_NAMES } from '../core/divine';
 import { ensureCG } from '../ui/portraits';
 import { Display } from '../game/display';
@@ -394,7 +396,7 @@ export class Director {
           Sound.sfx('hit');
           a.kb.set(0, 1).scale(220);
           G.p.hp = Math.max(1, G.p.hp - 1);
-          this.w.fx.number(a.x, a.y - 50, '-1', 'hurt');
+          this.w.fx.number(a.x, a.y - 50, `-${fmtHp(1)}`, 'hurt');
           this.ui.flashDamage();
           await wait(this.w, 600);
         }
@@ -957,7 +959,8 @@ export class Director {
     Q.complete('m_harvest', { money: 0, silent: true });
     Q.start('m_register', true);
     // 100 bronz → 1 gümüş
-    if (G.p.wallet.bronze >= 100 && !G.flag('silver_exchanged')) {
+    // Cüzdan artık kendiliğinden bozduruluyor (core/money normalizeWallet); sahne yine de Haldor'un ağzından anlatılır.
+    if (walletTotal(G.p.wallet) >= 100 && !G.flag('silver_exchanged')) {
       await this.say('haldor', 'Cebin bozuk parayla şıngırdıyor. Ver şunları, sana bir gümüş vereyim. Lonca bozukluk saymayı sevmez.');
       const r = transact(G.p as any, { label: 'Bozdurma', pay: 100, receive: { ...emptyWallet(), silver: 1 } });
       if (r.ok) {
@@ -1259,7 +1262,7 @@ export class Director {
   // ============================================================ prop etkileşimi
   interactProp(id: string, p: PropPlacement) {
     if (this.busy) return;
-    if (id.startsWith('train_')) return this.training(id.slice(6) as any);
+    if (TRAINING_SPOTS[id]) return this.training(TRAINING_SPOTS[id]);
     switch (id) {
       case 'bed_attic':
         return this.scene(async () => this.sleepAttic());
@@ -1337,14 +1340,14 @@ export class Director {
     if (G.state.time.minute / 60 < 8 && G.flag('bertram_deal') && !G.flag('bertram_done') && G.flag('worked_today') !== G.state.time.day) await this.think('Sabah. Bertram aşağıda bekliyordur.');
   }
 
-  async training(kind: 'chop' | 'lift' | 'run') {
+  async training(spot: TrainingSpot) {
+    const kind = spot.minigame;
     this.scene(async () => {
       if (!R.trainingAvailable()) {
         await this.think('Bugün yeterince antrenman yaptım. Bedenim daha fazlasını kaldırmaz. (Günde en fazla 3)');
         return;
       }
-      const names = { chop: 'Odun Kesme', lift: 'Taş Kaldırma', run: 'Koşu Parkuru' };
-      const c = await this.ui.choice([`${names[kind]} antrenmanı yap (1 saat)`, 'Vazgeç']);
+      const c = await this.ui.choice([`${spot.name} antrenmanı yap (1 saat)`, 'Vazgeç']);
       if (c !== 0) return;
       this.ui.closeDialogue();
       const perf = await new Promise<number>((resolve) => {
@@ -1358,10 +1361,10 @@ export class Director {
         G.state.time.minute -= 1440;
         G.state.time.day++;
       }
-      const e = R.completeTraining(perf);
+      const e = R.completeTraining(spot.divineExp, perf);
       G.p.stamina = Math.max(0, G.p.stamina - 30);
       await this.think(perf > 0.75 ? 'Kaslarım yanıyor, ama içimde bir şey parlıyor. Divine...' : perf > 0.4 ? 'Fena değil. Biraz daha güçlendim galiba.' : 'Berbattı. Ama bir şey kazandım yine de.');
-      R.sysmsg('ANTRENMAN', [`${names[kind]} · Performans %${Math.round(perf * 100)}`, `Divine EXP +${e}`, `Bugün kalan seans: ${3 - G.state.divine.trainingCount}`]);
+      R.sysmsg('ANTRENMAN', [`${spot.name} · Performans %${Math.round(perf * 100)}`, `Divine EXP +${e}`, `Bugün kalan seans: ${3 - G.state.divine.trainingCount}`]);
     });
   }
 

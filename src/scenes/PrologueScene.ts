@@ -4,6 +4,7 @@ import { Sound } from '../audio/audio';
 import { COLORS, FONT, txt, drawBlue, Button } from '../ui/kit';
 import { ensureCG } from '../ui/portraits';
 import { divineExpToNext } from '../core/divine';
+import { fmtHp } from '../ui/format';
 
 /** Prolog: kaza, ölüm, beyaz boşluk ve Status'un oluşması. */
 export class PrologueScene extends Phaser.Scene {
@@ -140,7 +141,7 @@ export class PrologueScene extends Phaser.Scene {
     const lines: [string, string?][] = [
       ['⚙️ STATUS'],
       ['İsim: Joseph · Level: 0 · EXP: 0/100'],
-      ['HP: 5/5 · MP: 0/0 · Rütbe: Yok · Irk: İnsan'],
+      [`HP: ${fmtHp(5)}/${fmtHp(5)} · MP: 0/0 · Rütbe: Yok · Irk: İnsan`],
       ['📊 STATS'],
       ['STR 0 · VIT 0 · AGI 0 · DEX 0 · MNA 0 · INT 0 · LUK 0'],
       ['⭐ SKILLS'],

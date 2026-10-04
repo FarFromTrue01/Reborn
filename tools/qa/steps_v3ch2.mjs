@@ -88,11 +88,11 @@ export default async ({ page, wait, shot, evalG }) => {
   await wait(1200);
   await h.run([0], 300);
   await log('şifacı');
-  // ------------------------------------------------------------ E4 dostluk, kurtlar
+  // ------------------------------------------------------------ E4 dostluk, otlaktaki fareler
   await setTime(8, 13);
   await load('guild', 7, 9);
   await talk('lina', [0]);
-  await log('kurt görevi');
+  await log('fare görevi');
   await loadPt('pasture');
   await wait(1500);
   await h.run([], 300);
@@ -100,7 +100,7 @@ export default async ({ page, wait, shot, evalG }) => {
   await wait(2500);
   await shot('ch2_06_wolves_fight');
   await killAll('fw');
-  await log('kurtlar');
+  await log('fareler');
   await load('guild', 7, 9);
   await talk('celeste');
   await log('rapor');

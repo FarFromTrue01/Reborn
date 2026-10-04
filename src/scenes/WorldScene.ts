@@ -25,12 +25,14 @@ import { usageExp, achievementExp, techniquesOf } from '../core/skills';
 import { TECHNIQUES } from '../data/skills';
 import { ITEMS } from '../data/items';
 import { DIVINE_BY_ID } from '../data/divine';
-import { LIGHT_MAX, LIGHT_ON_HIT, LIGHT_ON_PERFECT_DODGE } from '../core/divine';
+import { LIGHT_MAX, LIGHT_ON_HIT, LIGHT_ON_PERFECT_DODGE, streakExpired } from '../core/divine';
+import { canInterrupt, refundEvade } from '../core/combat';
+import { fmtHp } from '../ui/format';
 import { loseMoneyPercent } from '../core/transactions';
 import { walletTotal } from '../core/money';
-import { appraisalBaseExp, noticesAppraisal, appraisalReady, claimAppraisalExp } from '../core/appraisal';
+import { appraisalBaseExp, noticesAppraisal, appraisalReady, claimAppraisalExp, type AppraisalExpClock } from '../core/appraisal';
 import { newEatState, type EatState } from '../core/eating';
-import { spellPowerMult } from '../core/formulas';
+import { spellPowerMult, applyDamage, roundDamage } from '../core/formulas';
 import { dirFromVec, dirVec, type Dir } from '../world/actor';
 import * as R from '../game/rules';
 import type { UIScene } from './UIScene';
@@ -139,6 +141,10 @@ export class WorldScene extends Phaser.Scene {
   playClock = 0;
   eatState: EatState = newEatState();
   private lastAppraiseAt: number | null = null;
+  /** Appraisal EXP'sinin 10 sn genel beklemesi (oturum içi, kayda yazılmaz). */
+  private appraisalExpClock: AppraisalExpClock = { lastAt: null };
+  /** Son öldürmeden bu yana geçen oyun saniyesi: 30 sn öldürme olmazsa Divine serisi sıfırlanır. */
+  sinceKill = 0;
   /** C7: otomatik kayıt sayacı (gerçek saniye, oyun açıkken). */
   autoSaveT = 0;
   private questT = 0;
@@ -205,6 +211,8 @@ export class WorldScene extends Phaser.Scene {
     this.playClock = 0;
     this.eatState = newEatState();
     this.lastAppraiseAt = null;
+    this.appraisalExpClock = { lastAt: null };
+    this.sinceKill = 0;
     this.autoSaveT = 0;
     this.questT = 0;
     this.assistMarkT = 0;
@@ -508,12 +516,12 @@ export class WorldScene extends Phaser.Scene {
       this.fx.number(e.x, e.y - 40, 'Iska!', 'miss');
       return;
     }
-    e.c.hp -= res.damage;
+    e.c.hp = applyDamage(e.c.hp, res.damage);
     e.damageBy[c.id] = (e.damageBy[c.id] ?? 0) + res.damage;
     e.actor.kb.set(dir.x, dir.y).scale(110 * (e.def.boss ? 0.3 : 1));
     e.actor.flash(0xffffff, 0.06);
     this.fx.sparks(e.x, e.y - 18, 0xd8f0ff, 5);
-    this.fx.number(e.x, e.y - 40, String(res.damage) + (res.crit ? '!' : ''), 'info');
+    this.fx.number(e.x, e.y - 40, fmtHp(res.damage) + (res.crit ? '!' : ''), 'info');
     Sound.sfx('hit', 0.6);
     if (e.c.hp <= 0) {
       this.killEnemy(e, null);
@@ -871,6 +879,8 @@ export class WorldScene extends Phaser.Scene {
       }
     }
     this.player.update(dt);
+    this.sinceKill += dt;
+    if (G.state.divine.streak > 0 && streakExpired(this.sinceKill)) R.resetStreak();
     for (const e of this.enemies) {
       const far = Math.abs(e.x - this.player.actor.x) > 34 * TILE || Math.abs(e.y - this.player.actor.y) > 24 * TILE;
       if (far && !e.aware) {
@@ -1467,9 +1477,9 @@ export class WorldScene extends Phaser.Scene {
     Sound.sfx('appraise');
     const mine = G.p.skills.find((s) => s.id === 'appraisal')!.rank;
     const theirs = (c.skills.find((s: any) => s.id === 'appraisal')?.rank ?? 0) as number;
-    // EXP: aynı hedef günde bir kez
     const key = (npcDef?.id ?? 'm_' + (ref as Enemy).uid) as string;
-    if (claimAppraisalExp(G.state.appraised, key, G.state.time.day)) {
+    // EXP: hedef başına günde bir; ayrıca son EXP'den 10 sn geçmeden hiçbir hedef EXP vermez (panel yine açılır)
+    if (claimAppraisalExp(G.state.appraised, key, G.state.time.day, this.appraisalExpClock, this.time.now)) {
       R.gainSkillExp('appraisal', appraisalBaseExp(mine, theirs, c.level, G.p.level));
     }
     const actor = ref.actor;
@@ -1585,7 +1595,7 @@ export class WorldScene extends Phaser.Scene {
   }
 
   updateCombatState(dt: number) {
-    const anyAware = this.enemies.some((e) => e.alive && e.aware && e.def.behavior !== 'flee' && Math.hypot(e.x - this.player.actor.x, e.y - this.player.actor.y) < 14 * TILE);
+    const anyAware = this.enemies.some((e) => e.alive && e.aware && e.behavior !== 'flee' && Math.hypot(e.x - this.player.actor.x, e.y - this.player.actor.y) < 14 * TILE);
     if (anyAware) {
       this.player.combatT = Math.min(this.player.combatT, 0.5);
       this.battleT = 0;
@@ -1700,7 +1710,7 @@ export class WorldScene extends Phaser.Scene {
 
   hitEnemy(e: Enemy, o: { heavy?: boolean; dir: Phaser.Math.Vector2; physical?: boolean; spell?: { base: number; element?: string; skill?: string }; mult?: number; skill?: string; knock?: number }) {
     const pl = this.player;
-    const sneak = !e.aware && e.def.behavior !== 'flee';
+    const sneak = !e.aware && e.behavior !== 'flee';
     const counter = pl.counterT > 0;
     let res;
     const att = { d: G.d, level: G.p.level };
@@ -1729,7 +1739,7 @@ export class WorldScene extends Phaser.Scene {
       Sound.sfx('miss');
       return;
     }
-    e.c.hp -= res.damage;
+    e.c.hp = applyDamage(e.c.hp, res.damage);
     e.damageBy.joseph = (e.damageBy.joseph ?? 0) + res.damage;
     // hissiyat
     const kbMul = (o.knock ?? 1) * (o.heavy ? 2 : 1) * (e.def.boss ? 0.3 : 1);
@@ -1740,7 +1750,7 @@ export class WorldScene extends Phaser.Scene {
     pl.actor.frozenT = stop * 0.8;
     if (G.settings.shake) this.cameras.main.shake(res.crit ? 140 : o.heavy ? 110 : 70, (res.crit ? 0.006 : 0.003) * (4 / Display.worldZoom));
     this.fx.sparks(e.x, e.y - 18, res.crit ? 0xffd040 : 0xfff2c0, res.crit ? 12 : 7);
-    const label = String(res.damage) + (res.crit ? '!' : '');
+    const label = fmtHp(res.damage) + (res.crit ? '!' : '');
     this.fx.number(e.x, e.y - 40, label, res.crit ? 'crit' : 'dmg');
     if (res.sneak) this.fx.number(e.x, e.y - 58, 'Gizli Saldırı!', 'sneak');
     if (counter) this.fx.number(e.x, e.y - 58, 'Karşı Saldırı!', 'divine');
@@ -1759,12 +1769,13 @@ export class WorldScene extends Phaser.Scene {
       R.checkDiscoveries();
     }
     if (e.c.hp <= 0) this.killEnemy(e, o.skill ?? weaponSkill);
-    else if (e.state !== 'windup' || o.heavy || res.crit) {
-      if (e.state === 'windup' && (o.heavy || res.crit) && !e.def.boss) {
-        e.telegraph.clear();
-        e.actor.tint(null);
-        e.setState('hurt');
-      }
+    else if (canInterrupt({ state: e.state, heavy: !!o.heavy, boss: !!e.def.boss, sinceInterrupt: e.sinceInterrupt })) {
+      // Vuruş hazırlıktaki saldırıyı keser (boss yalnızca ağır vuruşla); ardından 1,2 sn yeniden kesilemez.
+      e.sinceInterrupt = 0;
+      e.telegraph.clear();
+      e.actor.tint(null);
+      e.icon.setText('');
+      e.setState('hurt');
     }
   }
 
@@ -1782,6 +1793,7 @@ export class WorldScene extends Phaser.Scene {
     this.tweens.add({ targets: a, alpha: 0, delay: 900, duration: 700, onComplete: () => { e.destroy(); this.enemies = this.enemies.filter((x) => x !== e); } });
     if (a.kind !== 'lpc' && e.def.id !== 'wolf') this.tweens.add({ targets: a, scaleY: 0.3, scaleX: 1.3, duration: 400, ease: 'Quad.In' });
     // ödüller
+    this.sinceKill = 0;
     const exp = monsterExp(e.def, e.level);
     const share = splitExp(exp, e.damageBy);
     // C4: Joseph yalnızca kendi vurduğu düşmandan EXP alır
@@ -1905,6 +1917,11 @@ export class WorldScene extends Phaser.Scene {
 
   perfectDodge(e: Enemy | null) {
     const pl = this.player;
+    // Mükemmel kaçış bedava: bu kaçışın/atılmanın peşin bedeli iade edilir, dayanıklılık beklemesi sıfırlanır.
+    const back = refundEvade(pl.evadePaid);
+    if (back.stamina > 0) G.p.stamina = Math.min(G.d.maxStamina, G.p.stamina + back.stamina);
+    if (back.light > 0) G.state.divine.light = Math.min(LIGHT_MAX, G.state.divine.light + back.light);
+    pl.staminaDelay = 0;
     Sound.sfx('perfect');
     this.slowmoT = 0.45 * G.d.slowmoMult * (G.state.divine.skills.includes('swift_grace') ? 1.5 : 1);
     pl.counterT = 1.6;
@@ -1921,18 +1938,18 @@ export class WorldScene extends Phaser.Scene {
     const pl = this.player;
     const p = G.p;
     let d = dmg;
-    if (G.state.divine.skills.includes('guardian_aura')) d = Math.max(1, Math.round(d * 0.9));
+    if (G.state.divine.skills.includes('guardian_aura')) d = roundDamage(d * 0.9);
     const ironSkin = pl.buffs.find((b) => b.id === 'iron_skin');
-    if (ironSkin) d = Math.max(1, Math.round(d * 0.5));
+    if (ironSkin) d = roundDamage(d * 0.5);
     if (pl.shield > 0) {
       const ab = Math.min(pl.shield, d);
-      pl.shield -= ab;
-      d -= ab;
-      this.fx.number(pl.actor.x, pl.actor.y - 50, `Kalkan -${ab}`, 'divine');
+      pl.shield = applyDamage(pl.shield, ab);
+      d = applyDamage(d, ab);
+      this.fx.number(pl.actor.x, pl.actor.y - 50, `Kalkan -${fmtHp(ab)}`, 'divine');
       if (d <= 0) return;
     }
     this.enterCombat();
-    if (p.hp - d <= 0 && G.state.divine.skills.includes('second_wind') && !pl.secondWindUsed) {
+    if (applyDamage(p.hp, d) <= 0 && G.state.divine.skills.includes('second_wind') && !pl.secondWindUsed) {
       pl.secondWindUsed = true;
       p.hp = 1;
       pl.invulnT = 1.2;
@@ -1941,11 +1958,11 @@ export class WorldScene extends Phaser.Scene {
       R.sysmsg('İKİNCİ NEFES', ['Öldürücü darbeyi ışık karşıladı. 1 HP ile ayaktasın.'], { sound: 'system' });
       return;
     }
-    p.hp = Math.max(0, p.hp - d);
+    p.hp = applyDamage(p.hp, d);
     pl.actor.flash(0xff4030, 0.12);
     pl.actor.kb.set(dir.x, dir.y).scale(170);
     pl.invulnT = 0.45;
-    this.fx.number(pl.actor.x, pl.actor.y - 50, `-${d}`, 'hurt');
+    this.fx.number(pl.actor.x, pl.actor.y - 50, `-${fmtHp(d)}`, 'hurt');
     Sound.sfx('hurt');
     if (G.settings.shake) this.cameras.main.shake(120, 0.008 * (4 / Display.worldZoom));
     this.ui.flashDamage();
@@ -2150,7 +2167,7 @@ export class WorldScene extends Phaser.Scene {
       case 'heal': {
         const amt = Math.round(t.power * spellPowerMult(G.d.stats.INT, G.d.stats.MNA) * G.d.healMult);
         G.p.hp = Math.min(G.d.maxHp, G.p.hp + amt);
-        this.fx.number(pl.actor.x, pl.actor.y - 50, `+${amt}`, 'heal');
+        this.fx.number(pl.actor.x, pl.actor.y - 50, `+${fmtHp(amt)}`, 'heal');
         this.fx.glow(pl.actor.x, pl.actor.y - 20, 0x9fffa0, 50);
         Sound.sfx('heal');
         if (skill && G.p.hp < G.d.maxHp) R.gainSkillExp(skill, 0.8);
@@ -2200,7 +2217,7 @@ export class WorldScene extends Phaser.Scene {
         this.fx.ring(pl.actor.x, pl.actor.y - 20, 0xffe28a, 40);
         break;
       case 'light_step':
-        pl.lightDash();
+        pl.lightDash(def.light);
         break;
       case 'holy_strike':
         pl.holyNext = true;
@@ -2210,7 +2227,7 @@ export class WorldScene extends Phaser.Scene {
       case 'purify': {
         const amt = Math.round(G.d.maxHp * 0.2);
         G.p.hp = Math.min(G.d.maxHp, G.p.hp + amt);
-        this.fx.number(pl.actor.x, pl.actor.y - 50, `+${amt}`, 'heal');
+        this.fx.number(pl.actor.x, pl.actor.y - 50, `+${fmtHp(amt)}`, 'heal');
         Sound.sfx('heal');
         break;
       }

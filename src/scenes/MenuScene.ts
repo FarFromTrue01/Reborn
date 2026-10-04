@@ -5,14 +5,14 @@ import { Sound } from '../audio/audio';
 import { COLORS, FONT, txt, drawFrame, drawBlue, Button, iconImage, uiIcon, rankBadge } from '../ui/kit';
 import { renderDevPanel } from '../ui/devPanel';
 import { renderQuestsTab } from '../ui/questsTab';
-import { fmtExp } from '../ui/format';
+import { fmtExp, fmtHp } from '../ui/format';
 import { prestigeLabel, itemPrestige } from '../core/prestige';
 import { pointsToNext } from '../core/guild';
 import { daysLeft, CITY_NAMES } from '../core/cards';
 import { ScrollList, panelChoice, confirmBox } from '../ui/panels';
 import { buildSettings } from '../ui/settingsPanel';
 import { itemLabel, itemEffectsText } from '../ui/format';
-import { STAT_KEYS, expToNext } from '../core/formulas';
+import { STAT_KEYS, expToNext, STAT_POINTS_PER_LEVEL } from '../core/formulas';
 import { subRankToString, skillThreshold, SUBRANK_MAX } from '../core/ranks';
 import { SKILLS, RARITY_NAMES, TECHNIQUES, OFFER_COST } from '../data/skills';
 import { TITLES, TRAIT_NAMES } from '../data/titles';
@@ -273,7 +273,7 @@ export class MenuScene extends Phaser.Scene {
       cx = this.chip(inner, cx + 26, by + 36, `Saygınlık ${prestigeLabel(R.josephPrestige())}`, 0x4a3a10, '#ffe9a0');
       const bw = W - x0 - 20;
       const half = (bw - 12) / 2;
-      this.progress(inner, x0, by + 68, half, 20, p.hp / d.maxHp, COLORS.hp, `HP ${Math.ceil(p.hp)} / ${d.maxHp}`);
+      this.progress(inner, x0, by + 68, half, 20, p.hp / d.maxHp, COLORS.hp, `HP ${fmtHp(p.hp)} / ${fmtHp(d.maxHp)}`);
       this.progress(inner, x0 + half + 12, by + 68, half, 20, d.maxMp ? p.mp / d.maxMp : 0, COLORS.mp, `MP ${Math.floor(p.mp)} / ${d.maxMp}`);
       this.progress(inner, x0, by + 94, half, 16, p.stamina / d.maxStamina, COLORS.st, `Dayanıklılık ${Math.floor(p.stamina)} / ${d.maxStamina}`);
       const need = expToNext(p.level);
@@ -340,7 +340,7 @@ export class MenuScene extends Phaser.Scene {
         }
         ry += rowH;
       }
-      inner.add(txt(this, 14, ry + 4, p.unspent > 0 ? `Level atladıkça 4 stat puanı kazanırsın. ${p.unspent} puan dağıtılmayı bekliyor.` : 'Stat puanları level atlayınca gelir (her level +4).', { size: 13, italic: true, color: p.unspent ? '#ffe9a0' : '#6f9fcf' }));
+      inner.add(txt(this, 14, ry + 4, p.unspent > 0 ? `Level atladıkça ${STAT_POINTS_PER_LEVEL} stat puanı kazanırsın. ${p.unspent} puan dağıtılmayı bekliyor.` : `Stat puanları level atlayınca gelir (her level +${STAT_POINTS_PER_LEVEL}).`, { size: 13, italic: true, color: p.unspent ? '#ffe9a0' : '#6f9fcf' }));
       y += ch + gap;
     }
 
@@ -1022,13 +1022,13 @@ function parseRank(s: string) {
 
 function statHint(k: string) {
   switch (k) {
-    case 'STR': return 'Fiziksel hasar +%5';
-    case 'VIT': return '+5 HP, dayanıklılık';
-    case 'AGI': return 'Hareket +%1, kaçış, yenilenme';
-    case 'DEX': return 'Saldırı hızı +%1.5, kritik';
-    case 'MNA': return '+2 MP, büyü gücü +%1, MP yenilenmesi';
-    case 'INT': return 'Büyü gücü +%5, büyü alanı +%3';
-    case 'LUK': return 'Drop şansı, kritik, şans eseri ıskalatma';
+    case 'STR': return 'Fiziksel hasar +%8';
+    case 'VIT': return '+8 HP, dayanıklılık';
+    case 'AGI': return 'Hareket +%1,5 (en çok %60), kaçış, yenilenme';
+    case 'DEX': return 'Saldırı hızı +%2 (en çok %70), kritik';
+    case 'MNA': return '+3 MP, büyü gücü +%1, MP yenilenmesi';
+    case 'INT': return 'Büyü gücü +%6, büyü alanı +%3';
+    case 'LUK': return 'Drop şansı +%6, kritik +%0,6, şans eseri ıskalatma';
   }
   return '';
 }

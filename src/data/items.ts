@@ -9,47 +9,47 @@ const list: ItemDef[] = [
   // ------------------------------------------------------------------ Silahlar
   {
     id: 'rusty_shortsword', name: 'Paslı Kısa Kılıç', kind: 'weapon', slot: 'weapon', rank: 'G',
-    saygınlık: 1, price: 150, dmg: [1, 2], weaponType: 'sword', icon: 'sword_rusty', visual: 'w_dagger',
+    saygınlık: 1, price: 150, dmg: [2, 4], weaponType: 'sword', icon: 'sword_rusty', visual: 'w_dagger',
     desc: 'Kenarları körelmiş, pası kazınmamış bir kısa kılıç. Hiç yoktan iyidir.',
   },
   {
     id: 'cracked_stick', name: 'Çatlak Sopa', kind: 'weapon', slot: 'weapon', rank: 'G',
-    saygınlık: -2, price: 5, sell: 0, dmg: [1, 1], weaponType: 'club', icon: 'club', visual: 'w_club',
+    saygınlık: -2, price: 5, sell: 0, dmg: [2, 2], weaponType: 'club', icon: 'club', visual: 'w_club',
     desc: 'İçini kurt yemiş, boydan boya çatlak bir sopa. Bertram verdi: "Kılıç alacak paran olunca kılıç taşırsın."',
   },
   {
     id: 'wooden_club', name: 'Budaklı Sopa', kind: 'weapon', slot: 'weapon', rank: 'G',
-    saygınlık: 0, price: 55, dmg: [1, 2], weaponType: 'club', icon: 'club', visual: 'w_club',
+    saygınlık: 0, price: 55, dmg: [2, 4], weaponType: 'club', icon: 'club', visual: 'w_club',
     desc: 'Meşe dalından yontulmuş sopa. Ucuz ama sağlam.',
   },
   {
     id: 'hunting_knife', name: 'Av Bıçağı', kind: 'weapon', slot: 'weapon', rank: 'G',
-    saygınlık: 1, price: 140, dmg: [1, 2], weaponType: 'dagger', stats: { DEX: 1 }, icon: 'dagger', visual: 'w_dagger',
+    saygınlık: 1, price: 140, dmg: [2, 4], weaponType: 'dagger', stats: { DEX: 1 }, icon: 'dagger', visual: 'w_dagger',
     desc: 'Avcıların deri yüzmekte kullandığı bıçak. Elde hafif durur.',
   },
   {
     id: 'short_bow', name: 'Kısa Yay', kind: 'weapon', slot: 'weapon', rank: 'G',
-    saygınlık: 1, price: 175, dmg: [1, 2], weaponType: 'bow', icon: 'bow', visual: 'w_bow',
+    saygınlık: 1, price: 175, dmg: [2, 4], weaponType: 'bow', icon: 'bow', visual: 'w_bow',
     desc: 'Tavşan avı için yapılmış basit bir yay. Ok sınırsız sayılır (köylü idareliği).',
   },
   {
     id: 'iron_shortsword', name: 'Demir Kısa Kılıç', kind: 'weapon', slot: 'weapon', rank: 'F',
-    saygınlık: 3, price: 550, dmg: [2, 5], weaponType: 'sword', icon: 'sword_iron', visual: 'w_dagger',
+    saygınlık: 3, price: 550, dmg: [4, 10], weaponType: 'sword', icon: 'sword_iron', visual: 'w_dagger',
     desc: 'Brindlewood demircisinin elinden çıkmış dengeli bir kılıç.',
   },
   {
     id: 'iron_spear', name: 'Demir Mızrak', kind: 'weapon', slot: 'weapon', rank: 'F',
-    saygınlık: 3, price: 475, dmg: [2, 5], weaponType: 'spear', icon: 'spear', visual: 'w_spear',
+    saygınlık: 3, price: 475, dmg: [4, 10], weaponType: 'spear', icon: 'spear', visual: 'w_spear',
     desc: 'Uzun saplı mızrak. Düşmanı uzakta tutar.',
   },
   {
     id: 'hunter_bow', name: 'Avcı Yayı', kind: 'weapon', slot: 'weapon', rank: 'F',
-    saygınlık: 3, price: 600, dmg: [2, 4], weaponType: 'bow', stats: { DEX: 1 }, icon: 'bow_good', visual: 'w_bow',
+    saygınlık: 3, price: 600, dmg: [4, 8], weaponType: 'bow', stats: { DEX: 1 }, icon: 'bow_good', visual: 'w_bow',
     desc: 'Porsuk ağacından, iyi gerilmiş bir yay.',
   },
   {
     id: 'goblin_cleaver', name: 'Goblin Satırı', kind: 'weapon', slot: 'weapon', rank: 'F',
-    saygınlık: -1, price: 450, sell: 63, dmg: [2, 5], weaponType: 'sword', stats: { STR: 1 }, icon: 'cleaver', visual: 'w_dagger',
+    saygınlık: -1, price: 450, sell: 63, dmg: [4, 10], weaponType: 'sword', stats: { STR: 1 }, icon: 'cleaver', visual: 'w_dagger',
     special: 'Kaba ama ağır.',
     desc: 'Bir goblinin sırtında taşıdığı çentikli satır. Kimden çaldığı belli değil.',
   },

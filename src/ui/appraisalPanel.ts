@@ -2,7 +2,9 @@
 // Görünürlük core/appraisal kurallarına uyar; trait'ler hiçbir rütbede görünmez.
 import Phaser from 'phaser';
 import { COLORS, FONT, txt, uiIcon, rankBadge, iconImage } from './kit';
-import { appraisalView, type AppraisalView } from '../core/appraisal';
+import { appraisalView, dropsVisible, type AppraisalView } from '../core/appraisal';
+import { MONSTERS } from '../data/monsters';
+import { dropTable } from '../core/monster';
 import { derive } from '../core/creature';
 import { subRankToString, skillThreshold, SUBRANK_MAX } from '../core/ranks';
 import { STAT_KEYS } from '../core/formulas';
@@ -10,7 +12,7 @@ import { EQUIP_SLOTS } from '../core/types';
 import { ITEMS } from '../data/items';
 import { SKILLS } from '../data/skills';
 import { TITLES } from '../data/titles';
-import { fmtExp } from './format';
+import { fmtExp, fmtHp } from './format';
 import type { NpcDef } from '../data/npcs';
 
 const Q = '???';
@@ -31,6 +33,8 @@ export function ornamentLine(g: Phaser.GameObjects.Graphics, x0: number, x1: num
 
 export interface AppraisalOpts {
   self?: boolean;
+  /** Joseph'in drop çarpanı (LUK); yaratık drop oranları bununla gösterilir. */
+  dropMult?: number;
   /** Sahibi oyuncu mu (kendi kartı): tam görünüm, EXP ilerlemesi dahil. */
   mineRank: number;
 }
@@ -95,7 +99,7 @@ export function buildAppraisalPanel(scene: Phaser.Scene, c: any, npc: NpcDef | n
   } else cont.add(txt(scene, 300, y - 2, npc?.guildLabel ?? 'Yok', { size: 15, bold: true, color: COLORS.text }));
   // HP / MP
   const bx = 440;
-  const bar = (yy: number, icon: string, label: string, cur: number, max: number, color: number, show: boolean) => {
+  const bar = (yy: number, icon: string, label: string, cur: number, max: number, color: number, show: boolean, fmt: (n: number) => string) => {
     cont.add(uiIcon(scene, bx, yy + 7, icon, 16));
     const g = scene.add.graphics();
     g.fillStyle(0x000000, 0.55);
@@ -105,10 +109,10 @@ export function buildAppraisalPanel(scene: Phaser.Scene, c: any, npc: NpcDef | n
       g.fillRoundedRect(bx + 12, yy, Math.max(14, 180 * Math.max(0, Math.min(1, max ? cur / max : 0))), 14, 7);
     }
     cont.add(g);
-    cont.add(txt(scene, bx + 20, yy - 1, show ? `${label} ${Math.ceil(cur)} / ${max}` : `${label} ${Q}`, { size: 12, bold: true, stroke: true }));
+    cont.add(txt(scene, bx + 20, yy - 1, show ? `${label} ${fmt(cur)} / ${fmt(max)}` : `${label} ${Q}`, { size: 12, bold: true, stroke: true }));
   };
-  bar(y - 6, 'hp', 'HP', npc ? d.maxHp : opts.self ? c.hp : c.hp, d.maxHp, COLORS.hp, v.stats);
-  bar(y + 14, 'mp', 'MP', opts.self ? c.mp : d.maxMp, d.maxMp, COLORS.mp, v.stats);
+  bar(y - 6, 'hp', 'HP', npc ? d.maxHp : opts.self ? c.hp : c.hp, d.maxHp, COLORS.hp, v.stats, fmtHp);
+  bar(y + 14, 'mp', 'MP', opts.self ? c.mp : d.maxMp, d.maxMp, COLORS.mp, v.stats, (n) => String(Math.ceil(n)));
   y += 38;
   ornamentLine(deco, 40, W - 40, y);
   y += 10;
@@ -197,7 +201,16 @@ export function buildAppraisalPanel(scene: Phaser.Scene, c: any, npc: NpcDef | n
     }
     if (eq.length) y += 30;
   }
-  if (!opts.self) {
+  const mdef = !npc && !opts.self && c.race === 'Canavar' ? MONSTERS[c.id] : undefined;
+  if (mdef) {
+    // Drop oranları yalnızca Appraisal rütben yaratığın rütbesine eşit ya da üstündeyse görünür (G− < G < G+ …).
+    cont.add(uiIcon(scene, 30, y + 9, 'inventory', 18));
+    const show = dropsVisible(opts.mineRank, theirs);
+    const lines = dropTable(mdef, opts.dropMult ?? 1).map((l) => `${ITEMS[l.id]?.name ?? l.id}${l.special ? ' (nadir)' : ''} %${fmtPct(l.chance)}`);
+    const dt = txt(scene, 48, y, show ? `Drop: ${lines.join(' · ')}` : `Drop: ${Q} (Appraisal ${subRankToString(theirs)} gerekir)`, { size: 13, color: show ? COLORS.textDim : '#6f6656', wrap: W - 70 });
+    cont.add(dt);
+    y += dt.height + 8;
+  } else if (!opts.self) {
     cont.add(uiIcon(scene, 30, y + 9, 'inventory', 18));
     const inv = Object.entries(c.inventory ?? {}).map(([k, q]) => `${ITEMS[k]?.name ?? k} ×${q}`);
     const it = txt(scene, 48, y, v.skills ? (inv.length ? inv.join(', ') : 'Envanter boş') : `Envanter: ${Q}`, { size: 13, color: v.skills ? COLORS.textDim : '#6f6656', wrap: W - 70 });
@@ -232,4 +245,11 @@ export function buildAppraisalPanel(scene: Phaser.Scene, c: any, npc: NpcDef | n
   (cont as any).panelW = W;
   (cont as any).panelH = H;
   return cont;
+}
+
+/** Yüzde: %60 · %8 · %1,2 (küçük oranlarda bir ondalık, virgül). */
+function fmtPct(p: number): string {
+  const v = p * 100;
+  if (v >= 10 || Number.isInteger(Math.round(v * 10) / 10)) return String(Math.round(v));
+  return (Math.round(v * 10) / 10).toFixed(1).replace('.', ',');
 }
