@@ -11,7 +11,7 @@ Dört aşamalı plan — **tamamlandı (0.7.0)**. Her oturum yalnızca kendi gru
 | **4A. Görevler ve içerik** | Ana görev güvencesi, pano akışı, NPC hedefli amaçlar, şifalı ot, yaralılar, sahne karakterleri, kâhyanın kesesi, yan görev iş yerleri ve mavi işaretler, lonca/pano, görev saatine kadar uyku, han oturma yerleri, yoldaş takibi, Dorn, Eros ve soylu adı, Grup 3'ten kalan dört düzeltme | ✅ 0.6.0 |
 | **4B. Animasyon ve silahlar** | Silah modelleri, saldırı animasyonları, kılıcı sırta koyma, konuşurken yürüme animasyonu | ✅ 0.7.0 |
 | **5A. Hatalar, dünya, denge, silah görselleri** | Sistem bildirimi, kapı amacı, QA yoklaması; elmalar, görev eşyası, otlar, Dorn/muhafız yürüyüşü, Varg, dükkânlar, şort, doğu suru, mini oyun müziği ve servis hedefi, karartma, savaş ganimeti, satış aralığı, sabit joystick; hız, kaçış, hasar sayıları, yoldaşlar, NPC statları; silah kareleri | ✅ 0.8.0 |
-| **5B. Arayüz ve beceri sistemi** | (ayrı talimat) | ⏳ |
+| **5B. Arayüz ve beceri sistemi** | Kısım 1: dükkân/yan görev seçenekleri, mavi ünlem, mini harita, Görevler düğmeleri, Konuşmalar, lonca barı, prolog Status, Appraisal, renkli artılar, savunma, kaydırma, sıralama, satın alma animasyonu · Kısım 2: skill sistemi | ⏳ (Kısım 1 ✅) |
 
 ## Grup 1'de yapılanlar (0.3.1)
 
@@ -260,6 +260,24 @@ Son tam tur (0.8.0 derlemesi): **steps_g5a hepsi tamam**, **steps_g4a hepsi tama
 - Yayın yandan yürüme görünümü gövdenin arkasında (yüzün önünden geçmesin diye); önden bakışta yay elin önünde.
 - Pala vurulurken görünen kare aşağı yön yürüme karesi (vurulma pozu LPC'de hep aşağı bakar).
 - C6 ölçümü başsız tarayıcıda kare süresi 50 ms'ye sabitken yapıldı; oyun saniyesi olarak ölçüldü, gerçek cihazda da aynı olmalı.
+
+## Grup 5B'de yapılanlar — Kısım 1: arayüz
+
+- **1 Dükkân sahipleri ve yan görevler.** `chapter2.sideTalk` kalktı. Yan görev konuşmanın başında açılmaz: veren iş yerindeyken seçeneklerde mavi ünlem + görevin adı (`sideOptions`, `{i:side_quest}` önekli seçenek; teslime hazırsa mavi soru). Dükkânlarda Alışveriş/Satış'ın yanında (`Director.talkShop`, `talkHunter`); görev aktifken de alışveriş açık. Dükkânı olmayan verenler (`sideMenu`): normal replik + [görev, Hoşça kal]. Teklif, bekleme, teslim aynı seçenekten (`sideQuestTalk`). Çıplakken dükkânda yalnızca görev seçeneği. Ödül replikleri `{m:…}` ile para simgeli: diyalog kutusu para işaretli satırı `richParagraph` ile (simgeli, sarılı, yazı makinesiyle) çizer.
+- **2 Yan görev simgesi** her yerde mavi ünlem (Twemoji ❗ maviye boyanmış, `tools/build_uiicons.py` `RECOLOR`): NPC başı ve bina (`MARKER_ICON`, artık metin değil simge), mini/büyük harita, HUD ve Görevler sekmesi (`KIND_ICON.side`), dükkân seçenekleri. Teslimde mavi soru, şüpheli sarı soru.
+- **3 Mini harita:** dükkân/han/lonca simgeleri (`src/ui/mapIcons.ts`, büyük haritayla aynı tablo; keşfedilmişse), yan görev ışığının üstünde mavi ünlem. Simgeler havuzdan (`UIScene.placeMinimapIcons`).
+- **4 Görevler menüsü:** "Ana/Yan görevleri göster" listeden sonra eklenir (üst katman); satır dokunuşu yalnızca listenin görünen alanında (`containsPointer`). QA: gerçek fare tıklamasıyla kaydırmadan çalıştı, altındaki satır seçilmedi.
+- **5 Konuşmalar:** son 40 satır, üstte "Daha fazla göster" (sonraki 40; görünen yer kaymaz), en yenide açılır, para işaretleri düz metin. Ölçüm (400 satır, başsız Chromium + SwiftShader, DPR 1, üretim derlemesi, üç tur): sekmenin çizimi **428–465 ms → 46–67 ms**; menü açılışından iki kareye **848–922 ms → 550–636 ms** (kalanı menü iskeleti ve yazılım GPU'su). Geliştirme sunucusunda ilk turda 2,35 sn → 0,51 sn.
+- **6 Lonca puan barı:** görev bitişinde `+x Lonca Puanı` satırında bar; mevcut rütbenin başladığı puandan sonrakinin puanına, önceki puandan yeniye dolar; eşik geçilince dolup yeni aralıkta baştan başlar, sonunda hedef rozet. Hesap `guildBar` / `guildBarSegments` (`core/guild.ts`), Lonca Kartı da `guildBar`'ı kullanır.
+- **7 Prolog Status:** `buildAppraisalPanel(..., { theme: 'system', hidePortrait, traits })` — Appraisal'daki kendi kartın düzeni, mavi tema, portre "???"; değerler yeni oyunun gerçek verisi (Divine: Güç 0,50x, Dayanıklılık/Hız/Adaptasyon 0,75x, Öğrenme 0,50x). Açılış: dikey açılma + yukarıdan aşağı tarama çizgisi (maske).
+- **8 Appraisal:** ekipman slot adlarının yanında slot simgesi (`slot_*`), "Trait: görülemez" satırı ve ayracı kalktı, skill satırları iki sütun; arka plan rütbe rengi (`RANK_BG`, rozetlerle aynı aile), çerçeve nadirlik rengi (`RARITY_FRAME`).
+- **9 Skill EXP barı:** skill EXP'si görünürse satırın altında ince bar (`skillThreshold`), MAX'ta dolu ve altın.
+- **10 Renkli artılar** (menü Status ve herkesin Appraisal'ı): temel stat (Level) + üst üste yeşil ekipman, sarı unvan, mor skill (`core/statParts.ts`: `statParts`, `plusOffsets`; çizim `ui/statPlus.ts`). Appraisal'da kaynak görülemiyorsa (ekipman/stat `v.stats`, unvan `v.title`, skill `v.skills`) artısı yok; statlar görünüyorsa temel stat görünür.
+- **11 Ekipman savunması:** ekipman görünürse kutuda rozetin solunda mavi `DEF: +x`, başlığın sağında mavi toplam.
+- **12 Kaydırma:** `MenuScene.render` aynı görünüm (sekme + bölüm + envanter kategorisi) yeniden çizilirken bütün `ScrollList`'lerin kaydırmasını korur (stat puanı, eşya/görev seçimi, ayarlar). Dükkân listesi de yenilemede yerinde kalır.
+- **13–14 Sırala** (`core/itemSort.ts`): envanterde ortalama satış fiyatı (5A aralığının ortası), rütbe, tür, ad; dükkânda alış/satış fiyatı, rütbe, tür, ad. Düğme: sırasız → Fiyat → Rütbe → Tür → Ad; yanında Artan/Azalan. Seçim `SORT_PREFS` modül değişkeninde (oturum boyunca; kayda yazılmaz). **Satın alma animasyonu:** eşya ikonu ayrıntı panelinden çantaya yay çizerek uçar (en çok 3 kopya), çanta zıplar ve parlar, cüzdandan paralar düşer; yalnızca tween — art arda alım engellenmez (QA: 120 ms arayla iki alım).
+- Diğer: Status'taki "Fiziksel hasar ×" çipi eski 0,05 katsayısını gösteriyordu → `strDamageMult`. uiicons atlasında kareler arası 2 px boşluk (küçük simgelerde komşu karenin kenarı taşıyordu).
+- QA: `URL='http://localhost:4173/?qa=1' DPR=1 OUT=screens/g5b node tools/qa/shot.mjs g5b` (`ONLY=shop,marks,qbtn,hist,guildbar,prologue,appr,scroll,sort,buy`); seçili görüntüler `tools/qa/g5b/` (128 renge indirgenmiş). Son tur üretim derlemesinde **hepsi ✓**. `steps_g4a` yan görev adımı yeni seçenekli akışa göre güncellendi.
 
 ## Sonraki oturum için notlar
 
