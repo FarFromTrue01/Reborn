@@ -400,3 +400,22 @@ export function fitText(t: Phaser.GameObjects.Text, maxW: number) {
   t.setText(full.slice(0, lo).trimEnd() + '…');
   return t;
 }
+
+/**
+ * Tam ekran örtü (karartma, perde, gölge; 0.8.0): her kenardan biraz taşar ve ekran boyutu değişince (tam ekran,
+ * gezinme çubuğu, döndürme) kendini yeniden boyutlandırır. Sabit uiW/uiH ile kurulan örtüler geniş ekranda sağda
+ * bir şerit açık bırakabiliyordu.
+ */
+export function fullScreenRect(scene: Phaser.Scene, color: number, alpha = 1): Phaser.GameObjects.Rectangle {
+  const pad = 16;
+  const r = scene.add.rectangle(-pad, -pad, Display.uiW + pad * 2, Display.uiH + pad * 2, color, alpha).setOrigin(0, 0);
+  const fit = () => {
+    if (!r.active) return;
+    r.setPosition(-pad, -pad).setSize(Display.uiW + pad * 2, Display.uiH + pad * 2);
+    if (r.input) r.input.hitArea.setSize(r.width, r.height);
+  };
+  const off = Display.onResize(fit);
+  r.once('destroy', off);
+  (r as any).fitScreen = fit;
+  return r;
+}

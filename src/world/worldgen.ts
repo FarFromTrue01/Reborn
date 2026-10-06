@@ -20,6 +20,8 @@ export const WORLD_W = 169;
 export const WORLD_H = 120;
 /** Kontrol noktası bariyeri: bu x'ten doğusu Eros'a giden yol (geçilmez). */
 export const BARRIER_X = 152;
+/** Doğu surunun çizim derinliği: zeminin (-50000) üstü, bütün aktörlerin altı. */
+const EAST_WALL_DEPTH = -30000;
 /** Köyün batı sınırı (nehrin doğusu). */
 export const VILLAGE_X0 = 62;
 /** Şifalı ot görevlerinin işaretli bölgesindeki (forest_edge) sabit ot sayısı. */
@@ -180,7 +182,7 @@ export function buildWorld(bmeta: Record<string, BuildingMeta>): MapData {
   path(TERRAIN.dirt, [[40, 60], [41, 70], [40, 77]], 0, 0.5);
   // Ana yol: köprü → meydan → Doğu Mahallesi → kontrol noktası (0.2.0'a göre ~%40 kısa)
   path(TERRAIN.dirt, [[62, 58], [70, 57], [77, 57]], 1, 0.4);
-  path(TERRAIN.dirt, [[91, 57], [100, 57], [112, 57], [124, 57], [136, 57], [BARRIER_X + 1, 57]], 1, 0.3);
+  path(TERRAIN.dirt, [[91, 57], [100, 57], [112, 57], [124, 57], [136, 57], [W - 1, 57]], 1, 0.3); // sur geçidinden şehre (0.8.0)
   // Kuzey: meydan → tarlalar, Haldor, avcı kulübesi
   path(TERRAIN.dirt, [[85, 52], [85, 46], [86, 40], [87, 35]], 1, 0.3);
   path(TERRAIN.dirt, [[76, 35], [87, 35], [100, 35], [116, 35]], 0, 0.2);
@@ -331,8 +333,9 @@ export function buildWorld(bmeta: Record<string, BuildingMeta>): MapData {
   // çitler (patikaların geçtiği parçalar boş kalır)
   fenceLine(75, 100, 34);
   fenceLine(66, 78, 85);
-  // meyve ağaçları (elma toplama)
-  for (const [x, y, id] of [[90, 41, 'apple1'], [110, 64, 'apple2'], [64, 62, 'apple3']] as [number, number, string][]) {
+  // meyve ağaçları (elma toplama). 0.8.0: köprü yolundaki apple3 (64,62) kalktı — nehir kıyısında oturan
+  // Köksüz Nim'in üstünü kapatıyordu.
+  for (const [x, y, id] of [[90, 41, 'apple1'], [110, 64, 'apple2']] as [number, number, string][]) {
     prop('tree_round', x, y, { tint: 0xffffff, gather: id });
     gathers.push({ id, x, y: y + 1, item: 'apple', kind: 'apple' });
   }
@@ -426,11 +429,21 @@ export function buildWorld(bmeta: Record<string, BuildingMeta>): MapData {
   // Bariyer: BARRIER_X boyunca geçilmez (kasıtlı engel)
   hardRect(BARRIER_X, 0, W - 1, H - 1);
   zones.push({ id: 'checkpoint', x: CX - 8, y: 50, w: 12, h: 14, name: 'Şehir Yolu Kontrol Noktası', safe: true, music: 'village' });
-  // Uzaktaki şehir (görsel, yarı saydam, mavimsi)
-  props.push({ key: 'fence_h', x: (BARRIER_X + 1) * TILE + 16, y: 57 * TILE + 30 });
-  props.push({ key: '__city', x: (BARRIER_X + 3.5) * TILE, y: 51 * TILE, flat: false, alpha: 0.8, scale: 0.35, tint: 0xb8c8e8, depthOffset: -4000 });
-  points.city = { x: BARRIER_X + 3, y: 50 };
+  // 0.8.0 (B11): haritanın doğu kenarı boyunca taş sur; yol surla kesiştiği yerde şehir geçidi (iki kule, kemer,
+  // kapalı parmaklık). Eski yarı saydam saray silüeti kalktı. Görseller tools/build_eastwall.py; hepsi BARRIER_X'in
+  // doğusunda (geçilmez) durur, batı yüzü ve gölgesi yarım karo taşar — aktörler hep önünde çizilir.
+  const wallX = BARRIER_X * TILE - 16 + 40; // görselin alt-orta noktası (80 px: 16 yüz + 64 sur üstü)
+  const wallDepth = (y: number) => EAST_WALL_DEPTH - y * TILE;
+  for (let y = 8; y <= 48; y += 8) props.push({ key: '__east_wall', x: wallX, y: y * TILE, depthOffset: wallDepth(y) });
+  props.push({ key: '__east_gate', x: BARRIER_X * TILE - 16 + 88, y: 64 * TILE, depthOffset: wallDepth(64) });
+  for (let y = 72; y <= H; y += 8) props.push({ key: '__east_wall', x: wallX, y: y * TILE, depthOffset: wallDepth(y) });
+  points.city = { x: BARRIER_X + 1, y: 57 };
   points.city_gate = { x: BARRIER_X - 1, y: 57 };
+  // geçitte nöbet tutan şövalyeler (data/schedules.ts: gate_knight_*)
+  points.gate_n1 = { x: BARRIER_X - 1, y: 55 };
+  points.gate_s1 = { x: BARRIER_X - 1, y: 59 };
+  points.gate_n2 = { x: BARRIER_X - 1, y: 51 };
+  points.gate_s2 = { x: BARRIER_X - 1, y: 63 };
 
   // Goblin kampı
   points.goblin_camp = { x: 18, y: 13 };
@@ -514,7 +527,7 @@ export function buildWorld(bmeta: Record<string, BuildingMeta>): MapData {
   const herb = (x: number, y: number) => {
     const id = 'herb' + hid++;
     gathers.push({ id, x, y, item: 'herb', kind: 'herb' });
-    props.push({ key: 'herb_plant', x: x * TILE + 16, y: y * TILE + 28, sway: true, gather: id });
+    props.push({ key: 'herb_plant', x: x * TILE + 16, y: y * TILE + 28, sway: true, gather: id, scale: 1.25 });
     reserve(x - 1, y - 1, x + 1, y + 1);
     herbTile[idx(x, y)] = 1;
   };

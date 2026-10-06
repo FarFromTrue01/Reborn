@@ -1197,7 +1197,8 @@ export class Chapter2 {
     let dorn = w.npc('dorn');
     if (!dorn) dorn = w.addNpc(NPC_BY_ID.dorn, ax + 5, ay - 1, true);
     dorn.scripted = true;
-    await this.d.walk(dorn.actor, ax + 1, ay, 3);
+    // yol bularak gelir (duvara çarpıp takılmaz); ulaşamazsa walkPath süre sonunda yanına geçer
+    await this.d.walkPath(dorn.actor, ax + 1, ay, 3);
     this.d.face(dorn.actor, a);
     this.d.face(a, dorn.actor);
     await this.say('dorn', 'Oo, G- fare avcısı! Kuyruk mu topluyorsun?', 'alayci');
@@ -1211,7 +1212,7 @@ export class Chapter2 {
     }
     await this.say('dorn', 'Ahırın arkasında başkaları da var. Duyuyorum. Git onları bul, köksüz.', 'alayci');
     Q.set('g1_rats', 0, 5);
-    await this.d.walk(dorn.actor, ax + 10, ay - 3, 3);
+    await this.d.walkPath(dorn.actor, ax + 10, ay - 3, 3);
     w.removeNpc(dorn);
     await this.think('Beş kuyruk. Bir eksik. Ahırın arkasında cıyaklamalar var...');
     const p = w.mapData.points.barn_yard;

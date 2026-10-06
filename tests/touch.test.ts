@@ -14,14 +14,19 @@ describe('touchIntent', () => {
     expect(touchIntent(ctx({ x: 160, y: 560, joyActive: true }))).toBe('joystick');
   });
 
-  it('sol yarı: joystick boşta ise hareket niyeti', () => {
-    expect(touchIntent(ctx({ x: 400, y: 200 }))).toBe('joystick');
+  it('serbest mod, sol yarı: joystick boşta ise hareket niyeti', () => {
     expect(touchIntent(ctx({ x: 400, y: 200, fixed: null }))).toBe('joystick');
     expect(touchIntent(ctx({ x: uiW / 2 - 1, y: 300, fixed: null }))).toBe('joystick');
   });
 
-  it('sol yarı ama joystick başka parmakta: dünyaya dokunuş', () => {
-    expect(touchIntent(ctx({ x: 400, y: 200, joyActive: true }))).toBe('world');
+  it('sabit mod (0.8.0): daire dışındaki sol taraf dünyaya dokunuş (Appraisal yapılabilir)', () => {
+    expect(touchIntent(ctx({ x: 400, y: 200 }))).toBe('world');
+    expect(touchIntent(ctx({ x: 150 + 96, y: 570 }))).toBe('world');
+    expect(touchIntent(ctx({ x: 60, y: 120 }))).toBe('world');
+  });
+
+  it('serbest mod, sol yarı ama joystick başka parmakta: dünyaya dokunuş', () => {
+    expect(touchIntent(ctx({ x: 400, y: 200, joyActive: true, fixed: null }))).toBe('world');
   });
 
   it('sağ yarı: dünyaya dokunuş (NPC Appraisal)', () => {

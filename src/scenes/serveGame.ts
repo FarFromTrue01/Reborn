@@ -1,12 +1,15 @@
 // D4: "Servis Koşturmacası" — Bertram'ın hanında her iş günü oynanan mini oyun.
 // Masalarda sipariş balonları belirir (bira, güveç, ekmek). Tezgâhtan al, süre bitmeden masaya götür.
 // Müşteri yiyip gidince kirli tabak kalır; tabağı toplayıp bulaşığa bırakmadan masaya yeni müşteri oturmaz.
-// Her gün daha çok masa, daha sabırsız müşteri. Sonuç yalnızca Bertram'ın yorumunu değiştirir.
+// Her gün daha çok masa, daha sabırsız müşteri.
+// 0.8.0: günün hedefi var (1. gün 5, 2. gün 6, 3. gün 8 müşteri: yemeği verilip tabağı bulaşığa konan). Bir sipariş
+// zamanında verilmezse ya da kirli bir tabak kendi süresi içinde bulaşığa konmazsa oyun anında kaybedilir (tekrar dene).
+// Performans (hıza göre) yalnızca Bertram'ın yorumunu değiştirir.
 import Phaser from 'phaser';
 import { Sound } from '../audio/audio';
 import { COLORS, txt, uiIcon } from '../ui/kit';
 import { NPCS } from '../data/npcs';
-import { serveDifficulty, servePerf } from '../core/serve';
+import { serveDifficulty, servePerf, serveOutcome, servePerfTime, type ServeLoss } from '../core/serve';
 export { serveDifficulty, servePerf };
 
 type Food = 'beer' | 'stew' | 'bread';
@@ -27,6 +30,9 @@ interface Table {
   patron: Phaser.GameObjects.Sprite | null;
   bubble: Phaser.GameObjects.Container | null;
   plate: Phaser.GameObjects.Image | null;
+  /** Kirli tabağın kalan süresi (0.8.0). */
+  plateT: number;
+  plateRing: Phaser.GameObjects.Graphics | null;
 }
 
 export class ServeGame {
@@ -37,6 +43,12 @@ export class ServeGame {
   joeShadow: Phaser.GameObjects.Ellipse;
   trayIcons: Phaser.GameObjects.Image[] = [];
   carry: Carry[] = [];
+  /** Eldeki kirli tabakların kalan süreleri (bulaşığa konana kadar işler). */
+  carryPlates: number[] = [];
+  /** Geçen süre ve sonuç (0.8.0). */
+  t = 0;
+  lost: ServeLoss | null = null;
+  trayRings: Phaser.GameObjects.Graphics | null = null;
   target: { x: number; y: number; act: () => void } | null = null;
   walkT = 0;
   spawnT = 1.2;
@@ -102,7 +114,7 @@ export class ServeGame {
       const tx = px + pw / 2 + (c - (rowCount - 1) / 2) * Math.min(250, (pw - 140) / cols);
       const ty = areaTop + (rows === 1 ? (areaBot - areaTop) / 2 : (r * (areaBot - areaTop)) / (rows - 1));
       const g = s.add.graphics();
-      const t: Table = { x: tx, y: ty, state: 'empty', order: null, patience: 0, maxPatience: 1, eatT: 0, g, patron: null, bubble: null, plate: null };
+      const t: Table = { x: tx, y: ty, state: 'empty', order: null, patience: 0, maxPatience: 1, eatT: 0, g, patron: null, bubble: null, plate: null, plateT: 0, plateRing: null };
       this.drawTable(t);
       const z = s.add.zone(tx, ty - 10, 150, 110).setInteractive({ useHandCursor: true });
       z.on('pointerdown', () => this.goTo(tx, ty + 34, () => this.serveTable(t)));
@@ -119,6 +131,7 @@ export class ServeGame {
     this.joe.setScale(1.5);
     this.setJoeFrame(2, 0);
     this.hud = txt(s, px + pw / 2, py + 96, '', { size: 16, bold: true, color: COLORS.text }).setOrigin(0.5, 0);
+    this.trayRings = s.add.graphics().setDepth(5);
   }
 
   setJoeFrame(dirRow: number, col: number) {
@@ -165,6 +178,7 @@ export class ServeGame {
     const n = this.carry.filter((c) => c === 'plate').length;
     if (!n) return;
     this.carry = this.carry.filter((c) => c !== 'plate');
+    this.carryPlates = [];
     this.platesCleared += n;
     Sound.sfx('click', 0.6);
     this.pop(this.sink.x, this.sink.y - 60, `+${n} tabak`, '#cfe2ff');
@@ -198,8 +212,11 @@ export class ServeGame {
         return;
       }
       this.carry.push('plate');
+      this.carryPlates.push(t.plateT);
       t.plate?.destroy();
       t.plate = null;
+      t.plateRing?.destroy();
+      t.plateRing = null;
       t.state = 'empty';
       Sound.sfx('click', 0.5);
       this.refreshTray();
@@ -256,6 +273,8 @@ export class ServeGame {
       t.state = 'dirty';
       this.platesMade++;
       t.plate = uiIcon(this.s, t.x, t.y + 4, 's_plate', 34).setDepth(2);
+      t.plateT = this.cfg.plateTime;
+      t.plateRing = this.s.add.graphics().setDepth(2.1);
     }
     t.order = null;
     const p = t.patron;
@@ -288,6 +307,7 @@ export class ServeGame {
     this.joeShadow.setPosition(this.joe.x, this.joe.y);
     this.trayIcons.forEach((im, i) => im.setPosition(this.joe.x - 16 + i * 32, this.joe.y - 112));
     if (!s.running) return;
+    this.t += dt;
     // müşteriler
     this.spawnT -= dt;
     const waiting = this.tables.filter((t) => t.state === 'waiting').length;
@@ -308,14 +328,55 @@ export class ServeGame {
           ring.arc(0, -4, 27, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * f);
           ring.strokePath();
         }
-        if (t.patience <= 0) this.leave(t, true);
+        // 0.8.0: sipariş zamanında verilmezse oyun kaybedilir
+        if (t.patience <= 0 && !this.lost) {
+          this.lost = 'order';
+          this.popIcon(t.x, t.y - 70, 's_angry');
+          Sound.sfx('error', 0.6);
+        }
       } else if (t.state === 'eating') {
         t.eatT -= dt;
         if (t.patron) t.patron.setFrame((8 + 2) * 13 + (Math.floor(t.eatT * 3) % 2 ? 0 : 1));
         if (t.eatT <= 0) this.leave(t, false);
+      } else if (t.state === 'dirty' && t.plateRing) {
+        t.plateT -= dt;
+        this.ring(t.plateRing, t.x, t.y + 4, 22, t.plateT / this.cfg.plateTime);
+        if (t.plateT <= 0 && !this.lost) {
+          this.lost = 'plate';
+          Sound.sfx('error', 0.6);
+        }
       }
     }
-    this.hud.setText(`Servis: ${this.served}   Kaçan müşteri: ${this.failed}   Tabak: ${this.platesCleared}/${this.platesMade}`);
+    // eldeki kirli tabaklar: süreleri bulaşığa konana kadar işler
+    this.trayRings?.clear();
+    let pi = 0;
+    this.carry.forEach((c, i) => {
+      if (c !== 'plate') return;
+      const k = pi++;
+      this.carryPlates[k] -= dt;
+      const im = this.trayIcons[i];
+      if (im && this.trayRings) this.ring(this.trayRings, im.x, im.y, 19, this.carryPlates[k] / this.cfg.plateTime, false);
+      if (this.carryPlates[k] <= 0 && !this.lost) {
+        this.lost = 'plate';
+        Sound.sfx('error', 0.6);
+      }
+    });
+    this.hud.setText(`Hedef: ${this.platesCleared}/${this.cfg.goal} müşteri   ·   Servis: ${this.served}   ·   Bulaşıkta: ${this.platesCleared}`);
+  }
+
+  /** Süre halkası (yeşil → sarı → kırmızı). */
+  ring(g: Phaser.GameObjects.Graphics, x: number, y: number, r: number, f: number, clear = true) {
+    if (clear) g.clear();
+    f = Math.max(0, Math.min(1, f));
+    g.lineStyle(4, f > 0.5 ? 0x5cd16a : f > 0.25 ? 0xf0c040 : 0xe04030, 1);
+    g.beginPath();
+    g.arc(x, y, r, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * f);
+    g.strokePath();
+  }
+
+  /** Kazanıldı / kaybedildi (anında) ya da sürüyor (null). */
+  result() {
+    return serveOutcome({ completed: this.platesCleared, goal: this.cfg.goal, orderExpired: this.lost === 'order', plateExpired: this.lost === 'plate', t: this.t, limit: this.cfg.limit });
   }
 
   /** Hedef servis sayısı (hacim puanı için). */
@@ -324,7 +385,7 @@ export class ServeGame {
   }
 
   perf() {
-    // masalarda kalan kirli tabaklar da tabak düzenine sayılır
-    return servePerf(this.served, this.failed, this.platesCleared, this.platesMade, this.target_());
+    // 0.8.0: kazanınca hıza göre (yalnızca Bertram'ın yorumu)
+    return servePerfTime(this.t, this.cfg.goal, this.cfg.spawnEvery);
   }
 }

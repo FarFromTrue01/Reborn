@@ -121,3 +121,151 @@ describe('A2: kapı hedefli "git" amaçları binaya girişte tamamlanır', () =>
     }
   });
 });
+
+import { serveDifficulty, serveOutcome, servePerfTime, serveGoal } from '../src/core/serve';
+describe('B13: Servis Koşturmacası hedefi, kazanma ve kaybetme', () => {
+  it('Hedef müşteri sayısı tempodan türetilir: 1. gün az, 2. gün orta, 3. gün fazla', () => {
+    const g = [1, 2, 3].map((d) => serveDifficulty(d).goal);
+    expect(g).toEqual([5, 6, 8]);
+    for (const d of [1, 2, 3]) {
+      const c = serveDifficulty(d);
+      expect(c.goal).toBe(serveGoal(c.dur, c.spawnEvery));
+      // hedef, o tempoda gelen müşterilerden az (ulaşılabilir) ve tabak süresi sabırdan uzun
+      expect(c.goal).toBeLessThan(c.dur / c.spawnEvery);
+      expect(c.plateTime).toBeGreaterThan(c.patience);
+    }
+  });
+  it('Kazanmak: hedef sayıda müşteri (tabağı bulaşıkta); kaybetmek anında', () => {
+    const base = { completed: 0, goal: 5, orderExpired: false, plateExpired: false, t: 10, limit: 150 };
+    expect(serveOutcome(base)).toBeNull();
+    expect(serveOutcome({ ...base, completed: 5 })).toEqual({ win: true, loss: null });
+    expect(serveOutcome({ ...base, completed: 4, orderExpired: true })).toEqual({ win: false, loss: 'order' });
+    expect(serveOutcome({ ...base, plateExpired: true })).toEqual({ win: false, loss: 'plate' });
+    // tabak süresi dolması hedefe ulaşmadan önce gelirse kayıp
+    expect(serveOutcome({ ...base, completed: 5, plateExpired: true })?.win).toBe(false);
+    expect(serveOutcome({ ...base, t: 150 })).toEqual({ win: false, loss: 'time' });
+  });
+  it('Performans hıza göre 0..1', () => {
+    expect(servePerfTime(20, 5, 5.2)).toBe(1);
+    expect(servePerfTime(200, 5, 5.2)).toBeLessThan(0.3);
+  });
+});
+
+import { forfeitLoot, emptyLoot, lootEmpty } from '../src/core/transactions';
+import { walletTotal } from '../src/core/money';
+describe('B15: savaş ganimeti ölünce gider', () => {
+  const ledger = () => ({ inventory: { rat_tail: 3, bread: 1 } as Record<string, number>, wallet: { bronze: 30, silver: 0, platinum: 0, gold: 0, diamond: 0 }, equipment: {} });
+  it('savaş modunda toplanan eşya ve para geri alınır (olandan fazlası değil)', () => {
+    const l = ledger();
+    const loot = emptyLoot();
+    loot.items.rat_tail = 2;
+    loot.items.wolf_pelt = 1; // envanterde yok (satılmış/kullanılmış)
+    loot.money = 12;
+    const r = forfeitLoot(l, loot);
+    expect(r.items).toEqual([{ id: 'rat_tail', qty: 2 }]);
+    expect(r.money).toBe(12);
+    expect(l.inventory.rat_tail).toBe(1);
+    expect(walletTotal(l.wallet)).toBe(18);
+  });
+  it('ganimet yoksa (savaş bittikten sonra) hiçbir şey alınmaz', () => {
+    const l = ledger();
+    expect(lootEmpty(emptyLoot())).toBe(true);
+    expect(forfeitLoot(l, emptyLoot())).toEqual({ items: [], money: 0 });
+    expect(l.inventory.rat_tail).toBe(3);
+  });
+});
+
+import { sellRange, sellOffer, closeness, lootKindLabel, baseSellValue } from '../src/core/selling';
+import { ITEMS } from '../src/data/items';
+import { SHOPS } from '../src/data/shops';
+describe('B16: satış aralığı ve dükkân ilişkisi', () => {
+  it('aralık: alt ≈ değer × 0,8, üst ≈ değer × 1,5', () => {
+    expect(sellRange({ kind: 'material', price: 25, sell: 10 })).toEqual([8, 15]);
+    expect(sellRange({ kind: 'food', price: 4, sell: 0 })).toEqual([0, 0]);
+    for (const [id, it] of Object.entries(ITEMS)) {
+      const [lo, hi] = sellRange(it);
+      const v = baseSellValue(it);
+      if (v <= 0) continue;
+      expect(lo, id).toBeLessThanOrEqual(v);
+      expect(hi, id).toBeGreaterThanOrEqual(v);
+    }
+  });
+  it('konum = 0,5 × uzmanlık + 0,5 × yakınlık; almadığı eşya satılamaz', () => {
+    const it = ITEMS.wolf_pelt;
+    const [lo, hi] = sellRange(it);
+    const tan = sellOffer(SHOPS.tannery, 'wolf_pelt', it, 10); // uzman, en yakın
+    expect(tan.price).toBe(hi);
+    const smithFar = sellOffer(SHOPS.smith, 'wolf_pelt', it, -5); // uzman değil, en uzak
+    expect(smithFar.price).toBe(lo);
+    const tan0 = sellOffer(SHOPS.tannery, 'wolf_pelt', it, -5);
+    expect(tan0.price).toBe(Math.round(lo + (hi - lo) * 0.5));
+    expect(sellOffer(SHOPS.bakery, 'wolf_pelt', it, 10).price).toBe(0); // fırın post almaz
+    expect(closeness(0)).toBeCloseTo(1 / 3, 5);
+  });
+  it('drop türü etiketi', () => {
+    expect(lootKindLabel('material')).toBe('Malzeme');
+    expect(lootKindLabel('armor')).toBe('Ekipman');
+    expect(lootKindLabel('food')).toBe('Yiyecek');
+    expect(lootKindLabel('junk')).toBe('Diğer');
+  });
+});
+
+import { gatherQty } from '../src/world/questGo';
+import { questNeededItems, newQuestLog, startQuest } from '../src/core/quests';
+import { NPCS, scheduleAt } from '../src/data/npcs';
+import { BARRIER_X } from '../src/world/worldgen';
+describe('B1–B3: elmalar, köprü yolu, görev malzemeleri', () => {
+  it('her elma ağacı 3 elma verir: bir günde 6 elma toplanabilir', () => {
+    const apples = WORLD.gathers.filter((g) => g.item === 'apple');
+    expect(gatherQty('apple')).toBe(3);
+    expect(gatherQty('herb')).toBe(1);
+    expect(apples.length * gatherQty('apple')).toBeGreaterThanOrEqual(6);
+    // görev oku: tek bir ağaç bile 3 verir, en yakın iki ağaçla 6
+    expect(apples.length).toBeGreaterThanOrEqual(2);
+  });
+  it('köprü yolundaki apple3 ağacı ve toplama noktası kalktı (Köksüz Nim\'in yeri açık)', () => {
+    expect(WORLD.gathers.some((g) => g.id === 'apple3')).toBe(false);
+    const rb = WORLD.points.riverbank;
+    const covering = WORLD.props.filter((p) => /^tree_/.test(p.key) && Math.abs(p.x / 32 - (rb.x + 0.5)) < 2 && p.y / 32 > rb.y && p.y / 32 < rb.y + 4);
+    expect(covering.map((p) => p.key + '@' + p.x + ',' + p.y)).toEqual([]);
+  });
+  it('aktif görevin toplama amacındaki eşya teslim edilene kadar gereklidir', () => {
+    const log = newQuestLog();
+    const def = questDef('sq_baker_apples')!;
+    startQuest(log, def, 1);
+    expect(questNeededItems(log, questDef).has('apple')).toBe(true);
+    // toplama tamam ama teslim edilmedi: hâlâ gerekli
+    log.quests.sq_baker_apples.progress[0] = 6;
+    expect(questNeededItems(log, questDef).has('apple')).toBe(true);
+    // teslim (sonraki amaç bitti): artık yenebilir
+    log.quests.sq_baker_apples.progress = log.quests.sq_baker_apples.progress.map(() => 99);
+    expect(questNeededItems(log, questDef).has('apple')).toBe(false);
+  });
+});
+
+describe('B11: doğu suru ve geçit', () => {
+  it('sur haritanın sağ kenarı boyunca, geçit yolda; saray silüeti yok', () => {
+    expect(WORLD.props.some((p) => p.key === '__city')).toBe(false);
+    const segs = WORLD.props.filter((p) => p.key === '__east_wall');
+    const gate = WORLD.props.find((p) => p.key === '__east_gate')!;
+    expect(gate).toBeTruthy();
+    // kapsama: 8 karoluk parçalar + 16 karoluk geçit haritanın tamamını örter
+    const rows = new Set<number>();
+    for (const s of segs) for (let y = s.y / 32 - 8; y < s.y / 32; y++) rows.add(y);
+    for (let y = gate.y / 32 - 16; y < gate.y / 32; y++) rows.add(y);
+    for (let y = 0; y < WORLD.h; y++) expect(rows.has(y), 'satır ' + y).toBe(true);
+    // geçit yolun (y=57) hizasında, sur BARRIER_X'in doğusunda (batı yüzü yarım karo taşar)
+    expect(gate.y / 32 - 16).toBeLessThan(57);
+    expect(gate.y / 32).toBeGreaterThan(57);
+    for (const s of segs) expect(s.x - 40).toBe(BARRIER_X * 32 - 16);
+  });
+  it('geçitte en az 4 şövalye gece gündüz nöbette', () => {
+    const at = (h: number) => NPCS.filter((n) => n.id.startsWith('gate_knight') && scheduleAt(n, h, 3).map === 'world').map((n) => scheduleAt(n, h, 3).at);
+    for (const h of [3, 12, 22]) {
+      const pts = at(h).map((a) => WORLD.points[a as string]);
+      expect(pts.length).toBeGreaterThanOrEqual(4);
+      for (const p of pts) expect(Math.hypot(p.x - BARRIER_X, p.y - 57)).toBeLessThan(8);
+    }
+  });
+});
+

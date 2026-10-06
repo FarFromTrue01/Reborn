@@ -5,9 +5,10 @@ import { Display } from '../game/display';
 import { Sound } from '../audio/audio';
 import { SHOPS } from '../data/shops';
 import { ITEMS } from '../data/items';
-import { sellPrice } from '../core/money';
+import { sellOffer, shopBuys } from '../core/selling';
+import { NPC_BY_ID } from '../data/npcs';
 import { coinRow } from './coins';
-import { COLORS, FONT, txt, drawFrame, Button, iconImage, itemRankBadge, uiIcon } from './kit';
+import { COLORS, FONT, txt, drawFrame, Button, iconImage, itemRankBadge, uiIcon, fullScreenRect } from './kit';
 import { itemPrestige, prestigeLabel } from '../core/prestige';
 import { ScrollList } from './panels';
 import { itemLabel, itemEffectsText } from './format';
@@ -23,7 +24,7 @@ export function openShop(ui: UIScene, shopId: string, tab: 'buy' | 'sell' = 'buy
     world.physics.pause();
     ui.menuIsOpen = true;
     const c = ui.add.container(0, 0).setDepth(140);
-    c.add(ui.add.rectangle(0, 0, W, H, 0x000000, 0.55).setOrigin(0, 0).setInteractive());
+    c.add(fullScreenRect(ui, 0x000000, 0.55).setInteractive());
     const pw = Math.min(1040, W - 40), ph = Math.min(620, H - 40);
     const px = (W - pw) / 2, py = (H - ph) / 2;
     const g = ui.add.graphics();
@@ -73,12 +74,9 @@ export function openShop(ui: UIScene, shopId: string, tab: 'buy' | 'sell' = 'buy
       if (shopId === 'inn' && id === 'hot_stew' && G.flag('free_meal_day') === G.state.time.day && G.flag('meal_day') !== G.state.time.day) return 0;
       return ITEMS[id].price;
     };
-    const sellP = (id: string) => {
-      const it = ITEMS[id];
-      if (shop.special && shop.special[id] !== undefined) return shop.special[id];
-      if (it.sell !== undefined) return it.sell;
-      return sellPrice(it.price, shop.rate);
-    };
+    // 0.8.0 (B16): satış teklifi = aralıktaki konum (uzmanlık + dükkân sahibiyle yakınlık)
+    const offer = (id: string) => sellOffer(shop, id, ITEMS[id], G.state.affinity[shop.keeper] ?? 0);
+    const sellP = (id: string) => offer(id).price;
 
     const refresh = () => {
       drawWallet();
@@ -89,7 +87,7 @@ export function openShop(ui: UIScene, shopId: string, tab: 'buy' | 'sell' = 'buy
         ? shop.stock
         : Object.keys(G.p.inventory).filter((id) => {
             const it = ITEMS[id];
-            return it && !it.bound && it.kind !== 'quest' && (shop.buys.includes(it.kind) || (shop.special && shop.special[id] !== undefined)) && sellP(id) > 0;
+            return it && !it.bound && it.kind !== 'quest' && shopBuys(shop, id, it) && sellP(id) > 0;
           });
       let y = 0;
       if (!ids.length) list.inner.add(txt(ui, 10, 10, mode === 'buy' ? 'Stok yok.' : 'Satacak bir şeyin yok. (Bu dükkân her şeyi almaz.)', { size: 16, color: COLORS.textDim, wrap: listW - 20 }));
@@ -135,7 +133,7 @@ export function openShop(ui: UIScene, shopId: string, tab: 'buy' | 'sell' = 'buy
     const drawDetail = () => {
       detail.removeAll(true);
       if (!selected) {
-        detail.add(txt(ui, 0, 0, mode === 'buy' ? 'Bir eşya seç.' : 'Satmak istediğin eşyayı seç.\nTüccarlar eşyayı fiyatının %30–40\'ına alır.', { size: 16, color: COLORS.textDim, wrap: pw * 0.36 }));
+        detail.add(txt(ui, 0, 0, mode === 'buy' ? 'Bir eşya seç.' : 'Satmak istediğin eşyayı seç.\nHer eşyanın bir satış aralığı var: dükkân kendi uzmanlığındaki eşyaya ve sahibiyle aranız iyiyse daha çok öder.', { size: 16, color: COLORS.textDim, wrap: pw * 0.36 }));
         return;
       }
       const id = selected;
@@ -159,9 +157,15 @@ export function openShop(ui: UIScene, shopId: string, tab: 'buy' | 'sell' = 'buy
       detail.add(txt(ui, 0, 82, itemLabel(id), { size: 15, color: COLORS.textBlue, wrap: dw }));
       const eff = itemEffectsText(id);
       detail.add(txt(ui, 0, 112, it.desc + (eff ? `\n${eff}` : '') + (it.special ? `\nÖzel: ${it.special}` : ''), { size: 15, color: COLORS.text, wrap: dw, lineSpacing: 3 }));
+      const qy = mode === 'sell' ? 310 : 290;
+      if (mode === 'sell') {
+        const o = offer(id);
+        const keeper = NPC_BY_ID[shop.keeper]?.name ?? 'Dükkân sahibi';
+        const why = `Aralık ${o.range[0]}–${o.range[1]} bronz · ${o.expert ? 'uzmanlık alanı' : 'uzmanlığı değil'} · ${keeper} ile yakınlık %${Math.round(o.near * 100)}`;
+        detail.add(txt(ui, 0, qy - 66, `Teklif: ${o.price} bronz\n${why}`, { size: 13, color: '#cfe6b8', wrap: dw, lineSpacing: 2 }));
+      }
       const unit = mode === 'buy' ? buyPrice(id) : sellP(id);
       const max = mode === 'buy' ? (it.stack ? 20 : 5) : G.p.inventory[id] ?? 0;
-      const qy = 290;
       detail.add(new Button(ui, 30, qy, '−', () => { qty = Math.max(1, qty - 1); drawDetail(); }, { w: 56, h: 52, size: 26 }));
       detail.add(txt(ui, 100, qy - 14, `${qty}`, { size: 24, bold: true }).setOrigin(0.5, 0));
       detail.add(new Button(ui, 170, qy, '+', () => { qty = Math.min(max, qty + 1); drawDetail(); }, { w: 56, h: 52, size: 26 }));

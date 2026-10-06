@@ -376,6 +376,8 @@ Kaynak: https://github.com/sanderfrenken/Universal-LPC-Spritesheet-Character-Gen
 
 **Joseph'in silahları (0.7.0, `tools/build_weapons.py`):** ahşap sopa yürüme kareleri *tools/smash* (çekiç) karelerinden yeniden çizildi; sopa saldırısı *weapon/blunt/club*, kısa kılıçlar *weapon/sword/arming* (paslı kılıç pas tonuna boyandı), Goblin Satırı *weapon/sword/scimitar* (mat demir ve deri kabzaya boyandı); sırtta/belde taşıma görüntüleri aynı karelerin döndürülüp yerleştirilmesiyle üretildi. Türetilmiş kareler kaynaklarının lisanslarıyla paylaşılır.
 
+**0.8.0 türetmeleri:** köyün doğu suru ve şehir geçidi (`tools/build_eastwall.py`) LPC Tile Atlas'ın gri tuğla duvarı ve demir parmaklığından; şifalı ot görseli LPC Tile Atlas bitki karesinden (`tools/build_props.py`); Yırtık Şort katmanı kahverengiye boyandı, şort ikonu bu proje için çizildi (`tools/custom_icons.py`). Türetilmiş görseller kaynaklarının lisanslarıyla paylaşılır.
+
 ## Ortam, canavar ve ikon paketleri
 
 - **LPC Tile Atlas & LPC Tile Atlas 2 (arazi, köy parçaları, kapı/pencere)** — Lanea Zimmerman (Sharm), Daniel Eddeland, Casper Nilsson, Johann Charlot, Stephen Challener (Redshrike), Hyptosis, Barbara Rivera, Matthew Nash, Zabin, Jetrel, Bertram, Daniel Armstrong, Guido Bos, ve diğerleri (bkz. assets/licenses/LPC_Tile_Atlas_Attribution*.txt) — CC-BY-SA 3.0 / GPL 3.0 — https://opengameart.org/content/lpc-tile-atlas

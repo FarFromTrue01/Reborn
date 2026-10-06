@@ -4,7 +4,7 @@ import { Display } from '../game/display';
 import { Input, type Action } from '../game/input';
 import { touchIntent } from '../game/touch';
 import { Sound } from '../audio/audio';
-import { COLORS, FONT, txt, drawFrame, drawBlue, drawBar, Button, uiIcon, rankBadge } from '../ui/kit';
+import { COLORS, FONT, txt, drawFrame, drawBlue, drawBar, Button, uiIcon, rankBadge, fullScreenRect } from '../ui/kit';
 import { QuestBox, PartyBars } from '../ui/hudQuests';
 import { playQuestComplete, playRankUp, type QuestDoneInfo, type PromotionInfo } from '../ui/celebrations';
 import { buildAppraisalPanel } from '../ui/appraisalPanel';
@@ -285,7 +285,7 @@ export class UIScene extends Phaser.Scene {
     this.buildTouch();
     // Bekleme ve parlama göstergeleri butonların ÜSTÜNDE çizilir
     this.cdOverlay = this.add.graphics().setDepth(21);
-    this.damageFlash = this.add.rectangle(0, 0, W, H, 0xff0000, 0).setOrigin(0, 0).setDepth(50);
+    this.damageFlash = fullScreenRect(this, 0xff0000, 0).setDepth(50);
     if (G.settings.showFps) this.fpsText = txt(this, W / 2, 8, '', { size: 13, stroke: true }).setOrigin(0.5, 0).setDepth(60);
     this.refreshButtons();
     this.drawMinimap(true);
@@ -702,8 +702,8 @@ export class UIScene extends Phaser.Scene {
     if (this.menuIsOpen || this.world?.cutscene) return;
     const x = p.x / Display.uiZoom, y = p.y / Display.uiZoom;
     if (!p.wasTouch && !this.isTouch) return;
-    // Önce hareket niyeti: sabit joystick tabanı ve ekranın sol yarısı joystick'indir; altında bir
-    // NPC olsa bile Appraisal açılmaz. Sağ yarıda bir NPC'ye/canavara dokunmak Appraisal'dır.
+    // Önce hareket niyeti: sabit modda yalnızca joystick dairesi, serbest modda ekranın sol yarısı joystick'indir;
+    // altında bir NPC olsa bile Appraisal açılmaz. Geri kalanda bir NPC'ye/canavara dokunmak Appraisal'dır.
     const intent = touchIntent({
       x, y, uiW: Display.uiW, joyActive: !!this.joy,
       fixed: this.joyFixed ? { x: this.joyFixed.x, y: this.joyFixed.y, r: JOY_FIXED_R * 1.25 } : null,
@@ -1145,7 +1145,7 @@ export class UIScene extends Phaser.Scene {
     const mine = G.p.skills.find((s) => s.id === 'appraisal')!.rank;
     const root = this.add.container(0, 0).setDepth(60);
     // Ekranın herhangi bir yerine dokununca kapanır (B1). Otomatik kapanma yok.
-    const shade = this.add.rectangle(0, 0, W, H, 0x000000, 0.35).setOrigin(0, 0).setInteractive();
+    const shade = fullScreenRect(this, 0x000000, 0.35).setInteractive();
     shade.on('pointerdown', () => this.closeAppraisal());
     root.add(shade);
     const josephLayers = self ? this.world?.player?.actor.portraitKeys() : undefined;
@@ -1203,19 +1203,21 @@ export class UIScene extends Phaser.Scene {
     this.refreshButtons();
   }
 
-  deathScreen(lostMoney: number, lostExp: number): Promise<void> {
+  deathScreen(lostMoney: number, lostExp: number, lostLoot: { items: { id: string; qty: number }[]; money: number } = { items: [], money: 0 }): Promise<void> {
     return new Promise((resolve) => {
       const W = Display.uiW, H = Display.uiH;
       const c = this.add.container(0, 0).setDepth(200);
-      const bg = this.add.rectangle(0, 0, W, H, 0x000000, 1).setOrigin(0, 0);
+      const bg = fullScreenRect(this, 0x000000, 1);
       c.add(bg);
       const t = txt(this, W / 2, H / 2 - 60, 'Öldün.', { size: 56, font: FONT.title, color: '#c8323c', shadow: true }).setOrigin(0.5);
+      const lootParts = [...lostLoot.items.map((i) => `${ITEMS[i.id]?.name ?? i.id} ×${i.qty}`), ...(lostLoot.money > 0 ? [formatPrice(lostLoot.money)] : [])];
       const lines = [
+        ...(lootParts.length ? [`Savaşta kazanılan ganimet kaybedildi: ${lootParts.join(', ')}`] : []),
         `Kaybedilen para (%10): ${lostMoney > 0 ? formatPrice(lostMoney) : 'yok'}`,
         `Bugün kazanılan EXP kaybedildi: ${lostExp}`,
         G.state.spawn.x ? 'Son uyuduğun yatakta uyanacaksın.' : 'Ormanda ilk uyandığın yerde gözlerini açacaksın.',
       ];
-      const l = txt(this, W / 2, H / 2 + 20, lines.join('\n'), { size: 18, color: COLORS.textDim, align: 'center', lineSpacing: 8 }).setOrigin(0.5, 0);
+      const l = txt(this, W / 2, H / 2 + 20, lines.join('\n'), { size: 18, color: COLORS.textDim, align: 'center', lineSpacing: 8, wrap: W - 160 }).setOrigin(0.5, 0);
       const hint = txt(this, W / 2, H - 70, 'Devam etmek için dokun', { size: 15, color: COLORS.textGold }).setOrigin(0.5);
       c.add([t, l, hint]);
       c.setAlpha(0);
@@ -1240,7 +1242,7 @@ export class UIScene extends Phaser.Scene {
   curtain(alpha: number, ms = 600): Promise<void> {
     return new Promise((resolve) => {
       if (!this.overlay) {
-        const r = this.add.rectangle(0, 0, Display.uiW, Display.uiH, 0x000000, 1).setOrigin(0, 0);
+        const r = fullScreenRect(this, 0x000000, 1);
         this.overlay = this.add.container(0, 0, [r]).setDepth(90).setAlpha(0);
       }
       this.children.bringToTop(this.overlay);
@@ -1251,6 +1253,11 @@ export class UIScene extends Phaser.Scene {
 
   overlayText(text: string, opts: { size?: number; y?: number; color?: string; font?: string } = {}): Phaser.GameObjects.Text {
     const t = txt(this, Display.uiW / 2, opts.y ?? Display.uiH / 2, text, { size: opts.size ?? 28, font: opts.font ?? FONT.body, color: opts.color ?? COLORS.text, align: 'center', wrap: Display.uiW - 160 }).setOrigin(0.5).setDepth(95);
+    // ekran boyutu değişince ortada kalsın (0.8.0)
+    const off = Display.onResize(() => {
+      if (t.active && t.parentContainer === null) t.setPosition(Display.uiW / 2, opts.y ?? Display.uiH / 2);
+    });
+    t.once('destroy', off);
     return t;
   }
 }

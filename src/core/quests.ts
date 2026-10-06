@@ -124,6 +124,26 @@ export function currentObjective(def: QuestDef, st: QuestState): number {
   return -1;
 }
 
+/**
+ * B3 (0.8.0): aktif görevlerin toplama amacındaki eşyalar — teslim edilene kadar (sonraki amaç bitene kadar)
+ * yenemez/kullanılamaz. Toplama sayısı dolmuş olsa da teslimden önce gereklidir.
+ */
+export function questNeededItems(log: QuestLog, lookup: DefLookup): Set<string> {
+  const out = new Set<string>();
+  for (const id of Object.keys(log.quests)) {
+    const st = log.quests[id];
+    if (st.status !== 'active') continue;
+    const def = defOf(log, id, lookup);
+    if (!def) continue;
+    def.objectives.forEach((o, i) => {
+      if (o.type !== 'collect' || !o.target) return;
+      if (def.objectives.some((_, j) => j > i && objectiveDone(def, st, j))) return;
+      out.add(o.target);
+    });
+  }
+  return out;
+}
+
 /** Görünür amaçlar: sıralı (sequential) amaçlar öncekiler bitene kadar gizli. */
 export function visibleObjectives(def: QuestDef, st: QuestState): number[] {
   const out: number[] = [];

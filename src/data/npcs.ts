@@ -603,13 +603,14 @@ const RAW_NPCS: Omit<NpcDef, 'schedule' | 'title'>[] = [
   {
     id: 'merc_guard', name: 'Paralı Asker Varg', sheet: 'merc_guard', voice: 'gruff', portrait: 'merc_guard', personality: 'rude', caste: 'burgher',
     creature: creature('merc_guard', 'Varg', 'İnsan', 'Erkek', 34, 7, { STR: 9, VIT: 8, AGI: 3, DEX: 4 }, {
-      appraisal: 'G+', skills: [['sword_mastery', 'E-'], ['athletics', 'F']], guildRank: parseSubRank('E'),
-      equipment: { weapon: 'iron_shortsword', chest: 'padded_armor', helmet: 'iron_cap', boots: 'hobnail_boots' },
+      // 0.8.0: gerçek rütbesi F (kendini E diye satıyor — sq_merchant_guard); ekipmanı da F'ye göre, daha ucuz
+      appraisal: 'G+', skills: [['sword_mastery', 'F+'], ['athletics', 'F']], guildRank: parseSubRank('F'),
+      equipment: { weapon: 'rusty_shortsword', chest: 'padded_armor', helmet: 'leather_cap', boots: 'leather_boots' },
     }),
     bubbles: {
       any: ['...', 'Efendinin keselerine bakma.'],
       rootless: ['Bir adım daha yaklaş, kolunu kırarım.', 'Köksüz. Gözüm üzerinde.'],
-      adventurer: ['E rütbe olmadan karşıma çıkma.'],
+      adventurer: ['Kartını cebinde tut, maceracı. Burada rütbeyi ben sorarım.', 'Efendinin işi var. Yürü.'],
     },
     talk: { any: ['Efendiyle konuşmak mı? Önce benimle konuşursun. Ve ben konuşmayı sevmem.'] },
   },
@@ -642,6 +643,43 @@ const RAW_NPCS: Omit<NpcDef, 'schedule' | 'title'>[] = [
       adventurer: ['Kılıcını kınında tut, G-.'],
     },
     talk: { any: ['Kâhya Efendi\'yle konuşacaksan yere bak. Gözüne bakarsan, gözünü kaybedersin.'] },
+  },
+  // 0.8.0 (B11): şehir geçidinde nöbet tutan şövalyeler
+  {
+    id: 'gate_knight_1', name: 'Şövalye Aldric', sheet: 'knight', voice: 'gruff', portrait: 'knight', personality: 'proud', caste: 'elite',
+    creature: creature('gate_knight_1', 'Aldric', 'İnsan', 'Erkek', 34, 9, { STR: 16, VIT: 16, AGI: 6, DEX: 10, INT: 4, LUK: 2 }, {
+      appraisal: 'F', skills: [['spear_mastery', 'E-'], ['athletics', 'F+']], titles: ['npc_knight'],
+      equipment: { weapon: 'iron_spear', chest: 'padded_armor', helmet: 'iron_cap', pants: 'sturdy_pants', boots: 'hobnail_boots' },
+    }),
+    bubbles: { any: ['Kart ve ücret. Yoksa geri dön.', '...'], rootless: ['Geri çekil, köksüz.'] },
+    talk: { any: ['Şehir kapısı Baron Merrow\'un emriyle kapalı. Kaptan Roderick\'le konuş.'] },
+  },
+  {
+    id: 'gate_knight_2', name: 'Şövalye Bren', sheet: 'knight', voice: 'gruff', portrait: 'knight', personality: 'proud', caste: 'elite',
+    creature: creature('gate_knight_2', 'Bren', 'İnsan', 'Erkek', 29, 8, { STR: 15, VIT: 14, AGI: 6, DEX: 9, INT: 2, LUK: 2 }, {
+      appraisal: 'F', skills: [['sword_mastery', 'E-'], ['athletics', 'F+']], titles: ['npc_knight'],
+      equipment: { weapon: 'iron_shortsword', chest: 'padded_armor', helmet: 'iron_cap', pants: 'sturdy_pants', boots: 'hobnail_boots' },
+    }),
+    bubbles: { any: ['Kapı kapalı. Emir yukarıdan.', '...'], rootless: ['Geri çekil, köksüz.'] },
+    talk: { any: ['Şehir kapısı Baron Merrow\'un emriyle kapalı. Kaptan Roderick\'le konuş.'] },
+  },
+  {
+    id: 'gate_knight_3', name: 'Şövalye Osric', sheet: 'knight', voice: 'gruff', portrait: 'knight', personality: 'proud', caste: 'elite',
+    creature: creature('gate_knight_3', 'Osric', 'İnsan', 'Erkek', 41, 9, { STR: 15, VIT: 17, AGI: 5, DEX: 9, INT: 6, LUK: 2 }, {
+      appraisal: 'F', skills: [['spear_mastery', 'E-'], ['athletics', 'F+']], titles: ['npc_knight'],
+      equipment: { weapon: 'iron_spear', chest: 'padded_armor', helmet: 'iron_cap', pants: 'sturdy_pants', boots: 'hobnail_boots' },
+    }),
+    bubbles: { any: ['Sur boyunca nöbet. Kimse tırmanmaz.', '...'], rootless: ['Geri çekil, köksüz.'] },
+    talk: { any: ['Şehir kapısı Baron Merrow\'un emriyle kapalı. Kaptan Roderick\'le konuş.'] },
+  },
+  {
+    id: 'gate_knight_4', name: 'Şövalye Ywain', sheet: 'knight', voice: 'gruff', portrait: 'knight', personality: 'proud', caste: 'elite',
+    creature: creature('gate_knight_4', 'Ywain', 'İnsan', 'Erkek', 26, 8, { STR: 14, VIT: 14, AGI: 8, DEX: 10, INT: 1, LUK: 1 }, {
+      appraisal: 'F', skills: [['sword_mastery', 'E-'], ['athletics', 'F+']], titles: ['npc_knight'],
+      equipment: { weapon: 'iron_shortsword', chest: 'padded_armor', helmet: 'iron_cap', pants: 'sturdy_pants', boots: 'hobnail_boots' },
+    }),
+    bubbles: { any: ['Köksüz mü? Kapıdan uzak dur.', '...'], rootless: ['Geri çekil, köksüz.'] },
+    talk: { any: ['Şehir kapısı Baron Merrow\'un emriyle kapalı. Kaptan Roderick\'le konuş.'] },
   },
   {
     id: 'adv_thorne', name: 'Thorne', sheet: 'adv_thorne', voice: 'gruff', portrait: 'adv_thorne', personality: 'proud', caste: 'elite',
@@ -877,7 +915,7 @@ export const NPC_TITLES: Record<string, string> = {
   tobin: 'Çiftçi', ulric: 'Çiftçi', hilda: 'Çiftçi', greta: 'Çiftçi', edwin: 'Köyün İhtiyarı', berta: 'Köylü', anna: 'Köylü',
   pip: 'Çocuk', fenn: 'Ayyaş', oswin: 'Değirmenci', dorn: 'Maceracı', sira: 'Büyücü', haldor: 'Çiftçi', baker: 'Fırıncı',
   tailor: 'Terzi', tanner: 'Tabakçı', apprentice: 'Demirci Çırağı', carpenter: 'Marangoz', bard: 'Ozan', innmaid: 'Han Hizmetçisi',
-  merchant: 'Tüccar', merc_guard: 'Paralı Asker', steward: 'Baronun Kâhyası', knight: 'Şövalye', adv_thorne: 'Maceracı',
+  merchant: 'Tüccar', merc_guard: 'Paralı Asker', steward: 'Baronun Kâhyası', knight: 'Şövalye', gate_knight_1: 'Geçit Şövalyesi', gate_knight_2: 'Geçit Şövalyesi', gate_knight_3: 'Geçit Şövalyesi', gate_knight_4: 'Geçit Şövalyesi', adv_thorne: 'Maceracı',
   adv_kael: 'Maceracı', headman: 'Muhtar', headwife: 'Muhtarın Karısı', farmer_m3: 'Çiftçi', farmer_f3: 'Çiftçi', shepherd: 'Çoban',
   milkmaid: 'Sütçü', washer: 'Çamaşırcı', gerda: 'Köylü', child_girl: 'Çocuk', child_boy: 'Çocuk', woodcutter: 'Oduncu',
   guard_pell: 'Muhafız', vagrant: 'Köksüz', beggar: 'Dilenci',

@@ -52,6 +52,9 @@ lines += ['', '**Joseph\'in silahları (0.7.0, `tools/build_weapons.py`):** ahş
           'sopa saldırısı *weapon/blunt/club*, kısa kılıçlar *weapon/sword/arming* (paslı kılıç pas tonuna boyandı), Goblin Satırı *weapon/sword/scimitar* '
           '(mat demir ve deri kabzaya boyandı); sırtta/belde taşıma görüntüleri aynı karelerin döndürülüp yerleştirilmesiyle üretildi. '
           'Türetilmiş kareler kaynaklarının lisanslarıyla paylaşılır.']
+lines += ['', '**0.8.0 türetmeleri:** köyün doğu suru ve şehir geçidi (`tools/build_eastwall.py`) LPC Tile Atlas\'ın gri tuğla duvarı ve demir '
+          'parmaklığından; şifalı ot görseli LPC Tile Atlas bitki karesinden (`tools/build_props.py`); Yırtık Şort katmanı kahverengiye boyandı, '
+          'şort ikonu bu proje için çizildi (`tools/custom_icons.py`). Türetilmiş görseller kaynaklarının lisanslarıyla paylaşılır.']
 lines += ['', '## Ortam, canavar ve ikon paketleri', '']
 for p in packs:
     lines.append(f"- **{p['title']}** — {p['authors']} — {p['license']} — {p['url']}")

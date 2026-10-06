@@ -76,6 +76,11 @@ export class Actor extends Phaser.GameObjects.Container {
   bodyR = 9;
   bob = 0;
   facingLocked = false;
+  /**
+   * Senaryo bu aktörü yürütüyor (director.walk / walkPath; 0.8.0). NPC ve yoldaş güncellemesi bu sürede hızı
+   * sıfırlamaz, idle oynatmaz, Joseph'e döndürmez: konuşma sonrası yürüyen NPC idle'da kaymaz, önüne bakar.
+   */
+  driven = 0;
   /** Çizimi yukarı kaldır (sırtta taşınan yoldaş). */
   liftY = 0;
 

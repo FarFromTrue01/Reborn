@@ -7,7 +7,7 @@
  "spear": "W_Spear001.png",
  "bow_good": "W_Bow02.png",
  "cleaver": "W_Dagger008.png",
- "shorts": "A_Armour01.png",
+ "shorts": "draw:torn_shorts",
  "shirt": "A_Clothing01.png",
  "pants": "A_Clothing02.png",
  "shoes": "A_Shoes01.png",

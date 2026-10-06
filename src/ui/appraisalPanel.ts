@@ -5,6 +5,7 @@
 import Phaser from 'phaser';
 import { COLORS, FONT, txt, uiIcon, rankBadge, iconImage, itemRankBadge, drawTile, fitText, shrinkText } from './kit';
 import { appraisalView, dropsVisible, appraisalDiffText, type AppraisalView } from '../core/appraisal';
+import { sellRange, lootKindLabel } from '../core/selling';
 import { MONSTERS, monsterPortraitFrame, type MonsterDef } from '../data/monsters';
 import { dropTable } from '../core/monster';
 import { derive } from '../core/creature';
@@ -249,18 +250,24 @@ export function buildAppraisalPanel(scene: Phaser.Scene, c: any, npc: NpcDef | n
     ry += 20;
     for (const l of dropTable(mdef!, opts.dropMult ?? 1)) {
       const it = ITEMS[l.id];
-      drawTile(tiles, RX, ry, RW, 34, { fill: 0x2e1a1c, r: 7 });
-      if (it) cont.add(iconImage(scene, RX + 18, ry + 17, it.icon, 22));
-      const nt = txt(scene, RX + 36, ry + 8, it?.name ?? l.id, { size: 14, bold: true, color: COLORS.text });
+      drawTile(tiles, RX, ry, RW, 40, { fill: 0x2e1a1c, r: 7 });
+      if (it) cont.add(iconImage(scene, RX + 18, ry + 20, it.icon, 22));
+      const nt = txt(scene, RX + 36, ry + 3, it?.name ?? l.id, { size: 14, bold: true, color: COLORS.text });
       cont.add(fitText(nt, RW - 190));
       let nx = RX + 36 + nt.width + 8;
       if (it?.rank) {
-        cont.add(itemRankBadge(scene, nx + 9, ry + 17, it.rank, 18));
+        cont.add(itemRankBadge(scene, nx + 9, ry + 12, it.rank, 18));
         nx += 24;
       }
-      if (l.special) cont.add(txt(scene, nx, ry + 10, 'nadir', { size: 11, italic: true, bold: true, color: '#e0b8ff' }));
-      cont.add(txt(scene, RX + RW - 10, ry + 8, show ? `%${fmtPct(l.chance)}` : Q, { size: 15, bold: true, color: show ? '#ffe9a0' : DIM }).setOrigin(1, 0));
-      ry += 40;
+      if (l.special) cont.add(txt(scene, nx, ry + 5, 'nadir', { size: 11, italic: true, bold: true, color: '#e0b8ff' }));
+      // 0.8.0 (B16): tür ve tahmini satış aralığı
+      if (it) {
+        const [lo, hi] = sellRange(it);
+        const sale = hi > 0 ? `${lo === hi ? lo : `${lo}–${hi}`} bronz` : 'satılmaz';
+        cont.add(fitText(txt(scene, RX + 36, ry + 21, `${lootKindLabel(it.kind)} · ${sale}`, { size: 11, color: '#c8b8a0' }), RW - 110));
+      }
+      cont.add(txt(scene, RX + RW - 10, ry + 11, show ? `%${fmtPct(l.chance)}` : Q, { size: 15, bold: true, color: show ? '#ffe9a0' : DIM }).setOrigin(1, 0));
+      ry += 46;
     }
   }
 

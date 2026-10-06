@@ -66,11 +66,11 @@ describe('Görev EXP kuralı', () => {
     for (const q of MAIN_QUESTS) expect(questExp(q), q.id).toBe(0);
     expect(questExp({ ...MAIN_QUESTS[0], reward: { exp: 50 } })).toBe(0);
   });
-  it('Yan görevler az EXP verir: aynı süre avlanmanın en fazla üçte biri', () => {
+  it('Yan görevler az EXP verir: aynı süre avlanmanın en fazla üçte ikisi (0.8.0: ödüller 2 katına çıktı)', () => {
     for (const q of SIDE_QUESTS) {
       const e = questExp(q);
       expect(e, q.id).toBeGreaterThan(0);
-      expect(e, q.id).toBeLessThanOrEqual((huntPerMin * QUEST_MIN) / 3);
+      expect(e, q.id).toBeLessThanOrEqual((huntPerMin * QUEST_MIN * 2) / 3);
     }
   });
   it('Pano görevleri az EXP verir', () => {

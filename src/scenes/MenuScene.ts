@@ -2,7 +2,7 @@ import Phaser from 'phaser';
 import { G } from '../game/G';
 import { Display } from '../game/display';
 import { Sound } from '../audio/audio';
-import { COLORS, FONT, txt, drawFrame, drawBlue, Button, iconImage, uiIcon, rankBadge, itemRankBadge } from '../ui/kit';
+import { COLORS, FONT, txt, drawFrame, drawBlue, Button, iconImage, uiIcon, rankBadge, itemRankBadge, fullScreenRect } from '../ui/kit';
 import { renderDevPanel } from '../ui/devPanel';
 import { renderQuestsTab } from '../ui/questsTab';
 import { fmtExp, fmtHp } from '../ui/format';
@@ -101,7 +101,7 @@ export class MenuScene extends Phaser.Scene {
     this.cameras.main.setZoom(Display.uiZoom);
     this.cameras.main.setOrigin(0, 0);
     const W = Display.uiW, H = Display.uiH;
-    this.add.rectangle(0, 0, W, H, 0x05040a, 1).setOrigin(0, 0).setInteractive();
+    fullScreenRect(this, 0x05040a, 1).setInteractive();
     this.pw = Math.min(1180, W - 24);
     this.ph = Math.min(690, H - 20);
     this.px = (W - this.pw) / 2;

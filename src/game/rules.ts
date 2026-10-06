@@ -12,6 +12,8 @@ import { canonicalCoins } from '../core/money';
 import { eat as eatRule, type EatState } from '../core/eating';
 import { TITLES } from '../data/titles';
 import { equipmentPrestige } from '../core/prestige';
+import { questNeededItems } from '../core/quests';
+import { questDef } from '../data/quests';
 
 export type ToastKind = 'item' | 'exp' | 'divine' | 'money' | 'info' | 'warn' | 'skill';
 
@@ -294,9 +296,17 @@ export function pay(amount: number, label: string, allowWhenLocked = false) {
  * Bir eşyayı tüketir (yiyecek, iksir). Yiyecekler bekleme kurallarına tabidir (core/eating).
  * addBuff: süreli etkiler (sargı) için oyuncuya buff ekler.
  */
+export const QUEST_ITEM_REASON = 'Görev için lazım.';
+
+/** Aktif görevlerin toplama amacındaki (teslim edilmemiş) eşyalar: yenemez. */
+export function questNeeded(): Set<string> {
+  return questNeededItems(G.state.quests, questDef);
+}
+
 export function consumeItem(id: string, eat: { state: EatState; now: number } | null, addBuff: (b: { id: string; t: number; amount: number }) => void): { ok: boolean; reason?: string; eatState?: EatState } {
   const it = ITEMS[id];
   if (!it || !G.p.inventory[id]) return { ok: false, reason: 'Elinde yok.' };
+  if (questNeeded().has(id)) return { ok: false, reason: QUEST_ITEM_REASON };
   let next: EatState | undefined;
   if (it.kind === 'food' && eat) {
     const r = eatRule(eat.state, eat.now);

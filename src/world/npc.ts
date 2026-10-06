@@ -216,6 +216,7 @@ export class Npc {
         this.bubble = null;
       }
     }
+    if (this.actor.driven > 0) return;
     if (this.talking) {
       body.setVelocity(0, 0);
       return;
@@ -295,6 +296,11 @@ export class Npc {
         this.bubble = null;
         this.w.tweens.add({ targets: b, alpha: 0, y: b.y - 6, duration: 250, onComplete: () => b.destroy() });
       }
+    }
+    // senaryo yürütüyor (konuşma sürse de): hız, yön ve animasyon senaryonun (0.8.0)
+    if (a.driven > 0) {
+      a.setDepth(a.y);
+      return;
     }
     if (this.talking) {
       body.setVelocity(0, 0);

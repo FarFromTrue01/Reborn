@@ -1,7 +1,7 @@
 import Phaser from 'phaser';
 import { G } from '../game/G';
 import { Display } from '../game/display';
-import { COLORS, FONT, txt, Button } from '../ui/kit';
+import { COLORS, FONT, txt, Button, fullScreenRect } from '../ui/kit';
 import { ScrollList } from '../ui/panels';
 import { Sound } from '../audio/audio';
 
@@ -15,7 +15,7 @@ export class CreditsScene extends Phaser.Scene {
     this.cameras.main.setZoom(Display.uiZoom);
     this.cameras.main.setOrigin(0, 0);
     const W = Display.uiW, H = Display.uiH;
-    this.add.rectangle(0, 0, W, H, 0x07060b, 1).setOrigin(0, 0);
+    fullScreenRect(this, 0x07060b, 1);
     txt(this, W / 2, 30, 'Emeği Geçenler', { size: 34, font: FONT.title, color: COLORS.textGold }).setOrigin(0.5, 0);
     const list = new ScrollList(this, 60, 90, W - 120, H - 180);
     list.updateMask();

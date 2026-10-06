@@ -1,5 +1,6 @@
 // Hikâye yönetmeni: tetikleyiciler, sahneler ve NPC konuşmaları.
 import { Q } from '../game/questrt';
+import { fullScreenRect } from '../ui/kit';
 import Phaser from 'phaser';
 import { G } from '../game/G';
 import { Input } from '../game/input';
@@ -45,6 +46,17 @@ const BOARD_EXCUSES = [
 export interface Cast {
   npcs: Record<string, Npc | null>;
   added: Npc[];
+}
+
+/** Aktörü senaryoya bağla (Actor.driven); dönen fonksiyon bırakır. */
+function drive(actor: any): () => void {
+  actor.driven = (actor.driven ?? 0) + 1;
+  let done = false;
+  return () => {
+    if (done) return;
+    done = true;
+    actor.driven = Math.max(0, (actor.driven ?? 1) - 1);
+  };
 }
 
 export class Director {
@@ -109,7 +121,8 @@ export class Director {
 
   /** Bir aktörü karoya yürüt. */
   walk(actor: any, tx: number, ty: number, speed = 2.4): Promise<void> {
-    return new Promise((resolve) => {
+    const release = drive(actor);
+    return new Promise<void>((resolve) => {
       const gx = tx * TILE + 16, gy = ty * TILE + 22;
       const step = () => {
         const dx = gx - actor.x, dy = gy - actor.y;
@@ -135,7 +148,7 @@ export class Director {
           resolve();
         }
       });
-    });
+    }).finally(release);
   }
 
   /**
@@ -143,25 +156,43 @@ export class Director {
    * süre sonunda hedefe yerleştirilir.
    */
   walkPath(actor: any, tx: number, ty: number, speed = 3): Promise<void> {
+    const release = drive(actor);
     const m = this.w.mapData;
     const [sx, sy] = nearestFree(m.solid, m.w, m.h, Math.floor(actor.x / TILE), Math.floor((actor.y - 6) / TILE));
     const [gx, gy] = nearestFree(m.solid, m.w, m.h, tx, ty);
     const path = findPath(m.solid, m.w, m.h, sx, sy, gx, gy, pathBudget(m.w, m.h, !!m.indoor)) ?? [[gx, gy]];
     const limit = 2500 + (path.length / speed) * 1600;
-    return new Promise((resolve) => {
+    return new Promise<void>((resolve) => {
       const t0 = this.w.time.now;
+      // takılma denetimi (0.8.0): 0,7 sn boyunca ilerleyemezse sıradaki ara noktaya geçer (sahne kilitlenmez)
+      let lastX = actor.x, lastY = actor.y, stuckT = 0, lastT = t0;
       const ev = this.w.time.addEvent({
         delay: 16, loop: true, callback: () => {
-          if (!path.length || this.w.time.now - t0 > limit) {
+          if (!actor.active || !path.length || this.w.time.now - t0 > limit) {
             ev.remove();
-            if (path.length) actor.setPosition(gx * TILE + 16, gy * TILE + 22);
+            if (path.length && actor.active) actor.setPosition(gx * TILE + 16, gy * TILE + 22);
             actor.body2?.setVelocity(0, 0);
-            actor.play('idle');
+            if (actor.active) actor.play('idle');
             resolve();
             return;
           }
+          const now = this.w.time.now;
+          const dt = (now - lastT) / 1000;
+          lastT = now;
+          if (Math.hypot(actor.x - lastX, actor.y - lastY) < 0.4 * speed * TILE * dt) stuckT += dt;
+          else stuckT = 0;
+          lastX = actor.x;
+          lastY = actor.y;
           const [px, py] = path[0];
           const wx = px * TILE + 16, wy = py * TILE + 22;
+          if (stuckT > 0.7) {
+            // köşeye takıldı: ara noktaya geç (bir karo; göze batmaz)
+            actor.setPosition(wx, wy);
+            actor.body2?.reset(wx, wy);
+            stuckT = 0;
+            path.shift();
+            return;
+          }
           const dx = wx - actor.x, dy = wy - actor.y;
           const d = Math.hypot(dx, dy);
           if (d < 5) {
@@ -173,7 +204,7 @@ export class Director {
           if (actor.anim !== 'walk') actor.play('walk');
         },
       });
-    });
+    }).finally(release);
   }
 
   /**
@@ -479,7 +510,7 @@ export class Director {
       G.setFlag('checkpoint_seen');
       this.scene(async () => {
         await this.pan(this.w.mapData.points.city.x * TILE, this.w.mapData.points.city.y * TILE, 1600);
-        await this.think('Yol bir kontrol noktasında bitiyor. Ötesinde... o surlar. Eros. Elonth\'un şehirlerinden biri, ama buradan bakınca dünyanın kendisi gibi.');
+        await this.think('Yol bir kontrol noktasında, taş bir surun kapısında bitiyor. Ötesi... Eros. Elonth\'un şehirlerinden biri, ama buradan bakınca dünyanın kendisi gibi.');
         await this.think('Muhafızlar yolu tutmuş. Öyle elini kolunu sallayarak geçilecek gibi değil.');
         await this.pan(this.w.player.actor.x, this.w.player.actor.y, 900);
         this.follow();
@@ -542,7 +573,7 @@ export class Director {
       }
       await this.think('Ağaçların arasından... bir köy görünüyor. Çatılardan duman yükseliyor.');
       await this.pan(this.w.mapData.points.city.x * TILE, this.w.mapData.points.city.y * TILE, 2200);
-      await this.think('Ve çok uzakta, surlarla çevrili koca bir şehir. Kuleleri sisin içinde mavi.');
+      await this.think('Ve çok uzakta, doğuda, köyü boydan boya kesen taş bir sur. Ardında koca bir şehir olmalı.');
       if (vImg) this.ui.tweens.add({ targets: vImg, alpha: 0, duration: 800, onComplete: () => vImg!.destroy() });
       await this.pan(a.x, a.y, 1800);
       this.follow();
@@ -1628,7 +1659,7 @@ export class Director {
     Sound.play('void');
     Sound.sfx('awaken');
     const W = Display.uiW, H = Display.uiH;
-    const glow = this.ui.add.rectangle(0, 0, W, H, 0xffe9a0, 0).setOrigin(0, 0).setDepth(85).setBlendMode(Phaser.BlendModes.ADD);
+    const glow = fullScreenRect(this.ui, 0xffe9a0, 0).setDepth(85).setBlendMode(Phaser.BlendModes.ADD);
     this.ui.tweens.add({ targets: glow, fillAlpha: 0.55, duration: 1400, yoyo: true, hold: 600 });
     const a = this.w.player.actor;
     for (let i = 0; i < 6; i++) this.w.time.delayedCall(i * 250, () => this.w.fx.ring(a.x, a.y - 20, 0xffe28a, 60 + i * 20, 900));

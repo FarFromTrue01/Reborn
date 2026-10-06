@@ -9,3 +9,7 @@ export function doorGoal(p: { x: number; y: number }, doors: { x: number; y: num
   });
 }
 
+/** Bir toplama noktasının temel verimi (Toplayıcılık şansı hariç). Elma ağacı 3 (0.8.0). */
+export function gatherQty(kind: string): number {
+  return kind === 'apple' ? 3 : 1;
+}

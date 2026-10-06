@@ -3,9 +3,10 @@
 import Phaser from 'phaser';
 import { Display } from '../game/display';
 import { Sound } from '../audio/audio';
-import { COLORS, FONT, txt, drawFrame, Button } from '../ui/kit';
+import { COLORS, FONT, txt, drawFrame, Button, fullScreenRect } from '../ui/kit';
 import { G } from '../game/G';
 import { ServeGame, serveDifficulty } from './serveGame';
+import { SERVE_LOSS_TEXT } from '../core/serve';
 
 type Kind = 'chop' | 'lift' | 'run' | 'harvest' | 'serve';
 
@@ -59,7 +60,7 @@ export class MinigameScene extends Phaser.Scene {
     this.serveDay = data.day ?? 1;
     this.kind = data.kind;
     this.done = data.done;
-    this.dur = data.kind === 'chop' ? 24 : data.kind === 'lift' ? 25 : data.kind === 'harvest' ? 22 : data.kind === 'serve' ? serveDifficulty(this.serveDay).dur : 30;
+    this.dur = data.kind === 'chop' ? 24 : data.kind === 'lift' ? 25 : data.kind === 'harvest' ? 22 : data.kind === 'serve' ? serveDifficulty(this.serveDay).limit : 30;
   }
 
   /** Her mini oyun aynı sahne nesnesini kullanır: önceki oyunun sayaçları ve nesneleri burada sıfırlanır. */
@@ -88,13 +89,17 @@ export class MinigameScene extends Phaser.Scene {
     this.sheaves = [];
     this.serve = null;
     this.serveDay = 1;
+    this.loseScreen = null;
   }
 
   create() {
+    // 0.8.0: mini oyun müziği; bitince (sahne kapanınca) dünya müziği kaldığı yerden döner
+    Sound.pushMusic('minigame');
+    this.events.once('shutdown', () => Sound.popMusic());
     this.cameras.main.setZoom(Display.uiZoom);
     this.cameras.main.setOrigin(0, 0);
     const W = Display.uiW, H = Display.uiH;
-    this.add.rectangle(0, 0, W, H, 0x000000, 0.7).setOrigin(0, 0).setInteractive();
+    fullScreenRect(this, 0x000000, 0.7).setInteractive();
     const serve = this.kind === 'serve';
     const pw = Math.min(serve ? 980 : 900, W - 40), ph = serve ? Math.min(680, H - 30) : 520;
     const px = (W - pw) / 2, py = (H - ph) / 2;
@@ -256,7 +261,7 @@ export class MinigameScene extends Phaser.Scene {
 
   flash(color: number) {
     const W = Display.uiW, H = Display.uiH;
-    const r = this.add.rectangle(0, 0, W, H, color, 0.15).setOrigin(0, 0);
+    const r = fullScreenRect(this, color, 0.15);
     this.tweens.add({ targets: r, alpha: 0, duration: 250, onComplete: () => r.destroy() });
   }
 
@@ -266,15 +271,20 @@ export class MinigameScene extends Phaser.Scene {
     const g = this.g;
     g.clear();
     const bx = W / 2 - 330, bw = 660, by = this.kind === 'chop' || this.kind === 'harvest' ? H / 2 - 95 : H / 2 - 40;
+    if (this.serve) {
+      // 0.8.0: süre yerine günün hedefi; kazanma/kaybetme anında
+      if (this.running) this.t += dt;
+      this.serve.update(dt);
+      this.timeT.setText(`Hedef ${this.serve.platesCleared}/${this.serve.cfg.goal}`);
+      const r = this.running ? this.serve.result() : null;
+      if (r) this.finishServe(r.win, r.loss);
+      return;
+    }
     if (this.running) {
       this.t += dt;
       if (this.t >= this.dur) this.finish();
     }
     this.timeT.setText(`${Math.max(0, Math.ceil(this.dur - this.t))} sn`);
-    if (this.serve) {
-      this.serve.update(dt);
-      return;
-    }
     if (this.kind === 'chop' || this.kind === 'harvest') {
       if (this.running) {
         this.marker += this.markerDir * dt * (0.9 + this.logs * 0.06);
@@ -341,6 +351,45 @@ export class MinigameScene extends Phaser.Scene {
       this.info.setText(`Mesafe: %${Math.round(Math.min(1, this.dist) * 100)} · Ritim: ${this.steps ? Math.round((this.goodSteps / this.steps) * 100) : 0}%`);
     }
   }
+
+  /** Servis: kazandın (ücret ve hikâye sürer) ya da kaybettin (tekrar dene; ücret yalnızca kazanınca). */
+  finishServe(win: boolean, loss: keyof typeof SERVE_LOSS_TEXT | null) {
+    if (!this.running || !this.serve) return;
+    this.running = false;
+    const W = Display.uiW, H = Display.uiH;
+    if (win) {
+      const perf = Phaser.Math.Clamp(this.serve.perf(), 0, 1);
+      Sound.sfx('levelup', 0.6);
+      const t = txt(this, W / 2, H / 2 - 10, 'Kazandın!', { size: 40, font: FONT.title, color: COLORS.textGold, stroke: true }).setOrigin(0.5).setDepth(20);
+      const t2 = txt(this, W / 2, H / 2 + 40, `${this.serve.cfg.goal} müşteri doydu, tabaklar bulaşıkta.`, { size: 20, color: COLORS.text, stroke: true }).setOrigin(0.5).setDepth(20);
+      t.setScale(0.5);
+      this.tweens.add({ targets: t, scale: 1, duration: 300, ease: 'Back.Out' });
+      void t2;
+      this.time.delayedCall(1900, () => {
+        this.scene.stop();
+        this.done(perf);
+      });
+      return;
+    }
+    Sound.sfx('error', 0.7);
+    const pw = 520, ph = 250;
+    const px = (W - pw) / 2, py = (H - ph) / 2;
+    const c = this.add.container(0, 0).setDepth(30);
+    const dim = fullScreenRect(this, 0x000000, 0.55).setInteractive();
+    const fg = this.add.graphics();
+    drawFrame(fg, px, py, pw, ph);
+    c.add([dim, fg]);
+    c.add(txt(this, W / 2, py + 28, 'Kaybettin', { size: 36, font: FONT.title, color: COLORS.textRed }).setOrigin(0.5, 0));
+    c.add(txt(this, W / 2, py + 90, SERVE_LOSS_TEXT[loss ?? 'time'], { size: 18, color: COLORS.text, align: 'center', wrap: pw - 60 }).setOrigin(0.5, 0));
+    c.add(txt(this, W / 2, py + 124, 'Ücret yalnızca servis başarıyla bitince.', { size: 15, color: COLORS.textDim, align: 'center' }).setOrigin(0.5, 0));
+    const day = this.serveDay, done = this.done;
+    const b = new Button(this, W / 2, py + ph - 48, 'Tekrar dene', () => this.scene.restart({ kind: 'serve', day, done }), { w: 240, h: 60, size: 22 });
+    b.setDepth(31);
+    this.loseScreen = c;
+  }
+
+  /** Kaybettin ekranı (QA ve testler için). */
+  loseScreen: Phaser.GameObjects.Container | null = null;
 
   finish() {
     if (!this.running) return;

@@ -28,7 +28,7 @@ import { DIVINE_BY_ID } from '../data/divine';
 import { LIGHT_MAX, LIGHT_ON_HIT, LIGHT_ON_PERFECT_DODGE, streakExpired } from '../core/divine';
 import { canInterrupt, refundEvade } from '../core/combat';
 import { fmtHp } from '../ui/format';
-import { loseMoneyPercent } from '../core/transactions';
+import { loseMoneyPercent, forfeitLoot, emptyLoot, lootEmpty, type BattleLoot } from '../core/transactions';
 import { walletTotal } from '../core/money';
 import { appraisalBaseExp, noticesAppraisal, appraisalReady, claimAppraisalExp, type AppraisalExpClock } from '../core/appraisal';
 import { newEatState, type EatState } from '../core/eating';
@@ -46,7 +46,7 @@ import { absMinute } from '../core/sleep';
 import { activeQuests, currentObjective, type QuestTarget } from '../core/quests';
 import { MONSTERS } from '../data/monsters';
 import { SeatBook, SEAT_RE } from '../world/seats';
-import { doorGoal } from '../world/questGo';
+import { doorGoal, gatherQty } from '../world/questGo';
 
 /** Kapı adları (bekleme metinleri: "Lonca 05:00'te açılır"). */
 const DOOR_NAMES: Record<string, string> = {
@@ -55,6 +55,8 @@ const DOOR_NAMES: Record<string, string> = {
 
 /** Görüş alanının kenarından bu kadar karo dışarıdaki NPC'ler hafif güncellenir (oyuncu fark etmez). */
 const NPC_FAR_PAD = 6;
+/** Toplanabilir şeylerin parladığı yarıçap (karo). */
+const GATHER_GLOW_R = 3.5;
 
 let WORLD_CACHE: MapData | null = null;
 /** Kamera ölü bölgesi (dünya pikseli, yarım genişlik/yükseklik) ve dikey ofset. Tamsayı: yuvarlama tutarlı kalır. */
@@ -142,6 +144,8 @@ export class WorldScene extends Phaser.Scene {
   /** Dekorların piksel çarpışma kutuları (bu harita). */
   propCol: PropCollision | null = null;
   killsThisCombat: Record<string, number> = {};
+  /** B15 (0.8.0): savaş modu boyunca toplanan ganimet; savaş bitmeden ölünürse kaybolur, bitince güvende. */
+  battleLoot: BattleLoot = emptyLoot();
   lowHpWin = false;
   warpCooldown = 0;
   lockedMsgT = 0;
@@ -215,6 +219,7 @@ export class WorldScene extends Phaser.Scene {
     this.collider = null;
     this.propCol = null;
     this.killsThisCombat = {};
+    this.battleLoot = emptyLoot();
     this.lowHpWin = false;
     this.warpCooldown = 0;
     this.lockedMsgT = 0;
@@ -236,6 +241,7 @@ export class WorldScene extends Phaser.Scene {
     this.gatherDay = -1;
     this.sideMarks = {};
     this.buildingMarks = new Map();
+    this.gatherGlows = new Map();
     this.camFollow = true;
     this.viewRect = new Phaser.Geom.Rectangle();
     this.camX = 0;
@@ -370,6 +376,8 @@ export class WorldScene extends Phaser.Scene {
     for (const r of this.rays) r.destroy();
     for (const t of this.buildingMarks.values()) t.destroy();
     this.buildingMarks.clear();
+    for (const gl of this.gatherGlows.values()) gl.destroy();
+    this.gatherGlows.clear();
     this.enemies = [];
     this.npcs = [];
     this.pathQueue.clear();
@@ -698,6 +706,10 @@ export class WorldScene extends Phaser.Scene {
     const t = this.director.ch2.targetOverride(id) ?? def.objectives[i].where;
     if (!t) return null;
     const now = this.absMinute();
+    // bugün toplanacak kaynak kalmadı (ör. bütün elma ağaçları toplandı): yarın
+    if (t.item && !t.npc && !t.monster && getMap(this, 'world').gathers.some((g) => g.item === t.item) && !this.sourcesOf(t).length) {
+      return { text: `Bugünlük ${(ITEMS[t.item]?.name ?? 'kaynak').toLocaleLowerCase('tr')} kalmadı — yarın yeniden toplanır`, until: null };
+    }
     const hour = G.state.time.minute / 60;
     if (t.map !== 'world' && t.map !== this.mapData.id) {
       const w = getMap(this, 'world').warps.find((x) => x.to === t.map);
@@ -812,7 +824,8 @@ export class WorldScene extends Phaser.Scene {
     const out: { x: number; y: number }[] = [];
     if (t.monster) for (const s of wm.spawns) if (s.monster === t.monster) out.push({ x: s.x, y: s.y });
     if (t.item) {
-      for (const g of wm.gathers) if (g.item === t.item) out.push({ x: g.x, y: g.y });
+      // yalnızca bugün toplanmamış noktalar: ok, elması olan en yakın ağacı gösterir
+      for (const g of wm.gathers) if (g.item === t.item && (G.state.gathered[g.id] ?? 0) !== G.state.time.day) out.push({ x: g.x, y: g.y });
       const droppers = Object.values(MONSTERS).filter((md) => md.drops.some((d) => d.id === t.item)).map((md) => md.id);
       for (const s of wm.spawns) if (droppers.includes(s.monster)) out.push({ x: s.x, y: s.y });
     }
@@ -1147,6 +1160,7 @@ export class WorldScene extends Phaser.Scene {
     this.updatePickups(dt);
     this.updateCombatState(dt);
     this.updateAmbient(dt);
+    this.updateGatherGlow();
     this.updateOcclusion(dt);
     if (!this.cutscene) {
       this.checkWarpsAndTriggers(dt);
@@ -1302,7 +1316,7 @@ export class WorldScene extends Phaser.Scene {
       merchant: 'manor', merc_guard: 'manor', headman: 'house_f', headwife: 'house_f', farmer_m3: 'farmhouse2', farmer_f3: 'farmhouse2',
       gerda: 'farmhouse2', shepherd: 'stable', milkmaid: 'barn', woodcutter: 'house_g', washer: 'house_c', child_girl: 'house_h', child_boy: 'house_e',
       carpenter: 'house_a', bard: 'inn', guard_pell: 'guardhouse', guard_hob: 'guardhouse', guard_wil: 'guardhouse', adv_thorne: 'inn', adv_kael: 'house_c',
-      steward: 'checkpoint', knight: 'checkpoint',
+      steward: 'checkpoint', knight: 'checkpoint', gate_knight_1: 'checkpoint', gate_knight_2: 'checkpoint', gate_knight_3: 'checkpoint', gate_knight_4: 'checkpoint',
     };
     if (map[def.id]) return map[def.id];
     const houses = ['house_a', 'house_b', 'house_c', 'house_d', 'house_e'];
@@ -1625,7 +1639,8 @@ export class WorldScene extends Phaser.Scene {
   gather(g: MapData['gathers'][number]) {
     if ((G.state.gathered[g.id] ?? 0) === G.state.time.day) return;
     G.state.gathered[g.id] = G.state.time.day;
-    let qty = 1;
+    // elma ağacı bir toplamada 3 elma verir (0.8.0); Toplayıcılık şansı üstüne
+    let qty = gatherQty(g.kind);
     if (Math.random() < G.d.gatherBonus) qty++;
     // toplarken durur ve otu koparır (kısa 'cast' durumu: hareket yok, bitince idle)
     const pl = this.player;
@@ -1644,6 +1659,48 @@ export class WorldScene extends Phaser.Scene {
       R.checkDiscoveries();
     }
     this.applyGatherVisuals();
+  }
+
+  /**
+   * B4 (0.8.0): yakındaki toplanabilir her şey (bugün toplanmamış ot, elması olan ağaç) hafifçe parlar —
+   * herkes için, skill gerektirmez. Işıltı görselin üstünde toplanabilir kısma oturur ve nabız gibi atar.
+   */
+  gatherGlows = new Map<string, Phaser.GameObjects.Image>();
+  updateGatherGlow() {
+    if (!this.r || !this.player) return;
+    const a = this.player.actor;
+    const day = G.state.time.day;
+    const R2 = GATHER_GLOW_R * TILE;
+    const t = this.time.now / 1000;
+    const seen = new Set<string>();
+    if (!this.cutscene) {
+      for (const g of this.mapData.gathers) {
+        const gx = g.x * TILE + 16, gy = g.y * TILE + 16;
+        if (Math.abs(gx - a.x) > R2 || Math.abs(gy - a.y) > R2) continue;
+        const d = Math.hypot(gx - a.x, gy - a.y);
+        if (d > R2 || (G.state.gathered[g.id] ?? 0) === day) continue;
+        const img = this.gatherImg(g.id);
+        if (!img || !img.visible) continue;
+        seen.add(g.id);
+        let glow = this.gatherGlows.get(g.id);
+        if (!glow) {
+          glow = this.add.image(0, 0, 'soft').setBlendMode(Phaser.BlendModes.ADD).setTint(0xfff0a8);
+          this.gatherGlows.set(g.id, glow);
+        }
+        // ağaçta tepeye, otta bitkinin ortasına
+        const tree = img.displayHeight > 48;
+        const cy = tree ? img.y - img.displayHeight * 0.62 : img.y - img.displayHeight * 0.5;
+        const size = tree ? 0.9 : 0.55;
+        const fade = Math.min(1, (R2 - d) / (TILE * 0.8));
+        const pulse = 0.5 + 0.5 * Math.sin(t * 3.2 + g.x * 0.7 + g.y);
+        glow.setPosition(img.x, cy).setScale(size + pulse * 0.08).setAlpha((0.22 + pulse * 0.2) * fade).setDepth(img.depth + 0.5);
+      }
+    }
+    for (const [id, glow] of this.gatherGlows) {
+      if (seen.has(id)) continue;
+      glow.destroy();
+      this.gatherGlows.delete(id);
+    }
   }
 
   /** Toplama noktasının görseli (prop.gather). */
@@ -1712,8 +1769,11 @@ export class WorldScene extends Phaser.Scene {
   quickFoodId(): string | null {
     const inv = G.p.inventory;
     const q = G.state.quickFood;
-    if (q && inv[q] && ITEMS[q]?.kind === 'food') return q;
-    return Object.keys(inv).find((id) => ITEMS[id]?.kind === 'food' && inv[id] > 0) ?? null;
+    // görev için toplanan yiyecekler (ör. elma) en sona: başka yiyecek varsa o yenir; yoksa uyarı çıkar (B3)
+    const need = R.questNeeded();
+    const food = (id: string) => ITEMS[id]?.kind === 'food' && inv[id] > 0;
+    if (q && food(q) && !need.has(q)) return q;
+    return Object.keys(inv).find((id) => food(id) && !need.has(id)) ?? (q && food(q) ? q : null) ?? Object.keys(inv).find(food) ?? null;
   }
 
   /** Bir eşyayı tüket (yiyecekler bekleme kurallarına uyar). */
@@ -1721,7 +1781,7 @@ export class WorldScene extends Phaser.Scene {
     const r = R.consumeItem(id, { state: this.eatState, now: this.playClock }, (b) => this.player.buffs.push(b));
     if (!r.ok) {
       Sound.sfx('error', 0.5);
-      this.fx.number(this.player.actor.x, this.player.actor.y - 50, r.reason?.startsWith('Henüz') ? 'Henüz değil' : 'Yok', 'miss');
+      this.fx.number(this.player.actor.x, this.player.actor.y - 50, r.reason?.startsWith('Henüz') ? 'Henüz değil' : r.reason === R.QUEST_ITEM_REASON ? 'Görev için lazım' : 'Yok', 'miss');
       if (r.reason) R.toast(r.reason, 'warn');
       return false;
     }
@@ -1917,6 +1977,9 @@ export class WorldScene extends Phaser.Scene {
         this.inBattle = false;
         this.player.secondWindUsed = false;
         this.killsThisCombat = {};
+        // savaş bitti: ganimet güvende
+        if (!lootEmpty(this.battleLoot)) this.ui.toastInfo('Savaş bitti. Ganimet güvende.');
+        this.battleLoot = emptyLoot();
         this.updateMusic();
       }
     }
@@ -2165,8 +2228,10 @@ export class WorldScene extends Phaser.Scene {
         p.img.setX(p.x);
       }
       if (d < 14) {
-        if (p.money) R.giveMoney(p.money, 'Ganimet');
-        else R.giveItems([{ id: p.id, qty: p.qty }], 'Ganimet');
+        // savaş modundayken toplanan ganimet ayrıca tutulur (ölünce kaybolur)
+        if (p.money) {
+          if (R.giveMoney(p.money, 'Ganimet') && this.inBattle) this.battleLoot.money += p.money;
+        } else if (R.giveItems([{ id: p.id, qty: p.qty }], 'Ganimet') && this.inBattle) this.battleLoot.items[p.id] = (this.battleLoot.items[p.id] ?? 0) + p.qty;
         Sound.sfx(p.money ? 'coin' : 'pickup');
         p.img.destroy();
         this.pickups = this.pickups.filter((x) => x !== p);
@@ -2585,9 +2650,12 @@ export class WorldScene extends Phaser.Scene {
     this.time.delayedCall(1100, () => {
       this.cameras.main.fadeOut(900, 0, 0, 0);
       this.cameras.main.once('camerafadeoutcomplete', async () => {
+        // savaş bitmeden ölündü: o savaşta toplanan ganimet kaybolur (ceza bundan sonra kalan paraya)
+        const lostLoot = forfeitLoot(G.p as any, this.battleLoot);
+        this.battleLoot = emptyLoot();
         const lost = loseMoneyPercent(G.p as any, 0.1);
         const lostExp = R.loseTodayExp();
-        await this.ui.deathScreen(lost, lostExp);
+        await this.ui.deathScreen(lost, lostExp, lostLoot);
         // yeniden doğ
         const sp = G.state.spawn;
         const p = G.p;

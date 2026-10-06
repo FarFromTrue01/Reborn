@@ -185,7 +185,8 @@ export const MONSTER_SHEETS: Record<string, string> = {
 export const IMAGES: Record<string, string> = {
   terrain: 'assets/gfx/tiles/terrain.png',
   mill_sails: 'assets/gfx/buildings/mill_sails.png',
-  city_wall: 'assets/gfx/buildings/city_wall.png',
+  east_wall: 'assets/gfx/buildings/east_wall.png',
+  east_gate: 'assets/gfx/buildings/east_gate.png',
 };
 
 export const BUILDINGS = ['inn', 'guild', 'smithy', 'shop', 'healer', 'house_a', 'house_b', 'house_c', 'house_d', 'house_e', 'mill', 'barn', 'guardhouse',

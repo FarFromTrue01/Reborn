@@ -5,7 +5,7 @@ import Phaser from 'phaser';
 import { Display } from '../game/display';
 import { Sound } from '../audio/audio';
 import { RealClock } from '../core/clock';
-import { COLORS, FONT, txt, drawFrame, uiIcon, rankBadge, iconImage, itemRankBadge, fitText } from './kit';
+import { COLORS, FONT, txt, drawFrame, uiIcon, rankBadge, iconImage, itemRankBadge, fitText, fullScreenRect } from './kit';
 import { coinRow, richLine } from './coins';
 import { expToNext } from '../core/formulas';
 import { subRankToString, subRankLetter, type SubRank } from '../core/ranks';
@@ -52,7 +52,7 @@ const nowMs = () => (typeof performance !== 'undefined' ? performance.now() : Da
 function overlay(scene: Phaser.Scene, depth: number, shadeAlpha: number, holdMs: number, onDone: () => void) {
   const W = Display.uiW, H = Display.uiH;
   const root = scene.add.container(0, 0).setDepth(depth);
-  const shade = scene.add.rectangle(0, 0, W, H, 0x000000, shadeAlpha).setOrigin(0, 0).setInteractive();
+  const shade = fullScreenRect(scene, 0x000000, shadeAlpha).setInteractive();
   root.add(shade);
   const parts: Part[] = [];
   let t = 0;
@@ -310,7 +310,7 @@ export function playRankUp(scene: Phaser.Scene, info: PromotionInfo, onDone: () 
   ov.root.add([oldB, newB]);
   const ring = scene.add.graphics().setPosition(cx, cy);
   ov.root.add(ring);
-  const flash = scene.add.rectangle(0, 0, W, H, 0xffffff, 0).setOrigin(0, 0);
+  const flash = fullScreenRect(scene, 0xffffff, 0);
   ov.root.add(flash);
   const letter = txt(scene, cx, cy + 128, subRankLetter(info.to), { size: 96, bold: true, font: FONT.title, color: '#ffe46a', stroke: true, shadow: true }).setOrigin(0.5).setAlpha(0);
   ov.root.add(letter);

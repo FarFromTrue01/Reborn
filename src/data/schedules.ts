@@ -106,6 +106,11 @@ export const SCHEDULES: Record<string, NpcSchedule> = {
   },
   guard_pell: { base: [patrol(6, 22, PELL), hide(22, 6, 'road_e')] },
   captain: { base: [e(0, 24, 'world', 'checkpoint', 'work', 1)] },
+  // 0.8.0: şehir geçidi nöbeti (dördü de gece gündüz kapıda)
+  gate_knight_1: { base: [e(0, 24, 'world', 'gate_n1', 'work')] },
+  gate_knight_2: { base: [e(0, 24, 'world', 'gate_s1', 'work')] },
+  gate_knight_3: { base: [e(0, 24, 'world', 'gate_n2', 'work')] },
+  gate_knight_4: { base: [e(0, 24, 'world', 'gate_s2', 'work')] },
 
   // ------------------------------------------------------------- köylüler
   tobin: {

@@ -317,7 +317,6 @@ def main():
         meta[spec['id']] = m
         print('bina', spec['id'], img.size)
     mill_sails().save(os.path.join(OUT, 'mill_sails.png'))
-    city_wall().save(os.path.join(OUT, 'city_wall.png'))
     with open(os.path.join(OUT, 'buildings.json'), 'w') as f:
         json.dump(meta, f, indent=1)
 

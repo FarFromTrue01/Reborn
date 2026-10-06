@@ -1,7 +1,7 @@
 import Phaser from 'phaser';
 import { Display } from '../game/display';
 import { Sound } from '../audio/audio';
-import { COLORS, FONT, txt, drawBlue, Button } from '../ui/kit';
+import { COLORS, FONT, txt, drawBlue, Button, fullScreenRect } from '../ui/kit';
 import { ensureCG } from '../ui/portraits';
 import { divineExpToNext } from '../core/divine';
 import { fmtHp } from '../ui/format';
@@ -107,7 +107,7 @@ export class PrologueScene extends Phaser.Scene {
       im.setScale(Math.max(W / im.width, H / im.height));
       voidBg.add(im);
     } else {
-      voidBg.add(this.add.rectangle(0, 0, W, H, 0xf6f4ee, 1).setOrigin(0, 0));
+      voidBg.add(fullScreenRect(this, 0xf6f4ee, 1));
       for (let i = 0; i < 40; i++) {
         const p = this.add.image(Math.random() * W, Math.random() * H, 'soft').setTint(0xd9e6ff).setAlpha(0).setScale(0.3 + Math.random() * 0.8);
         voidBg.add(p);

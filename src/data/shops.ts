@@ -12,10 +12,13 @@ export interface ShopDef {
   stock: string[];
   /** Bu dükkânın satın aldığı eşya türleri. */
   buys: string[];
-  /** Tüccar alım oranı (%30–40). */
+  /** Tüccar oranı (%30–40; eski tek satış değeri — 0.8.0'dan beri satışta core/selling kullanılır). */
   rate: number;
-  /** Özel alım fiyatı (bronz). 0.2.0'da drop alım fiyatları artırılmadı. */
-  special?: Record<string, number>;
+  /**
+   * 0.8.0 (B16): uzmanlık — eşya türleri ya da eşya kimlikleri. Uzmanlığına giren eşyayı satış aralığının üst
+   * yarısından alır (core/selling). Uzmanlıktaki eşya, türü alım listesinde olmasa da alınır.
+   */
+  expertise: string[];
 }
 
 export const SHOPS: Record<string, ShopDef> = {
@@ -24,46 +27,56 @@ export const SHOPS: Record<string, ShopDef> = {
     stock: ['wooden_club', 'rusty_shortsword', 'hunting_knife', 'short_bow', 'iron_shortsword', 'iron_spear', 'hunter_bow',
       'leather_vest', 'leather_cap', 'leather_gloves', 'leather_boots', 'padded_armor', 'iron_cap', 'sturdy_pants', 'hobnail_boots'],
     buys: ['weapon', 'armor', 'material'],
-    special: { wolf_pelt: 9, wolf_fang: 5, goblin_trinket: 3, chief_tusk: 40 },
+    // silah ve metal
+    expertise: ['weapon', 'iron_cap', 'hobnail_boots', 'padded_armor', 'wolf_fang', 'chief_tusk', 'goblin_trinket'],
   },
   shop: {
     id: 'shop', name: 'Marta\'nın Genel Dükkânı', keeper: 'shopkeeper', map: 'shop', hours: [8, 19], rate: 0.32,
-    stock: ['bread', 'apple', 'bandage', 'rope_belt', 'traveler_cape', 'copper_ring', 'map_village', 'book_archery', 'book_firstaid', 'book_fire'],
+    stock: ['bread', 'apple', 'bandage', 'rope_belt', 'traveler_cape', 'copper_ring', 'map_village'], // 0.8.0: skill kitapları satılmaz (ödül/ganimet)
     buys: ['material', 'food', 'junk', 'armor', 'weapon', 'book'],
+    // genel: gündelik mallar, kitap ve ıvır zıvır
+    expertise: ['food', 'junk', 'book', 'consumable', 'rope_belt', 'traveler_cape', 'copper_ring', 'gnawed_ring', 'firewood'],
   },
   healer: {
     id: 'healer', name: 'Ilse Nine\'nin Şifa Evi', keeper: 'healer', map: 'healer', hours: [9, 17], rate: 0.38,
     stock: ['hp_potion_s', 'mp_potion_s', 'antidote', 'bandage'],
     buys: ['material'],
-    special: { herb: 3, rat_tail: 1, slime_jelly: 3, color_core: 9 },
+    // otlar, iksir malzemeleri
+    expertise: ['consumable', 'herb', 'rat_tail', 'slime_jelly', 'color_core'],
   },
   inn: {
     id: 'inn', name: 'Yorgun Yaban Domuzu Hanı', keeper: 'bertram', map: 'inn', hours: [5, 24], rate: 0.35,
     stock: ['bread', 'hot_stew', 'apple'],
     buys: ['material', 'food'],
-    special: { rabbit_meat: 3, apple: 0 },
+    // mutfak
+    expertise: ['food', 'rabbit_meat'],
   },
   bakery: {
     id: 'bakery', name: 'Brunhild\'in Fırını', keeper: 'baker', map: 'bakery', hours: [5, 18], rate: 0.3,
     stock: ['bread', 'honey_bun', 'meat_pie', 'cheese', 'apple'],
     buys: ['food'],
+    expertise: ['food'],
   },
   tailor: {
     id: 'tailor', name: 'Terzi Mirelle', keeper: 'tailor', map: 'tailor', hours: [9, 18], rate: 0.32,
     stock: ['linen_shirt', 'linen_pants', 'cloth_shoes', 'rope_belt', 'traveler_cape', 'wool_vest', 'felt_hat'],
     buys: ['armor'],
+    // kumaş giysi
+    expertise: ['linen_shirt', 'linen_pants', 'cloth_shoes', 'rope_belt', 'traveler_cape', 'wool_vest', 'felt_hat', 'torn_shorts'],
   },
   tannery: {
     id: 'tannery', name: 'Gorm\'un Tabakhanesi', keeper: 'tanner', map: 'tannery', hours: [8, 18], rate: 0.33,
     stock: ['leather_vest', 'leather_cap', 'leather_gloves', 'leather_boots', 'sturdy_pants'],
     buys: ['material', 'armor'],
-    special: { wolf_pelt: 9, rabbit_pelt: 5 },
+    // post ve deri
+    expertise: ['wolf_pelt', 'rabbit_pelt', 'leather_vest', 'leather_cap', 'leather_gloves', 'leather_boots', 'sturdy_pants', 'slime_gloves'],
   },
   lodge: {
     id: 'lodge', name: 'Garrick\'in Avcı Kulübesi', keeper: 'hunter', map: 'lodge', hours: [12, 18], rate: 0.33,
     stock: ['short_bow', 'hunter_bow', 'hunting_knife', 'dried_meat', 'bandage'],
     buys: ['material'],
-    special: { rabbit_meat: 3, rabbit_pelt: 5, wolf_pelt: 9, wolf_fang: 5 },
+    // av: et, post, diş, av silahları
+    expertise: ['rabbit_meat', 'rabbit_pelt', 'wolf_pelt', 'wolf_fang', 'short_bow', 'hunter_bow', 'hunting_knife', 'rabbit_charm', 'wolf_fang_necklace'],
   },
 };
 

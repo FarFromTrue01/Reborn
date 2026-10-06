@@ -126,6 +126,7 @@ describe('İşlemler', () => {
 
 import { ITEMS } from '../src/data/items';
 import { SHOPS } from '../src/data/shops';
+import { sellOffer, sellRange, AFFINITY_MAX } from '../src/core/selling';
 import { FEES, LESSONS, JOBS } from '../src/data/economy';
 import { MONSTERS } from '../src/data/monsters';
 
@@ -168,22 +169,22 @@ describe('0.2.0 köy fiyatları', () => {
       for (const d of [...m.drops, ...(m.special ? [m.special] : [])]) if (ITEMS[d.id].kind !== 'quest') expect(ITEMS[d.id].sell, d.id).toBeDefined();
     }
   });
-  it('Dükkânların drop alım fiyatları eşyanın satış değerini aşmıyor (şifacının eski otu hariç)', () => {
+  it('Dükkân oranları %30–40; uzmanlık listeleri geçerli eşya ya da tür (0.8.0)', () => {
+    const kinds = new Set(Object.values(ITEMS).map((i) => i.kind));
     for (const s of Object.values(SHOPS)) {
       expect(s.rate).toBeGreaterThanOrEqual(0.3);
       expect(s.rate).toBeLessThanOrEqual(0.4);
-      for (const [id, v] of Object.entries(s.special ?? {})) expect(v, `${s.id}.${id}`).toBeLessThanOrEqual(Math.max(ITEMS[id].sell ?? 0, s.id === 'healer' ? 9 : 0));
+      for (const e of s.expertise) expect(!!ITEMS[e] || kinds.has(e as any), `${s.id}.${e}`).toBe(true);
     }
   });
-  it('Al-sat ile para kasılamaz: hiçbir dükkânda alıp başka dükkâna satmak kâr getirmez', () => {
+  it('Al-sat ile para kasılamaz: en iyi teklif (aralığın üstü) bile alış fiyatının altında', () => {
     for (const shop of Object.values(SHOPS))
       for (const id of shop.stock) {
         const buy = ITEMS[id].price;
         for (const other of Object.values(SHOPS)) {
-          const it = ITEMS[id];
-          const special = other.special?.[id];
-          const sp = special ?? (it.sell !== undefined ? it.sell : sellPrice(it.price, other.rate));
-          expect(sp, `${id}: ${shop.id} → ${other.id}`).toBeLessThan(buy);
+          const o = sellOffer(other, id, ITEMS[id], AFFINITY_MAX);
+          expect(o.price, `${id}: ${shop.id} → ${other.id}`).toBeLessThan(buy);
+          expect(sellRange(ITEMS[id])[1], id).toBeLessThan(buy);
         }
       }
   });

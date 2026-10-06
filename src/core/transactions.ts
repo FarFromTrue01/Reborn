@@ -155,6 +155,38 @@ export function loseMoneyPercent(l: Ledger, pct: number): number {
   return r.ok ? amount : 0;
 }
 
+/** Savaş modu boyunca toplanan ganimet (0.8.0): savaş bitmeden ölünürse kaybolur. */
+export interface BattleLoot {
+  items: Record<string, number>;
+  money: number;
+}
+
+export function emptyLoot(): BattleLoot {
+  return { items: {}, money: 0 };
+}
+
+export function lootEmpty(l: BattleLoot): boolean {
+  return l.money <= 0 && !Object.values(l.items).some((n) => n > 0);
+}
+
+/**
+ * Savaş ganimetini geri al (ölüm): envanterde hâlâ duran kadarı ve cüzdandaki kadarı. Kuşanılanlar alınmaz.
+ * Gerçekte kaybedileni döner (ölüm ekranında yazar).
+ */
+export function forfeitLoot(l: Ledger, loot: BattleLoot): { items: ItemQty[]; money: number } {
+  const items: ItemQty[] = [];
+  for (const [id, n] of Object.entries(loot.items)) {
+    const q = Math.min(n, countItem(l, id));
+    if (q > 0) items.push({ id, qty: q });
+  }
+  const money = Math.min(loot.money, walletTotal(l.wallet));
+  if (items.length || money > 0) {
+    const r = transact(l, { label: 'Ölüm: savaş ganimeti', take: items, pay: money > 0 ? money : undefined });
+    if (!r.ok) return { items: [], money: 0 };
+  }
+  return { items, money };
+}
+
 /** Bir eşyanın toplam sayısı (envanter + kuşanılmış). */
 export function totalOwned(l: Ledger, id: string): number {
   let n = countItem(l, id);

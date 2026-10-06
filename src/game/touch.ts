@@ -14,13 +14,12 @@ export interface TouchCtx {
 }
 
 /**
- * 1. Sabit joystick tabanının yarıçapı içi: her zaman joystick (altında NPC olsa bile).
- * 2. Ekranın sol yarısı ve joystick boşta: joystick (hareket niyeti).
- * 3. Diğer durumlar: dünyaya dokunuş (NPC/canavar Appraisal'ı). Appraisal için büyüteç butonu
- *    ve ekranın sağ yarısı var.
+ * Sabit mod (0.8.0): yalnızca joystick dairesinin içi joystick'tir (altında NPC olsa bile); ekranın geri kalanı
+ * dünyaya dokunuştur — sol tarafta da Appraisal yapılabilir.
+ * Serbest mod: ekranın sol yarısı (joystick boştaysa) joystick'tir (hareket niyeti), gerisi dünyaya dokunuş.
  */
 export function touchIntent(c: TouchCtx): 'joystick' | 'world' {
-  if (c.fixed && Math.hypot(c.x - c.fixed.x, c.y - c.fixed.y) <= c.fixed.r) return 'joystick';
+  if (c.fixed) return Math.hypot(c.x - c.fixed.x, c.y - c.fixed.y) <= c.fixed.r ? 'joystick' : 'world';
   if (c.x < c.uiW / 2 && !c.joyActive) return 'joystick';
   return 'world';
 }

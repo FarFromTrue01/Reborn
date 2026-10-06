@@ -103,7 +103,7 @@ PROPS = {
     'tree_med': ('terrain', (928, 896, 1024, 1024)),
     'fern': ('terrain', (384, 576, 416, 640)),
     'sprout': ('terrain', (320, 768, 352, 800)),
-    'herb_plant': ('terrain', (416, 832, 448, 864)),
+    'herb_plant': ('terrain', (384, 832, 416, 864)),  # 0.8.0: eski kutu boş bir hücreye düşüyordu (14x3 px)
     'crop_cabbage': ('terrain', (320, 864, 352, 896)),
     'crop_tomato': ('terrain', (416, 864, 448, 928)),
     'crop_corn': ('terrain', (480, 800, 512, 896)),

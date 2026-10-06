@@ -1,7 +1,7 @@
 // Yeniden kullanılabilir paneller: kaydırılabilir liste, kart seçimi.
 import Phaser from 'phaser';
 import { Display } from '../game/display';
-import { COLORS, FONT, txt, drawFrame, drawBlue, Button } from './kit';
+import { COLORS, FONT, txt, drawFrame, drawBlue, Button, fullScreenRect } from './kit';
 import { Sound } from '../audio/audio';
 
 export class ScrollList extends Phaser.GameObjects.Container {
@@ -186,7 +186,7 @@ export function panelChoice(scene: Phaser.Scene, title: string, opts: CardOpt[],
   return new Promise((resolve) => {
     const W = Display.uiW, H = Display.uiH;
     const c = scene.add.container(0, 0).setDepth(150);
-    const dim = scene.add.rectangle(0, 0, W, H, 0x000000, 0.6).setOrigin(0, 0).setInteractive();
+    const dim = fullScreenRect(scene, 0x000000, 0.6).setInteractive();
     c.add(dim);
     const cw = Math.min(300, (W - 80) / opts.length - 20);
     const ch = 330;
@@ -231,7 +231,7 @@ export function confirmBox(scene: Phaser.Scene, text: string, yes = 'Evet', no =
   return new Promise((resolve) => {
     const W = Display.uiW, H = Display.uiH;
     const c = scene.add.container(0, 0).setDepth(160);
-    c.add(scene.add.rectangle(0, 0, W, H, 0x000000, 0.5).setOrigin(0, 0).setInteractive());
+    c.add(fullScreenRect(scene, 0x000000, 0.5).setInteractive());
     const w = 520, h = 220;
     const g = scene.add.graphics();
     drawFrame(g, (W - w) / 2, (H - h) / 2, w, h);

@@ -1,7 +1,7 @@
 // WebAudio ses motoru: efektler, prosedürel müzik ve konuşma sesleri.
 import { G } from '../game/G';
 
-type Track = 'title' | 'void' | 'forest' | 'village' | 'inn' | 'battle' | 'night' | 'guild' | 'none';
+type Track = 'title' | 'void' | 'forest' | 'village' | 'inn' | 'battle' | 'night' | 'guild' | 'minigame' | 'none';
 
 export interface VoiceProfile {
   wave: OscillatorType;
@@ -90,7 +90,7 @@ class AudioEngine {
     this.applyVolumes();
     G.events.on('settings', () => this.applyVolumes());
     this.timer = setInterval(() => this.schedule(), 40);
-    if (this.wanted !== 'none') this.play(this.wanted, true);
+    if (this.wanted !== 'none') this.direct(this.wanted, true);
   }
 
   /** Sayfa gizlenince sesi tamamen durdur (AudioContext askıya alınır). */
@@ -393,7 +393,33 @@ class AudioEngine {
   }
 
   // ------------------------------------------------------------ müzik
+  /**
+   * Geçici müzik (0.8.0: mini oyunlar): önceki parça ve vuruş konumu saklanır; popMusic() ile dünya müziği kaldığı
+   * yerden döner. Bu sırada gelen play() çağrıları (ör. bölge değişimi) dönülecek parçayı günceller.
+   */
+  private stack: { track: Track; beat: number }[] = [];
+  pushMusic(track: Track) {
+    this.stack.push({ track: this.wanted, beat: this.beat });
+    this.direct(track, true);
+  }
+
+  popMusic() {
+    const s = this.stack.pop();
+    if (!s) return;
+    const same = s.track === this.track;
+    this.direct(s.track, true);
+    if (!same) this.beat = s.beat;
+  }
+
   play(track: Track, force = false) {
+    if (this.stack.length) {
+      this.stack[this.stack.length - 1].track = track;
+      return;
+    }
+    this.direct(track, force);
+  }
+
+  private direct(track: Track, force = false) {
     this.wanted = track;
     if (!this.ctx) return;
     if (track === this.track && !force) return;
@@ -446,7 +472,7 @@ class AudioEngine {
     const c = this.ctx;
     while (this.nextBeat < c.currentTime + 0.25) {
       this.playBeat(this.track, this.beat, this.nextBeat);
-      const bpm = { title: 64, void: 50, forest: 76, village: 96, inn: 132, battle: 140, night: 60, guild: 88, none: 60 }[this.track];
+      const bpm = { title: 64, void: 50, forest: 76, village: 96, inn: 132, battle: 140, night: 60, guild: 88, minigame: 124, none: 60 }[this.track];
       this.nextBeat += 60 / bpm / 2; // sekizlik
       this.beat++;
     }
@@ -558,6 +584,22 @@ class AudioEngine {
           // cırcır böceği
           for (let i = 0; i < 3; i++) this.osc('square', 4200, t + i * 0.05, 0.02, 0.006, this.trackGain!);
         }
+        break;
+      }
+      case 'minigame': {
+        // 0.8.0: bütün mini oyunlar için tek, hareketli parça (majör pentatonik, zıplayan bas, hafif davul)
+        const prog = [[48, 55, 64], [45, 52, 60], [41, 48, 57], [43, 50, 59]];
+        const ch = prog[bar % 4];
+        const mel = [[72, 74, 76, 79, 76, 74, 72, 69], [72, 76, 79, 81, 79, 76, 74, 72], [69, 72, 74, 76, 74, 72, 69, 67], [71, 74, 76, 79, 81, 79, 74, 71]][bar % 4];
+        // bas: kök ve oktav, sekizlik zıplama
+        if (step % 2 === 0) this.note(t, ch[0] - 12 + (step % 4 === 2 ? 12 : 0), 0.18, 0.08, 'triangle', 0.05);
+        // akor vuruşu (ters zaman)
+        if (step % 2 === 1) for (const m of ch) this.pluck(t, m + 12, 0.014, 0.18);
+        // melodi: kısa, kesik notalar; her iki ölçüde bir varyasyon
+        if (step !== 7 && (bar % 2 === 0 || step % 2 === 0)) this.note(t, mel[step] + (bar % 8 >= 6 ? 12 : 0), 0.14, 0.032, 'square', 0.12);
+        if (step === 0 || step === 4) this.drum(t, 'kick', 0.14);
+        if (step === 4) this.drum(t, 'snare', 0.1);
+        if (step % 2 === 1) this.drum(t, 'hat', 0.07);
         break;
       }
       case 'guild': {

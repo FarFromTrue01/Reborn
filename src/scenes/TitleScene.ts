@@ -2,7 +2,7 @@ import Phaser from 'phaser';
 import { G } from '../game/G';
 import { Display } from '../game/display';
 import { Sound } from '../audio/audio';
-import { COLORS, FONT, txt, Button, drawFrame } from '../ui/kit';
+import { COLORS, FONT, txt, Button, drawFrame, fullScreenRect } from '../ui/kit';
 import { ensureCG } from '../ui/portraits';
 import { buildSettings } from '../ui/settingsPanel';
 import { confirmBox } from '../ui/panels';
@@ -79,7 +79,7 @@ export class TitleScene extends Phaser.Scene {
       const im = this.add.image(W / 2, H / 2, cg);
       im.setScale(Math.max(W / im.width, H / im.height));
       this.root.add(im);
-      this.root.add(this.add.rectangle(0, 0, W, H, 0x000000, 0.35).setOrigin(0, 0));
+      this.root.add(fullScreenRect(this, 0x000000, 0.35));
     } else this.drawBackdrop(W, H);
     // başlık
     const title = txt(this, W / 2, H * 0.24, 'REBORN IN ELONTH', { size: Math.min(68, W / 13), font: FONT.title, color: COLORS.textGold, bold: true, shadow: true }).setOrigin(0.5);
@@ -240,7 +240,7 @@ export class TitleScene extends Phaser.Scene {
     if (this.panel) return;
     const W = Display.uiW, H = Display.uiH;
     const c = this.add.container(0, 0).setDepth(50);
-    c.add(this.add.rectangle(0, 0, W, H, 0x000000, 0.6).setOrigin(0, 0).setInteractive());
+    c.add(fullScreenRect(this, 0x000000, 0.6).setInteractive());
     const pw = Math.min(820, W - 40), ph = Math.min(610, H - 30);
     const g = this.add.graphics();
     drawFrame(g, (W - pw) / 2, (H - ph) / 2, pw, ph, { alpha: 1 });

@@ -290,7 +290,7 @@ export function renderMap(scene: Phaser.Scene, m: MapData, meta: any, bmeta: Rec
   for (const p of m.props) {
     let img: Phaser.GameObjects.Image;
     if (p.key.startsWith('__')) {
-      const tex = p.key === '__city' ? 'city_wall' : p.key.slice(2);
+      const tex = p.key.slice(2);
       img = scene.add.image(p.x, p.y, tex);
       img.setOrigin(0.5, 1);
     } else {

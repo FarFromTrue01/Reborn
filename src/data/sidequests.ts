@@ -26,6 +26,7 @@ export interface SideScript {
   needs?: 'none';
 }
 
+/** 0.8.0: yan görev EXP ödülleri 2 katına çıktı (4–12). */
 export const SIDE_QUESTS: QuestDef[] = [
   {
     id: 'sq_baker_apples', kind: 'side', chapter: 2, title: 'Elmalı Çörek', giver: 'baker',
@@ -34,7 +35,7 @@ export const SIDE_QUESTS: QuestDef[] = [
       { type: 'collect', label: 'Elma topla', target: 'apple', count: 6, where: ITEM('apple') },
       { type: 'talk', label: 'Elmaları Brunhild\'e götür (fırın)', target: 'baker', where: NPC('bakery', 'baker'), sequential: true },
     ],
-    reward: { money: 30, items: [{ id: 'honey_bun', qty: 1 }], exp: 4 },
+    reward: { money: 30, items: [{ id: 'honey_bun', qty: 1 }], exp: 8 },
   },
   {
     id: 'sq_tanner_pelts', kind: 'side', chapter: 2, title: 'Gorm\'un Postları', giver: 'tanner',
@@ -43,7 +44,7 @@ export const SIDE_QUESTS: QuestDef[] = [
       { type: 'collect', label: 'Tavşan postu topla', target: 'rabbit_pelt', count: 3, where: ITEM('rabbit_pelt') },
       { type: 'talk', label: 'Postları Gorm\'a götür (tabakhane)', target: 'tanner', where: NPC('tannery', 'tanner'), sequential: true },
     ],
-    reward: { money: 45, exp: 5 },
+    reward: { money: 45, exp: 10 },
   },
   {
     id: 'sq_smith_jelly', kind: 'side', chapter: 2, title: 'Su Verme Jölesi', giver: 'smith',
@@ -52,7 +53,7 @@ export const SIDE_QUESTS: QuestDef[] = [
       { type: 'collect', label: 'Sümüksü jölesi topla', target: 'slime_jelly', count: 4, where: ITEM('slime_jelly') },
       { type: 'talk', label: 'Jöleleri Gunnar\'a götür (demirhane)', target: 'smith', where: NPC('smithy', 'smith'), sequential: true },
     ],
-    reward: { money: 50, exp: 5 },
+    reward: { money: 50, exp: 10 },
   },
   {
     id: 'sq_healer_salve', kind: 'side', chapter: 2, title: 'Nine\'nin Merhemi', giver: 'healer',
@@ -61,7 +62,7 @@ export const SIDE_QUESTS: QuestDef[] = [
       { type: 'collect', label: 'Şifalı ot topla', target: 'herb', count: 6, where: { map: 'world', point: 'forest_edge', radius: 6 } },
       { type: 'talk', label: 'Otları Ilse Nine\'ye götür (şifa evi)', target: 'healer', where: NPC('healer', 'healer'), sequential: true },
     ],
-    reward: { money: 35, items: [{ id: 'hp_potion_s', qty: 1 }], exp: 4 },
+    reward: { money: 35, items: [{ id: 'hp_potion_s', qty: 1 }], exp: 8 },
   },
   {
     id: 'sq_tailor_parcel', kind: 'side', chapter: 2, title: 'Kâhyaya Kumaş', giver: 'tailor',
@@ -70,7 +71,7 @@ export const SIDE_QUESTS: QuestDef[] = [
       { type: 'deliver', label: 'Paketi Kâhya Edric\'e götür (Saygınlık +3)', target: 'steward', where: NPC('world', 'steward') },
       { type: 'talk', label: 'Mirelle\'e haber ver (terzi)', target: 'tailor', where: NPC('tailor', 'tailor'), sequential: true },
     ],
-    reward: { money: 40, exp: 3 },
+    reward: { money: 40, exp: 6 },
   },
   {
     id: 'sq_mill_sacks', kind: 'side', chapter: 2, title: 'Un Çuvalı', giver: 'oswin',
@@ -79,7 +80,7 @@ export const SIDE_QUESTS: QuestDef[] = [
       { type: 'deliver', label: 'Paketi Fırıncı Brunhild\'e götür', target: 'baker', where: NPC('bakery', 'baker') },
       { type: 'talk', label: 'Oswin\'e dön (değirmen)', target: 'oswin', where: NPC('world', 'oswin'), sequential: true },
     ],
-    reward: { money: 25, exp: 2 },
+    reward: { money: 25, exp: 4 },
   },
   {
     id: 'sq_hunter_fangs', kind: 'side', chapter: 2, title: 'Kurt Dişleri', giver: 'hunter',
@@ -88,7 +89,7 @@ export const SIDE_QUESTS: QuestDef[] = [
       { type: 'collect', label: 'Kurt dişi topla', target: 'wolf_fang', count: 3, where: ITEM('wolf_fang') },
       { type: 'talk', label: 'Dişleri Garrick\'e götür (avcı kulübesi)', target: 'hunter', where: NPC('lodge', 'hunter'), sequential: true },
     ],
-    reward: { money: 60, exp: 6 },
+    reward: { money: 60, exp: 12 },
   },
   {
     id: 'sq_kids_ball', kind: 'side', chapter: 2, title: 'Kayıp Top', giver: 'pip',
@@ -97,7 +98,7 @@ export const SIDE_QUESTS: QuestDef[] = [
       { type: 'go', label: 'Göletin kenarında topu bul', target: 'pond', where: W('pond', 3) },
       { type: 'talk', label: 'Topu Pip\'e ver (meydan)', target: 'pip', where: NPC('world', 'pip'), sequential: true },
     ],
-    reward: { money: 5, text: 'Pip\'in sonsuz minneti', exp: 2 },
+    reward: { money: 5, text: 'Pip\'in sonsuz minneti', exp: 4 },
   },
   {
     id: 'sq_merchant_guard', kind: 'side', chapter: 2, title: 'Paralı Askerin Rütbesi', giver: 'merchant',
@@ -106,13 +107,13 @@ export const SIDE_QUESTS: QuestDef[] = [
       { type: 'custom', label: 'Varg\'ı Appraisal ile incele', target: 'appraise_varg', where: NPC('world', 'merc_guard') },
       { type: 'talk', label: 'Aurelio\'ya söyle (konağın önü)', target: 'merchant', where: NPC('world', 'merchant'), sequential: true },
     ],
-    reward: { money: 40, exp: 3 },
+    reward: { money: 40, exp: 6 },
   },
   {
     id: 'sq_nim_bread', kind: 'side', chapter: 2, title: 'Nim\'in Ekmeği', giver: 'vagrant',
     desc: 'Köksüz Nim iki gündür bir şey yememiş. Kimse ona ekmek satmıyor. Bana satarlar. Bir ekmek götürsem...',
     objectives: [{ type: 'deliver', label: 'Nim\'e bir ekmek götür (hanın önü)', target: 'vagrant', where: NPC('world', 'vagrant') }],
-    reward: { text: 'Nim\'in anlattıkları', exp: 2 },
+    reward: { text: 'Nim\'in anlattıkları', exp: 4 },
   },
 ];
 

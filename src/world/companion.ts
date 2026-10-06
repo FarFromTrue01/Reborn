@@ -259,6 +259,11 @@ export class Companion {
       return;
     }
 
+    if (a.driven > 0) {
+      // senaryo yürütüyor (director.walk)
+      this.post(dt);
+      return;
+    }
     if (w.cutscene) {
       b.setVelocity(0, 0);
       if (a.anim === 'walk' || a.anim === 'run') a.play('idle');
