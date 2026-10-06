@@ -292,6 +292,17 @@ export default async ({ page, wait, shot, evalG }) => {
     await shot('g4a_11_smith_marker');
     await h.run();
     await W(() => { const w = window.__game.scene.getScene('World'); const n = w.npc('smith'); const p = w.player.actor; p.setPosition(n.x, n.y + 34); p.body2.reset(p.x, p.y); w.director.talk(n); });
+    // 0.9.0: görev konuşmanın başında açılmaz; seçeneklerde mavi ünlemle "Su Verme Jölesi"
+    for (let i = 0; i < 90; i++) {
+      const s = await h.S();
+      if (s.choice) break;
+      if (s.dlg) await h.adv();
+      await wait(250);
+    }
+    const opts = await W(() => window.__game.scene.getScene('UI').choiceObjs.map((b) => b.labelText ?? ''));
+    const qi = opts.findIndex((l) => /Jöle/i.test(l));
+    check(qi >= 0, 'demirhanede seçeneklerde görev — ' + opts.join(' / '));
+    if (qi >= 0) await h.pick(qi);
     await h.until(() => !!window.__game.scene.getScene('UI').dlgState?.full, null, 6000);
     const line2 = await W(() => window.__game.scene.getScene('UI').dlgState?.full ?? '');
     check(/jöle/i.test(line2), 'demirhanede görev teklifi — ' + line2);

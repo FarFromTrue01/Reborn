@@ -12,6 +12,8 @@ import { COLORS, FONT, txt, drawFrame, Button, iconImage, itemRankBadge, uiIcon,
 import { itemPrestige, prestigeLabel } from '../core/prestige';
 import { ScrollList } from './panels';
 import { itemLabel, itemEffectsText } from './format';
+import { sortItems, SORT_PREFS } from '../core/itemSort';
+import { sortBar } from './sortBar';
 import * as R from '../game/rules';
 import type { UIScene } from '../scenes/UIScene';
 
@@ -37,6 +39,7 @@ export function openShop(ui: UIScene, shopId: string, tab: 'buy' | 'sell' = 'buy
       walletRow = coinRow(ui, 0, py + 38, G.p.wallet, { size: 22, font: 19, stroke: true });
       walletRow.x = px + pw - 30 - walletRow.rowWidth;
       c.add(walletRow);
+      bag.x = walletRow.x - 30;
     };
     let mode = tab;
     let selected: string | null = null;
@@ -60,6 +63,19 @@ export function openShop(ui: UIScene, shopId: string, tab: 'buy' | 'sell' = 'buy
     };
     mkTab('Satın Al', 'buy', px + 110);
     mkTab('Sat', 'sell', px + 270);
+    // 0.9.0: Sırala (fiyat, rütbe, tür, ad; artan/azalan), al ve sat sekmesinde ayrı, oturum boyunca hatırlanır
+    const sortRow = ui.add.container(0, 0);
+    c.add(sortRow);
+    const drawSort = () => {
+      sortRow.removeAll(true);
+      sortBar(ui, sortRow, px + 24 + listW - 248, py + 62, SORT_PREFS[mode], () => {
+        drawSort();
+        refresh();
+      }, 40);
+    };
+    // çanta: satın alınan eşya buraya uçar
+    const bag = uiIcon(ui, 0, py + 38, 'bag', 34);
+    c.add(bag);
     const doClose = () => {
       if (ui.shopClose !== doClose) return;
       ui.shopClose = null;
@@ -84,15 +100,18 @@ export function openShop(ui: UIScene, shopId: string, tab: 'buy' | 'sell' = 'buy
 
     const refresh = () => {
       drawWallet();
+      drawSort();
       tabs[0].setAlpha(mode === 'buy' ? 1 : 0.6);
       tabs[1].setAlpha(mode === 'sell' ? 1 : 0.6);
+      const keepScroll = list.scrollY;
       list.clear();
-      const ids = mode === 'buy'
+      const raw = mode === 'buy'
         ? shop.stock
         : Object.keys(G.p.inventory).filter((id) => {
             const it = ITEMS[id];
             return it && !it.bound && it.kind !== 'quest' && shopBuys(shop, id, it) && sellP(id) > 0;
           });
+      const ids = sortItems(raw, ITEMS, SORT_PREFS[mode], (id) => (mode === 'buy' ? buyPrice(id) : sellP(id)));
       let y = 0;
       if (!ids.length) list.inner.add(txt(ui, 10, 10, mode === 'buy' ? 'Stok yok.' : 'Satacak bir şeyin yok. (Bu dükkân her şeyi almaz.)', { size: 16, color: COLORS.textDim, wrap: listW - 20 }));
       for (const id of ids) {
@@ -131,7 +150,53 @@ export function openShop(ui: UIScene, shopId: string, tab: 'buy' | 'sell' = 'buy
         y += 64;
       }
       list.setContentHeight(y);
+      list.setScroll(keepScroll);
       drawDetail();
+    };
+
+    /**
+     * 0.9.0: "Satın alındı" — eşya ikonu ayrıntı panelinden çantaya yay çizerek uçar, çanta zıplar ve parlar,
+     * cüzdandan paralar düşer. Yalnızca tween'ler: art arda alımları engellemez (her alım kendi kopyasını uçurur).
+     */
+    const buyFx = (id: string, qty: number) => {
+      const it = ITEMS[id];
+      const sx = px + listW + 50 + 36, sy = py + 120 + 36;
+      const tx = bag.x, ty = bag.y;
+      const n = Math.min(3, qty);
+      for (let k = 0; k < n; k++) {
+        const fly = iconImage(ui, sx, sy, it.icon, 48);
+        c.add(fly);
+        const base = fly.scale;
+        const st = { t: 0 };
+        ui.tweens.add({
+          targets: st, t: 1, duration: 520, delay: k * 90, ease: 'Sine.In',
+          onUpdate: () => {
+            const t = st.t;
+            fly.x = sx + (tx - sx) * t;
+            fly.y = sy + (ty - sy) * t - Math.sin(t * Math.PI) * 120;
+            fly.setScale(base * (1 - 0.55 * t));
+            fly.setAngle(t * 200);
+          },
+          onComplete: () => {
+            fly.destroy();
+            if (!c.active) return;
+            ui.tweens.add({ targets: bag, scale: { from: bag.scale * 1.35, to: 34 / 72 }, duration: 220, ease: 'Back.Out' });
+            for (let i = 0; i < 6; i++) {
+              const sp = uiIcon(ui, tx, ty, 'sparkle', 16);
+              c.add(sp);
+              const a = (i / 6) * Math.PI * 2;
+              ui.tweens.add({ targets: sp, x: tx + Math.cos(a) * 34, y: ty + Math.sin(a) * 34, alpha: 0, scale: 0.05, duration: 420, onComplete: () => sp.destroy() });
+            }
+          },
+        });
+      }
+      // düşen paralar (cüzdandan)
+      const wx = walletRow ? walletRow.x + walletRow.rowWidth / 2 : tx + 60;
+      for (let i = 0; i < 6; i++) {
+        const coin = ui.add.image(wx + (Math.random() - 0.5) * 60, py + 40, 'cn_bronze').setDisplaySize(16, 16);
+        c.add(coin);
+        ui.tweens.add({ targets: coin, y: py + 40 + 70 + Math.random() * 40, x: coin.x + (Math.random() - 0.5) * 40, alpha: 0, angle: 360, duration: 650 + Math.random() * 250, delay: i * 40, ease: 'Quad.In', onComplete: () => coin.destroy() });
+      }
     };
 
     const drawDetail = () => {
@@ -186,6 +251,7 @@ export function openShop(ui: UIScene, shopId: string, tab: 'buy' | 'sell' = 'buy
           }
           if (unit === 0 && id === 'hot_stew') G.setFlag('meal_day', G.state.time.day);
           Sound.sfx('coin');
+          buyFx(id, qty);
           const ch = r.change ? (Object.entries(r.change) as [string, number][]).filter(([, v]) => v > 0).map(([k, v]) => `{w:${k}:${v}}`).join(' ') : '';
           R.toast(`+${qty} ${it.name}` + (ch ? ` · Para üstü: ${ch}` : ''), 'item', it.icon);
         } else {

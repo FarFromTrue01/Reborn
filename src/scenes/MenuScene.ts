@@ -7,6 +7,8 @@ import { renderDevPanel } from '../ui/devPanel';
 import { renderQuestsTab } from '../ui/questsTab';
 import { BUILDING_ICON } from '../ui/mapIcons';
 import { statParts, plusStack } from '../ui/statPlus';
+import { sortItems, SORT_PREFS } from '../core/itemSort';
+import { sortBar } from '../ui/sortBar';
 import { fmtExp, fmtHp } from '../ui/format';
 import { prestigeLabel, itemPrestige } from '../core/prestige';
 import { pointsToNext, RANK_THRESHOLDS, levelRequirement, examRequired, guildBar } from '../core/guild';
@@ -101,6 +103,7 @@ export class MenuScene extends Phaser.Scene {
     this.selFrame = null;
     this.invDetail = null;
     this.histShown = HISTORY_PAGE;
+    this.viewKey = '';
   }
 
   create() {
@@ -148,7 +151,35 @@ export class MenuScene extends Phaser.Scene {
     if (Math.abs(Display.uiScaleSetting - G.settings.uiScale) > 0.001) this.ui.applySettings();
   }
 
+  /** Son çizimin anahtarı (sekme + bölüm + kategori): aynı görünüm yeniden çizilirken kaydırma korunur. */
+  private viewKey = '';
+
+  /** İçerikteki kaydırma listeleri (çizim sırasıyla). */
+  private scrollLists(): ScrollList[] {
+    const out: ScrollList[] = [];
+    const walk = (list: Phaser.GameObjects.GameObject[]) => {
+      for (const o of list) {
+        if (o instanceof ScrollList) out.push(o);
+        else if (o instanceof Phaser.GameObjects.Container) walk(o.list);
+      }
+    };
+    if (this.content) walk(this.content.list);
+    return out;
+  }
+
+  /**
+   * 0.9.0 (madde 12): stat puanı verince, eşya/görev seçince vb. menü yeniden çizilir; aynı görünümdeyken
+   * listelerin kaydırma konumu korunur (eskiden en üste atlıyordu). Sekme/bölüm değişince baştan açılır.
+   */
   render() {
+    const key = `${this.tab}:${this.section}:${this.invCat}`;
+    const keep = key === this.viewKey ? this.scrollLists().map((l) => l.scrollY) : null;
+    this.viewKey = key;
+    this.renderView();
+    if (keep && this.tab !== 'history') this.scrollLists().forEach((l, i) => keep[i] !== undefined && l.setScroll(keep[i]));
+  }
+
+  private renderView() {
     for (const [t] of TABS) {
       const b = this.children.getByName('tab_' + t) as Button;
       if (b) b.setAlpha(t === this.tab ? 1 : 0.62);
@@ -563,6 +594,10 @@ export class MenuScene extends Phaser.Scene {
 
   /** Envanter kategorileri. */
   inventoryIds(cat: InvCat): string[] {
+    return sortItems(this.inventoryIdsRaw(cat), ITEMS, SORT_PREFS.inv);
+  }
+
+  private inventoryIdsRaw(cat: InvCat): string[] {
     return Object.keys(G.p.inventory).filter((id) => {
       const k = ITEMS[id]?.kind;
       if (!k) return false;
@@ -680,7 +715,9 @@ export class MenuScene extends Phaser.Scene {
       this.renderCards(c, 0, 92, w, h - 100);
       return;
     }
-    const list = new ScrollList(this, 0, 92, lw, h - 100);
+    // 0.9.0: Sırala (ortalama satış fiyatı, rütbe, tür, ad; artan/azalan) — oturum boyunca hatırlanır
+    sortBar(this, c, 0, 92, SORT_PREFS.inv, () => this.render());
+    const list = new ScrollList(this, 0, 136, lw, h - 144);
     c.add(list);
     list.updateMask();
     const ids = this.inventoryIds(this.invCat);

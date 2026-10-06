@@ -54,3 +54,36 @@ describe('statlarda renkli artılar (madde 10)', () => {
     expect(onlyTitle).toEqual({ base: 5, plus: [{ v: 3, color: '#ffd75e' }] });
   });
 });
+
+import { sortItems, nextSortKey, avgSellPrice } from '../src/core/itemSort';
+import { ITEMS } from '../src/data/items';
+
+describe('envanter ve dükkân sıralaması (madde 13–14)', () => {
+  const ids = ['apple', 'iron_spear', 'herb', 'rusty_shortsword', 'linen_shirt'].filter((id) => ITEMS[id]);
+  it('fiyata göre (ortalama satış fiyatı) azalan ve artan', () => {
+    const d = sortItems(ids, ITEMS, { key: 'price', desc: true });
+    for (let i = 1; i < d.length; i++) expect(avgSellPrice(ITEMS[d[i - 1]])).toBeGreaterThanOrEqual(avgSellPrice(ITEMS[d[i]]));
+    const a = sortItems(ids, ITEMS, { key: 'price', desc: false });
+    for (let i = 1; i < a.length; i++) expect(avgSellPrice(ITEMS[a[i - 1]])).toBeLessThanOrEqual(avgSellPrice(ITEMS[a[i]]));
+  });
+  it('ada göre Türkçe alfabe', () => {
+    const r = sortItems(ids, ITEMS, { key: 'name', desc: false }).map((id) => ITEMS[id].name);
+    expect(r).toEqual([...r].sort((x, y) => x.localeCompare(y, 'tr')));
+  });
+  it('rütbe: rütbesizler her iki yönde de sonda', () => {
+    const withNone = [...ids, 'guild_letter'].filter((id) => ITEMS[id]);
+    for (const desc of [true, false]) {
+      const r = sortItems(withNone, ITEMS, { key: 'rank', desc });
+      const firstNone = r.findIndex((id) => !ITEMS[id].rank);
+      if (firstNone >= 0) expect(r.slice(firstNone).every((id) => !ITEMS[id].rank)).toBe(true);
+    }
+  });
+  it('tür sırası: silah, zırh, ..., malzeme', () => {
+    const r = sortItems(ids, ITEMS, { key: 'kind', desc: false });
+    expect(ITEMS[r[0]].kind).toBe('weapon');
+  });
+  it('sırasız: eklenme sırası; düğme döngüsü', () => {
+    expect(sortItems(ids, ITEMS, { key: null, desc: true })).toEqual(ids);
+    expect([nextSortKey(null), nextSortKey('price'), nextSortKey('rank'), nextSortKey('kind'), nextSortKey('name')]).toEqual(['price', 'rank', 'kind', 'name', null]);
+  });
+});

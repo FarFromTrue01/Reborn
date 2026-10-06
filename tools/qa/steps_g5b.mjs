@@ -271,5 +271,95 @@ export default async ({ page, wait, shot, evalG }) => {
     await closeMenu();
   }
 
+  /** Sahnede ada göre düğmeye bas (emit). */
+  const pressNamed = (scene, name) => W(([scene, name]) => {
+    const sc = window.__game.scene.getScene(scene);
+    const find = (list) => { for (const o of list) { if (o.name === name) return o; if (o.list) { const r = find(o.list); if (r) return r; } } return null; };
+    const b = find(sc.children.list);
+    if (!b) return false;
+    const ev = { stopPropagation() {} };
+    b.emit('pointerdown', {}, 0, 0, ev); b.emit('pointerup', {}, 0, 0, ev);
+    return true;
+  }, [scene, name]);
+
+  // ================================================================ 12: puan dağıtırken kaydırma
+  if (want('scroll')) {
+    log('== 12 puan dağıtırken kaydırma');
+    await W(() => { const G = window.__G; G.p.unspent = 6; G.invalidate(); });
+    await openMenu('status', 'all');
+    const before = await W(() => { const m = window.__game.scene.getScene('Menu'); const l = m.content.list.find((o) => o.inner); l.setScroll(420); return Math.round(l.scrollY); });
+    await h.frames(3);
+    await shot('g5b_12_scroll_before');
+    await W(() => { const m = window.__game.scene.getScene('Menu'); const l = m.content.list.find((o) => o.inner); const b = l.inner.list.find((o) => o.labelText === '+'); const ev = { stopPropagation() {} }; b.emit('pointerdown', {}, 0, 0, ev); b.emit('pointerup', {}, 0, 0, ev); });
+    await h.frames(3);
+    const after = await W(() => { const m = window.__game.scene.getScene('Menu'); const l = m.content.list.find((o) => o.inner); return { scroll: Math.round(l.scrollY), unspent: window.__G.p.unspent }; });
+    log('  önce', before, 'sonra', JSON.stringify(after));
+    check(after.unspent === 5 && after.scroll === before, '12: "+" sonrası kaydırma korundu');
+    await shot('g5b_12_scroll_after');
+    await closeMenu();
+  }
+
+  // ================================================================ 13: envanter sıralaması
+  if (want('sort')) {
+    log('== 13 envanter sıralaması');
+    await W(() => { const G = window.__G; for (const [id, n] of [['apple', 4], ['herb', 6], ['iron_spear', 1], ['rusty_shortsword', 1], ['rabbit_pelt', 3], ['slime_jelly', 2], ['hp_potion_s', 2], ['bread', 2], ['wolf_fang', 3], ['leather_boots', 1]]) if (window.__ITEMS?.[id] ?? true) G.p.inventory[id] = n; G.invalidate(); });
+    await openMenu('inventory');
+    await W(() => { window.__game.scene.getScene('Menu').invCat = 'all'; window.__game.scene.getScene('Menu').render(); });
+    await h.frames(3);
+    await pressNamed('Menu', 'sort_key'); // Fiyat
+    await h.frames(3);
+    const order1 = await W(() => window.__game.scene.getScene('Menu').inventoryIds('all'));
+    await shot('g5b_13_inventory_sort_price_desc');
+    await pressNamed('Menu', 'sort_dir'); // artan
+    await h.frames(3);
+    const order2 = await W(() => window.__game.scene.getScene('Menu').inventoryIds('all'));
+    check(JSON.stringify(order1) === JSON.stringify([...order2].reverse()) || order1[0] !== order2[0], '13: artan/azalan değişti');
+    await shot('g5b_13_inventory_sort_price_asc');
+    await pressNamed('Menu', 'sort_key'); // Rütbe
+    await h.frames(3);
+    await shot('g5b_13_inventory_sort_rank');
+    await closeMenu();
+    await openMenu('inventory');
+    const kept = await W(() => { const m = window.__game.scene.getScene('Menu'); const find = (list) => { for (const o of list) { if (o.name === 'sort_key') return o; if (o.list) { const r = find(o.list); if (r) return r; } } return null; }; return find(m.children.list)?.labelText; });
+    check(/Rütbe/.test(kept ?? ''), '13: seçim menü kapanıp açılınca hatırlandı (' + kept + ')');
+    await closeMenu();
+  }
+
+  // ================================================================ 14: dükkân sıralaması ve satın alma animasyonu
+  if (want('buy')) {
+    log('== 14 dükkân sıralaması ve satın alma');
+    await setTime(3, 10);
+    await tpPoint('smithy', 'counter_front', 0, 0, 'up');
+    await h.until(() => !!window.__game.scene.getScene('World').npc('smith'), null, 6000);
+    await W(() => { const G = window.__G; G.p.wallet = { bronze: 0, silver: 40, platinum: 0, gold: 0, diamond: 0 }; });
+    await talkTo('smith');
+    await toChoice();
+    await h.pick(0);
+    await h.until(() => !!window.__game.scene.getScene('UI').shopClose, null, 6000);
+    await wait(500);
+    await pressNamed('UI', 'sort_key');
+    await h.frames(3);
+    await shot('g5b_14_shop_sort_price');
+    await pressNamed('UI', 'sort_key');
+    await h.frames(3);
+    await shot('g5b_14_shop_sort_rank');
+    // ilk eşyayı seç ve iki kez art arda satın al
+    await W(() => { const ui = window.__game.scene.getScene('UI'); const find = (list) => { for (const o of list) { if (o.type === 'Zone' && o.height === 58) return o; if (o.list) { const r = find(o.list); if (r) return r; } } return null; }; const z = find(ui.children.list); z.emit('pointerup', {}); });
+    await h.frames(3);
+    const buy = () => W(() => { const ui = window.__game.scene.getScene('UI'); const find = (list) => { for (const o of list) { if (o.labelText === 'Satın Al' && o.w > 200) return o; if (o.list) { const r = find(o.list); if (r) return r; } } return null; }; const b = find(ui.children.list); const ev = { stopPropagation() {} }; b.emit('pointerdown', {}, 0, 0, ev); b.emit('pointerup', {}, 0, 0, ev); return true; });
+    const inv0 = await W(() => Object.values(window.__G.p.inventory).reduce((a, b) => a + b, 0));
+    await buy();
+    await wait(120);
+    await buy();
+    await wait(200);
+    await shot('g5b_14_buy_anim');
+    await wait(400);
+    await shot('g5b_14_buy_anim_bag');
+    const inv1 = await W(() => Object.values(window.__G.p.inventory).reduce((a, b) => a + b, 0));
+    check(inv1 - inv0 === 2, '14: art arda iki alım engellenmedi (' + (inv1 - inv0) + ')');
+    await W(() => window.__game.scene.getScene('UI').shopClose?.());
+    await h.run([], 40, undefined, { start: 300 });
+  }
+
   log('\nSORUNLAR:', problems.length ? problems.join(' | ') : 'yok');
 };
