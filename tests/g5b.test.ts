@@ -35,3 +35,22 @@ describe('lonca puan barı (Kısım 1, madde 6)', () => {
     expect(s[1].from).toBeCloseTo(5 / 60);
   });
 });
+
+import { plusOffsets, statParts } from '../src/core/statParts';
+
+describe('statlarda renkli artılar (madde 10)', () => {
+  it('dikey yerleşim: tek ortada, iki üst-orta/orta-alt arası, üç üst-orta-alt', () => {
+    expect(plusOffsets(1)).toEqual([0]);
+    expect(plusOffsets(2)).toEqual([-1 / 6, 1 / 6]);
+    expect(plusOffsets(3)).toEqual([-1 / 3, 0, 1 / 3]);
+  });
+  it('sıra yeşil → sarı → mor; görünmeyen kaynağın artısı yok, temel stat kalır', () => {
+    const src = { Level: { STR: 5 }, Skill: { STR: 2 }, Title: { STR: 3 }, Ekipman: { STR: 1 } };
+    const all = statParts(src, 'STR');
+    expect(all.base).toBe(5);
+    expect(all.plus.map((p) => p.v)).toEqual([1, 3, 2]);
+    expect(all.plus.map((p) => p.color)).toEqual(['#7ee07a', '#ffd75e', '#c99aff']);
+    const onlyTitle = statParts(src, 'STR', { Ekipman: false, Title: true, Skill: false });
+    expect(onlyTitle).toEqual({ base: 5, plus: [{ v: 3, color: '#ffd75e' }] });
+  });
+});

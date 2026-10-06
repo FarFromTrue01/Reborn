@@ -26,6 +26,23 @@ export const COLORS = {
   textGreen: '#9fe08a',
 };
 
+/**
+ * Rütbe arka planları (G → X), eşya rütbe rozetleriyle aynı renk ailesi (tools/build_uiicons.py TIERS'in koyu tonları):
+ * G tahta, F demir, E bronz, D bakır, C gümüş, B parlak gümüş, A altın, S parlak altın, X mor.
+ */
+export const RANK_BG: Record<string, number> = {
+  G: 0x4a3420, F: 0x3a3d48, E: 0x5c3418, D: 0x6a3c18, C: 0x4c5466, B: 0x3a4a6e, A: 0x6e5210, S: 0x7a5e14, X: 0x48207a,
+};
+/** Rütbe arka planlarının açık kenar tonu. */
+export const RANK_EDGE: Record<string, number> = {
+  G: 0x966c40, F: 0x9698a0, E: 0xcd7f3c, D: 0xd68c46, C: 0xd6dce6, B: 0xe2e8f2, A: 0xfad660, S: 0xffe278, X: 0xb078ff,
+};
+
+/** Skill nadirlik çerçeveleri (Kısım 2, S1): sıradan gri, nadir mavi, epik mor, efsanevi altın; Appraisal (doğuştan) gri. */
+export const RARITY_FRAME: Record<string, number> = {
+  common: 0xa0a0aa, innate: 0xa0a0aa, rare: 0x4aa8ff, epic: 0xb070ff, legendary: 0xffcf4a,
+};
+
 export const FONT = {
   title: 'Cinzel, Georgia, serif',
   body: 'Alegreya, Georgia, serif',
@@ -348,12 +365,12 @@ export function dashedRoundedRect(g: Phaser.GameObjects.Graphics, x: number, y: 
 }
 
 /** Bilgi kutucuğu zemini: koyu zemin, ince altın kenarlık, hafif yuvarlatılmış köşe (Appraisal ve Status ortak dili). */
-export function drawTile(g: Phaser.GameObjects.Graphics, x: number, y: number, w: number, h: number, opts: { empty?: boolean; fill?: number; edge?: number; r?: number } = {}) {
+export function drawTile(g: Phaser.GameObjects.Graphics, x: number, y: number, w: number, h: number, opts: { empty?: boolean; fill?: number; edge?: number; emptyEdge?: number; r?: number } = {}) {
   const r = opts.r ?? 8;
   g.fillStyle(opts.fill ?? COLORS.panel2, opts.empty ? 0.55 : 0.95);
   g.fillRoundedRect(x, y, w, h, r);
   if (opts.empty) {
-    g.lineStyle(1, COLORS.goldDark, 0.9);
+    g.lineStyle(1, opts.emptyEdge ?? COLORS.goldDark, 0.9);
     dashedRoundedRect(g, x, y, w, h, r);
   } else {
     g.lineStyle(1, opts.edge ?? COLORS.gold, 0.75);

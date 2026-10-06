@@ -3,8 +3,9 @@ import { Display } from '../game/display';
 import { Sound } from '../audio/audio';
 import { COLORS, FONT, txt, drawBlue, Button, fullScreenRect } from '../ui/kit';
 import { ensureCG } from '../ui/portraits';
-import { divineExpToNext } from '../core/divine';
-import { fmtHp } from '../ui/format';
+import { divineExpToNext, divineStat, DIVINE_STATS, DIVINE_STAT_NAMES } from '../core/divine';
+import { buildAppraisalPanel } from '../ui/appraisalPanel';
+import { G } from '../game/G';
 
 /** Prolog: kaza, ölüm, beyaz boşluk ve Status'un oluşması. */
 export class PrologueScene extends Phaser.Scene {
@@ -136,60 +137,69 @@ export class PrologueScene extends Phaser.Scene {
     this.finish();
   }
 
+  /**
+   * 0.9.0: Status, Appraisal panelindeki kendi kartın düzeninde (aynı bölümler) ve mavi sistem temasında açılır.
+   * Bütün değerler gerçek veriden (yeni oyunun Joseph'i, Divine statları); portre "???". Açılış: panel dikeyde
+   * açılır, sonra bir tarama çizgisi yukarıdan aşağı içeriği ortaya çıkarır.
+   */
   async statusReveal() {
     const W = Display.uiW, H = Display.uiH;
-    const lines: [string, string?][] = [
-      ['⚙️ STATUS'],
-      ['İsim: Joseph · Level: 0 · EXP: 0/100'],
-      [`HP: ${fmtHp(5)}/${fmtHp(5)} · MP: 0/0 · Rütbe: Yok · Irk: İnsan`],
-      ['📊 STATS'],
-      ['STR 0 · VIT 0 · AGI 0 · DEX 0 · MNA 0 · INT 0 · LUK 0'],
-      ['⭐ SKILLS'],
-      ['Appraisal (G-) [0/15]'],
-      ['🔮 TRAITS'],
-      [`Divine Paladin (X) [Level: 0 | EXP: 0/${divineExpToNext(0)}]`, '#ffe9a0'],
-      ['Güç 0.50x · Dayanıklılık 0.50x · Hız 0.50x', '#ffe9a0'],
-      ['Öğrenme 0.50x · Adaptasyon 0.50x', '#ffe9a0'],
-      ['🏆 TITLES'],
-      ['Yok'],
-      ['🛡️ EQUIPMENT'],
-      ['Pantolon: Yırtık Şort (G) [DEF: +0] · Diğer slotlar: Yok'],
-      ['🎒 INVENTORY'],
-      ['Boş · Para: 0'],
-    ];
-    const isHead = (l: string) => /^[⚙📊⭐🔮🏆🛡🎒]/u.test(l);
-    // Panel yüksekliği içeriğe göre: başlıklar 30, satırlar 26 birim.
-    const contentH = lines.reduce((a, [l]) => a + (isHead(l) ? 30 : 26), 0);
-    const pw = Math.min(700, W - 60), ph = Math.min(contentH + 40, H - 40);
-    const c = this.add.container((W - pw) / 2, (H - ph) / 2).setDepth(75);
-    const g = this.add.graphics();
-    drawBlue(g, 0, 0, pw, ph, 0.9);
-    c.add(g);
-    c.setScale(1, 0.02);
-    c.setAlpha(0);
+    const p = G.p, dv = G.state.divine;
+    const panel = buildAppraisalPanel(this, p, null, {
+      self: true, mineRank: 0, theme: 'system', hidePortrait: true,
+      traits: p.traits.includes('divine_paladin') ? {
+        name: 'Divine Paladin', rank: 'X', level: dv.level, exp: dv.exp, need: divineExpToNext(dv.level),
+        stats: DIVINE_STATS.map((k) => [DIVINE_STAT_NAMES[k], `${divineStat(k, dv.level).toFixed(2).replace('.', ',')}x`] as [string, string]),
+      } : null,
+    });
+    const pw = (panel as any).panelW, ph = (panel as any).panelH;
+    const sc = Math.min(1, (H - 30) / ph, (W - 30) / pw);
+    panel.setScale(sc);
+    const x0 = (W - pw * sc) / 2, y0 = Math.max(12, (H - ph * sc) / 2);
+    const holder = this.add.container(W / 2, y0 + (ph * sc) / 2).setDepth(75);
+    panel.setPosition(-(pw * sc) / 2, -(ph * sc) / 2);
+    holder.add(panel);
+    // tarama maskesi: içerik yukarıdan aşağı belirir
+    const maskG = this.make.graphics({});
+    panel.setMask(maskG.createGeometryMask());
+    const scan = this.add.rectangle(W / 2, y0, pw * sc, 3, 0x9fd6ff, 0.9).setDepth(76).setBlendMode(Phaser.BlendModes.ADD).setAlpha(0);
+    const reveal = { f: 0 };
+    const drawMask = () => {
+      maskG.clear();
+      maskG.fillStyle(0xffffff, 1);
+      maskG.fillRect(x0 - 10, y0 - 10, pw * sc + 20, 10 + ph * sc * reveal.f + (reveal.f > 0 ? 10 : 0));
+      scan.setY(y0 + ph * sc * reveal.f);
+    };
+    reveal.f = 0.08;
+    drawMask();
+    holder.setScale(1, 0.02);
+    holder.setAlpha(0);
     Sound.sfx('system');
-    this.tweens.add({ targets: c, alpha: 1, scaleY: 1, duration: 600, ease: 'Cubic.Out' });
-    await this.wait(700);
-    let y = 20;
-    for (const [l, col] of lines) {
-      const head = isHead(l);
-      const t = txt(this, head ? 24 : 44, y, l, { size: head ? 17 : 16, bold: head, color: col ?? (head ? '#e6f6ff' : COLORS.textBlue), wrap: pw - 70 });
-      t.setAlpha(0);
-      c.add(t);
-      this.tweens.add({ targets: t, alpha: 1, duration: 250 });
-      Sound.sfx('click', 0.25);
-      y += head ? 30 : 26;
-      await this.wait(this.skipping ? 0 : 230);
-    }
+    this.tweens.add({ targets: holder, alpha: 1, scaleY: 1, duration: 500, ease: 'Cubic.Out' });
+    await this.wait(this.skipping ? 0 : 520);
+    scan.setAlpha(0.9);
+    await new Promise<void>((resolve) => {
+      this.tweens.add({
+        targets: reveal, f: 1, duration: this.skipping ? 1 : 1600, ease: 'Sine.InOut',
+        onUpdate: () => drawMask(),
+        onComplete: () => resolve(),
+      });
+      // tarama sırasında tıkırtılar
+      for (let i = 0; i < 6; i++) this.time.delayedCall(i * 260, () => Sound.sfx('click', 0.22));
+    });
+    this.tweens.add({ targets: scan, alpha: 0, duration: 300 });
+    panel.clearMask(true);
     await new Promise<void>((resolve) => {
       this.advance = () => {
         this.advance = null;
         resolve();
       };
-      this.time.delayedCall(6500, () => this.advance?.());
+      this.time.delayedCall(8000, () => this.advance?.());
     });
-    this.tweens.add({ targets: c, alpha: 0, scaleY: 0.02, duration: 500 });
+    this.tweens.add({ targets: holder, alpha: 0, scaleY: 0.02, duration: 500 });
     await this.wait(600);
+    holder.destroy();
+    scan.destroy();
   }
 
   finish() {

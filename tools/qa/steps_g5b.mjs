@@ -205,5 +205,71 @@ export default async ({ page, wait, shot, evalG }) => {
     await wait(1500);
   }
 
+  // ================================================================ 7: prologdaki Status ekranı
+  if (want('prologue')) {
+    log('== 7 prolog Status');
+    await W(() => {
+      const g = window.__game;
+      const P = g.scene.getScene('Prologue');
+      P.run = async function () { await this.statusReveal(); };
+      g.scene.getScene('World').scene.sleep('UI');
+      g.scene.getScene('World').scene.launch('Prologue');
+      g.scene.getScene('World').scene.bringToTop('Prologue');
+      g.scene.getScene('World').scene.setVisible(false);
+    });
+    await h.until(() => window.__game.scene.isActive('Prologue'), null, 5000);
+    await wait(300);
+    await shot('g5b_7_prologue_opening');
+    await wait(1100);
+    await shot('g5b_7_prologue_scan');
+    await wait(2200);
+    await shot('g5b_7_prologue_status');
+    const vals = await W(() => { const P = window.__game.scene.getScene('Prologue'); const texts = []; const walk = (l) => { for (const o of l) { if (o.type === 'Text') texts.push(o.text); if (o.list) walk(o.list); } }; walk(P.children.list); return texts; });
+    check(vals.some((t) => t === '0,75x') && !vals.some((t) => t === '0.50x'), '7: Divine statları gerçek veriden (0,75x var, 0.50x yok)');
+    await W(() => { const g = window.__game; g.scene.stop('Prologue'); g.scene.getScene('World').scene.wake('UI'); g.scene.getScene('World').scene.setVisible(true); });
+    await h.frames(5);
+  }
+
+  // ================================================================ 8–11: Appraisal kartları ve renkli artılar
+  if (want('appr') || want('stats')) {
+    log('== 8-11 Appraisal ve statlar');
+    await W(() => {
+      const G = window.__G;
+      G.p.titles = ['camp_breaker'];
+      G.p.equipment.belt = 'rope_belt';
+      G.p.equipment.helmet = 'leather_cap';
+      G.p.skills.push({ id: 'iron_body', rank: 1, exp: 6 }, { id: 'sword_mastery', rank: 4, exp: 22 }, { id: 'fire_magic', rank: 9, exp: 120 }, { id: 'stealth', rank: 25, exp: 0 });
+      G.p.alloc.VIT = 5; G.p.alloc.STR = 3;
+      G.invalidate();
+    });
+    await W(() => window.__game.scene.getScene('World').appraiseSelf());
+    await wait(900);
+    await shot('g5b_8_appr_self');
+    await W(() => window.__game.scene.getScene('UI').closeAppraisal());
+    await wait(400);
+    // NPC: ekipmanı görünen (Joseph'in Appraisal'ı yüksek) ve görünmeyen
+    await W(() => { const G = window.__G; G.p.skills.find((s) => s.id === 'appraisal').rank = 12; });
+    await W(() => { const w = window.__game.scene.getScene('World'); const d = window.__NPC_BY_ID?.guard_hob ?? w.npcs.find((n) => n.def.id === 'guard_hob')?.def; w.ui.showAppraisal(d.creature, d); });
+    await wait(900);
+    await shot('g5b_8_appr_npc_visible');
+    await W(() => window.__game.scene.getScene('UI').closeAppraisal());
+    await wait(300);
+    await W(() => { const G = window.__G; G.p.skills.find((s) => s.id === 'appraisal').rank = 0; });
+    await W(() => { const w = window.__game.scene.getScene('World'); const d = window.__NPC_BY_ID?.celeste ?? w.npcs.find((n) => n.def.id === 'celeste')?.def; w.ui.showAppraisal(d.creature, d); });
+    await wait(900);
+    await shot('g5b_8_appr_npc_hidden');
+    await W(() => window.__game.scene.getScene('UI').closeAppraisal());
+    await W(() => { const G = window.__G; G.p.skills.find((s) => s.id === 'appraisal').rank = 3; });
+    await W(() => { const w = window.__game.scene.getScene('World'); const d = window.__NPC_BY_ID?.vera ?? w.npcs.find((n) => n.def.id === 'vera')?.def; w.ui.showAppraisal(d.creature, d); });
+    await wait(900);
+    await shot('g5b_8_appr_npc_partial');
+    await W(() => window.__game.scene.getScene('UI').closeAppraisal());
+    await W(() => { const G = window.__G; G.p.skills.find((s) => s.id === 'appraisal').rank = 0; });
+    await wait(300);
+    await openMenu('status', 'stats');
+    await shot('g5b_10_status_stats');
+    await closeMenu();
+  }
+
   log('\nSORUNLAR:', problems.length ? problems.join(' | ') : 'yok');
 };

@@ -6,6 +6,7 @@ import { COLORS, FONT, txt, drawFrame, drawBlue, Button, iconImage, uiIcon, rank
 import { renderDevPanel } from '../ui/devPanel';
 import { renderQuestsTab } from '../ui/questsTab';
 import { BUILDING_ICON } from '../ui/mapIcons';
+import { statParts, plusStack } from '../ui/statPlus';
 import { fmtExp, fmtHp } from '../ui/format';
 import { prestigeLabel, itemPrestige } from '../core/prestige';
 import { pointsToNext, RANK_THRESHOLDS, levelRequirement, examRequired, guildBar } from '../core/guild';
@@ -13,7 +14,7 @@ import { daysLeft, CITY_NAMES } from '../core/cards';
 import { ScrollList, panelChoice, confirmBox } from '../ui/panels';
 import { buildSettings } from '../ui/settingsPanel';
 import { itemLabel, itemEffectsText } from '../ui/format';
-import { STAT_KEYS, expToNext, STAT_POINTS_PER_LEVEL } from '../core/formulas';
+import { STAT_KEYS, expToNext, STAT_POINTS_PER_LEVEL, strDamageMult } from '../core/formulas';
 import { subRankToString, skillThreshold, SUBRANK_MAX } from '../core/ranks';
 import { SKILLS, RARITY_NAMES, TECHNIQUES, OFFER_COST } from '../data/skills';
 import { TITLES, TRAIT_NAMES } from '../data/titles';
@@ -331,7 +332,7 @@ export class MenuScene extends Phaser.Scene {
       const ch = 44 + 34 + STAT_KEYS.length * rowH + 44;
       const by = this.card(inner, 0, y, W, ch, 'STATS', 'blue', `Dağıtılmamış: ${p.unspent}  ·  SP: ${p.sp}`, 'stats');
       let cx = 14;
-      cx = this.chip(inner, cx, by, `Fiziksel hasar ×${(1 + 0.05 * d.stats.STR).toFixed(2)}`, 0x1a3a6a, '#dff0ff');
+      cx = this.chip(inner, cx, by, `Fiziksel hasar ×${strDamageMult(d.stats.STR).toFixed(2)}`, 0x1a3a6a, '#dff0ff');
       cx = this.chip(inner, cx, by, `Kritik %${(d.crit * 100).toFixed(1)}`, 0x1a3a6a, '#dff0ff');
       cx = this.chip(inner, cx, by, `Hareket ×${d.moveSpeed.toFixed(2)}`, 0x1a3a6a, '#dff0ff');
       cx = this.chip(inner, cx, by, `Saldırı hızı ×${d.attackSpeed.toFixed(2)}`, 0x1a3a6a, '#dff0ff');
@@ -346,14 +347,13 @@ export class MenuScene extends Phaser.Scene {
         g.strokeRoundedRect(14, ry, W - 28, rowH - 8, 8);
         inner.add(g);
         inner.add(txt(this, 28, ry + 7, k, { size: 20, bold: true, font: FONT.title, color: '#e6f6ff' }));
-        inner.add(txt(this, 96, ry + 5, String(d.stats[k]), { size: 24, bold: true, color: '#ffffff' }));
-        const parts: string[] = [];
-        for (const [name, st] of Object.entries(src)) {
-          const v = (st as any)[k] ?? 0;
-          if (v || name === 'Level') parts.push(`${name} ${name === 'Level' ? v : (v > 0 ? '+' : '') + v}`);
-        }
-        inner.add(txt(this, 150, ry + 6, parts.join('  ·  '), { size: 13, color: '#9fd6ff', bold: true }));
-        inner.add(txt(this, 150, ry + 26, statHint(k), { size: 13, color: '#6f9fcf', italic: true, wrap: W - 260 }));
+        // 0.9.0: solda temel stat, sağında üst üste renkli artılar (yeşil ekipman, sarı unvan, mor skill)
+        const { base, plus } = statParts(src, k);
+        const bt = txt(this, 92, ry + (rowH - 8) / 2, String(base), { size: 24, bold: true, color: '#ffffff' }).setOrigin(0, 0.5);
+        inner.add(bt);
+        inner.add(plusStack(this, bt.x + bt.width + 5, ry + (rowH - 8) / 2, rowH - 10, plus, 14));
+        inner.add(txt(this, 176, ry + 4, `Toplam ${d.stats[k]}`, { size: 13, color: '#9fd6ff', bold: true }));
+        inner.add(txt(this, 176, ry + 23, statHint(k), { size: 13, color: '#6f9fcf', italic: true, wrap: W - 290 }));
         if (p.unspent > 0) {
           const b = new Button(this, W - 50, ry + (rowH - 8) / 2, '+', () => {
             R.allocateStat(k);
