@@ -548,7 +548,7 @@ export class WorldScene extends Phaser.Scene {
   /** Yoldaşın yakın dövüş vuruşu. Dost ateşi yok: yalnızca düşmanlar. */
   companionHit(c: Companion, e: Enemy, dir: Phaser.Math.Vector2, mult = 1) {
     if (!e.alive) return;
-    // 0.8.0 (C6): yoldaş hasarı ×0,35 (yardım eder, işi yapmaz)
+    // 0.8.0 (C6): yoldaş hasarı ×0,15 (yardım eder, işi yapmaz)
     const res = resolvePhysical({ d: c.d, level: c.level }, { d: e.d, level: e.level }, { mult: mult * COMPANION_DMG_MULT });
     e.aware || e.becomeAware(true);
     e.barShowT = 3;
