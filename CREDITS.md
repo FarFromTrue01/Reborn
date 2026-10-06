@@ -389,8 +389,8 @@ Kaynak: https://github.com/sanderfrenken/Universal-LPC-Spritesheet-Character-Gen
 - **[LPC] Wolf Animation (yaban kurdu)** — Stephen Challener (Redshrike), William.Thompsonj tarafından ısmarlandı — CC-BY 3.0 / OGA-BY 3.0 / GPL 3.0 — https://opengameart.org/content/lpc-wolf-animation
 - **[LPC] Rat, Cat and Dog (fare)** — Reemax (Tuomo Untinen) — CC-BY 3.0 / CC-BY-SA 3.0 / GPL 3.0 — https://opengameart.org/content/lpc-rat-cat-and-dog
 - **Bunny Rabbit LPC style / Reorganised LPC rabbit (tavşan)** — Stephen Challener (Redshrike); düzenleme: Evert — CC-BY 3.0 / CC-BY-SA 3.0 / OGA-BY 3.0 — https://opengameart.org/node/114556
-- **496 pixel art icons for medieval/fantasy RPG (ikonlar)** — Henrique Lazarini (7Soul1) — CC0 — https://opengameart.org/content/496-pixel-art-icons-for-medievalfantasy-rpg
-- **Twemoji (arayüz simgeleri: Appraisal, Status, envanter, görevler, harita işaretleri, Saygınlık)** — Twitter, Inc. ve diğer katkıda bulunanlar (jdecked/twemoji) — CC-BY 4.0 — https://github.com/jdecked/twemoji
+- **496 pixel art icons for medieval/fantasy RPG (ikonlar; 0.9.0: Buz Büyüsü `S_Ice02`, Savaş Narası `S_Buff14`)** — Henrique Lazarini (7Soul1) — CC0 — https://opengameart.org/content/496-pixel-art-icons-for-medievalfantasy-rpg
+- **Twemoji (arayüz simgeleri: Appraisal, Status, envanter, görevler, harita işaretleri, Saygınlık; 0.9.0: ekipman slotları, sıralama, durum etkileri, çanta; yan görev için maviye boyanmış ❗/❓)** — Twitter, Inc. ve diğer katkıda bulunanlar (jdecked/twemoji) — CC-BY 4.0 — https://github.com/jdecked/twemoji
 - **Lonca rütbe rozetleri (G → X)** — Bu proje için tools/build_uiicons.py ile çizildi — Proje lisansı — https://github.com/FarFromTrue01/Reborn
 - **Yazı tipleri: Cinzel, Alegreya, Alegreya Sans, Pixelify Sans** — Natanael Gama (Cinzel); Juan Pablo del Peral / Huerta Tipográfica (Alegreya, Alegreya Sans); Stefie Justprince (Pixelify Sans) — SIL Open Font License 1.1 — https://fonts.google.com
 

@@ -529,7 +529,7 @@ export class Enemy {
     const a = this.actor;
     const order: Status['kind'][] = ['freeze', 'paralyze', 'stagger', 'fear', 'burn', 'slow', 'taunt'];
     const top = order.find((k) => this.statuses.some((s) => s.kind === k));
-    if (m.frozen) a.tint(0x9fdcff);
+    if (m.frozen) a.tint(0x7fb4ff);
     else if ((a as any).__statusTint) a.tint(null);
     (a as any).__statusTint = m.frozen;
     if (!top || this.state === 'dead') {

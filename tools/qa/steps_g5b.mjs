@@ -361,5 +361,141 @@ export default async ({ page, wait, shot, evalG }) => {
     await h.run([], 40, undefined, { start: 300 });
   }
 
+  // ================================================================ KISIM 2 — S3: Sistem Teklifi
+  const giveSkills = (list) => W((list) => { const G = window.__G; for (const [id, rank] of list) { const s = G.p.skills.find((x) => x.id === id); if (s) s.rank = rank; else G.p.skills.push({ id, rank, exp: 0 }); } G.invalidate(); }, list);
+  const pressAny = async (name) => (await pressNamed('Menu', name)) || pressNamed('UI', name);
+  if (want('offer')) {
+    log('== S3 Sistem Teklifi');
+    await W(() => { const G = window.__G; G.p.sp = 9; G.state.lastSkillLearnWeek = null; G.p.skills = G.p.skills.filter((s) => s.id === 'appraisal'); G.invalidate(); });
+    await openMenu('status', 'skills');
+    await pressNamed('Menu', 'offer_btn');
+    await wait(900);
+    await shot('g5b_s3_offer_choice');
+    const labels = await W(() => { const m = window.__game.scene.getScene('Menu'); const out = []; const walk = (l) => { for (const o of l) { if (o.type === 'Text') out.push(o.text); if (o.list) walk(o.list); } }; walk(m.children.list); return out.filter((t) => /SP ·|%/.test(t)); });
+    check(labels.some((t) => t.includes('1 SP · Basic chance')) && labels.some((t) => t.includes('3 SP · High chance')) && labels.some((t) => t.includes('Sıradan: %80')), '3: seçim ekranında oranlar (' + labels.slice(0, 4).join(' | ') + ')');
+    for (const sp of [3, 2, 1]) {
+      await W(() => { window.__G.state.lastSkillLearnWeek = null; });
+      if (sp !== 3) { await pressNamed('Menu', 'offer_btn'); await wait(700); }
+      await pressNamed('Menu', 'card_' + (sp - 1));
+      await wait(1000);
+      const n = await W(() => { const m = window.__game.scene.getScene('Menu'); let c = 0; const walk = (l) => { for (const o of l) { if (/^card_\d$/.test(o.name ?? '')) c++; if (o.list) walk(o.list); } }; walk(m.children.list); return c; });
+      check(n === sp, `S3: ${sp} SP → ${sp} kart (${n})`);
+      await shot(`g5b_s3_offer_${sp}cards`);
+      await pressNamed('Menu', sp === 1 ? 'card_0' : 'card_cancel');
+      await wait(500);
+    }
+    // boş kart: yalnızca bir sıradan skill kalmış
+    await W(() => { const G = window.__G; G.state.lastSkillLearnWeek = null; G.p.sp = 3; const all = Object.keys(window.__SKILLS ?? {}); });
+    await W(() => { const G = window.__G; const S = window.__game.scene.getScene('Menu'); void S; });
+    await W(() => { const G = window.__G; for (const id of ['stealth', 'evasion', 'archery', 'first_aid', 'athletics', 'sword_mastery', 'spear_mastery', 'fire_magic', 'healing_magic', 'ice_magic', 'war_cry', 'storm_blade', 'thunder_magic', 'iron_body']) if (!G.p.skills.some((s) => s.id === id)) G.p.skills.push({ id, rank: 0, exp: 0 }); G.invalidate(); window.__game.scene.getScene('Menu').render(); });
+    await h.frames(3);
+    await pressNamed('Menu', 'offer_btn');
+    await wait(700);
+    await pressNamed('Menu', 'card_2');
+    await wait(1000);
+    const st = await W(() => window.__G.p.sp);
+    await shot('g5b_s3_offer_empty_cards');
+    check(st === 2, 'S3: 3 SP teklif, 2 boş kart → 2 SP iade (SP ' + st + ')');
+    await pressNamed('Menu', 'card_cancel');
+    await wait(600);
+    // haftalık sınır bildirimi menünün üstünde
+    await W(() => { window.__G.p.sp = 3; window.__game.scene.getScene('Menu').render(); });
+    await h.frames(3);
+    await pressNamed('Menu', 'offer_btn');
+    await wait(500);
+    const notices = await W(() => window.__game.scene.getScene('Menu').notices.length);
+    check(notices > 0, 'S3: "bu hafta zaten" bildirimi menünün üstünde');
+    await shot('g5b_s3_weekly_notice_on_menu');
+    await closeMenu();
+    await W(() => { const G = window.__G; G.p.skills = G.p.skills.filter((s) => s.id === 'appraisal'); G.invalidate(); });
+  }
+
+  // ================================================================ S5: yetenek slotu; S1: nadirlik çerçeveli liste
+  if (want('slot') || want('skills')) {
+    log('== S5 yetenek slotu ve S1 skill listesi');
+    await giveSkills([['sword_mastery', 9], ['fire_magic', 3], ['ice_magic', 6], ['war_cry', 0], ['storm_blade', 2], ['stealth', 25]]);
+    await W(() => { const G = window.__G; G.state.skillSlots = [null, null]; G.p.equipment.weapon = 'rusty_shortsword'; G.p.level = 6; G.p.alloc.MNA = 60; G.invalidate(); G.p.mp = G.d.maxMp; });
+    await openMenu('status', 'skills');
+    await shot('g5b_s5_slots_empty');
+    await pressNamed('Menu', 'slot_double_slash');
+    await h.frames(3);
+    const sl = await W(() => window.__G.state.skillSlots);
+    check(sl[0] === 'double_slash' && sl[1] === null, 'S5: Tak → 1. slotta (' + JSON.stringify(sl) + ')');
+    await shot('g5b_s5_slots_equipped');
+    await W(() => { const m = window.__game.scene.getScene('Menu'); const l = m.content.list.find((o) => o.inner); l.setScroll(400); });
+    await h.frames(3);
+    await shot('g5b_s1_skill_list_frames');
+    await closeMenu();
+    await h.frames(5);
+    const hud = await W(() => { const ui = window.__game.scene.getScene('UI'); ui.refreshButtons(); return ui.skillBtns.filter((b) => b.visible).length; });
+    check(hud === 1, 'S5: HUD\'da yalnızca takılı yetenek (' + hud + ')');
+    await shot('g5b_s5_hud_one_skill');
+  }
+
+  // ================================================================ S6/S7: buz, nara, karşı saldırı, yanma
+  if (want('fx')) {
+    log('== S6/S7 durum etkileri');
+    await giveSkills([['sword_mastery', 15], ['fire_magic', 3], ['ice_magic', 12], ['war_cry', 0]]);
+    await W(() => { const G = window.__G; G.p.equipment.weapon = 'rusty_shortsword'; G.p.level = 6; G.p.alloc.MNA = 60; G.p.alloc.VIT = 30; G.invalidate(); G.p.mp = G.d.maxMp; G.p.hp = G.d.maxHp; });
+    await tpPoint('world', 'forest_edge', 0, 0, 'right');
+    const spawn = (m, n = 3) => W(([m, n]) => { const w = window.__game.scene.getScene('World'); for (const e of w.enemies) { e.destroy(); } w.enemies = []; const a = w.player.actor; const es = w.spawnAt(m, Math.floor(a.x / 32) + 2, Math.floor(a.y / 32), n, 1); for (const e of es) { e.becomeAware(false); e.cooldownT = 99; } return es.length; }, [m, n]);
+    const use = (tech) => W((tech) => { const G = window.__G; const w = window.__game.scene.getScene('World'); G.state.skillSlots = [tech, null]; w.player.skillCd = {}; G.p.mp = G.d.maxMp; w.player.setState('free'); w.useSkillSlot(0); }, tech);
+    const sts = () => W(() => window.__game.scene.getScene('World').enemies.filter((e) => e.alive).map((e) => e.statuses.map((s) => s.kind).join('+') || '-'));
+    const closeLook = async (name) => {
+      await W(() => { const w = window.__game.scene.getScene('World'); const c = w.cameras.main; w.camFollow = false; c.setZoom(3); c.centerOn(w.player.actor.x + 50, w.player.actor.y - 10); });
+      await h.frames(2);
+      await shot(name);
+      await W(() => { const w = window.__game.scene.getScene('World'); w.cameras.main.setZoom(window.__Display.worldZoom); w.followPlayer(); });
+    };
+    // buz kıymığı: yavaşlatma
+    await spawn('goblin', 1);
+    await use('ice_shard');
+    await h.until(() => window.__game.scene.getScene('World').enemies.some((e) => e.statuses.some((s) => s.kind === 'slow')), null, 4000);
+    log('  buz kıymığı:', JSON.stringify(await sts()));
+    check((await sts()).some((x) => x.includes('slow')), 'S6: Buz Kıymığı yavaşlattı');
+    await closeLook('g5b_s6_ice_shard_slow');
+    // donduran halka: dondurma
+    await spawn('goblin', 3);
+    await W(() => { const w = window.__game.scene.getScene('World'); const a = w.player.actor; for (const e of w.enemies) { e.actor.setPosition(a.x + 40 + Math.random() * 20, a.y + (Math.random() - 0.5) * 40); e.actor.body2.reset(e.actor.x, e.actor.y); } });
+    await use('frost_ring');
+    await h.frames(3);
+    log('  donduran halka:', JSON.stringify(await sts()));
+    check((await sts()).some((x) => x.includes('freeze')), 'S6: Donduran Halka dondurdu');
+    await closeLook('g5b_s6_frost_ring_freeze');
+    // nara: sendeleme (eşit/düşük level)
+    await spawn('rat', 3);
+    await W(() => { const w = window.__game.scene.getScene('World'); const a = w.player.actor; for (const e of w.enemies) { e.actor.setPosition(a.x + 30 + Math.random() * 30, a.y + (Math.random() - 0.5) * 40); e.actor.body2.reset(e.actor.x, e.actor.y); } });
+    await use('war_shout');
+    await h.frames(3);
+    log('  nara:', JSON.stringify(await sts()));
+    check((await sts()).some((x) => x.includes('stagger')), 'S6: Nara sendeletti');
+    await closeLook('g5b_s6_war_shout_stagger');
+    // nara bossa işlemez
+    await spawn('goblin_chief', 1);
+    await W(() => { const w = window.__game.scene.getScene('World'); const a = w.player.actor; const e = w.enemies[0]; e.actor.setPosition(a.x + 40, a.y); e.actor.body2.reset(e.actor.x, e.actor.y); });
+    await use('war_shout');
+    await h.frames(3);
+    check(!(await sts()).some((x) => x.includes('stagger')), 'S6: Nara bossa işlemedi');
+    // kıvılcım: yanma
+    await spawn('goblin', 1);
+    await use('spark');
+    await h.until(() => window.__game.scene.getScene('World').enemies.some((e) => e.statuses.some((s) => s.kind === 'burn')), null, 4000);
+    log('  kıvılcım:', JSON.stringify(await sts()));
+    check((await sts()).some((x) => x.includes('burn')), 'S6: Kıvılcım yaktı');
+    await closeLook('g5b_s6_spark_burn');
+    // karşı saldırı: gerçek savuşturma
+    await spawn('goblin', 1);
+    await W(() => { const w = window.__game.scene.getScene('World'); const a = w.player.actor; const e = w.enemies[0]; e.actor.setPosition(a.x + 30, a.y); e.actor.body2.reset(e.actor.x, e.actor.y); e.cooldownT = 0; });
+    const hp0 = await W(() => { const e = window.__game.scene.getScene('World').enemies[0]; return { joseph: window.__G.p.hp, enemy: e.c.hp }; });
+    await use('counter');
+    await h.until(() => { const w = window.__game.scene.getScene('World'); return w.player.parryT <= 0; }, null, 6000);
+    await wait(200);
+    const hp1 = await W(() => { const e = window.__game.scene.getScene('World').enemies[0]; return { joseph: window.__G.p.hp, enemy: e?.c.hp ?? 0, parry: window.__game.scene.getScene('World').player.parryT }; });
+    log('  karşı saldırı:', JSON.stringify(hp0), '→', JSON.stringify(hp1));
+    check(hp1.joseph >= hp0.joseph && hp1.enemy < hp0.enemy, 'S7: Karşı Saldırı darbeyi engelledi ve karşılık verdi');
+    await closeLook('g5b_s7_counter');
+    await W(() => { const w = window.__game.scene.getScene('World'); for (const e of w.enemies) e.destroy(); w.enemies = []; });
+  }
+
   log('\nSORUNLAR:', problems.length ? problems.join(' | ') : 'yok');
 };

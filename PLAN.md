@@ -1,7 +1,7 @@
 # Güncelleme planı — devam notu
 
 Dört aşamalı plan — **tamamlandı (0.7.0)**. Her oturum yalnızca kendi grubunu yaptı ve bu dosyayı güncelledi.
-0.7.0 sonrası plan iki yarı: **Grup 5A** (hatalar, dünya, denge, silah görselleri) — ✅ 0.8.0; **Grup 5B** (arayüz ve beceri sistemi) — sırada.
+0.7.0 sonrası plan iki yarı: **Grup 5A** (hatalar, dünya, denge, silah görselleri) — ✅ 0.8.0; **Grup 5B** (arayüz ve beceri sistemi) — ✅ 0.9.0.
 
 | Grup | Kapsam | Durum |
 | --- | --- | --- |
@@ -11,7 +11,7 @@ Dört aşamalı plan — **tamamlandı (0.7.0)**. Her oturum yalnızca kendi gru
 | **4A. Görevler ve içerik** | Ana görev güvencesi, pano akışı, NPC hedefli amaçlar, şifalı ot, yaralılar, sahne karakterleri, kâhyanın kesesi, yan görev iş yerleri ve mavi işaretler, lonca/pano, görev saatine kadar uyku, han oturma yerleri, yoldaş takibi, Dorn, Eros ve soylu adı, Grup 3'ten kalan dört düzeltme | ✅ 0.6.0 |
 | **4B. Animasyon ve silahlar** | Silah modelleri, saldırı animasyonları, kılıcı sırta koyma, konuşurken yürüme animasyonu | ✅ 0.7.0 |
 | **5A. Hatalar, dünya, denge, silah görselleri** | Sistem bildirimi, kapı amacı, QA yoklaması; elmalar, görev eşyası, otlar, Dorn/muhafız yürüyüşü, Varg, dükkânlar, şort, doğu suru, mini oyun müziği ve servis hedefi, karartma, savaş ganimeti, satış aralığı, sabit joystick; hız, kaçış, hasar sayıları, yoldaşlar, NPC statları; silah kareleri | ✅ 0.8.0 |
-| **5B. Arayüz ve beceri sistemi** | Kısım 1: dükkân/yan görev seçenekleri, mavi ünlem, mini harita, Görevler düğmeleri, Konuşmalar, lonca barı, prolog Status, Appraisal, renkli artılar, savunma, kaydırma, sıralama, satın alma animasyonu · Kısım 2: skill sistemi | ⏳ (Kısım 1 ✅) |
+| **5B. Arayüz ve beceri sistemi** | Kısım 1: dükkân/yan görev seçenekleri, mavi ünlem, mini harita, Görevler düğmeleri, Konuşmalar, lonca barı, prolog Status, Appraisal, renkli artılar, savunma, kaydırma, sıralama, satın alma animasyonu · Kısım 2: skill sistemi | ✅ 0.9.0 |
 
 ## Grup 1'de yapılanlar (0.3.1)
 
@@ -279,9 +279,45 @@ Son tam tur (0.8.0 derlemesi): **steps_g5a hepsi tamam**, **steps_g4a hepsi tama
 - Diğer: Status'taki "Fiziksel hasar ×" çipi eski 0,05 katsayısını gösteriyordu → `strDamageMult`. uiicons atlasında kareler arası 2 px boşluk (küçük simgelerde komşu karenin kenarı taşıyordu).
 - QA: `URL='http://localhost:4173/?qa=1' DPR=1 OUT=screens/g5b node tools/qa/shot.mjs g5b` (`ONLY=shop,marks,qbtn,hist,guildbar,prologue,appr,scroll,sort,buy`); seçili görüntüler `tools/qa/g5b/` (128 renge indirgenmiş). Son tur üretim derlemesinde **hepsi ✓**. `steps_g4a` yan görev adımı yeni seçenekli akışa göre güncellendi.
 
+## Grup 5B'de yapılanlar — Kısım 2: skill sistemi (0.9.0)
+
+Kurallar talimattaki gibi; sayılar değiştirilmedi. Saf kurallar `src/core/skills.ts`, `src/core/status.ts`; veri `src/data/skills.ts`; dünyadaki uygulanış `src/world/techniques.ts` (+ `WorldScene`, `Player`, `Enemy`).
+
+- **S1 nadirlikler:** `common` / `rare` / `epic` (yeni) / `legendary` (+ `innate` Appraisal, gri). Çerçeve nadirlik rengi (`RARITY_FRAME`: gri, mavi, mor, altın), arka plan rütbe rengi (`RANK_BG`) — Appraisal'da ve Status → Skills'te. Awakening kademeleri tabloda: sıradan S-/X-, nadir A-…, epik B-…, efsanevi C-… (test). Yeni epik skill'ler **Buz Büyüsü** (`ice_magic`) ve **Savaş Narası** (`war_cry`): ikon (496 RPG icons, CC0: `S_Ice02`, `S_Buff14`), açıklama, teklif havuzunda.
+- **S2 kademe kuralları:** her skill G-'den X-'e, tablolar her harfin "-" kademesinde. `mergedPassive`: ulaşılan tablolar sırayla alan alan birleşir (aynı alanda son değer; anılmayan alan korunur — Kılıç Ustalığı G-'deki dayanıklılık indirimi C-'de de geçerli). Ara kademeler (`lerpPassive`): sayılar ve eşlem değerleri bir sonraki taşa doğru üçte bir; hiç olmayan alan nötr değerinden başlar (`PASSIVE_NEUTRAL`: gizli saldırı ×1,5, çarpanlar 1 …); statlar tamsayıya yuvarlanır; bayraklar ilerlemez. Teknik gücü `techniquePower` (G- ×1,0 → X- ×2,2). EXP eğrisi 15/40/100/250/600/1.500/4.000/10.000/25.000. Bütün skill'lerin toplam etkisi `aggregateFx` → `Derived.fx` (bazı alanlar en büyüğü, çarpanlar çarpımı; MP/bekleme/menzil gibi kendi tekniklerine ait alanlar toplanmaz).
+- **S3 Sistem Teklifi:** 1 SP Basic (gri) / 2 SP Medium (mavi) / 3 SP High chance (sarı); seçim kartlarında kart başına oranlar. Kart sayısı = SP, her kart nadirliğini ayrı çeker (`rollOfferCards`), aynı teklifte aynı skill yok, boş havuz **aşağı** kayar, sıradan da bitince kart boş ("Sistem uygun skill bulamadı") ve SP iade. Haftada 1 yeni skill (Teklif, öğretmen, kitap); teklif açmak hakkı kullanır (kart boş gelse ya da seçilmese bile). Gizli keşifler (`director.discovery`) sınırın dışında ve hakkı kullanmaz. **Görünmeyen bildirim:** menü açıkken `sysmsg` UI sahnesine (menünün arkasında duraklatılmış) değil `MenuScene.showNotice`'e gider — menünün üstünde mavi kutu.
+- **S4 MP:** `techniqueMp` = nadirlik tabanı (3/5/8/12) × açıldığı harfin çarpanı (G 1 … X 35), büyü temelli ×2; veri dosyasında `mp: 0`, yüklenince formülle dolar. "MP -%x" pasifleri `techniqueCost`'ta (sahip skill'in birleşik pasifi). Test: Çift Kesik 20, Karşı Saldırı 45, Kıvılcım 10, Ateş Topu 40, Cehennem Çemberi 140, Buz Kıymığı 16, Buzul Mızrağı 224, Nara 8, Statik Ok 24, Göğün Hükmü 528. Diğerleri: Delici Hamle 20, Süpürme 45, Küçük Şifa 10, Yenilenme 40, Arındırma 90, Buz Zırhı 40, Donduran Halka 96, Meydan Okuma 48, Rüzgâr Kesiği 12, Fırtına Dansı 72, Gök Yaran 264, Gök Gürültüsü 144, Yıldırım Adımı 216, Demir Deri 72. Yenilenme `mpRegenPerSec`: 0,02 + max MP × 0,005, MNA +%3/puan, × Adaptasyon, savaşta ×0,3. Mana İksiri 25 MP. Max MP formülü aynı.
+- **S5 yetenek slotu:** `GameState.skillSlots` (2 eleman; `SKILL_SLOTS_OPEN = 1`). Status → Skills'in başında "Yetenek Slotları": 1. slot (yetenek, MP, bekleme, güç), 2. slot kilitli "Yakında". Her aktif yeteneğin satırında Tak/Çıkar; savaşta (`inBattle` ya da `player.inCombat`) devre dışı ve uyarı. HUD yalnızca takılı yeteneği gösterir. Yeni yetenek açılınca slot boşsa kendiliğinden takılır. Divine yetenekleri dışarıda.
+- **S6 durum etkileri** (`core/status.ts`, testli): yanma (taban hasarın %20'si/sn), yavaşlatma, dondurma (boss: %50 yavaşlatma), sendeleme (boss ve kullanıcıdan yüksek level muaf), felç, korku (kaçma), kışkırtma (hedef kullanıcı). Aynı etki üst üste binmez (büyük süre/güç). Düşmanda: hız, hareketsizlik (hazırlanan saldırı bozulur), kaçma, hedef; donmuşta buz mavisi, başın üstünde etki simgesi (Twemoji). Joseph'te: goblin şamanının ateşi 2 sn yakar; yavaşlatma hızına işler; İlk Yardım B- süreleri kısaltır; Arındırma siler. Lanet: `curse` bayrağı (Arındırma yalnızca Lanet Kıran ile siler).
+- **S7 tablolar:** `src/data/skills.ts` talimattaki tablolarla birebir; Çift Ok, Alev Püskürtmesi, Alev Duvarı kalktı. Teknik türleri: `melee_multi`, `projectile` (pierce, element etkisi), `aoe` (self/hedef noktası, fiziksel/büyü), `heal`, `buff`, `shield`, `cleanse`, `parry`, `lunge`, `sweep`, `shout`, `taunt`, `dash`.
+  - **Karşı Saldırı** gerçek savuşturma: 1,2 sn duruş (`Player.parryT`, yerinde durur; kaçış bozar), gelen darbe engellenir, saldırgana normal vuruşun ×2'si; Divine'ın `counterT`'sinden ayrı.
+  - Pasif mekanikler: Gölge (3 sn hareketsiz → saldırana kadar görünmez, düşmanlar göremez), Hayalet (gizli saldırı sürüyü uyandırmaz, öldürünce Gölge geri gelir), geç fark etme (`Enemy.seeT`), mükemmel kaçışta dayanıklılık ve kesin kritik, 6 sn'de bir bedava kaçış, ok hızı/menzili/hareketsiz bonus, sargı süresi, savaştan sonra 5 sn ×3 yenilenme, Saha Hekimi (iyileşmenin %50'si yakındaki yoldaşlara; iksir/sargı için `healed` olayı), İkinci Nefes ve Ölümsüz Kale (günde bir, `onceADay`), koşu bedeli ve Sonsuz Adım, dayanıklılık yenilenmesi, ek/kesin ürün, nadir ot (**Gümüş Yapraklı Ot**, F, şifacı alır — yeni eşya), Bereket (yarı sürede yeniden doğma: `gatheredAt`, 12 oyun saati), ağır vuruş dayanıklılığı, kılıç kritik/hız, kombo (ardışık 3. normal vuruş ×1,5), bekleme yarıya, mızrak erişimi, yanma süresi/çarpanı, Kutsal Işık (şifa yoldaşlara), yavaşlatma oranı/çarpanı, Mutlak Sıfır, donmuşa ×2, Nara yoldaş hasarı/savunması (`Companion.rally`, 8 sn), Savaş Lordu, Korkutan Ses, Kral Narası, Rüzgâr Kesiği menzil/iki dalga, mermi saptırma, her kılıç vuruşunda rüzgâr dalgası, yıldırım zinciri (Statik Ok G- 1, F- 2 hedef; X- tüm yıldırım alanları), felç şansı, sersemleme süresi, Taş Kök (geri savrulmaz), Çelik Ruh.
+- **Kayıt v8** (`migrateV7toV8`, testli): `skillSlots` (ilk sıradaki aktif yetenek takılı gelir; kaldırılan teknik takılıysa düşer), `gatheredAt`, `onceADay`; birikmiş skill EXP'si yeni eşiklere göre rütbe atlatır (`normalizeSkillExp`; ör. eski D- 480 → D, 230).
+- Testler: 530 → 575 (`tests/g5b.test.ts` 45 test, Kısım 1 dahil: teklif oranları 40.000 çekişle ±%1,5, boş havuz, EXP eğrisi, MP örnekleri, pasif birleştirme, ara kademe, durum etkileri, slot, göç; eski skill testleri yeni kurallara göre güncellendi).
+
+### Uçtan uca QA (başsız Chromium, 1280×854, DPR 1, üretim derlemesi)
+
+`URL='http://localhost:4173/?qa=1' DPR=1 OUT=screens/g5b node tools/qa/shot.mjs g5b` — Kısım 2 bölümleri `ONLY=offer,slot,fx`. Son tam tur (Kısım 1 + 2): **31 denetim, hepsi ✓**, konsolda hata yok. Regresyon: `steps_g4a` (`ONLY=side,herbs`) ve `steps_g5a` (`ONLY=sys,door,apples`) tamam.
+
+- S3: seçim ekranında 1/2/3 SP ve kart başına oranlar (`g5b_s3_offer_choice`); 3, 2 ve 1 kartlı teklifler (`g5b_s3_offer_3cards` …); yalnızca bir sıradan skill kalmışken 3 SP → 1 kart + 2 boş kart, 2 SP iade (`g5b_s3_offer_empty_cards`); aynı hafta yeniden basınca bildirim menünün üstünde (`g5b_s3_weekly_notice_on_menu`).
+- S5/S1: boş ve dolu 1. slot, 2. slot "Yakında" (`g5b_s5_slots_*`), HUD'da tek yetenek düğmesi (`g5b_s5_hud_one_skill`), nadirlik çerçeveli liste (`g5b_s1_skill_list_frames`).
+- S6/S7: Buz Kıymığı yavaşlattı, Donduran Halka iki goblini dondurdu, Nara üç fareyi sendeletti, bossa (Goblin Şefi) işlemedi, Kıvılcım yaktı, Karşı Saldırı goblinin darbesini engelleyip ×2 karşılık verdi (Joseph HP değişmedi) (`g5b_s6_*`, `g5b_s7_counter`).
+
+### Yapılamayan / basitleştirilen
+
+- **Toplama süresi** (Toplayıcılık C- -%25, S- "anında biter"): oyunda toplama zaten anlık (süre yok); alan veride duruyor, etkisi yok.
+- **Lanetler:** oyunda saatler süren lanet kaynağı yok; `curse` bayrağı ve Lanet Kıran kuralı hazır (`cleanseStatuses`).
+- **Durum etkisi kaynakları:** düşmanlardan Joseph'e yalnızca goblin şamanının ateşi (yanma) var; yoldaşlara durum etkisi uygulanmıyor.
+- **Kombo:** oyunda kombo sistemi yoktu; "kombonun son vuruşu" = 1,3 sn içinde ardışık 3. normal kılıç vuruşu.
+- **Yıldırım Adımı:** kısa atılma (dash durumu, ~2–3 kare, yenilmezlik); duvarların içinden ışınlanmaz.
+- **Rüzgâr Zırhı:** yalnızca düşman mermileri (şaman ateşi) sapar; yakın dövüş vuruşları etkilenmez.
+- **Korku** 4 sn, **Meydan Okuma** yarıçapı 6 kare, **Nara** sendelemesi uyarı alanı göstermez (talimatta süre/yarıçap verilmeyenler).
+- **Denge notu:** MP formülü büyüleri erken oyunda pahalı yapıyor (Kıvılcım 10 MP; Level 0'da MNA'sız max MP 0, Level 6 + 4 MNA → 18). Sayılar talimattaki gibi bırakıldı.
+- Gerçek tablette denenemedi (yalnızca başsız tarayıcı).
+
 ## Sonraki oturum için notlar
 
-- **Sırada Grup 5B** (arayüz ve beceri sistemi; 5A bunlara dokunmadı). 4B'nin "tatmin edici olmayanlar" listesindeki kabza, yay/mızrak yürüyüşü, hançer yukarı saplama, pala vurulma, sırttaki görünümler, süzülen yay ve çatlak sopa 5A'da (D1–D7) ele alındı.
+- **Grup 5B tamamlandı (0.9.0).** Açık kalanlar yukarıda "Yapılamayan / basitleştirilen" altında; 2. yetenek slotu kodda hazır (`SKILL_SLOTS_OPEN`), açılış koşulu henüz yok. 4B'nin "tatmin edici olmayanlar" listesindeki kabza, yay/mızrak yürüyüşü, hançer yukarı saplama, pala vurulma, sırttaki görünümler, süzülen yay ve çatlak sopa 5A'da (D1–D7) ele alındı.
 - 4B'den açık kalanlar: ileride gürz/topuz için `w_club` hazır, uzun kılıç için LPC `longsword` saldırı sayfaları (192 px, klasik gövdeyle birebir uyumlu) kullanılabilir. Terfi animasyonu için ayrı bir ses bestesi hâlâ yok (mevcut `levelup` + `holy`). `fmtHp` 10 altını hep bir ondalık gösterir ("HP 5,0 / 5,0").
 - **4A'dan kalanlar / karar bekleyenler:** tam haritada mavi işaretler henüz keşfedilmemiş (sisli) yerlerde de görünür — yön bulmak için bilerek bırakıldı, istenirse sise bağlanabilir. Kâhyanın kesesinde 4 şüpheli var (ilerleme 0/4). Bölüm I'in mini oyunlu adımları (iş, hasat) geliştirici "Tamamla" ile geçilince güvence bir sonraki görevi açar ama sahne bayraklarını (ör. `bertram_done`) kurmaz; gerçek oyunda bu yol kullanılmaz.
 - Eski plandaki "yardımlı savaş, yoldaş YZ" maddeleri Grup 2 talimatında yoktu, dokunulmadı (yoldaşlar silah ×2'den dolaylı güçlendi: düşük HP'li ilk yaratıkları hızlı bitirirler, Joseph'in EXP'si yalnızca kendi vurduklarından gelir). 0.8.0'da (C6) yoldaşların hasarı, temposu ve hedef seçimi ayarlandı; yardımlı savaşa dokunulmadı.

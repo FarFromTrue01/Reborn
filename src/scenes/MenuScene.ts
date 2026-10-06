@@ -743,8 +743,8 @@ export class MenuScene extends Phaser.Scene {
       title: `${sp} SP · ${OFFER_NAMES[sp]}`,
       frame: COL[sp],
       tag: { text: `${sp} kart`, color: sp === 1 ? '#c8c8d0' : sp === 2 ? '#8fd0ff' : '#ffe08a' },
-      desc: OFFER_RARITIES.map((r, k) => `${RARITY_NAMES[r]}: ${pct(OFFER_ODDS[sp][k])}`).join('\n') + '\n\nHer kart nadirliğini ayrı çeker.',
-      footer: p.sp >= sp ? 'Teklif açmak bu haftanın skill hakkını kullanır.' : 'SP yetersiz.',
+      desc: 'Kart başına:\n' + OFFER_RARITIES.map((r, k) => `${RARITY_NAMES[r]}: ${pct(OFFER_ODDS[sp][k])}`).join('\n'),
+      footer: p.sp >= sp ? 'Bu haftanın skill hakkını kullanır.' : 'SP yetersiz.',
       disabled: p.sp < sp,
     })), true, true);
     if (i < 0) return;

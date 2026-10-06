@@ -568,7 +568,14 @@ export class Player {
       }
       case 'cast': {
         body.setVelocity(0, 0);
-        if (this.stateT > 0.45) {
+        // Karşı Saldırı duruşu sürerken yerinde kalır; kaçış duruşu bozar
+        if (this.parryT > 0 && Input.consume('dodge')) {
+          this.parryT = 0;
+          this.setState('free');
+          this.tryDodge();
+          break;
+        }
+        if (this.stateT > 0.45 && this.parryT <= 0) {
           this.setState('free');
           a.play('idle');
         }
