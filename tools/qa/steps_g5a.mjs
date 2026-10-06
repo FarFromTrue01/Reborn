@@ -162,9 +162,11 @@ export default async ({ page, wait, shot, evalG }) => {
     const gid = await W(() => { const w = window.__game.scene.getScene('World'); const g = w.npc('guard_hob') ?? w.npc('guard_wil'); const p = w.player.actor; if (g) { p.setPosition(g.x + 40, g.y); p.body2.reset(p.x, p.y); } return g?.def.id; });
     log('  muhafız:', gid);
     await W((gid) => { const w = window.__game.scene.getScene('World'); w.director.talk(w.npc(gid)); }, gid);
-    let walkSamples = 0, idleMoving = 0, facingBack = 0, shotDone = false;
+    let walkSamples = 0, idleMoving = 0, facingBack = 0, shotDone = false, maxGap = 0;
     await h.run([3], 600, async () => {
-      const r = await W((gid) => { const w = window.__game.scene.getScene('World'); const n = w.npc(gid); if (!n) return null; const v = n.actor.body2.velocity; const sp = Math.hypot(v.x, v.y); const d = n.actor.dir; const dirOk = Math.abs(v.x) > Math.abs(v.y) ? (v.x > 0 ? d === 'right' : d === 'left') : (v.y > 0 ? d === 'down' : d === 'up'); return { sp, anim: n.actor.anim, dirOk }; }, gid);
+      const r = await W((gid) => { const w = window.__game.scene.getScene('World'); const n = w.npc(gid); if (!n) return null; const v = n.actor.body2.velocity; const sp = Math.hypot(v.x, v.y); const d = n.actor.dir; const dirOk = Math.abs(v.x) > Math.abs(v.y) ? (v.x > 0 ? d === 'right' : d === 'left') : (v.y > 0 ? d === 'down' : d === 'up'); const p = w.player.actor; return { sp, anim: n.actor.anim, dirOk, gap: Math.hypot(n.x - p.x, n.y - p.y) / 32, g: [Math.round(n.x / 32), Math.round(n.y / 32)], j: [Math.round(p.x / 32), Math.round(p.y / 32)], t: Math.round(w.time.now) }; }, gid);
+      if (r && process.env.TRACE) log('   ', JSON.stringify(r));
+      if (r && r.sp >= 20) maxGap = Math.max(maxGap, r.gap);
       if (!r || r.sp < 20) return;
       walkSamples++;
       if (r.anim !== 'walk') idleMoving++;
@@ -173,6 +175,8 @@ export default async ({ page, wait, shot, evalG }) => {
     });
     log(`  yürürken örnek ${walkSamples}: idle'da kayma ${idleMoving}, yön ters ${facingBack}`);
     check(walkSamples > 3 && idleMoving === 0 && facingBack <= 1, 'B6: muhafız yürüme animasyonuyla, önüne bakarak yürüdü');
+    const after = await W(() => { const w = window.__game.scene.getScene('World'); const wn = w.pointsOf('world').wash_line; const p = w.player.actor; return Math.hypot(p.x / 32 - wn.x, p.y / 32 - wn.y); });
+    check(after < 6 && maxGap < 8, `B6: Joseph muhafızı izledi (çamaşır iplerine ${after.toFixed(1)} karo, yürürken en büyük ara ${maxGap.toFixed(1)})`);
   }
 
   // ================================================================ B13: servis mini oyunu

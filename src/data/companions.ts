@@ -5,7 +5,7 @@
  * 0.8.0 (C6): yoldaşlar Joseph'e yardım eder, işini yapmaz. Değirmen bodrumunda Vera ve Lina her vuruşta bir dev
  * fare öldürüyordu (Vera ~6–15, Dev Fare 3 HP). Hasar çarpanı, daha uzun bekleme, görünür hazırlanma ve Joseph'in o
  * an vurduğu düşmanı bitirmekten kaçınma (bkz. companionTargetScore). Çarpan ×0,35 ile başladı; QA ölçümünde (C8
- * sonrası Vera STR 8, Lina DEX 8) Joseph vurmadan bodrum 12,4 sn'de temizlendi; ×0,25'te 10,3 sn (Vera bir dev
+ * sonrası Vera STR 8, Lina DEX 8) Joseph vurmadan bodrum 12,4 sn'de temizlendi; ×0,25'te 11,5 sn (Vera bir dev
  * fareyi hâlâ %45 olasılıkla tek vuruşta öldürüyordu) → ×0,15 (ölçümler PLAN.md'de).
  */
 export const COMPANION_DMG_MULT = 0.15;

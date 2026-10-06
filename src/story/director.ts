@@ -59,6 +59,14 @@ function drive(actor: any): () => void {
   };
 }
 
+/**
+ * Ara noktaya varış yarıçapı (px): bir karede alınan yoldan büyük olmalı. Yavaş karelerde (düşük FPS) aktör ara
+ * noktanın üstünden atlayıp çevresinde gidip geliyordu; sahne süresi dolunca da hedefe ışınlanıyordu (0.8.0).
+ */
+function arriveR(scene: Phaser.Scene, pxPerSec: number, min: number): number {
+  return Math.min(TILE, Math.max(min, pxPerSec * (scene.game.loop.delta / 1000) * 1.2));
+}
+
 export class Director {
   musicOverride = false;
   /** Bölüm II akışı. */
@@ -127,7 +135,9 @@ export class Director {
       const step = () => {
         const dx = gx - actor.x, dy = gy - actor.y;
         const d = Math.hypot(dx, dy);
-        if (d < 3) {
+        if (d < arriveR(this.w, speed * TILE, 3)) {
+          actor.setPosition(gx, gy);
+          actor.body2?.reset(gx, gy);
           actor.body2?.setVelocity(0, 0);
           actor.play('idle');
           ev.remove();
@@ -195,7 +205,7 @@ export class Director {
           }
           const dx = wx - actor.x, dy = wy - actor.y;
           const d = Math.hypot(dx, dy);
-          if (d < 5) {
+          if (d < arriveR(this.w, speed * TILE, 5)) {
             path.shift();
             return;
           }
@@ -255,7 +265,7 @@ export class Director {
           const wx = px * TILE + 16, wy = py * TILE + 22;
           const dx = wx - actor.x, dy = wy - actor.y;
           const dd = Math.hypot(dx, dy);
-          if (dd < 5) {
+          if (dd < arriveR(this.w, 3.6 * TILE, 5)) {
             path.shift();
             return;
           }
