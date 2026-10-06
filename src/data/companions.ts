@@ -1,6 +1,25 @@
 // Yoldaş tanımları (C4). Yeni bir yoldaş eklemek için NPC kaydı (npcs.ts) + buraya bir satır yeterli.
 // İstatistikler NPC'nin kendi Creature verisinden gelir; burada yalnızca davranış ve laflar var.
 
+/**
+ * 0.8.0 (C6): yoldaşlar Joseph'e yardım eder, işini yapmaz. Değirmen bodrumunda Vera ve Lina her vuruşta bir dev
+ * fare öldürüyordu (Vera ~6–15, Dev Fare 3 HP). Hasar çarpanı, daha uzun bekleme, görünür hazırlanma ve Joseph'in o
+ * an vurduğu düşmanı bitirmekten kaçınma (bkz. companionTargetScore).
+ */
+export const COMPANION_DMG_MULT = 0.35;
+export const COMPANION_COOLDOWN: [number, number] = [2.2, 2.8];
+export const COMPANION_WINDUP = 0.4;
+/** Joseph'in bu kadar saniye içinde vurduğu düşman "onun hedefi" sayılır. */
+export const JOSEPH_TARGET_SEC = 2.5;
+
+/**
+ * Hedef puanı (küçük = önce): uzaklık; kendisine saldıran −2; Joseph'in o an vurduğu düşman +6 (başka hedef
+ * varsa ona gider, yoksa yine yardım eder).
+ */
+export function companionTargetScore(distTiles: number, attacksMe: boolean, josephsTarget: boolean): number {
+  return distTiles + (attacksMe ? -2 : 0) + (josephsTarget ? 6 : 0);
+}
+
 export interface CompanionDef {
   id: string;
   /** melee: yanaşıp vurur, yandan sarar. archer: mesafe korur, geri çekilerek ok atar. */

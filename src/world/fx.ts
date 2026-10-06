@@ -9,25 +9,27 @@ export class FX {
   /** Dünya koordinatında yazı (hasar sayısı vb.). Kamera zoom'una göre keskin çizilir. */
   number(x: number, y: number, text: string, kind: 'dmg' | 'crit' | 'miss' | 'hurt' | 'heal' | 'exp' | 'info' | 'sneak' | 'divine' = 'dmg') {
     const z = this.scene.cameras.main.zoom;
+    // 0.8.0 (C4): Pixelify kalın 13 px + 3'lük dış çizgide 5'in boşlukları kapanıyor, 0,5 "0,8" gibi okunuyordu.
+    // Sayılar Alegreya Sans kalın, biraz büyük ve 2'lik dış çizgiyle (0,3 / 0,5 / 0,6 / 0,8 / 0,9 ayrışır).
     const styles: Record<string, { size: number; color: string; italic?: boolean; stroke: string }> = {
-      dmg: { size: 13, color: '#ffffff', stroke: '#2a1a10' },
-      crit: { size: 19, color: '#ffd23a', stroke: '#5a1a00' },
-      miss: { size: 11, color: '#c8d0e0', italic: true, stroke: '#1a1f2a' },
-      hurt: { size: 14, color: '#ff5a4a', stroke: '#2a0505' },
-      heal: { size: 13, color: '#7dff8a', stroke: '#0a2a10' },
-      exp: { size: 10, color: '#bfe4ff', stroke: '#0a1a2a' },
-      info: { size: 10, color: '#f0e6c8', stroke: '#1a140a' },
-      sneak: { size: 12, color: '#d9a8ff', stroke: '#200a2a' },
-      divine: { size: 11, color: '#ffe9a0', stroke: '#3a2a00' },
+      dmg: { size: 16, color: '#ffffff', stroke: '#2a1a10' },
+      crit: { size: 21, color: '#ffd23a', stroke: '#5a1a00' },
+      miss: { size: 12, color: '#c8d0e0', italic: true, stroke: '#1a1f2a' },
+      hurt: { size: 17, color: '#ff5a4a', stroke: '#2a0505' },
+      heal: { size: 16, color: '#7dff8a', stroke: '#0a2a10' },
+      exp: { size: 12, color: '#bfe4ff', stroke: '#0a1a2a' },
+      info: { size: 12, color: '#f0e6c8', stroke: '#1a140a' },
+      sneak: { size: 13, color: '#d9a8ff', stroke: '#200a2a' },
+      divine: { size: 13, color: '#ffe9a0', stroke: '#3a2a00' },
     };
     const s = styles[kind];
     const t = this.scene.add.text(x, y, text, {
-      fontFamily: kind === 'miss' ? FONT.body : FONT.pixel,
+      fontFamily: kind === 'miss' ? FONT.body : FONT.ui,
       fontSize: `${s.size}px`,
       color: s.color,
       fontStyle: s.italic ? 'italic bold' : 'bold',
       stroke: s.stroke,
-      strokeThickness: 3,
+      strokeThickness: 2,
     });
     t.setResolution(z * (Display.dpr > 1 ? 1 : 1));
     t.setOrigin(0.5, 1).setDepth(950000);

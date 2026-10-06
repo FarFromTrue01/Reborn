@@ -25,13 +25,14 @@ export const MOVE_SPEED_CAP = 1.6;
 export const DEBUFF_REDUCTION_CAP = 0.75;
 
 /**
- * Stat tabanları: trait ilk saatlerde ceza olmasın diye Hız ve Dayanıklılık 1'in, Adaptasyon 0,75'in altına inmez.
- * Güç ve Öğrenme ham katsayıdır. Level 3'ten (katsayı 1,14) itibaren beşi de aynı eğride ilerler.
+ * Stat tabanları: Hız, Dayanıklılık ve Adaptasyon 0,75'in altına inmez (0.8.0: Hız ve Dayanıklılık 1 → 0,75; Hız
+ * saldırı hızını da çarpar, fareler fazla zararsızdı). Güç ve Öğrenme ham katsayıdır. Level 3'ten (katsayı 1,14)
+ * itibaren beşi de aynı eğride ilerler.
  */
 export const DIVINE_STAT_FLOOR: Record<DivineStat, number> = {
   power: 0,
-  endurance: 1,
-  speed: 1,
+  endurance: 0.75,
+  speed: 0.75,
   learning: 0,
   adaptation: 0.75,
 };

@@ -50,11 +50,11 @@ describe('Divine stat tabanları', () => {
       expect(divineStat(s, 3)).toBeCloseTo(1.14, 2);
     }
   });
-  it('Hız ve Dayanıklılık max(1; katsayı): 1 · 1 · 1 · 1,14', () => {
+  it('Hız ve Dayanıklılık max(0,75; katsayı) (0.8.0): 0,75 · 0,75 · 0,75 · 1,14', () => {
     for (const s of ['speed', 'endurance'] as const) {
-      expect(divineStat(s, 0)).toBe(1);
-      expect(divineStat(s, 1)).toBe(1);
-      expect(divineStat(s, 2)).toBe(1);
+      expect(divineStat(s, 0)).toBe(0.75);
+      expect(divineStat(s, 1)).toBe(0.75);
+      expect(divineStat(s, 2)).toBeCloseTo(0.75, 5);
       expect(divineStat(s, 3)).toBeCloseTo(1.14, 2);
     }
   });
@@ -156,8 +156,8 @@ describe('Divine EXP: antrenman', () => {
 });
 
 describe('Hız ve adaptasyon sınırları', () => {
-  it('Toplam hareket çarpanı en fazla 1.6x, fazlası taşar; L0 Joseph tam hızda', () => {
-    expect(movementWithDivine(1, divineStat('speed', 0)).move).toBe(1);
+  it('Toplam hareket çarpanı en fazla 1.6x, fazlası taşar; L0 Joseph 0,75 (0.8.0)', () => {
+    expect(movementWithDivine(1, divineStat('speed', 0)).move).toBe(0.75);
     const m = movementWithDivine(1.5, 1.5);
     expect(m.move).toBe(1.6);
     expect(m.overflow).toBeCloseTo(0.65);

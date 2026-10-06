@@ -9,7 +9,7 @@ import { derive, type Derived } from '../core/creature';
 import { applyDamage } from '../core/formulas';
 import { fmtHp } from '../ui/format';
 import type { CreatureData } from '../core/types';
-import { COMPANIONS, type CompanionDef } from '../data/companions';
+import { COMPANIONS, COMPANION_COOLDOWN, COMPANION_WINDUP, JOSEPH_TARGET_SEC, companionTargetScore, type CompanionDef } from '../data/companions';
 import { NPC_BY_ID, type NpcDef } from '../data/npcs';
 import { findPath, nearestFree, pathBudget } from './path';
 import { BASE_SPEED } from './player';
@@ -188,8 +188,8 @@ export class Companion {
       const dp = Math.hypot(e.x - pa.x, e.y - pa.y) / TILE;
       if (dp > 11) continue;
       const dm = Math.hypot(e.x - this.x, e.y - this.y) / TILE;
-      // kendisine saldırana öncelik
-      const score = dm + (e.foe === this ? -2 : 0);
+      // kendisine saldırana öncelik; Joseph'in o an vurduğu düşmanı bitirmeyi tercih etme
+      const score = companionTargetScore(dm, e.foe === this, this.w.time.now / 1000 - e.josephHitAt < JOSEPH_TARGET_SEC);
       if (score < bd) {
         bd = score;
         best = e;
@@ -335,6 +335,15 @@ export class Companion {
           this.setState('follow');
           break;
         }
+        // vuruşa hazırken hedefi yeniden seç (Joseph o düşmana yeni vurmuş olabilir)
+        if (this.cooldownT <= 0 && this.stateT > 0.2) {
+          const t = this.chooseTarget();
+          if (t && t !== e) {
+            this.target = t;
+            this.stateT = 0;
+            break;
+          }
+        }
         const de = Math.hypot(e.x - this.x, e.y - this.y) / TILE;
         if (this.cdef.role === 'melee') {
           const reach = 1.15 + e.actor.bodyR / TILE;
@@ -388,10 +397,12 @@ export class Companion {
           break;
         }
         a.face(dirFromVec(e.x - this.x, e.y - this.y));
-        const wt = this.cdef.role === 'melee' ? 0.28 : 0.4;
+        // görünür hazırlanma: 0,4 sn (animasyon yavaş oynar, ilk anda hafif parlar)
+        const wt = COMPANION_WINDUP;
         if (!this.swung) {
           this.swung = true;
-          a.play(this.cdef.role === 'melee' ? 'slash' : 'shoot', { loop: false, restart: true, speed: this.cdef.role === 'melee' ? 1.2 : 1.6 });
+          a.play(this.cdef.role === 'melee' ? 'slash' : 'shoot', { loop: false, restart: true, speed: this.cdef.role === 'melee' ? 0.85 : 1.2 });
+          a.flash(0xfff2c0, 0.12);
         }
         if (this.stateT >= wt) this.strike(e);
         break;
@@ -411,7 +422,7 @@ export class Companion {
 
   strike(e: Enemy) {
     this.setState('strike');
-    this.cooldownT = this.cdef.role === 'melee' ? 1.15 + Math.random() * 0.35 : 1.5 + Math.random() * 0.4;
+    this.cooldownT = COMPANION_COOLDOWN[0] + Math.random() * (COMPANION_COOLDOWN[1] - COMPANION_COOLDOWN[0]);
     const v = new Phaser.Math.Vector2(e.x - this.x, e.y - this.y).normalize();
     if (this.cdef.role === 'melee') {
       this.w.fx.slashArc(this.x + v.x * 16, this.y - 14 + v.y * 16, v.angle(), 0xffe0c0, 0.9);

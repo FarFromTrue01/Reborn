@@ -130,14 +130,14 @@ describe('İlk dövüşler', () => {
     j.equipment.weapon = 'cracked_stick';
     expect(hitsToKill(rat.maxHp, hit(derive(j, { level: 0 }), 0, rat, 2))).toBe(1);
   });
-  it('Joseph 5 HP: fare 5 ısırıkta, dev fare 3–5 ısırıkta öldürür', () => {
+  it('Joseph 5 HP: fare 4 ısırıkta (0.8.0: Dayanıklılık 0,75), dev fare 2–4 ısırıkta öldürür', () => {
     const j = joseph();
     expect(j.maxHp).toBe(5);
     const rat = derive(createMonster('rat', Math.random, 0));
-    expect(hitsToKill(j.maxHp, hit(rat, 0, j, 1))).toBe(5);
+    expect(hitsToKill(j.maxHp, hit(rat, 0, j, 1))).toBe(4);
     const gr = derive(createMonster('giant_rat', Math.random, 1));
-    expect(hitsToKill(j.maxHp, hit(gr, 1, j, 2))).toBe(3);
-    expect(hitsToKill(j.maxHp, hit(gr, 1, j, 1))).toBe(5);
+    expect(hitsToKill(j.maxHp, hit(gr, 1, j, 2))).toBe(2);
+    expect(hitsToKill(j.maxHp, hit(gr, 1, j, 1))).toBe(4);
   });
   it('Level başına 6 stat puanı, 1 SP', () => {
     expect(STAT_POINTS_PER_LEVEL).toBe(6);

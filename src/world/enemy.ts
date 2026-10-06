@@ -50,6 +50,8 @@ export class Enemy {
   /** C4: saldırdığı yoldaş (null = Joseph). */
   foe: Companion | null = null;
   foeT = 0;
+  /** Joseph'in bu düşmana son vuruşu (sahne zamanı, sn): yoldaşlar onun hedefini bitirmeyi tercih etmez (0.8.0). */
+  josephHitAt = -99;
 
   constructor(public w: WorldScene, monsterId: string, x: number, y: number, spawnId: string, level?: number) {
     this.def = MONSTERS[monsterId];

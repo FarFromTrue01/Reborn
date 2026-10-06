@@ -88,3 +88,16 @@ export function corneredStep(s: CorneredState, cfg: CorneredConfig, distTiles: n
   }
   return false;
 }
+
+/** 0.8.0 (C5): kaçışın dayanıklılık bedeli (dodgeCostMult yine uygulanır; eskiden 20). */
+export const DODGE_COST = 7.5;
+/** İki kaçış arasında en az bu kadar saniye (mükemmel kaçış penceresini etkilemez). */
+export const DODGE_COOLDOWN = 0.8;
+
+/** Kaçış yapılabilir mi: bekleme bitti ve dayanıklılık yeterli. */
+export function dodgeReady(now: number, lastDodge: number, stamina: number, costMult = 1): { ok: boolean; cost: number; reason: 'cooldown' | 'stamina' | null } {
+  const cost = DODGE_COST * costMult;
+  if (now - lastDodge < DODGE_COOLDOWN) return { ok: false, cost, reason: 'cooldown' };
+  if (stamina < cost) return { ok: false, cost, reason: 'stamina' };
+  return { ok: true, cost, reason: null };
+}

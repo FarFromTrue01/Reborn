@@ -133,7 +133,7 @@ const list: MonsterDef[] = [
     drops: [{ id: 'rabbit_meat', chance: 0.85 }, { id: 'rabbit_pelt', chance: 0.12 }],
     special: { id: 'rabbit_charm', chance: 0.02 },
     // Saldırı değerleri yalnızca köşeye sıkışınca kullanılır.
-    behavior: 'flee', speed: 4.2, sight: 4.5, fov: 360, attackRange: 0.8, windup: 0.55, cooldown: 1.8,
+    behavior: 'flee', speed: 3.5, sight: 4.5, fov: 360, attackRange: 0.8, windup: 0.55, cooldown: 1.8,
     cornered: { after: 8, range: 3, calm: 5, calmRange: 5 },
     rank: 'G-', sprite: 'm_rabbit', attack: 'melee', radius: 0.3,
     desc: 'Ürkek ve çevik. Saldırmaz ama yakalamak zordur. Köşeye sıkışırsa tekme atar.',

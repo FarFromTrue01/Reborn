@@ -1,5 +1,8 @@
 // Joseph'in kontrolcüsü.
 import Phaser from 'phaser';
+import { dodgeReady } from '../core/combat';
+import { BASE_SPEED as MV_BASE, JOSEPH_WALK_MULT, RUN_MULT, naturalWalk, walkSetting } from '../core/movement';
+import { MOVE_SPEED_CAP } from '../core/divine';
 import { Actor, dirFromVec, dirVec, type Dir } from './actor';
 import { G } from '../game/G';
 import { Input } from '../game/input';
@@ -18,7 +21,8 @@ import type { EvadeCost } from '../core/combat';
 
 export type PState = 'free' | 'attack' | 'heavy' | 'dodge' | 'hurt' | 'dead' | 'cast' | 'locked' | 'dash' | 'draw';
 
-export const BASE_SPEED = 5.2; // kare/saniye (1.0x insanda)
+// kare/saniye (1.0x insanda); yoldaşlar da kullanır. Joseph'in ⅔ yürüme çarpanı core/movement'ta (0.8.0).
+export { BASE_SPEED } from '../core/movement';
 
 /** Savaş/saldırı olmadan silahın sırta konmasına kadar geçen süre (sn); güvenli yerde daha kısa. */
 export const SHEATHE_AFTER = 6;
@@ -428,10 +432,11 @@ export class Player {
         const wantRun = (Input.run || (Input.touchMove && mlen > RUN_THRESHOLD)) && mlen > 0.2 && this.burden >= 1;
         // Kilit, istek bırakılınca ya da dayanıklılık tamamen dolunca kalkar (joystick sonda kalırsa yeniden koşar).
         this.running = runStep(this.runLock, wantRun, p.stamina, d.maxStamina);
-        // Ayarlardaki "Karakter hızı" yalnızca yürüme/koşmayı çarpar (Divine Hız hesabına dokunmaz)
-        let sp = BASE_SPEED * TILE * d.moveSpeed * mlen * (G.settings.moveSpeed ?? 1) * this.burden;
+        // 0.8.0: yalnızca Joseph'e ⅔ yürüme çarpanı; Ayarlar → Hareket hızı yalnızca yavaşlatabilir (çarpan ≤ 1)
+        const walk = walkSetting(naturalWalk(d.moveSpeed), G.settings.walkSpeed);
+        let sp = MV_BASE * TILE * d.moveSpeed * JOSEPH_WALK_MULT * mlen * walk.mult * this.burden;
         if (this.running) {
-          sp *= 1.6;
+          sp *= RUN_MULT;
           p.stamina = Math.max(0, p.stamina - 11 * d.runCostMult * dt);
           if (p.stamina <= 0) {
             this.runLock.exhausted = true;
@@ -449,7 +454,7 @@ export class Player {
           body.setVelocity((mx / Math.max(mlen, 0.001)) * sp, (my / Math.max(mlen, 0.001)) * sp);
           a.face(dirFromVec(mx, my, a.dir));
           a.play(this.running ? 'run' : 'walk');
-          a.animSpeed = Math.max(0.5, sp / (BASE_SPEED * TILE * 0.5) * 0.9) * (this.running ? 0.75 : 1);
+          a.animSpeed = Math.max(0.5, sp / (MV_BASE * TILE * JOSEPH_WALK_MULT * 0.5) * 0.9) * (this.running ? 0.75 : 1);
           this.stepT -= dt * (this.running ? 1.6 : 1);
           if (this.stepT <= 0) {
             this.stepT = 0.32;
@@ -511,7 +516,9 @@ export class Player {
       case 'dash': {
         const dur = this.state === 'dash' ? 0.18 : 0.32;
         const k = 1 - this.stateT / dur;
-        const sp = (this.state === 'dash' ? 13 : 7.2) * TILE * (0.4 + 0.6 * k) * Math.max(0.75, Math.sqrt(d.moveSpeed));
+        // kaçış mesafesi 0.8.0'daki hız düşüşünden etkilenmez: Divine Hız'ın eski tabanıyla (1) hesaplanır
+        const dodgeMove = Math.min(MOVE_SPEED_CAP, (d.moveSpeed / Math.max(0.01, d.divSpeed)) * Math.max(1, d.divSpeed));
+        const sp = (this.state === 'dash' ? 13 : 7.2) * TILE * (0.4 + 0.6 * k) * Math.max(0.75, Math.sqrt(dodgeMove));
         body.setVelocity(this.dodgeVec.x * sp, this.dodgeVec.y * sp);
         if (Math.floor(this.stateT / 0.05) !== Math.floor((this.stateT - dt) / 0.05)) this.w.fx.ghost(a, this.state === 'dash' ? 0xffe9a0 : 0x9fd6ff);
         if (this.stateT >= dur) {
@@ -534,8 +541,11 @@ export class Player {
 
   tryDodge() {
     const p = G.p;
-    const cost = 20 * this.d.dodgeCostMult;
-    if (p.stamina < cost) {
+    // 0.8.0: bedel 7,5 (× dodgeCostMult), iki kaçış arasında 0,8 sn bekleme
+    const r = dodgeReady(this.t, this.dodgeStart, p.stamina, this.d.dodgeCostMult);
+    const cost = r.cost;
+    if (r.reason === 'cooldown') return;
+    if (!r.ok) {
       this.w.fx.number(this.actor.x, this.actor.y - 50, 'Yorgun!', 'miss');
       Sound.sfx('error', 0.4);
       return;

@@ -6,7 +6,7 @@ import * as R from '../game/rules';
 import { Q } from '../game/questrt';
 import { COLORS, FONT, txt, Button, uiIcon } from './kit';
 import { ScrollList } from './panels';
-import { STAT_KEYS } from '../core/formulas';
+import { STAT_KEYS, STAT_POINTS_PER_LEVEL, SP_PER_LEVEL } from '../core/formulas';
 import { SKILLS } from '../data/skills';
 import { SUBRANK_MAX, subRankToString, skillThreshold } from '../core/ranks';
 import { canonicalCoins, emptyWallet, walletTotal } from '../core/money';
@@ -51,7 +51,7 @@ export function renderDevPanel(scene: Scn, c: Phaser.GameObjects.Container, w: n
   rowLabel(`Level ${p.level} · EXP ${fmtExp(p.exp)}`);
   let x = 260;
   x = btn(x, '−1', () => (p.level = Math.max(0, p.level - 1)));
-  x = btn(x, '+1', () => { p.level++; p.unspent += 4; p.sp += 1; });
+  x = btn(x, '+1', () => { p.level++; p.unspent += STAT_POINTS_PER_LEVEL; p.sp += SP_PER_LEVEL; });
   x = btn(x, '+50 EXP', () => R.gainExp(50), 100);
   y += 44;
   for (const k of STAT_KEYS) {

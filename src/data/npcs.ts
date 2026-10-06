@@ -142,7 +142,7 @@ const RAW_NPCS: Omit<NpcDef, 'schedule' | 'title'>[] = [
   // ======================================================================= ANA KARAKTERLER
   {
     id: 'bertram', name: 'Bertram', sheet: 'bertram', voice: 'bertram', portrait: 'bertram', personality: 'neutral', caste: 'burgher', shop: 'inn', role: 'inn',
-    creature: creature('bertram', 'Bertram', 'İnsan', 'Erkek', 54, 9, { STR: 12, VIT: 10, AGI: 3, DEX: 7, INT: 2, LUK: 2 }, {
+    creature: creature('bertram', 'Bertram', 'İnsan', 'Erkek', 54, 9, { STR: 18, VIT: 15, AGI: 4, DEX: 11, INT: 3, LUK: 3 }, {
       appraisal: 'F', skills: [['sword_mastery', 'E+'], ['first_aid', 'F'], ['athletics', 'F-']], titles: ['npc_retired'],
       guildRank: parseSubRank('E'), traits: ['iron_liver'], equipment: { pants: 'linen_pants', boots: 'leather_boots' },
       inventory: { bread: 12, hot_stew: 6, rabbit_meat: 3 },
@@ -155,7 +155,7 @@ const RAW_NPCS: Omit<NpcDef, 'schedule' | 'title'>[] = [
   },
   {
     id: 'vera', name: 'Vera', sheet: 'vera', voice: 'vera', portrait: 'vera', personality: 'proud', caste: 'commoner',
-    creature: creature('vera', 'Vera', 'İnsan', 'Kadın', 19, 3, { STR: 5, VIT: 3, AGI: 2, DEX: 2 }, {
+    creature: creature('vera', 'Vera', 'İnsan', 'Kadın', 19, 3, { STR: 8, VIT: 4, AGI: 3, DEX: 3 }, {
       appraisal: 'F-', skills: [['sword_mastery', 'G+', 9], ['athletics', 'G', 4]], titles: ['npc_redblade'], guildRank: parseSubRank('F-'),
       equipment: { weapon: 'iron_shortsword', chest: 'leather_vest', pants: 'sturdy_pants', boots: 'leather_boots' },
       inventory: { hp_potion_s: 2, bread: 1 }, traits: ['silver_tongue'],
@@ -173,7 +173,7 @@ const RAW_NPCS: Omit<NpcDef, 'schedule' | 'title'>[] = [
   },
   {
     id: 'lina', name: 'Lina', sheet: 'lina', voice: 'lina', portrait: 'lina', personality: 'gossip', caste: 'commoner',
-    creature: creature('lina', 'Lina', 'Beastkin (Kedi Soylu)', 'Kadın', 18, 3, { DEX: 5, AGI: 4, VIT: 2, LUK: 1 }, {
+    creature: creature('lina', 'Lina', 'Beastkin (Kedi Soylu)', 'Kadın', 18, 3, { DEX: 8, AGI: 6, VIT: 3, LUK: 1 }, {
       appraisal: 'F-', skills: [['archery', 'G+', 11], ['stealth', 'G', 6]], titles: ['npc_sharpeye'], guildRank: parseSubRank('F-'),
       equipment: { weapon: 'hunter_bow', chest: 'leather_vest', pants: 'linen_pants', boots: 'leather_boots' },
       inventory: { apple: 3, rabbit_pelt: 1 }, traits: ['keen_ears'],
@@ -191,7 +191,7 @@ const RAW_NPCS: Omit<NpcDef, 'schedule' | 'title'>[] = [
   },
   {
     id: 'celeste', name: 'Celeste', sheet: 'celeste', voice: 'celeste', portrait: 'celeste', personality: 'proud', caste: 'burgher', role: 'guild',
-    creature: creature('celeste', 'Celeste', 'İnsan', 'Kadın', 22, 4, { INT: 6, MNA: 4, DEX: 3, AGI: 3 }, {
+    creature: creature('celeste', 'Celeste', 'İnsan', 'Kadın', 22, 4, { INT: 9, MNA: 6, DEX: 4, AGI: 5 }, {
       appraisal: 'E', skills: [['first_aid', 'F-']], titles: ['npc_reader'], equipment: { boots: 'cloth_shoes', necklace: 'rabbit_charm' },
       inventory: { mp_potion_s: 1 },
     }),
@@ -207,7 +207,7 @@ const RAW_NPCS: Omit<NpcDef, 'schedule' | 'title'>[] = [
   // ======================================================================= ESNAF
   {
     id: 'smith', name: 'Gunnar', sheet: 'smith', voice: 'gruff', portrait: 'smith', personality: 'neutral', caste: 'burgher', shop: 'smith', role: 'smith',
-    creature: creature('smith', 'Gunnar', 'İnsan', 'Erkek', 41, 5, { STR: 9, VIT: 6, DEX: 4, AGI: 1 }, {
+    creature: creature('smith', 'Gunnar', 'İnsan', 'Erkek', 41, 5, { STR: 14, VIT: 9, DEX: 6, AGI: 1 }, {
       appraisal: 'G+', titles: ['npc_smith'], equipment: { gloves: 'leather_gloves', boots: 'leather_boots' }, inventory: { firewood: 8 },
     }),
     bubbles: { any: ['Demir sıcakken dövülür.', 'Kömür yine pahalanmış.'], naked: ['Önce bir pantolon al, evlat. Sonra kılıç.'] },
@@ -219,7 +219,7 @@ const RAW_NPCS: Omit<NpcDef, 'schedule' | 'title'>[] = [
   },
   {
     id: 'shopkeeper', name: 'Marta', sheet: 'shopkeeper', voice: 'female', portrait: 'shopkeeper', personality: 'neutral', caste: 'burgher', shop: 'shop', role: 'shop',
-    creature: creature('shopkeeper', 'Marta', 'İnsan', 'Kadın', 36, 2, { INT: 3, LUK: 3, DEX: 2 }, { appraisal: 'G+', equipment: { ring1: 'copper_ring' } }),
+    creature: creature('shopkeeper', 'Marta', 'İnsan', 'Kadın', 36, 2, { INT: 5, LUK: 4, DEX: 3 }, { appraisal: 'G+', equipment: { ring1: 'copper_ring' } }),
     bubbles: { any: ['Taze ekmek, ucuz sargı!', 'İp, mum, tuz... ne lazımsa.'], naked: ['Aman! Dükkânıma öyle girme!'] },
     talk: {
       naked: ['Önce üstüne bir şey giy, sonra konuşalım. Müşterilerim kaçıyor.'],
@@ -229,7 +229,7 @@ const RAW_NPCS: Omit<NpcDef, 'schedule' | 'title'>[] = [
   },
   {
     id: 'healer', name: 'Ilse Nine', sheet: 'healer', voice: 'female_old', portrait: 'healer', personality: 'kind', caste: 'burgher', shop: 'healer', role: 'healer',
-    creature: creature('healer', 'Ilse', 'İnsan', 'Kadın', 67, 6, { INT: 8, MNA: 8, VIT: 4, LUK: 4 }, {
+    creature: creature('healer', 'Ilse', 'İnsan', 'Kadın', 67, 6, { INT: 12, MNA: 12, VIT: 6, LUK: 6 }, {
       appraisal: 'F', skills: [['healing_magic', 'E-'], ['first_aid', 'D-'], ['gathering', 'E']], inventory: { herb: 20, hp_potion_s: 5 },
     }),
     bubbles: { any: ['Bu otlar kendiliğinden kurumaz.', 'Rüzgâr değişti. Öksürük mevsimi.'], naked: ['Üşüteceksin evladım, bir şey giy.'] },
@@ -240,7 +240,7 @@ const RAW_NPCS: Omit<NpcDef, 'schedule' | 'title'>[] = [
   },
   {
     id: 'hunter', name: 'Garrick', sheet: 'hunter', voice: 'male', portrait: 'hunter', personality: 'shy', caste: 'commoner', shop: 'lodge', role: 'teacher',
-    creature: creature('hunter', 'Garrick', 'İnsan', 'Erkek', 33, 6, { DEX: 9, AGI: 7, STR: 3, LUK: 5 }, {
+    creature: creature('hunter', 'Garrick', 'İnsan', 'Erkek', 33, 6, { DEX: 14, AGI: 11, STR: 4, LUK: 7 }, {
       appraisal: 'G+', skills: [['archery', 'E'], ['stealth', 'F'], ['gathering', 'F']], guildRank: parseSubRank('F+'),
       equipment: { weapon: 'hunter_bow', chest: 'leather_vest', boots: 'leather_boots' }, inventory: { rabbit_pelt: 4, wolf_pelt: 1 },
     }),
@@ -253,7 +253,7 @@ const RAW_NPCS: Omit<NpcDef, 'schedule' | 'title'>[] = [
   // ======================================================================= MUHAFIZLAR
   {
     id: 'guard_hob', name: 'Muhafız Hob', sheet: 'guard', voice: 'male', portrait: 'guard', personality: 'neutral', caste: 'burgher', role: 'guard',
-    creature: creature('guard_hob', 'Hob', 'İnsan', 'Erkek', 29, 4, { STR: 5, VIT: 6, AGI: 3, DEX: 2 }, {
+    creature: creature('guard_hob', 'Hob', 'İnsan', 'Erkek', 29, 4, { STR: 8, VIT: 9, AGI: 4, DEX: 3 }, {
       appraisal: 'G', skills: [['spear_mastery', 'G+']], titles: ['npc_watch'], equipment: { weapon: 'iron_spear', helmet: 'iron_cap', chest: 'padded_armor', boots: 'leather_boots' },
     }),
     bubbles: {
@@ -270,7 +270,7 @@ const RAW_NPCS: Omit<NpcDef, 'schedule' | 'title'>[] = [
   },
   {
     id: 'guard_wil', name: 'Muhafız Wilmer', sheet: 'guard2', voice: 'gruff', portrait: 'guard2', personality: 'rude', caste: 'burgher', role: 'guard',
-    creature: creature('guard_wil', 'Wilmer', 'İnsan', 'Erkek', 35, 5, { STR: 7, VIT: 6, AGI: 2, DEX: 3, LUK: 2 }, {
+    creature: creature('guard_wil', 'Wilmer', 'İnsan', 'Erkek', 35, 5, { STR: 11, VIT: 9, AGI: 3, DEX: 4, LUK: 3 }, {
       appraisal: 'G', skills: [['spear_mastery', 'F-']], equipment: { weapon: 'iron_spear', helmet: 'iron_cap', chest: 'padded_armor', boots: 'hobnail_boots' },
     }),
     bubbles: {
@@ -287,7 +287,7 @@ const RAW_NPCS: Omit<NpcDef, 'schedule' | 'title'>[] = [
   },
   {
     id: 'captain', name: 'Kaptan Roderick', sheet: 'gate_captain', voice: 'bertram', portrait: 'captain', personality: 'proud', caste: 'elite',
-    creature: creature('captain', 'Roderick', 'İnsan', 'Erkek', 46, 11, { STR: 12, VIT: 14, AGI: 6, DEX: 8, INT: 3, LUK: 1 }, {
+    creature: creature('captain', 'Roderick', 'İnsan', 'Erkek', 46, 11, { STR: 18, VIT: 21, AGI: 9, DEX: 12, INT: 5, LUK: 1 }, {
       appraisal: 'E-', skills: [['spear_mastery', 'D-'], ['athletics', 'E']], titles: ['npc_watch'], guildRank: parseSubRank('D-'),
       equipment: { weapon: 'iron_spear', helmet: 'iron_cap', chest: 'padded_armor', pants: 'sturdy_pants', boots: 'hobnail_boots' },
     }),
@@ -298,7 +298,7 @@ const RAW_NPCS: Omit<NpcDef, 'schedule' | 'title'>[] = [
   // ======================================================================= KÖYLÜLER
   {
     id: 'tobin', name: 'Tobin', sheet: 'farmer_m1', voice: 'male', portrait: 'farmer_m1', personality: 'gossip', caste: 'commoner',
-    creature: creature('tobin', 'Tobin', 'İnsan', 'Erkek', 20, 1, { STR: 2, VIT: 2 }),
+    creature: creature('tobin', 'Tobin', 'İnsan', 'Erkek', 20, 1, { STR: 3, VIT: 3 }),
     bubbles: {
       naked: ['Duydun mu? Ormandan çıplak biri gelmiş!', 'Haydut mu soydu bunu?', 'Vay be, ne kaslar ama... yok, yok.'],
       rootless: ['Han\'ın yeni bulaşıkçısı bu işte.', 'Bertram herkesi işe alıyor artık.'],
@@ -312,7 +312,7 @@ const RAW_NPCS: Omit<NpcDef, 'schedule' | 'title'>[] = [
   },
   {
     id: 'ulric', name: 'Ulric', sheet: 'farmer_m2', voice: 'gruff', portrait: 'farmer_m2', personality: 'rude', caste: 'commoner',
-    creature: creature('ulric', 'Ulric', 'İnsan', 'Erkek', 44, 2, { STR: 4, VIT: 4 }),
+    creature: creature('ulric', 'Ulric', 'İnsan', 'Erkek', 44, 2, { STR: 6, VIT: 6 }),
     bubbles: {
       naked: ['Köksüz pislik. Tarlama yaklaşma!', 'Bunun ne işi var burada?'],
       rootless: ['Köksüz yine dolaşıyor.', 'Tarlamdan uzak dur, köksüz.'],
@@ -326,7 +326,7 @@ const RAW_NPCS: Omit<NpcDef, 'schedule' | 'title'>[] = [
   },
   {
     id: 'hilda', name: 'Hilda', sheet: 'farmer_f1', voice: 'female', portrait: 'farmer_f1', personality: 'kind', caste: 'commoner',
-    creature: creature('hilda', 'Hilda', 'İnsan', 'Kadın', 31, 1, { VIT: 2, DEX: 2 }),
+    creature: creature('hilda', 'Hilda', 'İnsan', 'Kadın', 31, 1, { VIT: 3, DEX: 3 }),
     bubbles: {
       naked: ['Zavallı çocuk... kim yaptı bunu?', 'Üşüyor olmalı.'],
       rootless: ['Hoş geldin, evlat. Bertram\'ın yanında mısın?'],
@@ -354,7 +354,7 @@ const RAW_NPCS: Omit<NpcDef, 'schedule' | 'title'>[] = [
   },
   {
     id: 'edwin', name: 'İhtiyar Edwin', sheet: 'elder_m', voice: 'male_old', portrait: 'elder_m', personality: 'wise', caste: 'commoner',
-    creature: creature('edwin', 'Edwin', 'İnsan', 'Erkek', 78, 3, { INT: 5, VIT: 2, MNA: 3, LUK: 2 }, { appraisal: 'F-', skills: [['gathering', 'F']] }),
+    creature: creature('edwin', 'Edwin', 'İnsan', 'Erkek', 78, 3, { INT: 8, VIT: 3, MNA: 4, LUK: 3 }, { appraisal: 'F-', skills: [['gathering', 'F']] }),
     bubbles: {
       any: ['Gençken ben de...', 'Elonth\'ta herkes sıfırdan başlar. Kral da, fare de.'],
       naked: ['Hm. Gözlerinde başka bir dünyanın tozu var.'],
@@ -371,7 +371,7 @@ const RAW_NPCS: Omit<NpcDef, 'schedule' | 'title'>[] = [
   },
   {
     id: 'berta', name: 'Berta Nine', sheet: 'elder_f', voice: 'female_old', portrait: 'elder_f', personality: 'rude', caste: 'commoner',
-    creature: creature('berta', 'Berta', 'İnsan', 'Kadın', 71, 1, { VIT: 2, INT: 2 }),
+    creature: creature('berta', 'Berta', 'İnsan', 'Kadın', 71, 1, { VIT: 3, INT: 3 }),
     bubbles: {
       naked: ['Ahlaksız! Benim zamanımda...', 'Çık şuradan, utanmaz!'],
       rootless: ['Köksüz. Kesin bir şey çalacak.', 'Bizim zamanımızda köksüzler köye giremezdi.'],
@@ -413,7 +413,7 @@ const RAW_NPCS: Omit<NpcDef, 'schedule' | 'title'>[] = [
   },
   {
     id: 'fenn', name: 'Sarhoş Fenn', sheet: 'drunk', voice: 'male', portrait: 'drunk', personality: 'drunk', caste: 'commoner',
-    creature: creature('fenn', 'Fenn', 'İnsan', 'Erkek', 38, 2, { VIT: 5, LUK: 3 }, { traits: ['iron_liver'] }),
+    creature: creature('fenn', 'Fenn', 'İnsan', 'Erkek', 38, 2, { VIT: 8, LUK: 4 }, { traits: ['iron_liver'] }),
     bubbles: {
       naked: ['Hık! Ben de... ben de bir zamanlar böyleydim!', 'Kardeşim! Sen de mi kaybettin pantolonunu? Hık!'],
       rootless: ['Bulaşıkçı! Bir bira! Hık!', 'Sen iyi çocuksun. Hık. Herkes iyidir.'],
@@ -427,7 +427,7 @@ const RAW_NPCS: Omit<NpcDef, 'schedule' | 'title'>[] = [
   },
   {
     id: 'oswin', name: 'Değirmenci Oswin', sheet: 'miller', voice: 'male_old', portrait: 'miller', personality: 'neutral', caste: 'burgher',
-    creature: creature('oswin', 'Oswin', 'İnsan', 'Erkek', 58, 2, { STR: 3, VIT: 3, DEX: 2 }),
+    creature: creature('oswin', 'Oswin', 'İnsan', 'Erkek', 58, 2, { STR: 5, VIT: 4, DEX: 3 }),
     bubbles: { any: ['Değirmen taşı aşınmış yine.', 'Fareler ambara dadandı.'] },
     talk: {
       any: ['Değirmenin arkası farelerle dolu. Birisi temizlese iyi olurdu. Para veremem ama teşekkür ederim.'],
@@ -435,7 +435,7 @@ const RAW_NPCS: Omit<NpcDef, 'schedule' | 'title'>[] = [
   },
   {
     id: 'dorn', name: 'Dorn', sheet: 'adventurer_m', voice: 'male', portrait: 'adventurer_m', personality: 'proud', caste: 'elite',
-    creature: creature('dorn', 'Dorn', 'İnsan', 'Erkek', 26, 8, { STR: 10, AGI: 8, DEX: 7, VIT: 6, LUK: 1 }, {
+    creature: creature('dorn', 'Dorn', 'İnsan', 'Erkek', 26, 8, { STR: 15, AGI: 12, DEX: 11, VIT: 9, LUK: 1 }, {
       appraisal: 'F+', skills: [['sword_mastery', 'E'], ['evasion', 'F'], ['athletics', 'E-']], guildRank: parseSubRank('F+'),
       equipment: { weapon: 'iron_shortsword', chest: 'padded_armor', pants: 'sturdy_pants', boots: 'hobnail_boots', cape: 'traveler_cape' },
     }),
@@ -452,7 +452,7 @@ const RAW_NPCS: Omit<NpcDef, 'schedule' | 'title'>[] = [
   },
   {
     id: 'sira', name: 'Sira', sheet: 'adventurer_f', voice: 'female', portrait: 'adventurer_f', personality: 'shy', caste: 'elite',
-    creature: creature('sira', 'Sira', 'Elf', 'Kadın', 112, 12, { INT: 16, MNA: 14, AGI: 8, DEX: 6, VIT: 4 }, {
+    creature: creature('sira', 'Sira', 'Elf', 'Kadın', 112, 12, { INT: 24, MNA: 21, AGI: 12, DEX: 9, VIT: 6 }, {
       appraisal: 'E', skills: [['fire_magic', 'D-'], ['healing_magic', 'E'], ['stealth', 'E-']], guildRank: parseSubRank('D'),
     }),
     bubbles: { any: ['...', 'Bu köyün havası temiz.'], naked: ['...(başını çevirir)'] },
@@ -465,7 +465,7 @@ const RAW_NPCS: Omit<NpcDef, 'schedule' | 'title'>[] = [
   // ======================================================================= 0.2.0: HALDOR'UN ÇİFTLİĞİ
   {
     id: 'haldor', name: 'Yaşlı Haldor', sheet: 'haldor', voice: 'male_old', portrait: 'haldor', personality: 'kind', caste: 'commoner',
-    creature: creature('haldor', 'Haldor', 'İnsan', 'Erkek', 71, 2, { STR: 2, VIT: 3, DEX: 1 }, { appraisal: 'G', skills: [['gathering', 'F-']], inventory: { bread: 2, apple: 4 } }),
+    creature: creature('haldor', 'Haldor', 'İnsan', 'Erkek', 71, 2, { STR: 4, VIT: 6, DEX: 2 }, { appraisal: 'G', skills: [['gathering', 'F-']], inventory: { bread: 2, apple: 4 } }),
     bubbles: {
       naked: ['Vay evlat... Üşüyeceksin bu hâlde.', 'Kimin nesi bu? Ormandan mı çıktı?'],
       rootless: ['Buğday kendini biçmez...', 'Ah, dizlerim. Ah, belim.', 'Bertram\'ın çırağı mı o?'],
@@ -482,7 +482,7 @@ const RAW_NPCS: Omit<NpcDef, 'schedule' | 'title'>[] = [
   // ======================================================================= 0.2.0: DOĞU MAHALLESİ ESNAFI
   {
     id: 'baker', name: 'Fırıncı Brunhild', sheet: 'baker', voice: 'female', portrait: 'baker', personality: 'neutral', caste: 'burgher', shop: 'bakery', role: 'shop',
-    creature: creature('baker', 'Brunhild', 'İnsan', 'Kadın', 39, 2, { STR: 3, VIT: 3, DEX: 2 }, { appraisal: 'G+', inventory: { bread: 30, honey_bun: 12, meat_pie: 6 } }),
+    creature: creature('baker', 'Brunhild', 'İnsan', 'Kadın', 39, 2, { STR: 5, VIT: 4, DEX: 3 }, { appraisal: 'G+', inventory: { bread: 30, honey_bun: 12, meat_pie: 6 } }),
     bubbles: {
       any: ['Taze ekmek! Sıcak sıcak!', 'Hamur kendini yoğurmaz.'],
       naked: ['Fırınımın önünden çekil! Un kokusu sana bulaşmasın!'],
@@ -497,7 +497,7 @@ const RAW_NPCS: Omit<NpcDef, 'schedule' | 'title'>[] = [
   },
   {
     id: 'tailor', name: 'Terzi Mirelle', sheet: 'tailor', voice: 'female', portrait: 'tailor', personality: 'proud', caste: 'burgher', shop: 'tailor', role: 'shop',
-    creature: creature('tailor', 'Mirelle', 'İnsan', 'Kadın', 33, 2, { DEX: 5, INT: 3, LUK: 2 }, { appraisal: 'F-', equipment: { necklace: 'rabbit_charm' }, inventory: { linen_shirt: 3 } }),
+    creature: creature('tailor', 'Mirelle', 'İnsan', 'Kadın', 33, 2, { DEX: 6, INT: 4, LUK: 2 }, { appraisal: 'F-', equipment: { necklace: 'rabbit_charm' }, inventory: { linen_shirt: 3 } }),
     bubbles: {
       any: ['İğne, iplik, sabır.', 'Bu kumaş başkentten geldi. Sakın dokunma.'],
       naked: ['Tanrılar! Gözlerim! Biri bu adama bir çuval versin!'],
@@ -512,7 +512,7 @@ const RAW_NPCS: Omit<NpcDef, 'schedule' | 'title'>[] = [
   },
   {
     id: 'tanner', name: 'Tabakçı Gorm', sheet: 'tanner', voice: 'gruff', portrait: 'tanner', personality: 'rude', caste: 'burgher', shop: 'tannery', role: 'shop',
-    creature: creature('tanner', 'Gorm', 'İnsan', 'Erkek', 45, 4, { STR: 7, VIT: 6, DEX: 3 }, { appraisal: 'G+', equipment: { gloves: 'leather_gloves' }, inventory: { wolf_pelt: 3, rabbit_pelt: 6 } }),
+    creature: creature('tanner', 'Gorm', 'İnsan', 'Erkek', 45, 4, { STR: 11, VIT: 9, DEX: 4 }, { appraisal: 'G+', equipment: { gloves: 'leather_gloves' }, inventory: { wolf_pelt: 3, rabbit_pelt: 6 } }),
     bubbles: {
       any: ['Koku mu? Para kokusu bu.', 'Post getir, para götür. Az para.'],
       naked: ['Senin derin bile satılmaz.'],
@@ -527,7 +527,7 @@ const RAW_NPCS: Omit<NpcDef, 'schedule' | 'title'>[] = [
   },
   {
     id: 'apprentice', name: 'Çırak Ott', sheet: 'apprentice', voice: 'male', portrait: 'apprentice', personality: 'shy', caste: 'commoner',
-    creature: creature('apprentice', 'Ott', 'İnsan', 'Erkek', 15, 1, { STR: 2, VIT: 1, DEX: 1 }),
+    creature: creature('apprentice', 'Ott', 'İnsan', 'Erkek', 15, 1, { STR: 3, VIT: 2, DEX: 1 }),
     bubbles: {
       any: ['Usta yine bağıracak...', 'Körük, körük, körük.'],
       naked: ['(Kızarıp başka yere bakıyor.)'],
@@ -540,7 +540,7 @@ const RAW_NPCS: Omit<NpcDef, 'schedule' | 'title'>[] = [
   },
   {
     id: 'carpenter', name: 'Marangoz Ivo', sheet: 'carpenter', voice: 'male', portrait: 'carpenter', personality: 'neutral', caste: 'burgher',
-    creature: creature('carpenter', 'Ivo', 'İnsan', 'Erkek', 37, 3, { STR: 5, DEX: 5, VIT: 3 }, { appraisal: 'G', inventory: { firewood: 12 } }),
+    creature: creature('carpenter', 'Ivo', 'İnsan', 'Erkek', 37, 3, { STR: 7, DEX: 7, VIT: 4 }, { appraisal: 'G', inventory: { firewood: 12 } }),
     bubbles: {
       any: ['Bu araba tekerleği üçüncü kez kırıldı.', 'Tüccarın arabası, tüccarın derdi.'],
       naked: ['Hey! Talaşa basma, yalınayaksın!'],
@@ -554,7 +554,7 @@ const RAW_NPCS: Omit<NpcDef, 'schedule' | 'title'>[] = [
   },
   {
     id: 'bard', name: 'Ozan Fennick', sheet: 'bard', voice: 'male', portrait: 'bard', personality: 'gossip', caste: 'burgher',
-    creature: creature('bard', 'Fennick', 'İnsan', 'Erkek', 28, 3, { DEX: 4, LUK: 4, INT: 3 }, { appraisal: 'F-', traits: ['silver_tongue'] }),
+    creature: creature('bard', 'Fennick', 'İnsan', 'Erkek', 28, 3, { DEX: 7, LUK: 6, INT: 5 }, { appraisal: 'F-', traits: ['silver_tongue'] }),
     bubbles: {
       any: ['♪ S rütbe Leydi Aveline, ejderhanın dişini söktü ♪', '♪ Kral bir kadeh kaldırdı, köylüler eğildi ♪', 'Bir bronz atan bir şarkı dinler!'],
       naked: ['♪ Ormandan çıktı bir adam, ne gömlek ne de don ♪'],
@@ -568,7 +568,7 @@ const RAW_NPCS: Omit<NpcDef, 'schedule' | 'title'>[] = [
   },
   {
     id: 'innmaid', name: 'Hizmetçi Mia', sheet: 'innmaid', voice: 'female', portrait: 'innmaid', personality: 'kind', caste: 'commoner',
-    creature: creature('innmaid', 'Mia', 'İnsan', 'Kadın', 17, 1, { DEX: 2, AGI: 2 }),
+    creature: creature('innmaid', 'Mia', 'İnsan', 'Kadın', 17, 1, { DEX: 3, AGI: 3 }),
     bubbles: {
       any: ['Geliyor, geliyor!', 'Ocaktaki güveç yanmasın...'],
       naked: ['Ay! Bertram Amca, kapıda biri var... çıplak!'],
@@ -584,7 +584,7 @@ const RAW_NPCS: Omit<NpcDef, 'schedule' | 'title'>[] = [
   // ======================================================================= 0.2.0: ÜST KAST
   {
     id: 'merchant', name: 'Tüccar Aurelio', sheet: 'merchant', voice: 'male', portrait: 'merchant', personality: 'proud', caste: 'burgher', prestige: 4,
-    creature: creature('merchant', 'Aurelio', 'İnsan', 'Erkek', 48, 4, { INT: 7, LUK: 6, VIT: 2 }, {
+    creature: creature('merchant', 'Aurelio', 'İnsan', 'Erkek', 48, 4, { INT: 11, LUK: 10, VIT: 3 }, {
       appraisal: 'E-', titles: ['npc_merchant'], traits: ['silver_tongue'],
       equipment: { ring1: 'copper_ring', necklace: 'rabbit_charm', boots: 'leather_boots' }, inventory: { meat_pie: 2, mp_potion_s: 1 },
     }),
@@ -602,7 +602,7 @@ const RAW_NPCS: Omit<NpcDef, 'schedule' | 'title'>[] = [
   },
   {
     id: 'merc_guard', name: 'Paralı Asker Varg', sheet: 'merc_guard', voice: 'gruff', portrait: 'merc_guard', personality: 'rude', caste: 'burgher',
-    creature: creature('merc_guard', 'Varg', 'İnsan', 'Erkek', 34, 7, { STR: 9, VIT: 8, AGI: 3, DEX: 4 }, {
+    creature: creature('merc_guard', 'Varg', 'İnsan', 'Erkek', 34, 7, { STR: 16, VIT: 14, AGI: 5, DEX: 7 }, {
       // 0.8.0: gerçek rütbesi F (kendini E diye satıyor — sq_merchant_guard); ekipmanı da F'ye göre, daha ucuz
       appraisal: 'G+', skills: [['sword_mastery', 'F+'], ['athletics', 'F']], guildRank: parseSubRank('F'),
       equipment: { weapon: 'rusty_shortsword', chest: 'padded_armor', helmet: 'leather_cap', boots: 'leather_boots' },
@@ -616,7 +616,7 @@ const RAW_NPCS: Omit<NpcDef, 'schedule' | 'title'>[] = [
   },
   {
     id: 'steward', name: 'Kâhya Edric', sheet: 'steward', voice: 'male_old', portrait: 'steward', personality: 'proud', caste: 'noble',
-    creature: creature('steward', 'Edric Fenwick', 'İnsan', 'Erkek', 52, 6, { INT: 9, LUK: 3, VIT: 3 }, {
+    creature: creature('steward', 'Edric Fenwick', 'İnsan', 'Erkek', 52, 6, { INT: 22, LUK: 7, VIT: 7 }, {
       appraisal: 'E', titles: ['npc_steward'], equipment: { ring1: 'copper_ring', boots: 'leather_boots', cape: 'traveler_cape' },
     }),
     bubbles: {
@@ -633,7 +633,7 @@ const RAW_NPCS: Omit<NpcDef, 'schedule' | 'title'>[] = [
   },
   {
     id: 'knight', name: 'Şövalye Cedric', sheet: 'knight', voice: 'gruff', portrait: 'knight', personality: 'proud', caste: 'noble',
-    creature: creature('knight', 'Cedric', 'İnsan', 'Erkek', 31, 14, { STR: 16, VIT: 16, AGI: 6, DEX: 9 }, {
+    creature: creature('knight', 'Cedric', 'İnsan', 'Erkek', 31, 14, { STR: 29, VIT: 28, AGI: 11, DEX: 16 }, {
       appraisal: 'E-', skills: [['sword_mastery', 'D'], ['athletics', 'E'], ['iron_body', 'E-']], titles: ['npc_knight'],
       equipment: { weapon: 'iron_shortsword', chest: 'padded_armor', helmet: 'iron_cap', pants: 'sturdy_pants', boots: 'hobnail_boots', cape: 'traveler_cape' },
     }),
@@ -683,7 +683,7 @@ const RAW_NPCS: Omit<NpcDef, 'schedule' | 'title'>[] = [
   },
   {
     id: 'adv_thorne', name: 'Thorne', sheet: 'adv_thorne', voice: 'gruff', portrait: 'adv_thorne', personality: 'proud', caste: 'elite',
-    creature: creature('adv_thorne', 'Thorne', 'İnsan', 'Erkek', 36, 16, { STR: 18, VIT: 14, AGI: 9, DEX: 10, LUK: 2 }, {
+    creature: creature('adv_thorne', 'Thorne', 'İnsan', 'Erkek', 36, 16, { STR: 33, VIT: 25, AGI: 16, DEX: 18, LUK: 4 }, {
       appraisal: 'E', skills: [['sword_mastery', 'D+'], ['evasion', 'E'], ['athletics', 'D-'], ['iron_body', 'E']], titles: ['npc_blackhound'],
       guildRank: parseSubRank('D-'), equipment: { weapon: 'iron_shortsword', chest: 'padded_armor', pants: 'sturdy_pants', boots: 'hobnail_boots', cape: 'traveler_cape' },
     }),
@@ -701,7 +701,7 @@ const RAW_NPCS: Omit<NpcDef, 'schedule' | 'title'>[] = [
   },
   {
     id: 'adv_kael', name: 'Kael', sheet: 'adv_kael', voice: 'male', portrait: 'adv_kael', personality: 'proud', caste: 'commoner',
-    creature: creature('adv_kael', 'Kael', 'İnsan', 'Erkek', 17, 2, { STR: 3, AGI: 3, DEX: 2 }, {
+    creature: creature('adv_kael', 'Kael', 'İnsan', 'Erkek', 17, 2, { STR: 5, AGI: 4, DEX: 3 }, {
       appraisal: 'G', skills: [['sword_mastery', 'G+', 6]], guildRank: parseSubRank('F-'),
       equipment: { weapon: 'rusty_shortsword', chest: 'leather_vest', boots: 'leather_boots' },
     }),
@@ -721,7 +721,7 @@ const RAW_NPCS: Omit<NpcDef, 'schedule' | 'title'>[] = [
   // ======================================================================= 0.2.0: KÖYLÜLER
   {
     id: 'headman', name: 'Muhtar Godric', sheet: 'headman', voice: 'bertram', portrait: 'headman', personality: 'proud', caste: 'burgher',
-    creature: creature('headman', 'Godric', 'İnsan', 'Erkek', 56, 3, { INT: 5, VIT: 3, LUK: 3 }, { appraisal: 'F-', equipment: { ring1: 'copper_ring' } }),
+    creature: creature('headman', 'Godric', 'İnsan', 'Erkek', 56, 3, { INT: 8, VIT: 5, LUK: 5 }, { appraisal: 'F-', equipment: { ring1: 'copper_ring' } }),
     bubbles: {
       any: ['Vergi defterleri, vergi defterleri...', 'Kâhya gelecek, her şey yerli yerinde olsun.'],
       naked: ['Muhafız! Köyümde bu ne rezalet!'],
@@ -736,7 +736,7 @@ const RAW_NPCS: Omit<NpcDef, 'schedule' | 'title'>[] = [
   },
   {
     id: 'headwife', name: 'Hanım Matilde', sheet: 'headwife', voice: 'female', portrait: 'headwife', personality: 'rude', caste: 'burgher',
-    creature: creature('headwife', 'Matilde', 'İnsan', 'Kadın', 50, 1, { INT: 3, LUK: 2 }, { equipment: { necklace: 'rabbit_charm' } }),
+    creature: creature('headwife', 'Matilde', 'İnsan', 'Kadın', 50, 1, { INT: 4, LUK: 2 }, { equipment: { necklace: 'rabbit_charm' } }),
     bubbles: {
       any: ['Brunhild\'in ekmeği yine hamur.', 'Muhtar karısına yol verilir, bilmiyor musunuz?'],
       naked: ['Ahlaksız! Gözlerim kirlendi!'],
@@ -751,7 +751,7 @@ const RAW_NPCS: Omit<NpcDef, 'schedule' | 'title'>[] = [
   },
   {
     id: 'farmer_m3', name: 'Jonas', sheet: 'farmer_m3', voice: 'male', portrait: 'farmer_m3', personality: 'neutral', caste: 'commoner',
-    creature: creature('farmer_m3', 'Jonas', 'İnsan', 'Erkek', 35, 2, { STR: 4, VIT: 3 }, { skills: [['gathering', 'G+']] }),
+    creature: creature('farmer_m3', 'Jonas', 'İnsan', 'Erkek', 35, 2, { STR: 7, VIT: 5 }, { skills: [['gathering', 'G+']] }),
     bubbles: {
       any: ['Lahanalar tavşanlara yem oluyor.', 'Vergiden sonra elimize ne kalacak?'],
       naked: ['Ormandan gelen o adam mı bu?'],
@@ -766,7 +766,7 @@ const RAW_NPCS: Omit<NpcDef, 'schedule' | 'title'>[] = [
   },
   {
     id: 'farmer_f3', name: 'Elke', sheet: 'farmer_f3', voice: 'female', portrait: 'farmer_f3', personality: 'kind', caste: 'commoner',
-    creature: creature('farmer_f3', 'Elke', 'İnsan', 'Kadın', 32, 1, { VIT: 2, DEX: 2 }),
+    creature: creature('farmer_f3', 'Elke', 'İnsan', 'Kadın', 32, 1, { VIT: 3, DEX: 3 }),
     bubbles: {
       any: ['Pazarda yumurta yine ucuz.', 'Jonas yine yemeği unuttu.'],
       naked: ['Çocuğum, sen ne hâldesin...'],
@@ -781,7 +781,7 @@ const RAW_NPCS: Omit<NpcDef, 'schedule' | 'title'>[] = [
   },
   {
     id: 'shepherd', name: 'Çoban Tam', sheet: 'shepherd', voice: 'child', portrait: 'shepherd', personality: 'shy', caste: 'commoner', speed: 2.6,
-    creature: creature('shepherd', 'Tam', 'İnsan', 'Erkek', 13, 1, { AGI: 2, VIT: 1 }),
+    creature: creature('shepherd', 'Tam', 'İnsan', 'Erkek', 13, 1, { AGI: 4, VIT: 2 }),
     bubbles: {
       any: ['Hoy hoy hoy!', 'Bir kuzu eksik... yine.'],
       naked: ['(Değneğini sıkıca tutuyor.)'],
@@ -792,7 +792,7 @@ const RAW_NPCS: Omit<NpcDef, 'schedule' | 'title'>[] = [
   },
   {
     id: 'milkmaid', name: 'Sütçü Rosa', sheet: 'milkmaid', voice: 'female', portrait: 'milkmaid', personality: 'gossip', caste: 'commoner',
-    creature: creature('milkmaid', 'Rosa', 'İnsan', 'Kadın', 19, 1, { VIT: 2, STR: 1 }),
+    creature: creature('milkmaid', 'Rosa', 'İnsan', 'Kadın', 19, 1, { VIT: 4, STR: 2 }),
     bubbles: {
       any: ['Süt! Taze süt!', 'Duydun mu? Kâhya bu hafta yine geliyormuş.'],
       naked: ['Hihi! Mia\'ya anlatacağım!'],
@@ -806,7 +806,7 @@ const RAW_NPCS: Omit<NpcDef, 'schedule' | 'title'>[] = [
   },
   {
     id: 'washer', name: 'Çamaşırcı Wynn', sheet: 'washer', voice: 'female', portrait: 'washer', personality: 'gossip', caste: 'commoner',
-    creature: creature('washer', 'Wynn', 'İnsan', 'Kadın', 41, 2, { VIT: 2, STR: 1, AGI: 7, DEX: 5 }, { skills: [['stealth', 'F'], ['first_aid', 'G-']] }),
+    creature: creature('washer', 'Wynn', 'İnsan', 'Kadın', 41, 2, { AGI: 7, DEX: 5 }, { skills: [['stealth', 'F'], ['first_aid', 'G-']] }),
     bubbles: {
       any: ['Kâhyanın gömleği yine şarap lekesi.', 'Herkesin kirli çamaşırı bende. Her anlamda.'],
       naked: ['Sana yıkayacak bir şey bile kalmamış!'],
@@ -817,7 +817,7 @@ const RAW_NPCS: Omit<NpcDef, 'schedule' | 'title'>[] = [
   },
   {
     id: 'gerda', name: 'Gerda Nine', sheet: 'gerda', voice: 'female_old', portrait: 'gerda', personality: 'kind', caste: 'commoner',
-    creature: creature('gerda', 'Gerda', 'İnsan', 'Kadın', 76, 1, { INT: 3, VIT: 1 }, { skills: [['gathering', 'F-']] }),
+    creature: creature('gerda', 'Gerda', 'İnsan', 'Kadın', 76, 1, { INT: 5, VIT: 1 }, { skills: [['gathering', 'F-']] }),
     bubbles: {
       any: ['Bu meşe ben kızken de buradaydı.', 'Gel otur yavrum, ayakta durma.'],
       naked: ['Vah yavrucak... Üşüme, gel güneşe otur.'],
@@ -852,7 +852,7 @@ const RAW_NPCS: Omit<NpcDef, 'schedule' | 'title'>[] = [
   },
   {
     id: 'woodcutter', name: 'Oduncu Brann', sheet: 'woodcutter', voice: 'gruff', portrait: 'woodcutter', personality: 'neutral', caste: 'commoner',
-    creature: creature('woodcutter', 'Brann', 'İnsan', 'Erkek', 42, 3, { STR: 7, VIT: 5 }, { inventory: { firewood: 20 } }),
+    creature: creature('woodcutter', 'Brann', 'İnsan', 'Erkek', 42, 3, { STR: 11, VIT: 7 }, { inventory: { firewood: 20 } }),
     bubbles: {
       any: ['Kütük, kütük, kütük.', 'Güney ormanında bir şey dolaşıyor. Büyük bir şey.'],
       naked: ['Bu soğukta mı? Delisin sen.'],
@@ -863,7 +863,7 @@ const RAW_NPCS: Omit<NpcDef, 'schedule' | 'title'>[] = [
   },
   {
     id: 'guard_pell', name: 'Muhafız Pell', sheet: 'guard3', voice: 'male', portrait: 'guard3', personality: 'neutral', caste: 'burgher', role: 'guard',
-    creature: creature('guard_pell', 'Pell', 'İnsan', 'Erkek', 26, 4, { STR: 5, VIT: 5, AGI: 3, DEX: 3 }, {
+    creature: creature('guard_pell', 'Pell', 'İnsan', 'Erkek', 26, 4, { STR: 8, VIT: 8, AGI: 4, DEX: 4 }, {
       appraisal: 'G', skills: [['spear_mastery', 'G+']], titles: ['npc_watch'], equipment: { weapon: 'iron_spear', helmet: 'iron_cap', chest: 'padded_armor', boots: 'leather_boots' },
     }),
     bubbles: {
@@ -882,7 +882,7 @@ const RAW_NPCS: Omit<NpcDef, 'schedule' | 'title'>[] = [
   // ======================================================================= 0.2.0: KÖKSÜZLER
   {
     id: 'vagrant', name: 'Köksüz Nim', sheet: 'vagrant', voice: 'male', portrait: 'vagrant', personality: 'wise', caste: 'rootless',
-    creature: creature('vagrant', 'Nim', 'İnsan', 'Erkek', 44, 1, { VIT: 2, LUK: 3 }, { appraisal: 'G', skills: [['stealth', 'G+']], inventory: { small_stone: 3 } }),
+    creature: creature('vagrant', 'Nim', 'İnsan', 'Erkek', 44, 1, { VIT: 2, LUK: 4 }, { appraisal: 'G', skills: [['stealth', 'G+']], inventory: { small_stone: 3 } }),
     bubbles: {
       any: ['...', 'Bir bronz? Yok mu? Peki.'],
       naked: ['Kardeşim! Onları da mı aldılar senden?'],

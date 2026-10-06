@@ -42,7 +42,7 @@ export const THEFT_SUSPECTS: Record<string, { thief: boolean; at: string; clue: 
   },
   apprentice: {
     thief: false, at: 'smithy_yard',
-    clue: ['Çırak Ott. On beş yaşında, Level 1. STR 2, DEX 1.', 'Elleri kömür karası. Bütün sabah körük çekmiş; kollarındaki is taze.'],
+    clue: ['Çırak Ott. On beş yaşında, Level 1. STR 3, DEX 1.', 'Elleri kömür karası. Bütün sabah körük çekmiş; kollarındaki is taze.'],
   },
   washer: {
     thief: true, at: 'wash_line',

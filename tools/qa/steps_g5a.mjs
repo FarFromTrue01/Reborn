@@ -314,16 +314,20 @@ export default async ({ page, wait, shot, evalG }) => {
         }
         w.__qaT0 = w.playClock;
       });
+      await h.run([], 50, undefined, { start: 800 });
+      await W(() => { const w = window.__game.scene.getScene('World'); w.__qaT0 = w.playClock; });
       await h.frames(3);
     };
     const alive = () => W(() => window.__game.scene.getScene('World').enemies.filter((e) => e.alive && e.spawnId.startsWith('qa')).length);
-    const godMode = () => W(() => { const G = window.__G; G.p.hp = Math.max(G.p.hp, window.__G.d.maxHp * 0.5); });
+    // ölçülen şey öldürme payı: Joseph ölmesin (ölüm sahnesi dünyayı dondurur)
+    const godMode = () => W(() => { const G = window.__G; const w = window.__game.scene.getScene('World'); G.p.hp = window.__G.d.maxHp; w.player.invulnT = 999; });
+    await page.setViewportSize({ width: 800, height: 500 });
     // 1) Joseph hiç vurmaz (köşede durur)
     const idleT = [];
     for (let r = 0; r < runs; r++) {
       await setup();
       const t0 = Date.now();
-      while ((await alive()) > 0 && Date.now() - t0 < 240000) { await godMode(); await wait(250); }
+      while ((await alive()) > 0 && Date.now() - t0 < 900000) { await godMode(); await wait(250); }
       const t = await W(() => { const w = window.__game.scene.getScene('World'); return w.playClock - w.__qaT0; });
       idleT.push(t);
       log(`  Joseph vurmadan: ${t.toFixed(1)} sn (oyun) · öldürme ${JSON.stringify(await W(() => window.__kills))}`);
@@ -336,7 +340,7 @@ export default async ({ page, wait, shot, evalG }) => {
       await setup();
       const t0 = Date.now();
       let shotDone = false;
-      while ((await alive()) > 0 && Date.now() - t0 < 240000) {
+      while ((await alive()) > 0 && Date.now() - t0 < 900000) {
         await godMode();
         await W(() => {
           const w = window.__game.scene.getScene('World'); const I = window.__IN; const a = w.player.actor;
@@ -357,7 +361,8 @@ export default async ({ page, wait, shot, evalG }) => {
     }
     const share = jk / Math.max(1, jk + ck);
     check(share >= 0.4, `C6: Joseph aktif savaşınca öldürmelerin %${Math.round(share * 100)}'i Joseph'in (≥%40)`);
-    await W(() => { const w = window.__game.scene.getScene('World'); for (const id of ['vera', 'lina']) w.removeCompanion(id); });
+    await W(() => { const w = window.__game.scene.getScene('World'); for (const id of ['vera', 'lina']) w.removeCompanion(id); w.player.invulnT = 0; });
+    await page.setViewportSize({ width: 1280, height: 854 });
   }
 
   // ================================================================ doğu kenarı (B11)

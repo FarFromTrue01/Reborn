@@ -128,11 +128,11 @@ describe('Joseph başlangıç', () => {
     expect(d.weaponName).toBe('Yumruk');
     expect(d.weaponDmg).toEqual([1, 1]);
     expect(d.divPower).toBeCloseTo(0.5);
-    // Hız ve Dayanıklılık 1'in, Adaptasyon 0,75'in altına inmez: Joseph L0'da ceza yemiyor
-    expect(d.divSpeed).toBe(1);
-    expect(d.divEndurance).toBe(1);
+    // 0.8.0: Hız, Dayanıklılık ve Adaptasyon 0,75'in altına inmez
+    expect(d.divSpeed).toBe(0.75);
+    expect(d.divEndurance).toBe(0.75);
     expect(d.divAdaptation).toBe(0.75);
-    expect(d.moveSpeed).toBe(1);
+    expect(d.moveSpeed).toBe(0.75);
     expect(j.equipment.pants).toBe('torn_shorts');
   });
   it('Ekipman statları toplanır', () => {

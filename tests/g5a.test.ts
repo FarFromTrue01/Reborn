@@ -269,3 +269,63 @@ describe('B11: doğu suru ve geçit', () => {
   });
 });
 
+import { naturalWalk, walkSetting, BASE_SPEED, RUN_MULT, JOSEPH_WALK_MULT } from '../src/core/movement';
+import { derive } from '../src/core/creature';
+import { newJoseph } from '../src/core/state';
+import { MONSTERS } from '../src/data/monsters';
+import { sanitizeSettings, defaultSettings } from '../src/game/settings';
+describe('C1–C3: Joseph\'in hızı, hareket hızı ayarı, dayanıklılık', () => {
+  it('L0 Joseph: yürüme eski hızın yarısı (0,75 × ⅔), koşu tavşandan hızlı; BASE_SPEED aynı', () => {
+    const d = derive(newJoseph(), { level: 0 });
+    expect(BASE_SPEED).toBe(5.2);
+    expect(JOSEPH_WALK_MULT).toBeCloseTo(2 / 3, 10);
+    expect(d.divSpeed).toBe(0.75);
+    expect(d.divEndurance).toBe(0.75);
+    expect(naturalWalk(d.moveSpeed)).toBeCloseTo(BASE_SPEED / 2, 10);
+    expect(naturalWalk(d.moveSpeed) * RUN_MULT).toBeGreaterThan(MONSTERS.rabbit.speed);
+    expect(MONSTERS.rabbit.speed).toBe(3.5);
+  });
+  it('hareket hızı ayarı: max = doğal hız, en az %40, max\'ı geçen max\'a sabitlenir, asla hızlandırmaz', () => {
+    const nat = 2.6;
+    expect(walkSetting(nat, null)).toMatchObject({ max: 2.6, min: 1, value: 2.6, mult: 1, isMax: true });
+    expect(walkSetting(nat, 9).value).toBe(2.6);
+    expect(walkSetting(nat, 9).mult).toBeLessThanOrEqual(1);
+    expect(walkSetting(nat, 0.2).value).toBe(1);
+    expect(walkSetting(nat, 1.3).mult).toBeCloseTo(0.5, 5);
+    for (let v = 0; v < 6; v += 0.1) expect(walkSetting(nat, v).mult).toBeLessThanOrEqual(1);
+  });
+  it('ayar göçü (v3 → v4): eski "Karakter hızı" kalkar, Hareket hızı "Max" olur', () => {
+    const s = sanitizeSettings({ v: 3, moveSpeed: 2 } as any, true);
+    expect(s.walkSpeed).toBeNull();
+    expect('moveSpeed' in s).toBe(false);
+    expect(defaultSettings(true).walkSpeed).toBeNull();
+    expect(sanitizeSettings({ v: 4, walkSpeed: 1.5 } as any, true).walkSpeed).toBe(1.5);
+  });
+});
+
+import { dodgeReady, DODGE_COST, DODGE_COOLDOWN } from '../src/core/combat';
+describe('C5: vur-kaç', () => {
+  it('kaçış bedeli 7,5 (× çarpan), iki kaçış arasında 0,8 sn', () => {
+    expect(DODGE_COST).toBe(7.5);
+    expect(DODGE_COOLDOWN).toBe(0.8);
+    expect(dodgeReady(10, -10, 50)).toEqual({ ok: true, cost: 7.5, reason: null });
+    expect(dodgeReady(10.5, 10, 50).reason).toBe('cooldown');
+    expect(dodgeReady(10.8, 10, 50).ok).toBe(true);
+    expect(dodgeReady(20, 10, 7).reason).toBe('stamina');
+    expect(dodgeReady(20, 10, 50, 1.5).cost).toBeCloseTo(11.25);
+  });
+});
+
+import { STAT_POINTS_PER_LEVEL } from '../src/core/formulas';
+describe('C8: NPC statları = 6 × level', () => {
+  it('her NPC\'nin temel stat toplamı 6 × level (ekipman, unvan ve skill hariç)', () => {
+    expect(STAT_POINTS_PER_LEVEL).toBe(6);
+    for (const n of NPCS) {
+      const sum = Object.values(n.creature.alloc).reduce((a, b) => a + b, 0);
+      expect(sum, `${n.id} (L${n.creature.level})`).toBe(STAT_POINTS_PER_LEVEL * n.creature.level);
+    }
+  });
+  it('büyü kullanan NPC\'lerde MNA var', () => {
+    for (const n of NPCS) if (n.creature.skills.some((s) => /magic/.test(s.id))) expect(n.creature.alloc.MNA, n.id).toBeGreaterThan(0);
+  });
+});

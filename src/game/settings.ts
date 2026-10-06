@@ -19,8 +19,11 @@ export interface Settings {
   joystick: 'float' | 'fixed';
   /** Oyuncu joystick modunu ayarlardan bilerek seçti mi? (Göçte seçimine dokunulmaz.) */
   joyChosen: boolean;
-  /** Joseph'in yürüme/koşma hızı çarpanı (0.75–2.0). */
-  moveSpeed: number;
+  /**
+   * 0.8.0: Joseph'in yürüme hızı (kare/sn); null = "Max" (doğal hız, varsayılan). Doğal hızı geçemez, en az %40'ı
+   * (core/movement walkSetting). Eski "Karakter hızı" çarpanının (moveSpeed) yerine.
+   */
+  walkSpeed: number | null;
   /** Yardımlı savaş (C5): saldırıda menzildeki en yakın düşmana dön. */
   assistCombat: boolean;
   /** Geliştirici modu (C6): başlık ekranında sürüme 7 kez dokununca açılır. */
@@ -42,10 +45,8 @@ export function fpsLoopConfig(cap: FpsCap, qa: boolean): { target: number; limit
 }
 
 const KEY = 'elonth.settings';
-export const SETTINGS_VERSION = 3;
+export const SETTINGS_VERSION = 4;
 
-export const MOVE_SPEED_MIN = 0.75;
-export const MOVE_SPEED_MAX = 2;
 
 export function isTouchDevice(): boolean {
   try {
@@ -70,7 +71,7 @@ export function defaultSettings(touch = isTouchDevice()): Settings {
     showFps: false,
     joystick: touch ? 'fixed' : 'float',
     joyChosen: false,
-    moveSpeed: 1,
+    walkSpeed: null,
     assistCombat: true,
     devMode: false,
     sheathWeapon: true,
@@ -85,6 +86,7 @@ export const DEFAULT_SETTINGS: Settings = defaultSettings(false);
  * - Bilinmeyen joystick değeri cihazın varsayılanına döner (dokunmatikte sabit).
  * - Sürüm 1 (0.2.0) ayarlarında oyuncu bilerek seçim yapmadıysa dokunmatik cihazda bir kez 'fixed' yapılır.
  * - Sürüm 2 → 3 (0.7.0): `sheathWeapon` (Silahı sırta koy) açık olarak eklenir.
+ * - Sürüm 3 → 4 (0.8.0): "Karakter hızı" çarpanı (moveSpeed) kalkar; yerine Hareket hızı (walkSpeed) "Max" olarak gelir.
  */
 export function sanitizeSettings(s: Partial<Settings> & Record<string, any>, touch = isTouchDevice()): Settings {
   const def = defaultSettings(touch);
@@ -97,8 +99,9 @@ export function sanitizeSettings(s: Partial<Settings> & Record<string, any>, tou
   }
   // Sürüm 3 (0.7.0): silahı sırta koyma ayarı eklendi, varsayılan açık
   if (ver < 3 || typeof r.sheathWeapon !== 'boolean') r.sheathWeapon = true;
-  if (typeof r.moveSpeed !== 'number' || !isFinite(r.moveSpeed)) r.moveSpeed = 1;
-  r.moveSpeed = Math.min(MOVE_SPEED_MAX, Math.max(MOVE_SPEED_MIN, r.moveSpeed));
+  // Sürüm 4 (0.8.0): eski çarpan anlamını yitirdi (hız artık yalnızca yavaşlatılabilir) → Max
+  delete (r as any).moveSpeed;
+  if (ver < 4 || typeof r.walkSpeed !== 'number' || !isFinite(r.walkSpeed) || r.walkSpeed <= 0) r.walkSpeed = null;
   if (!['low', 'medium', 'high'].includes(r.quality)) r.quality = 'high';
   if (!(FPS_CAPS as readonly number[]).includes(r.fpsCap)) r.fpsCap = 60;
   r.joyChosen = !!r.joyChosen;

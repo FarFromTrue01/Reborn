@@ -13,7 +13,7 @@ import { Enemy } from '../world/enemy';
 import { Npc, MARKER_STYLE, type MarkerKind } from '../world/npc';
 import { Companion } from '../world/companion';
 import { TILE, type MapData, type Zone, type PropPlacement } from '../world/types';
-import { COMPANIONS } from '../data/companions';
+import { COMPANIONS, COMPANION_DMG_MULT } from '../data/companions';
 import { NPCS, NPC_BY_ID, scheduleAt, CASTE_BUBBLES, TONE_LINES, type NpcDef, type JosephStatus } from '../data/npcs';
 import { josephStatusOf, toneOf, type Tone } from '../core/prestige';
 import { nearestFree } from '../world/path';
@@ -548,7 +548,8 @@ export class WorldScene extends Phaser.Scene {
   /** Yoldaşın yakın dövüş vuruşu. Dost ateşi yok: yalnızca düşmanlar. */
   companionHit(c: Companion, e: Enemy, dir: Phaser.Math.Vector2, mult = 1) {
     if (!e.alive) return;
-    const res = resolvePhysical({ d: c.d, level: c.level }, { d: e.d, level: e.level }, { mult });
+    // 0.8.0 (C6): yoldaş hasarı ×0,35 (yardım eder, işi yapmaz)
+    const res = resolvePhysical({ d: c.d, level: c.level }, { d: e.d, level: e.level }, { mult: mult * COMPANION_DMG_MULT });
     e.aware || e.becomeAware(true);
     e.barShowT = 3;
     if (res.miss) {
@@ -2112,9 +2113,9 @@ export class WorldScene extends Phaser.Scene {
     }
     e.c.hp = applyDamage(e.c.hp, res.damage);
     e.damageBy.joseph = (e.damageBy.joseph ?? 0) + res.damage;
-    // hissiyat
-    const kbMul = (o.knock ?? 1) * (o.heavy ? 2 : 1) * (e.def.boss ? 0.3 : 1);
-    e.actor.kb.set(o.dir.x, o.dir.y).scale(160 * kbMul);
+    e.josephHitAt = this.time.now / 1000;
+    // hissiyat (vuruş donması, flaş, kıvılcım). 0.8.0 (C5): Joseph'in vuruşları (normal, ağır, yetenek) düşmanı geri
+    // savurmaz — vur-kaç için düşman yerinde kalır. Joseph'e vurulunca onun savrulması sürer.
     e.actor.flash(0xffffff, 0.08);
     const stop = res.crit ? 0.1 : o.heavy ? 0.08 : 0.05;
     e.actor.frozenT = stop;
