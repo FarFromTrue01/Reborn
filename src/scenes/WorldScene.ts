@@ -46,6 +46,7 @@ import { absMinute } from '../core/sleep';
 import { activeQuests, currentObjective, type QuestTarget } from '../core/quests';
 import { MONSTERS } from '../data/monsters';
 import { SeatBook, SEAT_RE } from '../world/seats';
+import { doorGoal } from '../world/questGo';
 
 /** Kapı adları (bekleme metinleri: "Lonca 05:00'te açılır"). */
 const DOOR_NAMES: Record<string, string> = {
@@ -358,6 +359,7 @@ export class WorldScene extends Phaser.Scene {
 
   // ================================================================= harita
   loadMap(id: string, tx: number, ty: number, facing: string, first = false) {
+    const prevMap = this.mapData?.id ?? null;
     // temizle
     for (const e of this.enemies) e.destroy();
     for (const n of this.npcs) n.destroy();
@@ -419,7 +421,11 @@ export class WorldScene extends Phaser.Scene {
     this.updateZone(true);
     this.warpCooldown = 0.6;
     this.ui?.onMapChanged?.();
-    if (!first) this.director.onEnterMap(id);
+    if (!first) {
+      // sahne ya da ışınlanmayla girilen binalar için de (A2)
+      if (prevMap && prevMap !== id) this.completeDoorGoals(prevMap, id);
+      this.director.onEnterMap(id);
+    }
   }
 
   /**
@@ -604,10 +610,8 @@ export class WorldScene extends Phaser.Scene {
         if (Q.objDone(id, i) && o.type !== 'collect') return;
         if (o.sequential && i > 0 && !Q.objDone(id, i - 1)) return;
         if (o.type === 'go' && o.where && o.where.map === this.mapData.id) {
-          const p = o.where.point ? this.mapData.points[o.where.point] : o.where.x !== undefined ? { x: o.where.x, y: o.where.y! } : null;
-          if (p && Math.hypot(a.x - (p.x * TILE + 16), a.y - (p.y * TILE + 16)) < (o.where.radius ?? 1.5) * TILE) {
-            if (this.director.onQuestGo(id, i) !== false) Q.advance(id, i);
-          }
+          const p = this.goPoint(o.where);
+          if (p && Math.hypot(a.x - (p.x * TILE + 16), a.y - (p.y * TILE + 16)) < (o.where.radius ?? 1.5) * TILE) this.reachGo(id, i);
         } else if (o.type === 'collect' && o.target) {
           // teslim edildikten sonra (sonraki amaç bitince) toplama ilerlemesi geri düşmez
           if (def.objectives.some((_, j) => j > i && Q.objDone(id, j))) return;
@@ -615,6 +619,38 @@ export class WorldScene extends Phaser.Scene {
         }
         else if (o.type === 'custom' && o.target === 'silver') Q.set(id, i, total >= 100 ? 1 : 0);
         else if (o.type === 'custom' && o.target === 'silver10') Q.set(id, i, Math.min(1000, total));
+      });
+    }
+  }
+
+  /** "Git" amacının hedef karosu (adlandırılmış nokta ya da koordinat). */
+  goPoint(w: QuestTarget): { x: number; y: number } | null {
+    return w.point ? getMap(this, w.map).points[w.point] ?? null : w.x !== undefined ? { x: w.x, y: w.y! } : null;
+  }
+
+  private reachGo(id: string, i: number) {
+    if (this.director.onQuestGo(id, i) !== false) Q.advance(id, i);
+  }
+
+  /**
+   * A2 (0.8.0): hedefi bir binanın kapısı olan "git" amaçları, o binaya girilince de tamamlanır. Görev
+   * denetimi yarım saniyede bir çalıştığından kapının önünden hızla geçen oyuncu amacı atlayabiliyordu.
+   * `from`: kapının bulunduğu harita (dünya), `to`: girilen bina.
+   */
+  completeDoorGoals(from: string, to: string) {
+    if (!to || from === to) return;
+    const doors = getMap(this, from).warps.filter((w) => w.to === to);
+    if (!doors.length) return;
+    const log = G.state.quests;
+    for (const id of Object.keys(log.quests)) {
+      if (log.quests[id].status !== 'active') continue;
+      const def = Q.def(id);
+      if (!def) continue;
+      def.objectives.forEach((o, i) => {
+        if (o.type !== 'go' || !o.where || o.where.map !== from || Q.objDone(id, i)) return;
+        if (o.sequential && i > 0 && !Q.objDone(id, i - 1)) return;
+        const p = this.goPoint(o.where);
+        if (p && doorGoal(p, doors)) this.reachGo(id, i);
       });
     }
   }
@@ -1537,6 +1573,9 @@ export class WorldScene extends Phaser.Scene {
       this.warpCooldown = 1;
       return;
     }
+    // A2: geçişten hemen önce görev amaçları (yarım saniyelik denetimi beklemeden); kapı hedefliler girişte biter
+    this.questTick();
+    this.completeDoorGoals(this.mapData.id, w.to);
     this.warpTo(w.to, w.tx, w.ty, w.facing);
   }
 

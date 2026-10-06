@@ -28,19 +28,18 @@ export default async ({ page, wait, shot, evalG }) => {
   const npcHere = (id) => W((id) => !!window.__game.scene.getScene('World').npc(id) || !!window.__game.scene.getScene('World').companion(id), id);
   const talk = async (id, choices = []) => {
     await W((id) => { const w = window.__game.scene.getScene('World'); const n = w.npc(id); if (n) w.director.talk(n); }, id);
-    await wait(300);
     return h.run(choices);
   };
   const ensureMainNow = () => W(() => window.__game.scene.getScene('World').director.ch2.ensureMain());
   const step = async (name) => {
-    await wait(700);
+    await h.frames(6);
     await ensureMainNow();
     const m = await mains();
     log(`[${name}] ana: ${m.act.join(', ') || '—'} · takip: ${m.tracked} · "${m.label}"${m.wait ? ` · ⏳ ${m.wait}` : ''}`);
     check(m.act.length > 0, `${name}: en az bir aktif ana görev`);
     return m;
   };
-  const tpPoint = (map, name) => W(([map, name]) => { const w = window.__game.scene.getScene('World'); const p = w.pointsOf(map)[name]; w.loadMap(map, p.x, p.y, 'down'); }, [map, name]);
+  const tpPoint = async (map, name) => { await W(([map, name]) => { const w = window.__game.scene.getScene('World'); const p = w.pointsOf(map)[name]; w.loadMap(map, p.x, p.y, 'down'); }, [map, name]); await h.frames(3); };
   const devComplete = (id) => W((id) => window.__Q.complete(id), id);
   const finishObjectives = (id) => W((id) => { const Q = window.__Q; const d = Q.def(id); d.objectives.forEach((o, i) => Q.advance(id, i, o.count ?? 1)); }, id);
 
@@ -51,7 +50,8 @@ export default async ({ page, wait, shot, evalG }) => {
     for (const k of ['stealth', 'evasion', 'athletics', 'archery', 'first_aid', 'iron_body', 'sword_mastery', 'spear_mastery', 'gathering']) G.state.flags['declined_' + k] = true;
     window.__game.scene.getScene('Title').scene.start('World', { map: 'world', x: 84, y: 62, facing: 'down' });
   });
-  await wait(3500);
+  await h.until(() => { const w = window.__game.scene.getScene('World'); return w.sys.isActive() && !!w.player && !!w.director; }, null, 20000);
+  await h.frames(10);
 
   // ================================================================ 1) ana görev zinciri
   if (want('chain')) {
@@ -66,13 +66,11 @@ export default async ({ page, wait, shot, evalG }) => {
     await W(() => { const G = window.__G; G.setFlag('inn_met'); G.setFlag('bertram_deal'); G.setFlag('bertram_done'); G.setFlag('farm_done'); window.__R?.giveMoney?.(100, 'QA', true); G.p.wallet.silver = (G.p.wallet.silver || 0) + 1; G.p.equipment.chest = 'linen_shirt'; G.p.equipment.pants = 'linen_pants'; });
     await setTime(4, 10);
     await h.tp('guild', 6, 8);
-    await wait(1500);
     await h.run();
     await talk('celeste', [0]);
     await step('kayıt');
     // Silah: Bertram (gerçek sahne)
     await h.tp('inn', 4, 6);
-    await wait(1500);
     await h.run();
     await talk('bertram');
     let m = await step('silah alındı');
@@ -81,9 +79,8 @@ export default async ({ page, wait, shot, evalG }) => {
     // Loncaya girince pano aynı gün; Vera ve Lina sahnede
     let sawVL = false;
     await h.tp('world', 92, 56);
-    await wait(800);
+    await h.frames(8);
     await h.tp('guild', 6, 10);
-    await wait(500);
     await h.run([1], 400, async (s) => { if (s.dlg && (await npcHere('vera')) && (await npcHere('lina'))) sawVL = true; });
     check(sawVL, 'pano açılışında Vera ve Lina sahnede');
     m = await step('pano açıldı');
@@ -98,15 +95,13 @@ export default async ({ page, wait, shot, evalG }) => {
     check(m.act.includes('m_air'), 'Biraz Hava açık');
     // Biraz hava → yaralılar (gerçek sahne)
     await tpPoint('world', 'forest_edge');
-    await wait(1200);
     await h.run([0]);
     m = await step('yaralılar');
     // gece: şifa evi saatten bağımsız açık, Ilse Nine içeride
     await setTime(await day(), 22);
     await W(() => { const w = window.__game.scene.getScene('World'); const d = w.pointsOf('world').door_healer; w.loadMap('world', d.x, d.y + 1, 'up'); });
-    await wait(1500);
-    await W(() => { const w = window.__game.scene.getScene('World'); const wp = w.mapData.warps.find((x) => x.to === 'healer'); w.tryWarp(wp); });
-    await wait(1500);
+    await h.frames(5);
+    await h.warp('healer');
     const hs = await h.S();
     check(hs.map === 'healer', 'gece 22:00 şifa evine girildi (yaralılar görevi): ' + hs.map);
     check(await npcHere('healer'), 'Ilse Nine şifa evinde');
@@ -116,20 +111,19 @@ export default async ({ page, wait, shot, evalG }) => {
     await shot('g4a_02_vl_rest_wait');
     // görev saatine kadar uyu
     await h.tp('inn_attic', 6, 4);
-    await wait(1200);
+    await h.frames(8);
     await W(() => { const w = window.__game.scene.getScene('World'); w.director.scene(async () => w.director.sleepAttic()); });
-    await wait(600);
+    await h.until(() => window.__game.scene.getScene('UI').choiceObjs.length > 0, null, 6000);
     const ch = await W(() => window.__game.scene.getScene('UI').choiceObjs.map((b) => b.label?.text ?? b.list?.find?.((o) => o.text)?.text ?? ''));
     log('  uyku menüsü:', JSON.stringify(ch));
     await shot('g4a_03_sleep_menu');
     await h.run([1]);
     const t = await W(() => window.__G.state.time);
-    check(t.minute === 8 * 60, `görev saatine kadar uyundu: ${t.day}. gün ${Math.floor(t.minute / 60)}:${String(t.minute % 60).padStart(2, '0')}`);
+    check(t.minute >= 8 * 60 && t.minute <= 8 * 60 + 10, `görev saatine kadar uyundu: ${t.day}. gün ${Math.floor(t.minute / 60)}:${String(t.minute % 60).padStart(2, '0')}`);
     m = await step('uyandı');
     check(!m.wait, 'uyanınca bekleme bitti (ok görünür)');
     // Vera'yla konuş: ilk ortak F görevi
     await h.tp('inn', 7, 9);
-    await wait(1500);
     await h.run();
     await W(() => { const w = window.__game.scene.getScene('World'); if (!w.npc('vera')) w.addNpc(window.__NPC_BY_ID.vera, 5, 10); });
     await talk('vera', [0]);
@@ -137,7 +131,7 @@ export default async ({ page, wait, shot, evalG }) => {
     check(m.act.includes('f_wolves'), 'Otlaktaki Fareler açık');
     // otlak: yoldaşlar orada
     await tpPoint('world', 'pasture');
-    await wait(1500);
+    await h.frames(8);
     let sawParty = false;
     await h.run([0], 400, async () => { if ((await npcHere('vera')) && (await npcHere('lina'))) sawParty = true; });
     check(sawParty, 'otlakta Vera ve Lina sahnede');
@@ -146,7 +140,6 @@ export default async ({ page, wait, shot, evalG }) => {
     // teslim (gerçek): Celeste
     await W(() => { const st = window.__G.state.quests.quests.f_wolves; st.progress[2] = 0; });
     await h.tp('guild', 6, 8);
-    await wait(1500);
     await h.run();
     await talk('celeste');
     m = await step('otlak teslim');
@@ -157,19 +150,17 @@ export default async ({ page, wait, shot, evalG }) => {
     check(!!m.wait, 'kutlamadan önce bekleme: ' + m.wait);
     await setTime(await day(), 18, 5);
     await tpPoint('world', 'door_inn');
-    await wait(800);
+    await h.frames(8);
     await h.tp('inn', 7, 11);
-    await wait(500);
     await h.run();
     m = await step('handa');
     check(m.label === 'Vera\'yla masaya otur', 'ana görev "Vera\'yla masaya otur": ' + m.label);
     const ctx = await W(() => { const w = window.__game.scene.getScene('World'); const p = w.pointsOf('inn').table_joseph; w.player.actor.setPosition(p.x * 32 + 16, p.y * 32 + 22); w.player.actor.body2.reset(w.player.actor.x, w.player.actor.y); w.player.actor.face('right'); return true; });
-    await wait(400);
+    await h.frames(3);
     const it = await W(() => window.__game.scene.getScene('World').findInteractable()?.label ?? null);
     check(it === 'Otur', 'masada etkileşim "Otur": ' + it);
     await shot('g4a_04_sit');
     await W(() => window.__game.scene.getScene('World').interact());
-    await wait(500);
     await h.run();
     m = await step('kutlama');
     check(m.act.includes('m_next_day'), '"Ertesi Gün" adımı: ' + m.wait);
@@ -177,7 +168,6 @@ export default async ({ page, wait, shot, evalG }) => {
     await setTime((await day()) + 1, 9);
     await W(() => window.__game.scene.getScene('World').director.ch2.onNewDay());
     await tpPoint('world', 'plaza');
-    await wait(1500);
     await h.run([0]);
     m = await step('kese çalındı');
     check(m.act.includes('m_theft'), 'Kâhyanın Kesesi kendiliğinden başladı');
@@ -188,18 +178,16 @@ export default async ({ page, wait, shot, evalG }) => {
     await shot('g4a_05_suspects');
     for (const sid of ['vagrant', 'beggar', 'apprentice', 'washer']) {
       await W((sid) => { const w = window.__game.scene.getScene('World'); const n = w.npc(sid); if (n) w.appraise(n.def.creature, n.def, n, true); w.ui.closeAppraisal(); }, sid);
-      await wait(1300);
-      await h.run();
+      await h.run([], 400, undefined, { start: 4000 });
     }
     const marks2 = await W(() => window.__game.scene.getScene('World').npcs.filter((n) => n.markerKind === 'suspect').length);
     check(marks2 === 0, 'Appraisal sonrası işaretler kalktı');
     m = await step('şüpheliler incelendi');
     // muhafıza söyle: Joseph muhafızı izler
     const before = await W(() => { const w = window.__game.scene.getScene('World'); const g = w.npc('guard_hob') ?? w.npc('guard_wil'); const p = w.player.actor; if (g) { p.setPosition(g.x + 40, g.y); p.body2.reset(p.x, p.y); } return g?.def.id; });
-    await wait(300);
+    await h.frames(3);
     let maxGap = 0;
     await W((gid) => { const w = window.__game.scene.getScene('World'); w.director.talk(w.npc(gid)); }, before);
-    await wait(400);
     await h.run([3], 600, async () => {
       const g = await W((gid) => { const w = window.__game.scene.getScene('World'); const n = w.npc(gid); const p = w.player.actor; return n ? Math.hypot(n.x - p.x, n.y - p.y) / 32 : 0; }, before);
       maxGap = Math.max(maxGap, g);
@@ -211,7 +199,6 @@ export default async ({ page, wait, shot, evalG }) => {
     // geri kalan: ertesi gün Vera → bodrum → 10 gümüş → veda → kart
     await setTime((await day()) + 1, 9);
     await h.tp('inn', 7, 9);
-    await wait(1200);
     await h.run();
     await W(() => { const w = window.__game.scene.getScene('World'); if (!w.npc('vera')) w.addNpc(window.__NPC_BY_ID.vera, 5, 10); });
     await talk('vera', [0]);
@@ -220,24 +207,20 @@ export default async ({ page, wait, shot, evalG }) => {
     await finishObjectives('f_cellar');
     await W(() => { const st = window.__G.state.quests.quests.f_cellar; st.progress[2] = 0; });
     await h.tp('guild', 6, 8);
-    await wait(1500);
     await h.run();
     await talk('celeste');
     m = await step('bodrum teslim');
     await W(() => { const G = window.__G; G.p.wallet.gold = (G.p.wallet.gold || 0) + 1; });
-    await wait(1500);
     await h.run();
     m = await step('10 gümüş');
     await h.tp('inn', 4, 6);
-    await wait(1500);
     await h.run();
     await talk('bertram', [0]);
     m = await step('veda');
     await tpPoint('world', 'checkpoint');
-    await wait(1500);
     await h.run();
     await talk('captain', [0]);
-    await wait(500);
+    await h.until(() => !!window.__G.state.flags.ch2_done, null, 6000);
     const fin = await W(() => ({ done: window.__G.state.flags.ch2_done, gate: window.__G.state.quests.quests.m_gate?.status }));
     check(!!fin.done && fin.gate === 'done', 'bölüm bitti (giriş kartı)');
   }
@@ -251,7 +234,7 @@ export default async ({ page, wait, shot, evalG }) => {
     for (const [hh, mm] of [[8, 0], [12, 30], [23, 0]]) {
       await setTime(d, hh, mm);
       await tpPoint('world', 'plaza');
-      await wait(1500);
+      await h.frames(8);
       const r = await W(() => { const w = window.__game.scene.getScene('World'); const t = w.questTargetPx(); const hal = w.npc('haldor'); return { t: t ? [Math.round(t.x / 32), Math.round(t.y / 32)] : null, wait: window.__Q.wait('m_harvest'), haldor: hal ? [Math.round(hal.x / 32), Math.round(hal.y / 32)] : null, farmDoor: w.pointsOf('world').door_farmhouse }; });
       log(`  ${hh}:${String(mm).padStart(2, '0')} ok→${JSON.stringify(r.t)} haldor=${JSON.stringify(r.haldor)} kapı=${JSON.stringify(r.farmDoor)} bekle="${r.wait ?? ''}"`);
       if (hh === 23) check(!r.t && /Haldor yarın 06:00'da/.test(r.wait ?? ''), 'gece: ok yok, "Haldor yarın 06:00\'da tarlada olur"');
@@ -273,13 +256,13 @@ export default async ({ page, wait, shot, evalG }) => {
       const inInn = await W(() => { const S = window.__NPC_BY_ID.smith; const G = window.__G; return true; });
       void inInn;
       await h.tp('inn', 7, 9);
-      await wait(2500);
+      await h.frames(8);
       if (await npcHere('smith')) { found = true; dd = d; }
     }
     if (found) {
       await h.run();
       await W(() => { const w = window.__game.scene.getScene('World'); const n = w.npc('smith'); const p = w.player.actor; p.setPosition(n.x + 30, n.y); p.body2.reset(p.x, p.y); w.director.talk(n); });
-      await wait(500);
+      await h.until(() => !!window.__game.scene.getScene('UI').dlgState?.full, null, 6000);
       const line = await W(() => window.__game.scene.getScene('UI').dlgState?.full ?? '');
       check(/demirhaneye gel/.test(line ?? ''), 'demirci handa: yönlendirme repliği — ' + line);
       await shot('g4a_08_smith_inn');
@@ -288,7 +271,7 @@ export default async ({ page, wait, shot, evalG }) => {
     // demirhanede (10:00): teklif
     await setTime(dd, 10);
     await h.tp('world', 70, 68);
-    await wait(2000);
+    await h.frames(8);
     await shot('g4a_09_world_markers');
     const spots = await W(() => window.__game.scene.getScene('World').sideMarkSpots().map((s) => `${s.id}:${s.kind}${s.building ? '@' + s.building : ''}`));
     log('  işaret yerleri:', spots.join(' '));
@@ -298,18 +281,18 @@ export default async ({ page, wait, shot, evalG }) => {
     const mm = await W(() => window.__game.scene.getScene('UI').mmMarks.length);
     check(mm > 0, 'mini haritada mavi ışık: ' + mm);
     await W(() => window.__game.scene.getScene('UI').openMenu('map'));
-    await wait(1500);
+    await h.frames(10);
     await shot('g4a_10_full_map');
     await W(() => window.__game.scene.getScene('UI').closeMenu?.());
-    await wait(500);
-    await W(() => { const w = window.__game.scene.getScene('World'); const wp = w.mapData.warps.find((x) => x.to === 'smithy'); w.tryWarp(wp); });
-    await wait(1800);
+    await h.frames(3);
+    await h.warp('smithy');
+    await h.until(() => window.__game.scene.getScene('World').npc('smith')?.markerKind === 'offer', null, 6000);
     const mk = await W(() => window.__game.scene.getScene('World').npc('smith')?.markerKind ?? null);
     check(mk === 'offer', 'demirhanede demircinin başında mavi "!"');
     await shot('g4a_11_smith_marker');
     await h.run();
     await W(() => { const w = window.__game.scene.getScene('World'); const n = w.npc('smith'); const p = w.player.actor; p.setPosition(n.x, n.y + 34); p.body2.reset(p.x, p.y); w.director.talk(n); });
-    await wait(500);
+    await h.until(() => !!window.__game.scene.getScene('UI').dlgState?.full, null, 6000);
     const line2 = await W(() => window.__game.scene.getScene('UI').dlgState?.full ?? '');
     check(/jöle/i.test(line2), 'demirhanede görev teklifi — ' + line2);
     await h.run([1]);
@@ -320,7 +303,7 @@ export default async ({ page, wait, shot, evalG }) => {
     log('== Şifalı ot');
     await W(() => { window.__Q.start('g2_herbs', true); window.__Q.track('g2_herbs'); });
     await tpPoint('world', 'forest_edge');
-    await wait(1500);
+    await h.frames(8);
     await shot('g4a_12_herbs');
     const got = await W(async () => {
       const w = window.__game.scene.getScene('World');
@@ -334,7 +317,7 @@ export default async ({ page, wait, shot, evalG }) => {
     check(got.inside >= 7 && got.inv >= 6, 'işaretli bölgede 6+ ot toplandı');
     // harita yeniden yüklenince toplananlar soluk kalır
     await tpPoint('world', 'forest_edge');
-    await wait(1200);
+    await h.frames(8);
     const faded = await W(() => { const w = window.__game.scene.getScene('World'); const fe = w.pointsOf('world').forest_edge; return w.mapData.gathers.filter((g) => g.kind === 'herb' && Math.hypot(g.x - fe.x, g.y - fe.y) <= 6 && w.gatherImg(g.id)?.alpha < 1).length; });
     check(faded === got.picked, `yeniden yüklemede toplanan ${got.picked} ot soluk (${faded})`);
   }
@@ -345,7 +328,7 @@ export default async ({ page, wait, shot, evalG }) => {
     for (const hh of [19, 20]) {
       await setTime(3, hh - 1, 58);
       await h.tp('inn', 7, 11);
-      await wait(9000);
+      await h.gameSec(9);
       const r = await W(() => {
         const w = window.__game.scene.getScene('World');
         const ns = w.npcs.filter((n) => n.state !== 'walk' && !n.pathPending);

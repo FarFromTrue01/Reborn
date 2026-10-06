@@ -8,6 +8,7 @@ import { COLORS, FONT, txt, drawFrame, drawBlue, drawBar, Button, uiIcon, rankBa
 import { QuestBox, PartyBars } from '../ui/hudQuests';
 import { playQuestComplete, playRankUp, type QuestDoneInfo, type PromotionInfo } from '../ui/celebrations';
 import { buildAppraisalPanel } from '../ui/appraisalPanel';
+import { SysFlow } from '../ui/sysFlow';
 import { clockLabel, dateLabel } from '../core/time';
 import { formatPrice } from '../core/money';
 import { coinRow, richLine, plainMoney } from '../ui/coins';
@@ -71,8 +72,8 @@ export class UIScene extends Phaser.Scene {
   cdOverlay!: Phaser.GameObjects.Graphics;
   joy: { id: number; bx: number; by: number; base: Phaser.GameObjects.Graphics; knob: Phaser.GameObjects.Graphics } | null = null;
   toasts: Phaser.GameObjects.Container[] = [];
-  sysQueue: SysItem[] = [];
-  sysShowing: Phaser.GameObjects.Container | null = null;
+  /** Sistem bildirimleri: tek kuyruk (kapanış sürerken yenisi başlamaz; 0.8.0). */
+  sysFlow: SysFlow<SysItem, Phaser.GameObjects.Container> = this.makeSysFlow();
   /** Kuyrukta sırası gelmiş kutlama sahnesi (görev bitişi / terfi); kendi dokunuşlarını yönetir. */
   sysOverlay: { root: Phaser.GameObjects.Container; skip(): void } | null = null;
   dlg: Phaser.GameObjects.Container | null = null;
@@ -136,8 +137,7 @@ export class UIScene extends Phaser.Scene {
     this.cdOverlay = undefined!;
     this.joy = null;
     this.toasts = [];
-    this.sysQueue = [];
-    this.sysShowing = null;
+    this.sysFlow = this.makeSysFlow();
     this.sysOverlay = null;
     this.dlg = null;
     this.dlgState = null;
@@ -698,9 +698,7 @@ export class UIScene extends Phaser.Scene {
       this.advanceDialogue();
       return;
     }
-    if (this.sysShowing) {
-      this.dismissSys();
-    }
+    if (this.sysFlow.busy) this.dismissSys();
     if (this.menuIsOpen || this.world?.cutscene) return;
     const x = p.x / Display.uiZoom, y = p.y / Display.uiZoom;
     if (!p.wasTouch && !this.isTouch) return;
@@ -840,28 +838,38 @@ export class UIScene extends Phaser.Scene {
   }
 
   queueSys(m: SysItem) {
-    this.sysQueue.push(m);
-    if (!this.sysShowing) this.nextSys();
+    this.sysFlow.push(m);
   }
 
-  nextSys() {
-    const m = this.sysQueue.shift();
+  get sysShowing() {
+    return this.sysFlow.current;
+  }
+
+  get sysQueue() {
+    return this.sysFlow.queue;
+  }
+
+  makeSysFlow() {
+    return new SysFlow<SysItem, Phaser.GameObjects.Container>({
+      show: (m) => this.showSys(m),
+      hide: (c, done) => {
+        this.tweens.add({ targets: c, alpha: 0, y: c.y - 10, duration: 200, onComplete: () => { c.destroy(); done(); } });
+      },
+    });
+  }
+
+  private showSys(m: SysItem): Phaser.GameObjects.Container {
     this.sysOverlay = null;
-    if (!m) {
-      this.sysShowing = null;
-      return;
-    }
     if (m.overlay && m.data) {
       // kutlama sahnesi: dokununca sona atlar, ikinci dokunuş (ya da kısa bekleme) kapatır
       const done = () => {
         if (this.sysOverlay !== ov) return;
-        this.sysShowing = null;
-        this.nextSys();
+        this.sysOverlay = null;
+        this.sysFlow.finish(ov.root);
       };
       const ov = m.overlay === 'rank' ? playRankUp(this, m.data as PromotionInfo, done) : playQuestComplete(this, m.data as QuestDoneInfo, done);
       this.sysOverlay = ov;
-      this.sysShowing = ov.root;
-      return;
+      return ov.root;
     }
     Sound.sfx(m.sound ?? 'system', 0.8);
     const W = Display.uiW;
@@ -879,11 +887,10 @@ export class UIScene extends Phaser.Scene {
     });
     c.setAlpha(0).setScale(0.96, 0.6);
     this.tweens.add({ targets: c, alpha: 1, scaleY: 1, scaleX: 1, duration: 220, ease: 'Back.Out' });
-    this.sysShowing = c;
     const dur = 2400 + m.lines.length * 700;
-    this.time.delayedCall(dur, () => {
-      if (this.sysShowing === c) this.dismissSys();
-    });
+    // gerçek zamanlı: oyun dünyası donsa da (menü) bildirim kapanır; yalnızca hâlâ ekrandaysa
+    this.time.delayedCall(dur, () => this.sysFlow.dismiss(c));
+    return c;
   }
 
   /** Kuyruk boşalınca (kutlama sahneleri ve bildirimler bitince) çözülür. Hikâye bunu bekleyip devam eder. */
@@ -891,7 +898,7 @@ export class UIScene extends Phaser.Scene {
     return new Promise((resolve) => {
       const t0 = Date.now();
       const check = () => {
-        if (!this.sys?.isActive() || (!this.sysOverlay && !this.sysQueue.some((m) => m.overlay)) || Date.now() - t0 > maxMs) resolve();
+        if (!this.sys?.isActive() || (!this.sysOverlay && !this.sysFlow.queue.some((m) => m.overlay)) || Date.now() - t0 > maxMs) resolve();
         else setTimeout(check, 100);
       };
       check();
@@ -899,10 +906,8 @@ export class UIScene extends Phaser.Scene {
   }
 
   dismissSys() {
-    const c = this.sysShowing;
-    if (!c || this.sysOverlay) return;
-    this.sysShowing = null;
-    this.tweens.add({ targets: c, alpha: 0, y: c.y - 10, duration: 200, onComplete: () => { c.destroy(); this.nextSys(); } });
+    if (this.sysOverlay) return;
+    this.sysFlow.dismiss();
   }
 
   showZone(name: string) {
