@@ -329,3 +329,27 @@ describe('C8: NPC statları = 6 × level', () => {
     for (const n of NPCS) if (n.creature.skills.some((s) => /magic/.test(s.id))) expect(n.creature.alloc.MNA, n.id).toBeGreaterThan(0);
   });
 });
+
+import { WEAPON_VISUALS, JOSEPH_BIG } from '../src/data/manifest';
+const JPNG = import.meta.glob('/assets/gfx/chars/joseph/*.png', { query: '?inline', import: 'default', eager: true }) as Record<string, string>;
+const jsize = (rel: string): [number, number] => {
+  const url = JPNG['/' + rel];
+  if (!url) throw new Error('yok: ' + rel);
+  const bin = atob(url.slice(url.indexOf(',') + 1, url.indexOf(',') + 1 + 44));
+  const u32 = (o: number) => ((bin.charCodeAt(o) << 24) | (bin.charCodeAt(o + 1) << 16) | (bin.charCodeAt(o + 2) << 8) | bin.charCodeAt(o + 3)) >>> 0;
+  return [u32(16), u32(20)];
+};
+describe('D2: mızrak ve yay savaşta elde yürür', () => {
+  it('büyük kare yürüme katmanları var (128 px, 9 sütun, 4 yön); sırttaki görünüme düşmez', () => {
+    for (const w of ['w_spear', 'w_bow']) {
+      const v = WEAPON_VISUALS[w];
+      expect(v.walkCarried, w).toBeFalsy();
+      const walks = (v.big ?? []).filter((b) => b.anim === 'walk').map((b) => b.key);
+      expect(walks.sort(), w).toEqual([w + '_walk', w + '_walk_bg']);
+      for (const k of walks) {
+        expect(JOSEPH_BIG[k].size).toBe(128);
+        expect(jsize(JOSEPH_BIG[k].file)).toEqual([128 * 9, 128 * 4]);
+      }
+    }
+  });
+});

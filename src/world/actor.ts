@@ -133,6 +133,18 @@ export class Actor extends Phaser.GameObjects.Container {
     return this.layers.filter((l) => { const i = this.info.get(l); return !i?.big && i?.role !== 'carry'; }).map((l) => l.texture.key);
   }
 
+  /** 64 px el katmanı (vurulma/saldırı kareleri olan) var mı? */
+  smallHand(): boolean {
+    for (const i of this.info.values()) if (i.role === 'hand' && !i.big) return true;
+    return false;
+  }
+
+  /** Büyük kare yürüme katmanı var mı? */
+  bigWalk(): boolean {
+    for (const i of this.info.values()) if (i.big?.anim === 'walk') return true;
+    return false;
+  }
+
   /** Taşıma katmanları var mı (sırta koyma desteklenir mi)? */
   hasCarry(): boolean {
     for (const i of this.info.values()) if (i.role === 'carry') return true;
@@ -242,6 +254,8 @@ export class Actor extends Phaser.GameObjects.Container {
       // elde yürüme karesi olmayan silah: yürürken/dururken sırttaki görünüm
       const handHere = this.weaponMode === 'hand' && !(this.walkCarried && walkish);
       const carryHere = this.weaponMode === 'carry' || (this.weaponMode === 'hand' && this.walkCarried && walkish);
+      // büyük kare yürüme katmanı olan silah (pala, mızrak, yay): yürürken 64 px el katmanları gizli
+      const smallHandHere = handHere && !(walkish && this.bigWalk());
       for (const l of this.layers) {
         const info = this.info.get(l);
         if (!info || info.role === 'base') {
@@ -254,12 +268,18 @@ export class Actor extends Phaser.GameObjects.Container {
           continue;
         }
         if (!info.big) {
-          l.setVisible(handHere);
-          if (handHere) l.setFrame(idx);
+          l.setVisible(smallHandHere);
+          if (smallHandHere) l.setFrame(idx);
           continue;
         }
         // büyük kare: yalnızca kendi animasyonunda görünür; gövdenin i. karesiyle silahın i. karesi aynı anda
         const b = info.big;
+        // 0.8.0 (D4): vurulma karesi olmayan silah (pala): vurulurken son yürüme karesi görünür kalır (kaybolmaz)
+        if (b.anim === 'walk' && this.anim === 'hurt' && this.weaponMode === 'hand' && !this.smallHand()) {
+          l.setVisible(true);
+          l.setFrame(DIR_INDEX.down * b.cols); // vurulma pozu hep aşağı bakar
+          continue;
+        }
         const on = handHere && (b.anim === 'slash' ? isSlash : walkish);
         l.setVisible(on);
         if (on) l.setFrame(DIR_INDEX[this.dir] * b.cols + Math.min(b.cols - 1, b.anim === 'slash' ? f : col));

@@ -48,6 +48,11 @@ const CARRY_PATH_CTRL: Record<Dir, { x: number; y: number }> = {
   right: { x: 16, y: 38 },
 };
 
+/** Ortasından tutulan uzun silahlar: sırta giderken yay çizmez (0.8.0). */
+const LONG_WEAPONS = new Set(['w_bow', 'w_spear']);
+/** Havada süzülürken ölçek: yay iri görünüyordu (0.8.0 D6). */
+const FLOAT_SCALE: Record<string, number> = { w_bow: 0.75 };
+
 interface CarryMeta {
   item: { px: number; py: number; a: number };
   carry: Record<Dir, { x: number; y: number; a: number; front: boolean; flip?: boolean }>;
@@ -278,8 +283,10 @@ export class Player {
     const u = Math.max(0, Math.min(1, (k - 0.1) / 0.65));
     const e = u * u * (3 - 2 * u);
     const p = sh.kind === 'stow' ? e : 1 - e;
-    // sırt: omzun üstünden / sırt kenarından; bel (hançer): elden bele düz
-    const c = back.y >= 40 ? { x: (hand.x + back.x) / 2, y: (hand.y + back.y) / 2 } : CARRY_PATH_CTRL[a.dir];
+    // sırt: omzun üstünden / sırt kenarından; bel (hançer) ve uzun silahlar (yay, mızrak; 0.8.0 D6): elden düz —
+    // yay ortasından tutulduğu için yay çizerse başın üstünden geçiyor, aşağı bakarken elden kopuk görünüyordu
+    const long = LONG_WEAPONS.has(this.weaponVisual ?? '');
+    const c = back.y >= 40 || long ? { x: (hand.x + back.x) / 2, y: (hand.y + back.y) / 2 } : CARRY_PATH_CTRL[a.dir];
     const x = (1 - p) * (1 - p) * hand.x + 2 * (1 - p) * p * c.x + p * p * back.x;
     const y = (1 - p) * (1 - p) * hand.y + 2 * (1 - p) * p * c.y + p * p * back.y;
     let da = back.a - hand.a;
@@ -296,8 +303,10 @@ export class Player {
       const step = 360 / WEAPON_ROT.steps;
       f.setFrame(((Math.round(deg / step) % WEAPON_ROT.steps) + WEAPON_ROT.steps) % WEAPON_ROT.steps);
       f.setFlipX(flip);
+      f.setScale(FLOAT_SCALE[this.weaponVisual ?? ''] ?? 1);
       // elden çıkınca gövdenin arkasından geçer (sırtı dönükken sırtın üstünde): yüzün önünden geçmez
-      const front = p < 0.15 ? a.dir !== 'up' : back.front;
+      // uzun silah yukarı bakarken başın arkasından geçer (kiriş başın üstünden geçmesin)
+      const front = long && a.dir === 'up' ? false : p < 0.15 ? a.dir !== 'up' : back.front;
       f.setDepth(a.depth + (front ? 0.5 : -0.5));
     }
     if (arrived && !sh.shown) {

@@ -146,8 +146,15 @@ def draw_stick(img, gx, gy, ang, length, r0, r1, pal, cracked=False, knots=True)
             else:
                 c = pal['base']
             tt = t / length
-            if cracked and r > 1.3 and abs(d) < 0.5 and 0.2 < tt < 0.95:
-                c = pal['dark']
+            if cracked and r > 0.9 and 0.12 < tt:
+                # 0.8.0 (D7): boydan boya zikzak çatlak (dış hat tonunda, koyu) ve yanında açık kıymık; uçta yarık
+                z = 0.45 if int(t / 3) % 2 == 0 else -0.45
+                if t > length - 1.5 and abs(d) < 0.7:
+                    continue  # yarık: kalın uç ikiye ayrılmış
+                if abs(d - z) < 0.55:
+                    c = pal['out']
+                elif 0.55 <= (d - z) * lit < 1.4:
+                    c = pal['hi']
             inside[(x, y)] = c
     if knots and not cracked:
         for tk in (0.5, 0.8):
@@ -312,14 +319,16 @@ CARRY = {
     'back': {
         'up': {'x': 40, 'y': 33, 'a': 122, 'front': True},
         'down': {'x': 21, 'y': 28, 'a': 50, 'front': False},
-        'left': {'x': 37, 'y': 26, 'a': 58, 'front': False},
-        'right': {'x': 27, 'y': 26, 'a': 122, 'front': False},
+        # 0.8.0 (D5): yandan sırta daha yakın (eskiden 58° / 122°: dışa açılı)
+        'left': {'x': 41, 'y': 28, 'a': 80, 'front': False},
+        'right': {'x': 23, 'y': 28, 'a': 100, 'front': False},
     },
     'hip': {
         'up': {'x': 23, 'y': 45, 'a': 104, 'front': True},
         'down': {'x': 41, 'y': 45, 'a': 76, 'front': True},
         'left': {'x': 31, 'y': 44, 'a': 72, 'front': True},
-        'right': {'x': 27, 'y': 44, 'a': 118, 'front': False},
+        # 0.8.0 (D5): sağa bakarken belin arka kenarında, bıçağı silüetin dışına taşar (eskiden tamamen gizliydi)
+        'right': {'x': 24, 'y': 44, 'a': 128, 'front': False},
     },
 }
 # Uzun silahlarda (mızrak, yay) tutma noktası silahın ortasıdır; sırtta da ortası omuz hizasına gelir.
@@ -327,8 +336,9 @@ CARRY = {
 CARRY_LONG = {
     'up': {'x': 32, 'y': 38, 'a': -58, 'front': True},
     'down': {'x': 32, 'y': 38, 'a': -122, 'front': False},
-    'left': {'x': 37, 'y': 37, 'a': -62, 'front': False},
-    'right': {'x': 27, 'y': 37, 'a': -118, 'front': False, 'flip': True},
+    # 0.8.0 (D5): yandan sap başın arkasından geçer (eskiden başın arka kenarına yapışık, yüzü kesiyor gibiydi)
+    'left': {'x': 42, 'y': 38, 'a': -62, 'front': False},
+    'right': {'x': 22, 'y': 38, 'a': -118, 'front': False, 'flip': True},
 }
 
 
@@ -388,10 +398,132 @@ def carry_layers(item, pivot, base_ang, place, sway=0.0):
     return fg, bg
 
 
+# ----------------------------------------------------------------------------- elde yürüme (0.8.0, D2)
+def walk_grips():
+    """Yürüme karelerinde elin (tutma noktasının) yeri: w_club (çekiç) karelerinden. {(row, col): (x, y)} — 64 px kare."""
+    src = joseph('w_club.png')
+    body = joseph('body.png')
+    out = {}
+    for row in range(8, 12):
+        for col in range(9):
+            fr = crop_frame(src, row, col)
+            handle, head = [], []
+            for y in range(F):
+                for x in range(F):
+                    p = fr.getpixel((x, y))
+                    if p[3] < 200:
+                        continue
+                    if p[:3] in HAMMER_HANDLE:
+                        handle.append((x, y))
+                    elif p[:3] in HAMMER_HEAD:
+                        head.append((x, y))
+            if not handle:
+                continue
+            # el: sapın deriye (gövde katmanında, dış hat değil) değen pikselleri
+            bf = crop_frame(body, row, col)
+            def on_hand(p):
+                for dx in (-1, 0, 1):
+                    for dy in (-1, 0, 1):
+                        x, y = p[0] + dx, p[1] + dy
+                        if 0 <= x < F and 0 <= y < F:
+                            q = bf.getpixel((x, y))
+                            if q[3] > 0 and q[:3] not in BODY_OUTLINE:
+                                return True
+                return False
+            touch = [p for p in handle if on_hand(p)] or handle
+            if len(head) >= 6:
+                hx = sum(p[0] for p in head) / len(head)
+                hy = sum(p[1] for p in head) / len(head)
+                g = max(touch, key=lambda p: (p[0] - hx) ** 2 + (p[1] - hy) ** 2)
+            else:
+                # kafa görünmüyor (sırttan): sapın gövdeye en yakın ucu
+                g = min(touch, key=lambda p: abs(p[0] - 32))
+            out[(row, col)] = (g[0] + 0.5, g[1] + 0.5)
+    return out
+
+
+BODY_OUTLINE = {(39, 25, 32), (80, 55, 52)}
+
+# Elde yürüme açıları (uç yönü, ekran, saat yönü; −90 = yukarı) ve katman (önde mi). Yukarı bakarken gövdenin arkasında.
+HAND_WALK = {
+    # mızrak dik (tam 90°: ince sap döndürmede kopmaz)
+    'spear': {'up': (-90, False), 'left': (-90, True), 'down': (-90, True), 'right': (-90, True)},
+    # yay yanda; yandan bakışta hafif öne eğik ve gövdenin arkasında (yüzün önünden geçmez)
+    'bow': {'up': (-90, False), 'left': (-100, False), 'down': (-90, True), 'right': (-80, False)},
+}
+
+
+def hand_walk_sheet(item, pivot, base_ang, angles, size=128, sway=2.0):
+    """Savaşta elde taşınan yürüme görünümü: silah her karede elin yerinde (walk_grips), verilen açıyla. Büyük kare
+    sayfası (size px, 9 sütun, 4 yön satırı; merkez 64 px karenin merkezi)."""
+    grips = walk_grips()
+    off = (size - F) // 2
+    fg = Image.new('RGBA', (size * 9, size * 4))
+    bg = Image.new('RGBA', (size * 9, size * 4))
+    for di, d in enumerate(DIRS):
+        a0, front = angles[d]
+        for col in range(9):
+            g = grips.get((8 + di, col)) or grips.get((8 + di, 0))
+            if not g:
+                continue
+            a = a0 + (sway * math.sin((col - 1) / 8 * 2 * math.pi) if col > 0 and sway else 0)
+            spr, R = rotated(item, pivot, a - base_ang)
+            cell = Image.new('RGBA', (size, size))
+            cell.alpha_composite(spr, (int(off + g[0] - R), int(off + g[1] - R)))
+            (fg if front else bg).alpha_composite(cell, (col * size, di * size))
+    return fg, bg
+
+
+# ----------------------------------------------------------------------------- hançer: yukarı saplama (0.8.0, D3)
+def dagger_thrust_up(item, pivot, base_ang):
+    """LPC hançerinde yukarı saplama (satır 4) hiç çizilmemiş: hançer hiç görünmüyordu. El sağ omzun dışında; saplamada
+    bıçak dik, omuz hizasından başın yanında yükselir (gövdenin arkasında çizilir), hazırlanmada alçakta ve öne eğik."""
+    body = joseph('body.png')
+    head = joseph('head.png')
+    layer = Image.new('RGBA', (F * 8, F))
+    for col in range(8):
+        bb = crop_frame(body, 4, col).getchannel('A').getbbox()
+        hb = crop_frame(head, 4, col).getchannel('A').getbbox()
+        # el sağ omzun dışında: bıçak başın yanından görünür (gövdenin arkasında çizilir, silüete girmez)
+        gx = max(bb[2], hb[2]) + 0.5
+        if col <= 2:
+            gx, gy, ang = bb[2] - 0.5, bb[1] + 12 - col * 2, -90 + 30 - col * 10   # hazırlanma: alçakta, öne eğik
+        else:
+            gy, ang = bb[1] + 4, -90                                               # saplama: dik, omuz hizasından
+        spr, R = rotated(item, pivot, ang - base_ang)
+        cell = Image.new('RGBA', (F + 2 * R, F + 2 * R))
+        cell.alpha_composite(spr, (int(gx), int(gy)))
+        layer.alpha_composite(cell.crop((R, R, R + F, R + F)), (col * F, 0))
+    return layer
+
+
 # ----------------------------------------------------------------------------- büyük kareler
 def big_sheet(src, size, frames, rows=4):
     """LPC jeneratörünün özel animasyon sayfası (size px kare, frames sütun, 4 yön)."""
     return src.crop((0, 0, size * frames, size * rows))
+
+
+# 0.8.0 (D1): arming kılıç saldırı sayfası LPC'nin kollu yeni gövdesi için çizilmiş; Joseph'in klasik slash'inde
+# geriye çekiş karelerinde kabza ele 1–2 piksel oturmuyordu. Yön (0 yukarı, 1 sol, 2 aşağı, 3 sağ) → kare → (dx, dy).
+ARMING_SLASH_OFFSET = {
+    0: {1: (1, -1)},
+    1: {0: (1, 0), 1: (0, -2), 2: (0, -1)},
+    2: {0: (0, -1), 1: (0, -1)},
+    3: {1: (0, -2), 2: (0, -1)},
+}
+
+
+def shift_cells(sheet, size, offsets):
+    """Büyük kare sayfasında tek tek kareleri kaydırır (kare dışına taşan kırpılır)."""
+    out = sheet.copy()
+    for d, frames in offsets.items():
+        for c, (dx, dy) in frames.items():
+            box = (c * size, d * size, (c + 1) * size, (d + 1) * size)
+            cell = sheet.crop(box)
+            moved = Image.new('RGBA', (size, size))
+            moved.alpha_composite(cell.crop((max(0, -dx), max(0, -dy), size - max(0, dx), size - max(0, dy))), (max(0, dx), max(0, dy)))
+            out.paste(moved, box[:2])
+    return out
 
 
 def move_row(fg, bg, row, size):
@@ -437,8 +569,8 @@ def main():
     for name, variant, cmap in (('w_arming_rusty', 'steel', 'rust'), ('w_arming_steel', 'steel', None)):
         uf = fetch(S + f'sword/arming/universal/fg/{variant}.png').crop((0, 0, W, H))
         ub = fetch(S + f'sword/arming/universal/bg/{variant}.png').crop((0, 0, W, H))
-        af = big_sheet(fetch(S + f'sword/arming/attack_slash/fg/{variant}.png'), 128, 6)
-        ab = big_sheet(fetch(S + f'sword/arming/attack_slash/bg/{variant}.png'), 128, 6)
+        af = shift_cells(big_sheet(fetch(S + f'sword/arming/attack_slash/fg/{variant}.png'), 128, 6), 128, ARMING_SLASH_OFFSET)
+        ab = shift_cells(big_sheet(fetch(S + f'sword/arming/attack_slash/bg/{variant}.png'), 128, 6), 128, ARMING_SLASH_OFFSET)
         if cmap == 'rust':
             # savurma izi (açık bej/beyaz) pas tonuna boyanmasın
             trail = {(196, 181, 159), (255, 255, 255)}
@@ -498,6 +630,11 @@ def main():
     save(bg, 'w_dagger_carry_bg.png')
     save(rot_sheet(item, pivot, base), 'w_dagger_item.png')
     meta['w_dagger'] = {'item': {'px': pivot[0], 'py': pivot[1], 'a': round(base, 1)}, 'carry': CARRY['hip']}
+    # yukarı saplama satırı (arka katman): LPC'de boş
+    dbg = joseph('w_dagger_bg.png')
+    dbg.paste(Image.new('RGBA', (W, F)), (0, 4 * F))
+    dbg.alpha_composite(dagger_thrust_up(item, pivot, base), (0, 4 * F))
+    save(dbg, 'w_dagger_bg.png')
 
     spear = Image.alpha_composite(joseph('w_spear_bg.png'), joseph('w_spear.png'))
     item = extract_item(spear, 7, 4)  # sağa saplama: yatay mızrak
@@ -507,6 +644,10 @@ def main():
     save(bg, 'w_spear_carry_bg.png')
     save(rot_sheet(item, pivot, 0), 'w_spear_item.png')
     meta['w_spear'] = {'item': {'px': pivot[0], 'py': pivot[1], 'a': 0}, 'carry': CARRY_LONG}
+    # elde yürüme: dik, sapın dipten %35'inden tutulur (uç sağda: dip solda)
+    wf, wb = hand_walk_sheet(item, (item.width * 0.35, item.height / 2), 0, HAND_WALK['spear'], sway=0)
+    save(wf, 'w_spear_walk.png')
+    save(wb, 'w_spear_walk_bg.png')
 
     bow = Image.alpha_composite(joseph('w_bow_bg.png'), joseph('w_bow.png'))
     item = extract_item(bow, 19, 12, largest=True)  # sağa atış sonrası: dik yay, ok yok
@@ -515,6 +656,10 @@ def main():
     save(fg, 'w_bow_carry.png')
     save(bg, 'w_bow_carry_bg.png')
     save(rot_sheet(item, pivot, -90), 'w_bow_item.png')
+    # elde yürüme: yay yanda, dik, ortasından tutulur
+    wf, wb = hand_walk_sheet(item, pivot, -90, HAND_WALK['bow'])
+    save(wf, 'w_bow_walk.png')
+    save(wb, 'w_bow_walk_bg.png')
     meta['w_bow'] = {'item': {'px': pivot[0], 'py': pivot[1], 'a': -90}, 'carry': CARRY_LONG}
 
     for m in meta.values():

@@ -113,6 +113,11 @@ export const JOSEPH_BIG: Record<string, { file: string; size: number }> = {
   w_cleaver_walk_bg: { file: 'assets/gfx/chars/joseph/w_cleaver_walk_bg.png', size: 128 },
   w_cleaver_atk: { file: 'assets/gfx/chars/joseph/w_cleaver_atk.png', size: 128 },
   w_cleaver_atk_bg: { file: 'assets/gfx/chars/joseph/w_cleaver_atk_bg.png', size: 128 },
+  // 0.8.0 (D2): savaşta elde taşınan yürüme görünümü (mızrak dik, yay yanda) — tools/build_weapons.py
+  w_spear_walk: { file: 'assets/gfx/chars/joseph/w_spear_walk.png', size: 128 },
+  w_spear_walk_bg: { file: 'assets/gfx/chars/joseph/w_spear_walk_bg.png', size: 128 },
+  w_bow_walk: { file: 'assets/gfx/chars/joseph/w_bow_walk.png', size: 128 },
+  w_bow_walk_bg: { file: 'assets/gfx/chars/joseph/w_bow_walk_bg.png', size: 128 },
 };
 
 /** Taşıma (sırt/bel) katmanlarının z değerleri: önde (sırtı dönükken pelerinin üstünde) ve gövdenin arkasında. */
@@ -158,8 +163,14 @@ export const WEAPON_VISUALS: Record<string, WeaponVisual> = {
     ],
   },
   w_dagger: { hand: ['w_dagger', 'w_dagger_bg'], carry: true },
-  w_spear: { hand: ['w_spear', 'w_spear_bg'], carry: true, walkCarried: true },
-  w_bow: { hand: ['w_bow', 'w_bow_bg'], carry: true, walkCarried: true },
+  w_spear: {
+    hand: ['w_spear', 'w_spear_bg'], carry: true,
+    big: [{ key: 'w_spear_walk', anim: 'walk', z: 140 }, { key: 'w_spear_walk_bg', anim: 'walk', z: 9 }],
+  },
+  w_bow: {
+    hand: ['w_bow', 'w_bow_bg'], carry: true,
+    big: [{ key: 'w_bow_walk', anim: 'walk', z: 140 }, { key: 'w_bow_walk_bg', anim: 'walk', z: 9 }],
+  },
   w_club: { hand: ['w_club'], carry: false },
 };
 

@@ -365,6 +365,35 @@ export default async ({ page, wait, shot, evalG }) => {
     await page.setViewportSize({ width: 1280, height: 854 });
   }
 
+  // ================================================================ D: silahların yeni kareleri (oyun içinde)
+  if (want('weapons')) {
+    log('== D silahlar (oyun içi)');
+    await tpPoint('world', 'plaza');
+    const pose = async (item, dir, anim, frame, name) => {
+      await W(([item, dir, anim, frame]) => {
+        const w = window.__game.scene.getScene('World'); const pl = w.player; const a = pl.actor;
+        window.__G.p.equipment.weapon = item; pl.refreshLayers(); pl.setSheathed(false);
+        pl.combatT = 0; a.weaponMode = 'hand'; a.face(dir);
+        a.play(anim, { loop: anim === 'walk', restart: true });
+        if (frame !== null) a.setManualFrame(frame);
+        // donmuş dünyada holdStill yürüme pozunu idle'a çevirir: çekim boyunca devre dışı
+        pl.__hold = pl.__hold ?? pl.holdStill; pl.holdStill = () => {};
+        w.freeze('qa');
+      }, [item, dir, anim, frame]);
+      await h.frames(2);
+      await closeShot(name, 6, -22);
+      await W(() => { const w = window.__game.scene.getScene('World'); w.player.holdStill = w.player.__hold; w.unfreeze('qa'); });
+    };
+    for (const d of ['down', 'left', 'up', 'right']) await pose('iron_spear', d, 'walk', 3, `g5a_d2_spear_walk_${d}`);
+    for (const d of ['down', 'left', 'right']) await pose('short_bow', d, 'walk', 3, `g5a_d2_bow_walk_${d}`);
+    await pose('hunting_knife', 'up', 'thrust', 5, 'g5a_d3_dagger_thrust_up');
+    await pose('goblin_cleaver', 'down', 'hurt', 1, 'g5a_d4_cleaver_hurt');
+    await pose('rusty_shortsword', 'left', 'slash', 1, 'g5a_d1_sword_pullback_left');
+    await pose('cracked_stick', 'right', 'walk', 0, 'g5a_d7_cracked_stick');
+    const vis = await W(() => { const a = window.__game.scene.getScene('World').player.actor; return a.layers.filter((l) => l.visible).map((l) => l.texture.key); });
+    log('  son pozda görünen katmanlar:', vis.join(' '));
+  }
+
   // ================================================================ doğu kenarı (B11)
   if (want('east')) {
     log('== Doğu kenarı');
