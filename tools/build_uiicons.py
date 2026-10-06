@@ -45,6 +45,18 @@ EMOJI = {
     's_beer': '1f37a', 's_stew': '1f372', 's_bread': '1f35e', 's_plate': '1f37d', 's_angry': '1f620', 's_happy': '1f60a',
     # ayarlar bölümleri (0.5.0; mevcut atlasın sonuna eklendi)
     'sound': '1f50a', 'gameplay': '1f3ae',
+    # 0.9.0 (Grup 5B): ekipman slotları, sıralama, durum etkileri, yetenek slotu
+    'slot_weapon': '1f5e1', 'slot_helmet': '1fa96', 'slot_chest': '1f455', 'slot_gloves': '1f9e4', 'slot_belt': '1faa2',
+    'slot_pants': '1f456', 'slot_boots': '1f97e', 'slot_cape': '1f9e5', 'slot_necklace': '1f4ff', 'slot_ring': '1f48d',
+    'sort': '1f503', 'def': '1f6e1', 'more': '1f53d', 'bag': '1f45c', 'sparkle': '2728',
+    'st_burn': '1f525', 'st_slow': '1f40c', 'st_freeze': '1f9ca', 'st_stagger': '1f4ab', 'st_paralyze': '1f329',
+    'st_fear': '1f631', 'st_taunt': '1f4a2', 'st_curse': '1f480', 'st_shield': '1f9ca', 'skill_slot': '1f3af',
+}
+
+# Renk değiştirilmiş simgeler (anahtar → (kod noktası, hedef ton 0–1)). Yan görev simgesi her yerde mavi ünlem (0.9.0):
+# Twemoji'nin kırmızı ❗/❓ simgeleri tonu maviye (ya da şüpheli için sarıya) çevrilerek üretilir.
+RECOLOR = {
+    'side_quest': ('2757', 0.585), 'side_turnin': ('2753', 0.585), 'suspect_mark': ('2753', 0.125),
 }
 
 LETTERS = 'GFEDCBASX'
@@ -195,6 +207,22 @@ def badge(letter):
     return im.resize((C, C), Image.LANCZOS)
 
 
+def recolor(im, hue):
+    import colorsys
+    px = im.load()
+    for y in range(im.height):
+        for x in range(im.width):
+            r, g, b, a = px[x, y]
+            if not a:
+                continue
+            h, l, sat = colorsys.rgb_to_hls(r / 255, g / 255, b / 255)
+            if sat < 0.25:
+                continue
+            nr, ng, nb = colorsys.hls_to_rgb(hue, min(0.82, l * 1.12), sat)
+            px[x, y] = (int(nr * 255), int(ng * 255), int(nb * 255), a)
+    return im
+
+
 def main():
     keys = list(EMOJI.keys())
     frames = {}
@@ -203,12 +231,15 @@ def main():
         imgs[k] = fetch(code)
     for L in LETTERS:
         imgs['rank_' + L] = badge(L)
+    for k, (code, hue) in RECOLOR.items():
+        imgs[k] = recolor(fetch(code), hue)
     names = list(imgs.keys())
     cols = 16
+    P = C + 2  # 0.9.0: kareler arası 2 px boşluk (küçültülünce komşu karenin kenarı taşmasın)
     rows = (len(names) + cols - 1) // cols
-    sheet = Image.new('RGBA', (cols * C, rows * C), (0, 0, 0, 0))
+    sheet = Image.new('RGBA', (cols * P, rows * P), (0, 0, 0, 0))
     for i, k in enumerate(names):
-        x, y = (i % cols) * C, (i // cols) * C
+        x, y = (i % cols) * P + 1, (i // cols) * P + 1
         sheet.alpha_composite(imgs[k], (x, y))
         frames[k] = {'frame': {'x': x, 'y': y, 'w': C, 'h': C}, 'rotated': False, 'trimmed': False,
                      'spriteSourceSize': {'x': 0, 'y': 0, 'w': C, 'h': C}, 'sourceSize': {'w': C, 'h': C}}

@@ -5,9 +5,10 @@ import { Sound } from '../audio/audio';
 import { COLORS, FONT, txt, drawFrame, drawBlue, Button, iconImage, uiIcon, rankBadge, itemRankBadge, fullScreenRect } from '../ui/kit';
 import { renderDevPanel } from '../ui/devPanel';
 import { renderQuestsTab } from '../ui/questsTab';
+import { BUILDING_ICON } from '../ui/mapIcons';
 import { fmtExp, fmtHp } from '../ui/format';
 import { prestigeLabel, itemPrestige } from '../core/prestige';
-import { pointsToNext, RANK_THRESHOLDS, levelRequirement, examRequired } from '../core/guild';
+import { pointsToNext, RANK_THRESHOLDS, levelRequirement, examRequired, guildBar } from '../core/guild';
 import { daysLeft, CITY_NAMES } from '../core/cards';
 import { ScrollList, panelChoice, confirmBox } from '../ui/panels';
 import { buildSettings } from '../ui/settingsPanel';
@@ -19,7 +20,7 @@ import { TITLES, TRAIT_NAMES } from '../data/titles';
 import { ITEMS } from '../data/items';
 import { EQUIP_SLOTS, EQUIP_SLOT_NAMES, type EquipSlot } from '../core/types';
 import { equip, unequip, transact } from '../core/transactions';
-import { coinRow } from '../ui/coins';
+import { coinRow, plainMoney } from '../ui/coins';
 import { divineExpToNext, divineStat, DIVINE_STATS, DIVINE_STAT_NAMES } from '../core/divine';
 import { DIVINE_BY_ID } from '../data/divine';
 import { nextTier, rollOffer, type OfferRarity } from '../core/skills';
@@ -31,6 +32,9 @@ import type { WorldScene } from './WorldScene';
 import { getMap, fogOf, clearFogCache } from './WorldScene';
 import { TERRAIN, TILE } from '../world/types';
 import { VILLAGE_X0, BARRIER_X, WORLD_H } from '../world/worldgen';
+
+/** Konuşmalar sekmesinin sayfa büyüklüğü (satır). */
+const HISTORY_PAGE = 40;
 
 type Tab = 'status' | 'inventory' | 'equipment' | 'quests' | 'map' | 'history' | 'settings' | 'save' | 'dev';
 const TABS: [Tab, string, string][] = [
@@ -95,6 +99,7 @@ export class MenuScene extends Phaser.Scene {
     this.invIds = [];
     this.selFrame = null;
     this.invDetail = null;
+    this.histShown = HISTORY_PAGE;
   }
 
   create() {
@@ -119,6 +124,7 @@ export class MenuScene extends Phaser.Scene {
         this.selItem = null;
         this.selSlot = null;
         this.selQuest = null;
+        this.histShown = HISTORY_PAGE;
         this.render();
       }, { w: tw, h: step - 8, size: 17 });
       b.add(uiIcon(this, -tw / 2 + 26, 0, icon, 26));
@@ -297,8 +303,8 @@ export class MenuScene extends Phaser.Scene {
         if (nxt === null) {
           this.progress(inner, bx, lb + 30, bw, 20, 1, COLORS.gold, 'En yüksek rütbe', '#2a1a00');
         } else {
-          const lo = RANK_THRESHOLDS[cur], hi = RANK_THRESHOLDS[cur + 1];
-          const frac = (gs.points - lo) / Math.max(1, hi - lo);
+          const { lo, hi: hi0, frac } = guildBar(gs.points, cur);
+          const hi = hi0 ?? lo;
           const lvNeed = levelRequirement(cur + 1);
           const note = nxt > 0 ? `${nxt} puan kaldı` : examRequired(cur + 1) ? 'Terfi sınavla' : p.level < lvNeed ? `Level ${lvNeed} gerekir` : 'Terfi hazır: Celeste\'yle konuş';
           inner.add(txt(this, bx + bw, lb + 2, note, { size: 14, bold: true, color: nxt > 0 ? '#d8c890' : '#9fe08a' }).setOrigin(1, 0));
@@ -949,10 +955,7 @@ export class MenuScene extends Phaser.Scene {
     c.add([img, frame]);
     const bmeta = this.cache.json.get('buildingsMeta');
     const icons: [string, number, number, string][] = [];
-    const B_ICON: Record<string, string> = {
-      inn: 'm_inn', guild: 'm_guild', smithy: 'm_smithy', shop: 'm_shop', healer: 'm_healer', mill: 'm_mill', guardhouse: 'm_guard',
-      bakery: 'm_bakery', tailor: 'm_tailor', tannery: 'm_tannery', lodge: 'm_lodge', farmhouse: 'm_farm', manor: 'm_manor', house_f: 'm_house',
-    };
+    const B_ICON = BUILDING_ICON;
     for (const b of m.buildings) {
       const ic = B_ICON[b.id];
       if (!ic) continue;
@@ -987,7 +990,7 @@ export class MenuScene extends Phaser.Scene {
       }
       c.add(this.add.circle(sx, sy, 7, col, 0.45));
       c.add(this.add.circle(sx, sy, 3.5, 0xe6f6ff, 1));
-      c.add(txt(this, sx, sy - 9, s.kind === 'turnin' ? '?' : '!', { size: 18, bold: true, font: FONT.title, color: '#7cc8ff', stroke: true }).setOrigin(0.5, 1));
+      c.add(uiIcon(this, sx, sy - 16, s.kind === 'turnin' ? 'side_turnin' : 'side_quest', 24));
     }
     // takip edilen görevin hedefi
     const qt = world.questTargetPx?.() as { x: number; y: number } | null;
@@ -1008,24 +1011,48 @@ export class MenuScene extends Phaser.Scene {
   }
 
   // ================================================================ GEÇMİŞ
-  renderHistory() {
+  /** Konuşmalar sekmesinde gösterilen son satır sayısı (0.9.0: 40'ar 40'ar; açılışta yalnızca son 40 çizilir). */
+  histShown = HISTORY_PAGE;
+
+  renderHistory(keepTopOf?: { scroll: number; height: number }) {
     const c = this.content;
     const w = this.cw, h = this.ph - 48;
     c.add(txt(this, 0, 0, 'Konuşma Geçmişi', { size: 24, font: FONT.title, color: COLORS.textGold }));
+    const all = G.state.history;
+    const n = Math.min(all.length, this.histShown);
+    const start = all.length - n;
+    c.add(txt(this, w, 8, `${n} / ${all.length} satır`, { size: 13, color: COLORS.textDim }).setOrigin(1, 0));
     const list = new ScrollList(this, 0, 48, w, h - 56);
     c.add(list);
     list.updateMask();
     let y = 0;
-    for (const l of G.state.history) {
+    // daha eskiler: üstte "Daha fazla göster" (bir sonraki 40 satır); eklenince görünen yer kaymaz
+    if (start > 0) {
+      const more = Math.min(HISTORY_PAGE, start);
+      const b = new Button(this, w / 2 - 8, 24, `     Daha fazla göster (${more} eski satır)`, () => {
+        if (list.wasDrag()) return;
+        const keep = { scroll: list.scrollY, height: list.contentH };
+        this.histShown += HISTORY_PAGE;
+        this.content.removeAll(true);
+        this.renderHistory(keep);
+      }, { w: 340, h: 44, size: 15, style: 'blue' });
+      b.add(uiIcon(this, -150, 0, 'more', 20));
+      list.inner.add(b);
+      y += 58;
+    }
+    // satır başına tek metin nesnesi (ad + metin aynı sarılı metinde değil: ad sütunu ayrı ama kısa ve sarılmaz)
+    for (let i = start; i < all.length; i++) {
+      const l = all[i];
       const color = l.kind === 'thought' ? '#a9c8ff' : l.kind === 'system' ? COLORS.textBlue : l.kind === 'choice' ? COLORS.textGold : COLORS.text;
       const name = txt(this, 0, y, l.speaker, { size: 14, bold: true, color: COLORS.textGold });
-      const t = txt(this, 170, y, l.text, { size: 15, color, italic: l.kind === 'thought', wrap: w - 190 });
+      const t = txt(this, 170, y, plainMoney(l.text), { size: 15, color, italic: l.kind === 'thought', wrap: w - 190 });
       list.inner.add([name, t]);
       y += Math.max(22, t.height) + 10;
     }
-    if (!G.state.history.length) list.inner.add(txt(this, 0, 0, 'Henüz kimseyle konuşmadın.', { size: 15, color: COLORS.textDim }));
+    if (!all.length) list.inner.add(txt(this, 0, 0, 'Henüz kimseyle konuşmadın.', { size: 15, color: COLORS.textDim }));
     list.setContentHeight(y);
-    list.setScroll(y);
+    // en yeni konuşmada açılır; "Daha fazla" sonrası önceki görünüm yerinde kalır
+    list.setScroll(keepTopOf ? keepTopOf.scroll + (y - keepTopOf.height) : y);
   }
 
   // ================================================================ KAYIT

@@ -100,6 +100,39 @@ export function pointsToNext(points: number, current: SubRank): number | null {
   return Math.max(0, RANK_THRESHOLDS[current + 1] - points);
 }
 
+/**
+ * Lonca puan barı (0.9.0): mevcut rütbenin başladığı puandan bir sonraki rütbenin puanına kadar. Lonca Kartı ve görev
+ * bitiş animasyonu aynı hesabı kullanır. hi === null: en yüksek rütbe (bar dolu).
+ */
+export function guildBar(points: number, rank: SubRank): { lo: number; hi: number | null; frac: number } {
+  const lo = RANK_THRESHOLDS[Math.min(rank, RANK_THRESHOLDS.length - 1)];
+  if (rank + 1 >= RANK_THRESHOLDS.length) return { lo, hi: null, frac: 1 };
+  const hi = RANK_THRESHOLDS[rank + 1];
+  return { lo, hi, frac: Math.max(0, Math.min(1, (points - lo) / Math.max(1, hi - lo))) };
+}
+
+/**
+ * Puan artışının bar dilimleri: önceki puandan yeni puana. Bir rütbe eşiği geçilirse o aralık dolar ve bir sonraki
+ * aralıkta baştan başlar (rütbe terfi konuşmasıyla değişse de bar eşiklere göre ilerler).
+ */
+export function guildBarSegments(before: number, after: number, rank: SubRank): { rank: SubRank; lo: number; hi: number | null; from: number; to: number }[] {
+  const out: { rank: SubRank; lo: number; hi: number | null; from: number; to: number }[] = [];
+  let r = rank;
+  let p0 = before;
+  for (let guard = 0; guard < RANK_THRESHOLDS.length; guard++) {
+    const { lo, hi } = guildBar(p0, r);
+    const fr = (p: number) => (hi === null ? 1 : Math.max(0, Math.min(1, (p - lo) / Math.max(1, hi - lo))));
+    if (hi === null || after < hi) {
+      out.push({ rank: r, lo, hi, from: fr(p0), to: fr(after) });
+      break;
+    }
+    out.push({ rank: r, lo, hi, from: fr(p0), to: 1 });
+    p0 = Math.max(hi, p0);
+    r++;
+  }
+  return out;
+}
+
 export interface RewardResult {
   /** Gerçekten ödenen para (borç düşüldükten sonra). */
   paid: number;

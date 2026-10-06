@@ -131,7 +131,7 @@ export const Q = {
       points = r.points;
     }
     // Ödül animasyonu önce kuyruğa girsin: arkasından gelen "LEVEL ATLADIN" ve "YENİ ANA GÖREV: Terfi" sırayı bozmasın
-    const info: QuestDoneInfo = { title: def.title, kind: def.kind, money: paid, toDebt, points, pointsTotal: G.state.guild.points, items: def.reward.items ?? [], exp: null, text: def.reward.text };
+    const info: QuestDoneInfo = { title: def.title, kind: def.kind, money: paid, toDebt, points, pointsTotal: G.state.guild.points, rank: G.state.guild.member ? G.p.guildRank : null, items: def.reward.items ?? [], exp: null, text: def.reward.text };
     const expReward = questExp(def);
     if (expReward > 0) {
       // gainExp ile aynı hesap (çarpan dahil); sahne sonucu önceden bilsin, level bildirimi sahneden sonra gelsin

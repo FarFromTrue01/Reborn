@@ -10,10 +10,14 @@ import { npcPrestige } from '../core/prestige';
 import { G } from '../game/G';
 
 export type MarkerKind = 'offer' | 'turnin' | 'suspect';
-export const MARKER_STYLE: Record<MarkerKind, { ch: string; color: string; stroke: string }> = {
-  offer: { ch: '!', color: '#7cc8ff', stroke: '#0a1a3a' },
-  turnin: { ch: '?', color: '#7cc8ff', stroke: '#0a1a3a' },
-  suspect: { ch: '?', color: '#ffd75e', stroke: '#3a2410' },
+/**
+ * İşaret simgeleri (uiicons atlası). 0.9.0: yan görev simgesi her yerde aynı mavi ünlem (teslimde mavi soru);
+ * NPC başı, bina, mini/büyük harita, HUD ve dükkân seçenekleri bu anahtarları kullanır.
+ */
+export const MARKER_ICON: Record<MarkerKind, string> = {
+  offer: 'side_quest',
+  turnin: 'side_turnin',
+  suspect: 'suspect_mark',
 };
 
 /** Geliştirici etiketinin gösterildiği en büyük uzaklık (karo). */
@@ -59,7 +63,7 @@ export class Npc {
    * Başının üstündeki görev işareti (0.6.0): mavi "!" (yan görev verebilir), mavi "?" (teslim edilebilir), sarı "?"
    * (incelenecek şüpheli). Metin dokusu yalnızca tür değişince çizilir; konum her kare (yalnızca yakındayken).
    */
-  marker: Phaser.GameObjects.Text | null = null;
+  marker: Phaser.GameObjects.Image | null = null;
   markerKind: MarkerKind | '' = '';
   private markerPhase = Math.random() * Math.PI * 2;
 
@@ -126,11 +130,8 @@ export class Npc {
     this.marker?.destroy();
     this.marker = null;
     if (!kind) return;
-    const st = MARKER_STYLE[kind];
-    const t = this.w.add.text(this.x, this.y - 74, st.ch, {
-      fontFamily: 'Cinzel, serif', fontSize: '22px', fontStyle: 'bold', color: st.color, stroke: st.stroke, strokeThickness: 4,
-    }).setOrigin(0.5, 1).setDepth(968000);
-    t.setResolution(this.w.cameras.main.zoom * 1.5);
+    const t = this.w.add.image(this.x, this.y - 74, 'uiicons', MARKER_ICON[kind]).setOrigin(0.5, 1).setDepth(968000);
+    t.setScale(24 / 72);
     this.marker = t;
   }
 
@@ -139,7 +140,7 @@ export class Npc {
     const m = this.marker;
     if (!m) return;
     const k = Math.sin(this.w.time.now / 260 + this.markerPhase);
-    m.setPosition(this.actor.x, this.actor.y - 70 - (this.bubble ? 26 : 0) + k * 3);
+    m.setPosition(this.actor.x, this.actor.y - 76 - (this.bubble ? 26 : 0) + k * 3);
   }
 
   destroy() {

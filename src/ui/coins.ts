@@ -147,3 +147,90 @@ export function richLine(scene: Phaser.Scene, x: number, y: number, s: string, o
   c.setSize(cx, size);
   return c;
 }
+
+/** Yazı makinesi için simgeli paragraf: her para işareti tek "karakter" sayılır. */
+export interface RichTyper {
+  container: Phaser.GameObjects.Container;
+  /** Para işaretleri tek karakter (¤) olmak üzere düz metin: duraklama kuralları için. */
+  plain: string;
+  show(n: number): void;
+}
+
+/**
+ * Sarılı, simgeli (para) paragraf (0.9.0: görev verenlerin ödül replikleri). Kelimeler satıra sığdığı kadar tek bir
+ * metin nesnesinde birleşir; para işaretleri coinRow olur. show(n) ilk n karakteri gösterir (yazı makinesi).
+ */
+export function richParagraph(scene: Phaser.Scene, x: number, y: number, s: string, o: TextOpts & { wrap: number; lineSpacing?: number }): RichTyper {
+  const c = scene.add.container(x, y);
+  const size = o.size ?? 18;
+  const lineH = Math.round(size * 1.25) + (o.lineSpacing ?? 0);
+  const style = { ...o, wrap: undefined };
+  const probe = txt(scene, 0, -9999, '', style).setVisible(false);
+  const measure = (str: string) => probe.setText(str).width;
+  type Run = { kind: 'text'; obj: Phaser.GameObjects.Text; text: string } | { kind: 'coin'; obj: Phaser.GameObjects.Container };
+  const runs: Run[] = [];
+  let cx = 0, line = 0, cur = '', curX = 0, plain = '';
+  const flush = () => {
+    if (!cur) return;
+    const t = txt(scene, curX, line * lineH, '', style);
+    c.add(t);
+    runs.push({ kind: 'text', obj: t, text: cur });
+    cur = '';
+  };
+  const pieces: { word?: string; amount?: number; coin?: [Coin, number] }[] = [];
+  TOKEN.lastIndex = 0;
+  let last = 0;
+  let m: RegExpExecArray | null;
+  const words = (str: string) => {
+    for (const w of str.split(/(?<=\s)/)) if (w) pieces.push({ word: w });
+  };
+  while ((m = TOKEN.exec(s))) {
+    words(s.slice(last, m.index));
+    if (m[1] !== undefined) pieces.push({ amount: Number(m[1]) });
+    else pieces.push({ coin: [m[2] as Coin, Number(m[3])] });
+    last = m.index + m[0].length;
+  }
+  words(s.slice(last));
+  for (const p of pieces) {
+    if (p.word !== undefined) {
+      const wv = measure(p.word.trimEnd());
+      if (cx > 0 && cx + wv > o.wrap) {
+        flush();
+        line++;
+        cx = 0;
+      }
+      if (!cur) curX = cx;
+      cur += p.word;
+      cx = curX + measure(cur);
+      plain += p.word;
+    } else {
+      flush();
+      const row = coinRow(scene, 0, 0, p.amount !== undefined ? p.amount : p.coin!, { size: Math.round(size * 1.05), font: size, color: o.color ?? '#f3dc95', stroke: o.stroke, bold: true });
+      if (cx > 0 && cx + row.rowWidth > o.wrap) {
+        line++;
+        cx = 0;
+      }
+      row.setPosition(cx + 2, line * lineH + size * 0.62);
+      c.add(row);
+      runs.push({ kind: 'coin', obj: row });
+      cx += row.rowWidth + 3;
+      plain += '¤';
+    }
+  }
+  flush();
+  probe.destroy();
+  const show = (n: number) => {
+    let left = n;
+    for (const r of runs) {
+      if (r.kind === 'text') {
+        r.obj.setText(r.text.slice(0, Math.max(0, left)));
+        left -= r.text.length;
+      } else {
+        r.obj.setVisible(left > 0);
+        left -= 1;
+      }
+    }
+  };
+  show(0);
+  return { container: c, plain, show };
+}

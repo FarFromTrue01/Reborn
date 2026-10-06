@@ -60,13 +60,17 @@ export function openShop(ui: UIScene, shopId: string, tab: 'buy' | 'sell' = 'buy
     };
     mkTab('Satın Al', 'buy', px + 110);
     mkTab('Sat', 'sell', px + 270);
-    const close = new Button(ui, px + pw - 80, py + ph - 40, 'Kapat', () => {
+    const doClose = () => {
+      if (ui.shopClose !== doClose) return;
+      ui.shopClose = null;
       c.destroy();
       world.paused = false;
       world.physics.resume();
       ui.menuIsOpen = false;
       resolve();
-    }, { w: 130, h: 50 });
+    };
+    ui.shopClose = doClose;
+    const close = new Button(ui, px + pw - 80, py + ph - 40, 'Kapat', doClose, { w: 130, h: 50 });
     c.add(close);
 
     const buyPrice = (id: string) => {

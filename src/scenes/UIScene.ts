@@ -11,7 +11,8 @@ import { buildAppraisalPanel } from '../ui/appraisalPanel';
 import { SysFlow } from '../ui/sysFlow';
 import { clockLabel, dateLabel } from '../core/time';
 import { formatPrice } from '../core/money';
-import { coinRow, richLine, plainMoney } from '../ui/coins';
+import { coinRow, richLine, plainMoney, hasMoneyTokens, richParagraph, type RichTyper } from '../ui/coins';
+import { BUILDING_ICON, MINIMAP_BUILDINGS } from '../ui/mapIcons';
 import { expToNext } from '../core/formulas';
 import { cooldownInfo } from '../core/eating';
 import { subRankToString as srs } from '../core/ranks';
@@ -63,6 +64,10 @@ export class UIScene extends Phaser.Scene {
   minimapT = 0;
   /** Mini haritadaki yan görev işaretleri (mavi ışık ve dalgalar): her kare çizilir, yalnızca işaret varken. */
   minimapMarks: Phaser.GameObjects.Graphics | null = null;
+  /** Mini haritadaki simgeler (dükkânlar ve yan görev işaretleri); havuz, her çizimde yeniden yerleştirilir. */
+  minimapIcons: Phaser.GameObjects.Container | null = null;
+  /** Açık dükkân panelini kapatır (dükkân açıkken; QA ve geri tuşu için). */
+  shopClose: (() => void) | null = null;
   /** Son mini harita çiziminin dönüşümü ve işaret noktaları (mini harita pikseli). */
   mmMarks: { x: number; y: number; kind: string; building: boolean }[] = [];
   touch!: Phaser.GameObjects.Container;
@@ -77,7 +82,7 @@ export class UIScene extends Phaser.Scene {
   /** Kuyrukta sırası gelmiş kutlama sahnesi (görev bitişi / terfi); kendi dokunuşlarını yönetir. */
   sysOverlay: { root: Phaser.GameObjects.Container; skip(): void } | null = null;
   dlg: Phaser.GameObjects.Container | null = null;
-  dlgState: { full: string; shown: number; t: number; done: boolean; resolve: () => void; voice: string; pause: number; textObj: Phaser.GameObjects.Text; auto: number } | null = null;
+  dlgState: { full: string; shown: number; t: number; done: boolean; resolve: () => void; voice: string; pause: number; textObj: Phaser.GameObjects.Text; auto: number; rich?: RichTyper } | null = null;
   choiceResolve: ((i: number) => void) | null = null;
   choiceObjs: Phaser.GameObjects.GameObject[] = [];
   appraisalWin: Phaser.GameObjects.Container | null = null;
@@ -128,6 +133,8 @@ export class UIScene extends Phaser.Scene {
     this.minimapTex = undefined!;
     this.minimapT = 0;
     this.minimapMarks = null;
+    this.minimapIcons = null;
+    this.shopClose = null;
     this.mmMarks = [];
     this.mmMarksDrawn = false;
     this.touch = undefined!;
@@ -268,6 +275,8 @@ export class UIScene extends Phaser.Scene {
     this.hud.add(this.minimap);
     this.minimapMarks = this.add.graphics().setPosition(W - 178, 12);
     this.hud.add(this.minimapMarks);
+    this.minimapIcons = this.add.container(W - 178, 12);
+    this.hud.add(this.minimapIcons);
     const mf = this.add.graphics();
     drawFrame(mf, W - 180, 10, 164, 164, { alpha: 0, ornate: true });
     this.hud.add(mf);
@@ -584,6 +593,7 @@ export class UIScene extends Phaser.Scene {
         if (k && n.markerKind) this.mmMarks.push({ x: ox + (n.x / TILE) * scale, y: oy + (n.y / TILE) * scale, kind: k, building: false });
       }
     }
+    this.placeMinimapIcons(m, fog, ox, oy, scale, S);
     // oyuncu
     ctx.fillStyle = '#ffffff';
     ctx.beginPath();
@@ -593,6 +603,39 @@ export class UIScene extends Phaser.Scene {
     ctx.lineWidth = 1;
     ctx.stroke();
     this.minimapTex.refresh();
+  }
+
+  /**
+   * Mini haritadaki simgeler (0.9.0): dükkân/han/lonca simgeleri (büyük haritadaki gibi, keşfedilmişse) ve yan görev
+   * işaretlerinin üstünde mavi ünlem/soru. Görüntüler havuzdan; mini haritanın dışında kalanlar gizlenir.
+   */
+  private placeMinimapIcons(m: any, fog: Uint8Array | number[], ox: number, oy: number, scale: number, S: number) {
+    const box = this.minimapIcons;
+    if (!box) return;
+    const want: [string, number, number, number][] = [];
+    if (!m.indoor) {
+      const bmeta = this.cache.json.get('buildingsMeta');
+      for (const b of m.buildings) {
+        if (!MINIMAP_BUILDINGS.includes(b.id) || !bmeta?.[b.id]) continue;
+        const bx = b.tx + bmeta[b.id].w / TILE / 2, by = b.tyBottom - 2;
+        if (!fog[Math.floor(by) * m.w + Math.floor(bx)]) continue;
+        want.push([BUILDING_ICON[b.id], ox + bx * scale, oy + by * scale, 15]);
+      }
+    }
+    for (const mk of this.mmMarks) want.push([mk.kind === 'turnin' ? 'side_turnin' : 'side_quest', mk.x, mk.y - 9, 15]);
+    const pool = box.list as Phaser.GameObjects.Image[];
+    let n = 0;
+    for (const [key, x, y, size] of want) {
+      if (x < 6 || y < 6 || x > S - 6 || y > S - 6) continue;
+      let im = pool[n];
+      if (!im) {
+        im = this.add.image(0, 0, 'uiicons', key);
+        box.add(im);
+      }
+      im.setFrame(key).setPosition(x, y).setScale(size / 72).setVisible(true);
+      n++;
+    }
+    for (let i = n; i < pool.length; i++) pool[i].setVisible(false);
   }
 
   /** Mavi parlayan nokta ve genişleyip sönen halkalar (yalnızca işaret varken; ekran dışı işaretler zaten atlandı). */
@@ -1024,7 +1067,15 @@ export class UIScene extends Phaser.Scene {
 
   private run(text: string, voice: string, t: Phaser.GameObjects.Text): Promise<void> {
     return new Promise((resolve) => {
-      this.dlgState = { full: text, shown: 0, t: 0, done: false, resolve, voice, pause: 0, textObj: t, auto: 0 };
+      // para işaretli replik ({m:30}): simgeli paragraf, aynı yazı makinesiyle
+      let rich: RichTyper | undefined;
+      if (hasMoneyTokens(text)) {
+        const st = t.style;
+        rich = richParagraph(this, t.x, t.y, text, { size: parseInt(String(st.fontSize)) || 21, color: String(st.color), font: st.fontFamily, italic: st.fontStyle?.includes('italic'), wrap: (t.style.wordWrapWidth as number) ?? 600, lineSpacing: t.lineSpacing });
+        this.dlg?.add(rich.container);
+        t.setVisible(false);
+      }
+      this.dlgState = { full: rich ? rich.plain : text, shown: 0, t: 0, done: false, resolve, voice, pause: 0, textObj: t, auto: 0, rich };
     });
   }
 
@@ -1051,7 +1102,8 @@ export class UIScene extends Phaser.Scene {
           break;
         }
       }
-      s.textObj.setText(s.full.slice(0, s.shown));
+      if (s.rich) s.rich.show(s.shown);
+      else s.textObj.setText(s.full.slice(0, s.shown));
       if (s.shown >= s.full.length) {
         s.done = true;
         (this.dlg?.getByName('arrow') as Phaser.GameObjects.Text)?.setVisible(true);
@@ -1067,7 +1119,8 @@ export class UIScene extends Phaser.Scene {
     if (!s) return;
     if (!s.done) {
       s.shown = s.full.length;
-      s.textObj.setText(s.full);
+      if (s.rich) s.rich.show(s.shown);
+      else s.textObj.setText(s.full);
       s.done = true;
       (this.dlg?.getByName('arrow') as Phaser.GameObjects.Text)?.setVisible(true);
       return;
@@ -1121,14 +1174,18 @@ export class UIScene extends Phaser.Scene {
       const bw = Math.min(560, W - 80);
       const startY = H - 200 - options.length * 66;
       this.choiceObjs = [];
-      options.forEach((o, i) => {
+      options.forEach((raw, i) => {
+        // "{i:anahtar}Metin": solda uiicons simgesi (ör. yan görev seçeneği: mavi ünlem + görevin adı)
+        const im = /^\{i:([a-z_A-Z0-9]+)\}/.exec(raw);
+        const o = im ? raw.slice(im[0].length) : raw;
         const b = new Button(this, W / 2, startY + i * 66, o, () => {
           for (const x of this.choiceObjs) x.destroy();
           this.choiceObjs = [];
           this.choiceResolve = null;
           G.state.history.push({ speaker: 'Joseph', text: '» ' + plainMoney(o), kind: 'choice' });
           resolve(i);
-        }, { w: bw, h: 56, size: 19 });
+        }, { w: bw, h: 56, size: 19, textColor: im?.[1].startsWith('side_') ? '#bfe4ff' : undefined });
+        if (im) b.add(uiIcon(this, -bw / 2 + 30, 0, im[1], 34));
         b.setDepth(110);
         b.setAlpha(0);
         this.tweens.add({ targets: b, alpha: 1, duration: 200, delay: i * 60 });

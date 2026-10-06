@@ -21,20 +21,6 @@ export function renderQuestsTab(scene: Phaser.Scene & { render(): void }, c: Pha
   const g0 = G.state.guild;
   if (g0.member) c.add(txt(scene, w, 6, `Lonca Puanı ${g0.points}${g0.debt ? ` · Borç ${g0.debt} bronz` : ''}`, { size: 14, bold: true, color: '#f3dc95' }).setOrigin(1, 0));
   const lw = Math.floor(w * 0.42);
-  // HUD'da hangi kategoriler görünsün: iki anahtar (listenin altında)
-  const prefs = loadQuestHudPrefs();
-  const bw = (lw - 20) / 2;
-  (['main', 'side'] as const).forEach((cat, i) => {
-    const on = prefs[cat];
-    const b = new Button(scene, bw / 2 + i * (bw + 6), h - 30, `        ${cat === 'main' ? 'Ana görevleri göster' : 'Yan görevleri göster'}`, () => {
-      saveQuestHudPref(cat, !on);
-      G.events.emit('quests');
-      scene.render();
-    }, { w: bw, h: 44, size: 13, textColor: on ? COLORS.text : COLORS.textDim });
-    b.add(uiIcon(scene, -bw / 2 + 18, 0, on ? 'check' : 'cross', 16).setAlpha(on ? 1 : 0.6));
-    b.setName('hud_' + cat);
-    c.add(b);
-  });
   const list = new ScrollList(scene, 0, 44, lw, h - 52 - 56);
   c.add(list);
   list.updateMask();
@@ -63,8 +49,8 @@ export function renderQuestsTab(scene: Phaser.Scene & { render(): void }, c: Pha
     if (log.tracked === id) rc.add(uiIcon(scene, lw - 34, 27, 'target', 22));
     else if (st.status === 'done') rc.add(uiIcon(scene, lw - 34, 27, 'check', 20));
     const z = scene.add.zone(0, 0, lw - 14, 54).setOrigin(0, 0).setInteractive({ useHandCursor: true });
-    z.on('pointerup', () => {
-      if (list.wasDrag()) return;
+    z.on('pointerup', (p: Phaser.Input.Pointer) => {
+      if (list.wasDrag() || !list.containsPointer(p)) return;
       Sound.sfx('click', 0.5);
       onSelect(id);
     });
@@ -84,6 +70,21 @@ export function renderQuestsTab(scene: Phaser.Scene & { render(): void }, c: Pha
     for (const id of ended) row(id);
   }
   list.setContentHeight(y + 10);
+  // HUD'da hangi kategoriler görünsün: iki anahtar (listenin altında). 0.9.0: listeden SONRA eklenir (üst katman);
+  // listenin maske dışında kalan satırları bu düğmelerin dokunuşunu yutmaz.
+  const prefs = loadQuestHudPrefs();
+  const bw = (lw - 20) / 2;
+  (['main', 'side'] as const).forEach((cat, i) => {
+    const on = prefs[cat];
+    const b = new Button(scene, bw / 2 + i * (bw + 6), h - 30, `        ${cat === 'main' ? 'Ana görevleri göster' : 'Yan görevleri göster'}`, () => {
+      saveQuestHudPref(cat, !on);
+      G.events.emit('quests');
+      scene.render();
+    }, { w: bw, h: 44, size: 13, textColor: on ? COLORS.text : COLORS.textDim });
+    b.add(uiIcon(scene, -bw / 2 + 18, 0, on ? 'check' : 'cross', 16).setAlpha(on ? 1 : 0.6));
+    b.setName('hud_' + cat);
+    c.add(b);
+  });
 
   // ------------------------------------------------------------ ayrıntı
   const dx = lw + 16, dw = w - lw - 16;

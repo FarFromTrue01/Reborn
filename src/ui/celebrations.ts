@@ -12,6 +12,7 @@ import { subRankToString, subRankLetter, type SubRank } from '../core/ranks';
 import { ITEMS } from '../data/items';
 import { KIND_ICON } from './hudQuests';
 import { fmtExp } from './format';
+import { guildBarSegments } from '../core/guild';
 
 /** Görev bitişinde gösterilecek ödüller (questrt → 'questdone'). */
 export interface QuestDoneInfo {
@@ -24,6 +25,8 @@ export interface QuestDoneInfo {
   /** Lonca Puanı (yoksa 0) ve sonrası toplam. */
   points: number;
   pointsTotal: number;
+  /** Joseph'in lonca rütbesi (puan barının aralığı için; üye değilse null). */
+  rank?: SubRank | null;
   items: { id: string; qty: number }[];
   /** Verilen EXP (çarpanlar dahil) ve öncesi/sonrası. */
   exp: { amount: number; levelBefore: number; expBefore: number; levelAfter: number; expAfter: number } | null;
@@ -261,10 +264,52 @@ export function playQuestComplete(scene: Phaser.Scene, q: QuestDoneInfo, onDone:
       row.add(uiIcon(scene, lx + 10, 14, 'points', 22));
       const pt = txt(scene, lx + 28, 3, '', { size: 16, bold: true, color: '#f3dc95' });
       row.add(pt);
-      const tot = txt(scene, rx, 4, `Toplam ${q.pointsTotal}`, { size: 14, color: '#d8c890' }).setOrigin(1, 0);
-      row.add(tot);
-      ov.add({ at, dur: 600, onStart: () => Sound.sfx('skillup', 0.6), draw: (p) => { rowIn(row, p); pt.setText(`+${Math.round(q.points * ease.Cubic.Out(p))} Lonca Puanı`); } });
-      at += 640;
+      // 0.9.0: puan barı — mevcut rütbenin başladığı puandan bir sonrakinin puanına (Lonca Kartı'yla aynı hesap);
+      // eşik geçilirse bar dolar ve yeni aralıkta baştan başlar
+      const segs = guildBarSegments(q.pointsTotal - q.points, q.pointsTotal, q.rank ?? 0);
+      const bx = lx + 190, bw = rx - bx - 30, bh = 14;
+      const bar = scene.add.graphics();
+      row.add(bar);
+      const lab = txt(scene, bx + bw, -10, '', { size: 12, bold: true, color: '#e8d8a0' }).setOrigin(1, 0);
+      row.add(lab);
+      let badge: Phaser.GameObjects.Container | null = null;
+      let badgeRank = -1;
+      const dur = 700 + (segs.length - 1) * 500;
+      ov.add({
+        at, dur, onStart: () => Sound.sfx('skillup', 0.6),
+        draw: (p) => {
+          rowIn(row, p);
+          pt.setText(`+${Math.round(q.points * ease.Cubic.Out(Math.min(1, p * 1.3)))} Lonca Puanı`);
+          const f = p * segs.length;
+          const si = Math.min(segs.length - 1, Math.floor(f));
+          const s = segs[si];
+          const sp = si === segs.length - 1 ? Math.min(1, f - si) : Math.min(1, f - si);
+          const frac = s.from + (s.to - s.from) * ease.Quadratic.Out(sp);
+          bar.clear();
+          bar.fillStyle(0x000000, 0.55);
+          bar.fillRoundedRect(bx, 8, bw, bh, bh / 2);
+          bar.fillStyle(COLORS.gold, 1);
+          if (frac > 0) bar.fillRoundedRect(bx, 8, Math.max(bh, bw * frac), bh, bh / 2);
+          bar.fillStyle(0xffffff, 0.22);
+          if (frac > 0) bar.fillRect(bx + 4, 10, Math.max(0, bw * frac - 8), 3);
+          bar.lineStyle(1, COLORS.goldDark, 1);
+          bar.strokeRoundedRect(bx, 8, bw, bh, bh / 2);
+          if (s.hi === null) lab.setText('En yüksek rütbe');
+          else lab.setText(`${Math.round(s.lo + frac * (s.hi - s.lo)) - s.lo} / ${s.hi - s.lo}`);
+          // barın sonunda hedef rütbe rozeti; aralık değişince yeni hedef
+          if (s.hi !== null && badgeRank !== s.rank + 1) {
+            if (badgeRank >= 0) {
+              Sound.sfx('levelup', 0.6);
+              scene.tweens.add({ targets: bar, alpha: { from: 0.4, to: 1 }, duration: 240 });
+            }
+            badgeRank = s.rank + 1;
+            badge?.destroy();
+            badge = rankBadge(scene, bx + bw + 18, 15, badgeRank, 26, true);
+            row.add(badge);
+          }
+        },
+      });
+      at += dur + 80;
     } else if (kind === 'text') {
       row.add(uiIcon(scene, lx + 10, 14, 'reward', 22));
       row.add(fitText(txt(scene, lx + 28, 4, q.text ?? '', { size: 15, color: '#cfe6b8' }), rx - lx - 30));

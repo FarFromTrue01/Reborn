@@ -24,7 +24,7 @@ import { buyCard, hasValidCard, CARD_PRICE, CARD_DAYS, CITY_FULL_NAMES, CITY_TIT
 import { hourOf, whenLabel } from '../core/time';
 import { absMinute } from '../core/sleep';
 import { Display } from '../game/display';
-import { SIDE_POSTS, atPostNow, visibleGiverMarks, type SideMark, type SideQuestView } from './sideposts';
+import { SIDE_POSTS, atPostNow, visibleGiverMarks, giverMarks, type SideMark, type SideQuestView } from './sideposts';
 import { ensureMainQuest } from './mainline';
 import { ITEMS } from '../data/items';
 
@@ -444,7 +444,10 @@ export class Chapter2 {
         }
         break;
     }
-    if (await this.sideTalk(n)) return true;
+    // yan görev: iş yeri dışında yönlendirme; dükkânı olmayan verenlerde seçenekli konuşma
+    // (dükkân sahiplerinde görev seçeneği Director.talkShop/talkHunter'daki seçeneklerde)
+    if (await this.awayFromPost(n)) return true;
+    if (!n.def.shop && (await this.sideMenu(n))) return true;
     if (G.flag('friends_vl') && (id === 'vera' || id === 'lina')) {
       const t = FRIEND_LINES[id].talk;
       await this.say(id, t[Math.floor(Math.random() * t.length)], id === 'lina' ? 'gulen' : 'normal');
@@ -547,40 +550,65 @@ export class Chapter2 {
     return true;
   }
 
-  /** Yan görev teklifleri ve teslimleri (yalnızca verenin iş yerinde). */
-  async sideTalk(n: Npc): Promise<boolean> {
+  /**
+   * 0.9.0: yan görevler artık konuşmanın başında kendiliğinden açılmaz. Veren iş yerindeyken seçeneklerde
+   * mavi ünlemle görevin adı çıkar (dükkânlarda Alışveriş/Satış'ın yanında); teklif, bekleme ve teslim bu seçenekten.
+   */
+  sideQuestsOf(n: Npc): QuestDef[] {
+    if (!this.atPost(n)) return [];
     const id = n.def.id;
-    if (await this.awayFromPost(n)) return true;
-    for (const q of SIDE_QUESTS) {
-      if (q.giver !== id) continue;
-      const sc = SIDE_SCRIPTS[q.id];
-      const st = Q.status(q.id);
-      if (st === 'active') {
-        const i = this.objIdx(q.id);
-        const o = q.objectives[i];
-        if (o?.type === 'talk' && o.target === id) {
-          for (const oo of q.objectives) if (oo.type === 'collect' && oo.target && oo.count) R.takeItem(oo.target, oo.count, 'Görev teslimi');
-          for (const l of sc.done) await this.say(id, l);
-          Q.complete(q.id);
-          return true;
-        }
-        await this.say(id, sc.waiting);
+    return SIDE_QUESTS.filter((q) => q.giver === id && (Q.status(q.id) === 'active' || (!Q.status(q.id) && this.sideUnlocked() && G.flag('decline_' + q.id) !== this.day)));
+  }
+
+  /** Seçenek satırları: "{i:side_quest}Görevin adı" (teslime hazırsa mavi soru). */
+  sideOptions(n: Npc): { label: string; run: () => Promise<void> }[] {
+    const marks = giverMarks(this.sideView());
+    return this.sideQuestsOf(n).map((q) => ({
+      label: `{i:${Q.status(q.id) === 'active' && marks[n.def.id] === 'turnin' ? 'side_turnin' : 'side_quest'}}${q.title}`,
+      run: async () => void (await this.sideQuestTalk(n, q)),
+    }));
+  }
+
+  /** Dükkânı olmayan görev verenler: normal replik + seçenekler (görev, Hoşça kal). */
+  async sideMenu(n: Npc): Promise<boolean> {
+    const opts = this.sideOptions(n);
+    if (!opts.length) return false;
+    const pool = [...(n.def.talk[this.w.josephStatus()] ?? []), ...(n.def.talk.any ?? [])];
+    await this.say(n.def.id, pool[Math.floor(Math.random() * pool.length)] ?? '...');
+    const c = await this.ui.choice([...opts.map((o) => o.label), 'Hoşça kal']);
+    if (c < opts.length) await opts[c].run();
+    return true;
+  }
+
+  /** Tek bir yan görevin konuşması: teklif, bekleme ya da teslim. */
+  async sideQuestTalk(n: Npc, q: QuestDef): Promise<boolean> {
+    const id = n.def.id;
+    const sc = SIDE_SCRIPTS[q.id];
+    const st = Q.status(q.id);
+    if (st === 'active') {
+      const i = this.objIdx(q.id);
+      const o = q.objectives[i];
+      if (o?.type === 'talk' && o.target === id) {
+        for (const oo of q.objectives) if (oo.type === 'collect' && oo.target && oo.count) R.takeItem(oo.target, oo.count, 'Görev teslimi');
+        for (const l of sc.done) await this.say(id, l);
+        Q.complete(q.id);
         return true;
       }
-      if (st || !this.sideUnlocked()) continue;
-      if (G.flag('decline_' + q.id) === this.day) continue;
-      for (const l of sc.offer) await this.say(id, l);
-      const c = await this.ui.choice(['"Tamam, yaparım."', '"Şimdi olmaz."']);
-      if (c !== 0) {
-        G.setFlag('decline_' + q.id, this.day);
-        return true;
-      }
-      await this.say(id, sc.accept);
-      Q.start(q.id);
-      if (q.id === 'sq_tailor_parcel' || q.id === 'sq_mill_sacks') R.giveItems([{ id: 'side_parcel', qty: 1 }], 'Paket');
+      if (o?.type === 'deliver' && o.target === id && (await this.deliverTo(n))) return true;
+      await this.say(id, sc.waiting);
       return true;
     }
-    return false;
+    if (st || !this.sideUnlocked()) return false;
+    for (const l of sc.offer) await this.say(id, l);
+    const c = await this.ui.choice(['"Tamam, yaparım."', '"Şimdi olmaz."']);
+    if (c !== 0) {
+      G.setFlag('decline_' + q.id, this.day);
+      return true;
+    }
+    await this.say(id, sc.accept);
+    Q.start(q.id);
+    if (q.id === 'sq_tailor_parcel' || q.id === 'sq_mill_sacks') R.giveItems([{ id: 'side_parcel', qty: 1 }], 'Paket');
+    return true;
   }
 
   // ============================================================ kaptan (G3 ve E8)

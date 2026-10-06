@@ -10,7 +10,7 @@ import { Lighting } from '../world/lighting';
 import { FX } from '../world/fx';
 import { Player } from '../world/player';
 import { Enemy } from '../world/enemy';
-import { Npc, MARKER_STYLE, type MarkerKind } from '../world/npc';
+import { Npc, MARKER_ICON, type MarkerKind } from '../world/npc';
 import { Companion } from '../world/companion';
 import { TILE, type MapData, type Zone, type PropPlacement } from '../world/types';
 import { COMPANIONS, COMPANION_DMG_MULT } from '../data/companions';
@@ -737,7 +737,7 @@ export class WorldScene extends Phaser.Scene {
   npcMarks: Record<string, MarkerKind> = {};
   sideMarks: Record<string, 'offer' | 'turnin'> = {};
   /** Dünyada, içinde görev veren biri olan binaların üstündeki işaretler. */
-  buildingMarks = new Map<string, Phaser.GameObjects.Text>();
+  buildingMarks = new Map<string, Phaser.GameObjects.Image>();
 
   /**
    * Yan görev işaretlerinin haritadaki yerleri (mini harita ve tam harita): kişi dünyadaysa kendisi (ya da
@@ -780,11 +780,9 @@ export class WorldScene extends Phaser.Scene {
       if (this.buildingMarks.has(bid)) continue;
       const b = this.mapData.buildings.find((x) => x.id === bid);
       if (!b || !bmeta[bid]) continue;
-      const st = MARKER_STYLE[kind];
       // cephenin üst yarısında: çatının tepesi ekran dışında kalsa da görünür
       const x = b.tx * TILE + bmeta[bid].w / 2, y = b.tyBottom * TILE - bmeta[bid].h * 0.42;
-      const t = this.add.text(x, y, st.ch, { fontFamily: 'Cinzel, serif', fontSize: '34px', fontStyle: 'bold', color: st.color, stroke: st.stroke, strokeThickness: 5 }).setOrigin(0.5, 1).setDepth(967000);
-      t.setResolution(this.cameras.main.zoom * 1.5);
+      const t = this.add.image(x, y, 'uiicons', MARKER_ICON[kind]).setOrigin(0.5, 1).setDepth(967000).setScale(36 / 72);
       (t as any).kind = kind;
       this.tweens.add({ targets: t, y: y - 6, yoyo: true, repeat: -1, duration: 700, ease: 'Sine.easeInOut' });
       this.buildingMarks.set(bid, t);

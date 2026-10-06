@@ -1378,6 +1378,10 @@ export class Director {
     await this.serveCustomersFirst(n, shop.id);
     const opts = ['Alışveriş', 'Bir şey satmak istiyorum'];
     const acts: (() => Promise<void>)[] = [async () => openShop(this.ui, 'lodge', 'buy'), async () => openShop(this.ui, 'lodge', 'sell')];
+    for (const o of this.ch2.sideOptions(n)) {
+      opts.push(o.label);
+      acts.push(o.run);
+    }
     if (!R.hasSkill('archery')) {
       const L = LESSONS.archery;
       opts.push(`Okçuluk öğret ({m:${L.price}}, 2 saat)`);
@@ -1470,14 +1474,25 @@ export class Director {
       }
       return;
     }
+    const side = this.ch2.sideOptions(n);
     if (st === 'naked' && kind !== 'healer') {
       await this.say(n.def.id, pool[0] ?? 'Önce bir şey giy.', 'kizgin');
+      // çıplakken alışveriş yok; yan görev seçeneği yine de sunulur
+      if (side.length) {
+        const c = await this.ui.choice([...side.map((o) => o.label), 'Hoşça kal']);
+        if (c < side.length) await side[c].run();
+      }
       return;
     }
     await this.say(n.def.id, pool[Math.floor(Math.random() * pool.length)] ?? 'Buyur.');
     await this.serveCustomersFirst(n, shopId);
     const opts = ['Alışveriş', 'Bir şey satmak istiyorum'];
     const acts: (() => Promise<void>)[] = [async () => openShop(this.ui, kind, 'buy'), async () => openShop(this.ui, kind, 'sell')];
+    // 0.9.0: yan görev seçeneği (mavi ünlem + görevin adı) alışverişin yanında; görev aktifken de alışveriş açık
+    for (const o of side) {
+      opts.push(o.label);
+      acts.push(o.run);
+    }
     if (kind === 'healer' && !R.hasSkill('first_aid')) {
       const L = LESSONS.first_aid;
       opts.push(`İlk yardım öğret ({m:${L.price}}, 1 saat)`);
