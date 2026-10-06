@@ -1713,14 +1713,9 @@ export class Director {
     const def = SKILLS[skillId];
     const hint = HIDDEN_DISCOVERIES.find((h) => h.skill === skillId)?.hint ?? '';
     await this.ui.system(`${hint} Sistem bir skill öneriyor: ${def.name} (${RARITY_NAMES[def.rarity]}). ${def.desc}`);
-    const can = R.canLearnSkill();
-    if (!can.ok) {
-      await this.ui.system(`${can.reason} Teklif haftaya ertelendi.`);
-      G.setFlag('postponed_' + skillId, weekOfDay(G.state.time.day));
-      return;
-    }
+    // 0.9.0: gizli keşifler haftalık sınırın dışında
     const c = await this.ui.choice([`Kabul et: ${def.name}`, 'Reddet']);
-    if (c === 0) R.learnSkill(skillId, 'Gizli keşif');
+    if (c === 0) R.learnSkill(skillId, 'Gizli keşif', { weekly: false });
     else {
       G.setFlag('declined_' + skillId);
       R.toast('Teklif reddedildi.', 'info');

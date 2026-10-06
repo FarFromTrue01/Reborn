@@ -72,6 +72,13 @@ export interface GameState {
   partyHp: Record<string, number>;
   /** Günün pano görevleri (her sabah yenilenir). */
   board: { day: number; ids: string[] };
+  // ---------------------------------------------------------------- 0.9.0 (Grup 5B)
+  /** Yetenek slotları (S5): takılı aktif yetenekler; 1. slot açık, 2. slot kilitli ("Yakında"). */
+  skillSlots: (string | null)[];
+  /** Toplama noktasının toplandığı mutlak oyun dakikası (Toplayıcılık X-: Bereket — yarı sürede yeniden doğar). */
+  gatheredAt: Record<string, number>;
+  /** Günde bir kez: İlk Yardım X- (İkinci Nefes) ve Demir Beden X- (Ölümsüz Kale) son kullanıldığı gün. */
+  onceADay: Record<string, number>;
 }
 
 export const START_POINT: Point = { map: 'world', x: 0, y: 0 };
@@ -137,10 +144,13 @@ export function newGameState(): GameState {
     party: [],
     partyHp: {},
     board: { day: 0, ids: [] },
+    skillSlots: [null, null],
+    gatheredAt: {},
+    onceADay: {},
   };
 }
 
-export const CURRENT_SAVE_VERSION = 7;
+export const CURRENT_SAVE_VERSION = 8;
 
 /** Dünya haritasının 0.1.x boyutları (sis haritası göçü için). */
 export const OLD_WORLD_W = 150;

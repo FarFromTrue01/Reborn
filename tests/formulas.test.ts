@@ -65,8 +65,8 @@ describe('Stat etkileri', () => {
     expect(luckyMissChance(100)).toBeCloseTo(0.1);
     expect(dropChanceMult(10)).toBeCloseTo(1.6);
   });
-  it('MNA MP yenilenmesi +%5, INT alan +%3 (≤%100)', () => {
-    expect(mnaRegenMult(4)).toBeCloseTo(1.2);
+  it('MNA MP yenilenmesi +%3 (0.9.0), INT alan +%3 (≤%100)', () => {
+    expect(mnaRegenMult(4)).toBeCloseTo(1.12);
     expect(spellAreaMult(10)).toBeCloseTo(1.3);
     expect(spellAreaMult(100)).toBeCloseTo(2);
   });

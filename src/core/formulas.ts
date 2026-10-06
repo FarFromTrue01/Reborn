@@ -117,9 +117,9 @@ export function dropChanceMult(luk: number): number {
   return 1 + 0.06 * luk;
 }
 
-/** MNA: MP yenilenmesi puan başına +%5 */
+/** MNA: MP yenilenmesi puan başına +%3 (0.9.0) */
 export function mnaRegenMult(mna: number): number {
-  return 1 + 0.05 * mna;
+  return 1 + 0.03 * mna;
 }
 
 /** Büyü gücü: INT puan başına +%6, MNA puan başına +%1 */
@@ -236,10 +236,14 @@ export function hpRegenPerSec(maxHp: number, adaptation: number, inCombat: boole
   return base * adaptation * (1 + bonusPct) * (inCombat ? 0.5 : 1);
 }
 
+/**
+ * MP yenilenmesi (0.9.0, S4): saniyede 0,02 + max MP × 0,005; MNA puan başına +%3, Adaptasyon ile çarpılır,
+ * savaşta ×0,3.
+ */
 export function mpRegenPerSec(maxMp: number, mna: number, adaptation: number, inCombat: boolean): number {
   if (maxMp <= 0) return 0;
-  const base = 0.05 + 0.02 * maxMp;
-  return base * mnaRegenMult(mna) * adaptation * (inCombat ? 0.5 : 1);
+  const base = 0.02 + 0.005 * maxMp;
+  return base * (1 + 0.03 * mna) * adaptation * (inCombat ? 0.3 : 1);
 }
 
 /** AGI dayanıklılık yenilenmesini puan başına %1 artırır. */

@@ -13,6 +13,8 @@ import { clockLabel, dateLabel } from '../core/time';
 import { formatPrice } from '../core/money';
 import { coinRow, richLine, plainMoney, hasMoneyTokens, richParagraph, type RichTyper } from '../ui/coins';
 import { BUILDING_ICON, MINIMAP_BUILDINGS } from '../ui/mapIcons';
+import { techniqueCost, techniqueCooldown } from '../core/skills';
+import { ownerOf } from '../world/techniques';
 import { expToNext } from '../core/formulas';
 import { cooldownInfo } from '../core/eating';
 import { subRankToString as srs } from '../core/ranks';
@@ -194,7 +196,12 @@ export class UIScene extends Phaser.Scene {
     });
     const handlers: [string, (...a: any[]) => void][] = [
       ['toast', (t: any) => this.toast(t.text, t.kind, t.icon)],
-      ['sysmsg', (m: any) => this.queueSys(m)],
+      // 0.9.0: menü açıkken sistem bildirimi menünün üstünde gösterilir (UI sahnesi menünün arkasında duraklatılmış)
+      ['sysmsg', (m: any) => {
+        const menu = this.scene.get('Menu') as any;
+        if (this.menuIsOpen && this.scene.isActive('Menu') && menu?.showNotice) menu.showNotice(m);
+        else this.queueSys(m);
+      }],
       ['questdone', (q: QuestDoneInfo) => this.queueSys({ title: 'GÖREV TAMAMLANDI', lines: [], overlay: 'quest', data: q })],
       ['promotion', (p: PromotionInfo) => this.queueSys({ title: 'TERFİ', lines: [], overlay: 'rank', data: p })],
       ['stats', () => this.refreshButtons()],
@@ -519,11 +526,11 @@ export class UIScene extends Phaser.Scene {
       const id = this.skillIds[i];
       if (!id || !b.visible) return;
       const cd = w.player.skillCd[id] ?? 0;
-      const t = TECHNIQUES[id];
-      const lacking = G.p.mp < t.mp;
+      const owner = ownerOf(id);
+      const lacking = G.p.mp < techniqueCost(id, owner);
       if (cd > 0 || lacking) {
         c.fillStyle(0x000000, 0.55);
-        c.slice(b.x, b.y, b.w / 2, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * Math.min(1, cd > 0 ? cd / t.cooldown : 1), false);
+        c.slice(b.x, b.y, b.w / 2, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * Math.min(1, cd > 0 ? cd / techniqueCooldown(id, owner) : 1), false);
         c.fillPath();
       }
     });

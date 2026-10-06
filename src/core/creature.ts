@@ -2,7 +2,7 @@ import {
   addStats, critChance, dexAttackSpeedMult, agiMoveMult, maxHP, maxMP, maxStamina, zeroStats,
   luckyMissChance, dropChanceMult, spellAreaMult, baseHP, STAT_KEYS, type Stats,
 } from './formulas';
-import { currentPassive } from './skills';
+import { aggregateFx, type SkillFx } from './skills';
 import { EQUIP_SLOTS, type CreatureData, type WeaponType, type EquipSlot } from './types';
 import { ITEMS } from '../data/items';
 import { TITLES } from '../data/titles';
@@ -39,6 +39,10 @@ export interface Derived {
   areaMult: number;
   reachMult: number;
   expMult: number;
+  /** Yay menzil çarpanı (Okçuluk C-). */
+  bowRangeMult: number;
+  /** Bütün skill'lerin toplam pasif etkisi (0.9.0; oyun kodu yeni mekanikleri buradan okur). */
+  fx: SkillFx;
   /** Silah türüne göre hasar çarpanı (skill + title). */
   damagePct: Record<string, number>;
   // Divine (sadece trait sahibi için, aksi hâlde 1)
@@ -74,28 +78,23 @@ export function derive(c: CreatureData, divine?: DivineContext | null): Derived 
   if (STAT_KEYS.some((k) => eqStats[k])) sources['Ekipman'] = eqStats;
   stats = addStats(stats, eqStats);
 
-  // Skill pasifleri
+  // Skill pasifleri (0.9.0: alan alan birleşmiş tablolar, ara kademe ilerlemesi; core/skills aggregateFx)
+  const fx = aggregateFx(c.skills);
   const skStats = zeroStats();
-  for (const s of c.skills) {
-    const p = currentPassive(s);
-    if (p.stats) for (const k of STAT_KEYS) skStats[k] += p.stats[k] ?? 0;
-    if (p.damagePct) {
-      const key = p.damagePct.weapon ?? 'any';
-      dmgPct[key] = (dmgPct[key] ?? 0) + p.damagePct.pct;
-    }
-    staminaFlat += p.staminaFlat ?? 0;
-    hpPct += p.hpPct ?? 0;
-    dodgeWin += p.dodgeWindowPct ?? 0;
-    dodgeCost += p.dodgeCostPct ?? 0;
-    runCost += p.runCostPct ?? 0;
-    detect += p.detectionPct ?? 0;
-    if (p.sneakMult) sneak = Math.max(sneak, p.sneakMult);
-    heal += p.healPct ?? 0;
-    regen += p.regenPct ?? 0;
-    gather += p.gatherBonus ?? 0;
-    area += p.areaPct ?? 0;
-    reach += p.reachPct ?? 0;
-  }
+  if (fx.stats) for (const k of STAT_KEYS) skStats[k] += fx.stats[k] ?? 0;
+  for (const [key, v] of Object.entries(fx.dmg ?? {})) dmgPct[key] = (dmgPct[key] ?? 0) + (v ?? 0);
+  staminaFlat += fx.staminaFlat ?? 0;
+  hpPct += fx.hpPct ?? 0;
+  dodgeWin += fx.dodgeWindowPct ?? 0;
+  dodgeCost += fx.dodgeCostPct ?? 0;
+  runCost += fx.runCostPct ?? 0;
+  detect += fx.detectionPct ?? 0;
+  if (fx.sneakMult) sneak = Math.max(sneak, fx.sneakMult);
+  heal += fx.healPct ?? 0;
+  regen += fx.regenPct ?? 0;
+  gather += fx.gatherBonus ?? 0;
+  area += fx.areaPct ?? 0;
+  reach += fx.range?.spear ?? 0;
   if (STAT_KEYS.some((k) => skStats[k])) sources['Skill'] = skStats;
   stats = addStats(stats, skStats);
 
@@ -129,6 +128,9 @@ export function derive(c: CreatureData, divine?: DivineContext | null): Derived 
   const w = wid ? ITEMS[wid] : null;
   const weaponDmg: [number, number] = w?.dmg ?? c.natural?.dmg ?? [1, 1];
   const weaponName = w?.name ?? c.natural?.name ?? 'Yumruk';
+  const wt = w?.weaponType ?? null;
+  const wCrit = (fx.crit?.any ?? 0) + (wt ? fx.crit?.[wt] ?? 0 : 0);
+  const wSpd = 1 + (fx.atkSpd?.any ?? 0) + (wt ? fx.atkSpd?.[wt] ?? 0 : 0);
 
   return {
     stats,
@@ -142,10 +144,10 @@ export function derive(c: CreatureData, divine?: DivineContext | null): Derived 
     weaponDmg,
     weaponType: w?.weaponType ?? null,
     weaponName,
-    crit: critChance(stats.DEX, stats.LUK),
+    crit: critChance(stats.DEX, stats.LUK, wCrit),
     luckyMiss: luckyMissChance(stats.LUK),
     dropMult: dropChanceMult(stats.LUK),
-    attackSpeed: dexAttackSpeedMult(stats.DEX) * divSpeed,
+    attackSpeed: dexAttackSpeedMult(stats.DEX) * divSpeed * wSpd,
     moveSpeed: mv.move,
     dodgeWindowMult: (1 + dodgeWin) * ov.windowMult,
     slowmoMult: ov.slowmoMult,
@@ -159,6 +161,8 @@ export function derive(c: CreatureData, divine?: DivineContext | null): Derived 
     areaMult: spellAreaMult(stats.INT) * (1 + area),
     reachMult: 1 + reach,
     expMult: 1 + expPct,
+    bowRangeMult: 1 + (fx.range?.bow ?? 0),
+    fx,
     damagePct: dmgPct,
     divPower,
     divEndurance,
@@ -169,10 +173,11 @@ export function derive(c: CreatureData, divine?: DivineContext | null): Derived 
 }
 
 /** Bir saldırı türü için skill+title hasar çarpanı. */
-export function skillDamageMult(d: Derived, kind: WeaponType | 'fire' | 'spell' | null): number {
+export function skillDamageMult(d: Derived, kind: WeaponType | 'fire' | 'spell' | 'ice' | 'lightning' | null): number {
   let m = 1 + (d.damagePct.any ?? 0);
   if (kind) m += d.damagePct[kind] ?? 0;
-  if (kind === 'fire') m += d.damagePct.spell ?? 0;
+  // element büyüleri genel "büyü hasarı" bonusunu da alır
+  if (kind === 'fire' || kind === 'ice' || kind === 'lightning') m += d.damagePct.spell ?? 0;
   return m;
 }
 

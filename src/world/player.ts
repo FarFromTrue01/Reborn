@@ -18,6 +18,7 @@ import { hpRegenPerSec, mpRegenPerSec, staminaRegenPerSec } from '../core/formul
 import { LIGHT_MAX, LIGHT_DECAY_PER_SEC } from '../core/divine';
 import { runStep, RUN_THRESHOLD, type RunLock } from '../core/stamina';
 import type { EvadeCost } from '../core/combat';
+import { applyStatus, statusMods, tickStatuses, scaledDuration, type Status } from '../core/status';
 
 export type PState = 'free' | 'attack' | 'heavy' | 'dodge' | 'hurt' | 'dead' | 'cast' | 'locked' | 'dash' | 'draw';
 
@@ -112,6 +113,31 @@ export class Player {
   sheath: SheathAnim | null = null;
   /** Sırta koyma/çekme sırasında gövde elle sürülen thrust karelerinde (kol omza uzanır). */
   posing = false;
+  // ---------------------------------------------------------------- 0.9.0 (skill sistemi)
+  /** Joseph'in durum etkileri (goblin şamanının ateşi yakar; Arındırma siler). */
+  statuses: Status[] = [];
+  burnAcc = 0;
+  /** Karşı Saldırı duruşu (Kılıç Ustalığı B-): kalan süre ve karşılık gücü. Divine'ın counterT'sinden ayrı. */
+  parryT = 0;
+  parryPower = 2;
+  /** Hareketsiz geçen süre (Gizlilik S-: Gölge). */
+  stillT = 0;
+  /** Gölge: saldırana kadar görünmez. */
+  hidden = false;
+  /** Son saldırı Gölge'yi bozdu mu (Gizlilik X-: öldürünce geri gelir). */
+  hiddenBroke = false;
+  /** Mükemmel kaçıştan sonraki ilk vuruş kesin kritik (Kaçınma A-). */
+  critNext = false;
+  /** Son bedava kaçış (Kaçınma S-: 6 sn'de bir). */
+  freeDodgeAt = -99;
+  /** Kılıç kombosu: ardışık normal vuruş sayısı ve son vuruşun zamanı (Kılıç Ustalığı A-). */
+  combo = 0;
+  comboAt = -9;
+  /** Savaştan çıkınca hızlı yenilenme (İlk Yardım C-). */
+  afterCombatT = 0;
+  private wasInCombat = false;
+  /** Delici Hamle: atılma sırasında değen düşmanlara vuruş. */
+  lungeHit: { power: number; hits: Set<any>; skill?: string } | null = null;
 
   constructor(public w: WorldScene, x: number, y: number) {
     this.actor = new Actor(w, x, y, ['j_body'], 'lpc');
@@ -368,15 +394,40 @@ export class Player {
     const p = G.p;
     const d = this.d;
 
+    this.parryT -= dt;
+    // savaştan çıkınca 5 sn hızlı yenilenme (İlk Yardım C-)
+    if (this.wasInCombat && !this.inCombat && d.fx.afterCombatRegen) this.afterCombatT = 5;
+    this.wasInCombat = this.inCombat;
+    this.afterCombatT -= dt;
+    // durum etkileri (yanma hasarı saniyede bir yazılır)
+    if (this.statuses.length && this.state !== 'dead') {
+      const r = tickStatuses(this.statuses, dt);
+      this.statuses = r.list;
+      this.burnAcc += r.burn;
+      if (this.burnAcc >= 0.5 || (this.burnAcc > 0 && !this.statuses.some((x) => x.kind === 'burn'))) {
+        this.w.burnPlayer(this.burnAcc);
+        this.burnAcc = 0;
+      }
+    }
+    // Gölge (Gizlilik S-): 3 sn hareketsiz kalınca saldırana kadar görünmez
+    const movingNow = Math.hypot(Input.moveX, Input.moveY) > 0.08 && this.state === 'free';
+    this.stillT = movingNow || this.state !== 'free' ? 0 : this.stillT + dt;
+    const hide = !!d.fx.shadow && this.stillT >= 3;
+    if (hide && !this.hidden) {
+      this.hidden = true;
+      this.w.fx.glow(this.actor.x, this.actor.y - 20, 0x6a4aa0, 40, 400);
+    }
+    this.actor.setAlpha(this.hidden ? 0.45 : 1);
     // yenilenme
     if (this.state !== 'dead') {
       const ad = d.divAdaptation * (G.state.divine.skills.includes('guardian_aura') && this.inCombat ? 1.5 : 1);
-      p.hp = Math.min(d.maxHp, p.hp + hpRegenPerSec(d.maxHp, ad, this.inCombat, d.regenBonus) * dt);
+      const fast = this.afterCombatT > 0 ? 3 : 1;
+      p.hp = Math.min(d.maxHp, p.hp + hpRegenPerSec(d.maxHp, ad, this.inCombat, d.regenBonus) * fast * dt);
       p.mp = Math.min(d.maxMp, p.mp + mpRegenPerSec(d.maxMp, d.stats.MNA, ad, this.inCombat) * dt);
-      if (this.staminaDelay <= 0) p.stamina = Math.min(d.maxStamina, p.stamina + staminaRegenPerSec(d.stats.AGI, ad, this.inCombat) * dt);
+      if (this.staminaDelay <= 0) p.stamina = Math.min(d.maxStamina, p.stamina + staminaRegenPerSec(d.stats.AGI, ad, this.inCombat) * (1 + (d.fx.staminaRegenPct ?? 0)) * dt);
       for (const b of this.buffs) {
         b.t -= dt;
-        if (b.id === 'regen' && b.amount) p.hp = Math.min(d.maxHp, p.hp + b.amount * dt);
+        if (b.id === 'regen' && b.amount) p.hp = Math.min(d.maxHp, p.hp + b.amount * d.healMult * dt);
       }
       this.buffs = this.buffs.filter((b) => b.t > 0);
     }
@@ -404,7 +455,8 @@ export class Player {
       body.setVelocity(0, 0);
       return;
     }
-    // geri tepme
+    // geri tepme (Demir Beden B-: Taş Kök — savrulmaz)
+    if (d.fx.noKnockback) a.kb.set(0, 0);
     if (a.kb.lengthSq() > 4) {
       body.setVelocity(a.kb.x, a.kb.y);
       a.kb.scale(Math.pow(0.0004, dt));
@@ -443,10 +495,11 @@ export class Player {
         this.running = runStep(this.runLock, wantRun, p.stamina, d.maxStamina);
         // 0.8.0: yalnızca Joseph'e ⅔ yürüme çarpanı; Ayarlar → Hareket hızı yalnızca yavaşlatabilir (çarpan ≤ 1)
         const walk = walkSetting(naturalWalk(d.moveSpeed), G.settings.walkSpeed);
-        let sp = MV_BASE * TILE * d.moveSpeed * JOSEPH_WALK_MULT * mlen * walk.mult * this.burden;
+        let sp = MV_BASE * TILE * d.moveSpeed * JOSEPH_WALK_MULT * mlen * walk.mult * this.burden * statusMods(this.statuses).speed;
         if (this.running) {
           sp *= RUN_MULT;
-          p.stamina = Math.max(0, p.stamina - 11 * d.runCostMult * dt);
+          // Atletizm S- (Sonsuz Adım): savaş dışında koşmak dayanıklılık harcamaz
+          if (!(d.fx.freeRun && !this.inCombat)) p.stamina = Math.max(0, p.stamina - 11 * d.runCostMult * dt);
           if (p.stamina <= 0) {
             this.runLock.exhausted = true;
             this.running = false;
@@ -529,8 +582,10 @@ export class Player {
         const dodgeMove = Math.min(MOVE_SPEED_CAP, (d.moveSpeed / Math.max(0.01, d.divSpeed)) * Math.max(1, d.divSpeed));
         const sp = (this.state === 'dash' ? 13 : 7.2) * TILE * (0.4 + 0.6 * k) * Math.max(0.75, Math.sqrt(dodgeMove));
         body.setVelocity(this.dodgeVec.x * sp, this.dodgeVec.y * sp);
-        if (Math.floor(this.stateT / 0.05) !== Math.floor((this.stateT - dt) / 0.05)) this.w.fx.ghost(a, this.state === 'dash' ? 0xffe9a0 : 0x9fd6ff);
+        if (Math.floor(this.stateT / 0.05) !== Math.floor((this.stateT - dt) / 0.05)) this.w.fx.ghost(a, this.lungeHit ? 0xbfe4ff : this.state === 'dash' ? 0xffe9a0 : 0x9fd6ff);
+        if (this.lungeHit) this.w.lungeContact(this);
         if (this.stateT >= dur) {
+          this.lungeHit = null;
           this.setState('free');
           a.play('idle');
         }
@@ -538,7 +593,7 @@ export class Player {
       }
       case 'hurt': {
         body.setVelocity(0, 0);
-        if (this.stateT > 0.28) {
+        if (this.stateT > 0.28 * (1 + (d.fx.stunDurPct ?? 0))) {
           this.setState('free');
           a.play('idle');
         }
@@ -550,9 +605,12 @@ export class Player {
 
   tryDodge() {
     const p = G.p;
+    // Kaçınma S- (Rüzgâr Gibi): 6 sn'de bir kaçış bedava ve 0,8 sn beklemeyi yok sayar
+    const free = !!this.d.fx.freeDodge && this.t - this.freeDodgeAt >= 6;
     // 0.8.0: bedel 7,5 (× dodgeCostMult), iki kaçış arasında 0,8 sn bekleme
-    const r = dodgeReady(this.t, this.dodgeStart, p.stamina, this.d.dodgeCostMult);
+    const r = free ? { ok: true, cost: 0, reason: undefined } : dodgeReady(this.t, this.dodgeStart, p.stamina, this.d.dodgeCostMult);
     const cost = r.cost;
+    if (free) this.freeDodgeAt = this.t;
     if (r.reason === 'cooldown') return;
     if (!r.ok) {
       this.w.fx.number(this.actor.x, this.actor.y - 50, 'Yorgun!', 'miss');
@@ -575,6 +633,20 @@ export class Player {
     Sound.sfx('dodge');
     this.w.fx.dust(this.actor.x, this.actor.y, 4);
     G.state.divine.light = Math.min(LIGHT_MAX, G.state.divine.light + (this.inCombat ? 3 : 0));
+  }
+
+  /** Joseph'e durum etkisi (İlk Yardım B-: olumsuz etkiler kısa sürer). */
+  addStatus(st: Status) {
+    const r = applyStatus(this.statuses, { ...st, t: scaledDuration(st.t, this.d.fx.debuffDurPct ?? 0) }, { level: G.p.level }, 999);
+    this.statuses = r.list;
+  }
+
+  /** Yetenekle atılma (Delici Hamle, Yıldırım Adımı): dash durumu, yön verilir. */
+  techDash(dir: { x: number; y: number }, lunge: { power: number; skill?: string } | null) {
+    this.dodgeVec.set(dir.x, dir.y).normalize();
+    this.lungeHit = lunge ? { ...lunge, hits: new Set() } : null;
+    this.setState('dash');
+    this.invulnT = 0.22;
   }
 
   lightDash(lightCost = 0) {
@@ -614,11 +686,14 @@ export class Player {
   startAttack(heavy: boolean) {
     const p = G.p;
     if (heavy) {
-      if (p.stamina < 18) {
+      // Kılıç Ustalığı G-: kılıçla saldırıların dayanıklılık maliyeti -%10
+      const wt = this.d.weaponType;
+      const cost = 18 * (1 + (this.d.fx.atkStamina?.any ?? 0) + (wt ? this.d.fx.atkStamina?.[wt] ?? 0 : 0));
+      if (p.stamina < cost) {
         this.w.fx.number(this.actor.x, this.actor.y - 50, 'Yorgun!', 'miss');
         return;
       }
-      p.stamina -= 18;
+      p.stamina -= cost;
       this.staminaDelay = 0.8;
     }
     if (this.sheathed || this.sheath) this.setSheathed(false);
@@ -626,7 +701,13 @@ export class Player {
     this.attackDir.copy(aim);
     this.actor.face(dirFromVec(aim.x, aim.y, this.actor.dir));
     const base = this.d.weaponType === 'bow' ? 0.55 : this.d.weaponType === 'spear' ? 0.48 : 0.42;
-    this.attackDur = (base / this.d.attackSpeed) * (heavy ? 1.7 : 1);
+    // Savaş Lordu (Savaş Narası B-): naradan sonra saldırı hızı
+    const haste = this.buffs.find((b) => b.id === 'shout_haste')?.amount ?? 0;
+    this.attackDur = (base / (this.d.attackSpeed * (1 + haste))) * (heavy ? 1.7 : 1);
+    // saldırınca Gölge bozulur (Hayalet: öldürürse geri gelir)
+    this.hiddenBroke = this.hidden;
+    this.hidden = false;
+    this.stillT = 0;
     this.attackHitDone = false;
     this.setState(heavy ? 'heavy' : 'attack');
     this.plan = attackPlan(this.d.weaponType, heavy);

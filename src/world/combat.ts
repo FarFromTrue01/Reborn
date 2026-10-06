@@ -41,7 +41,7 @@ export function resolveSpell(att: { d: Derived; level: number }, def: { d: Deriv
   if (Math.random() < def.d.luckyMiss) return { damage: 0, crit: false, miss: true, sneak: false, raw: 0 };
   const b = Array.isArray(base) ? roll(base[0], base[1]) : base;
   const crit = Math.random() < att.d.crit * 0.5;
-  const kind = opts.element === 'fire' ? 'fire' : 'spell';
+  const kind = opts.element === 'fire' || opts.element === 'ice' || opts.element === 'lightning' ? opts.element : 'spell';
   const raw = spellDamage({
     spellBase: b,
     int: att.d.stats.INT,

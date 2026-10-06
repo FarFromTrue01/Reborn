@@ -49,15 +49,16 @@ export function letterStart(l: Letter): SubRank {
 
 /** Skill EXP eşikleri (her alt kademe için aynı). */
 export const SKILL_EXP_THRESHOLDS: Record<Letter, number> = {
+  // 0.9.0 (S2): alt kademe başına, harf başına ×2,5
   G: 15,
   F: 40,
   E: 100,
-  D: 500,
-  C: 2500,
-  B: 10000,
-  A: 25000,
-  S: 100000,
-  X: 1000000,
+  D: 250,
+  C: 600,
+  B: 1500,
+  A: 4000,
+  S: 10000,
+  X: 25000,
 };
 
 export function skillThreshold(r: SubRank): number {

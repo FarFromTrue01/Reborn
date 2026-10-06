@@ -2,7 +2,7 @@ import Phaser from 'phaser';
 import { G } from '../game/G';
 import { Display } from '../game/display';
 import { Sound } from '../audio/audio';
-import { COLORS, FONT, txt, drawFrame, drawBlue, Button, iconImage, uiIcon, rankBadge, itemRankBadge, fullScreenRect } from '../ui/kit';
+import { COLORS, FONT, txt, drawFrame, drawBlue, Button, iconImage, uiIcon, rankBadge, itemRankBadge, fullScreenRect, fitText, RANK_BG, RARITY_FRAME } from '../ui/kit';
 import { renderDevPanel } from '../ui/devPanel';
 import { renderQuestsTab } from '../ui/questsTab';
 import { BUILDING_ICON } from '../ui/mapIcons';
@@ -17,8 +17,8 @@ import { ScrollList, panelChoice, confirmBox } from '../ui/panels';
 import { buildSettings } from '../ui/settingsPanel';
 import { itemLabel, itemEffectsText } from '../ui/format';
 import { STAT_KEYS, expToNext, STAT_POINTS_PER_LEVEL, strDamageMult } from '../core/formulas';
-import { subRankToString, skillThreshold, SUBRANK_MAX } from '../core/ranks';
-import { SKILLS, RARITY_NAMES, TECHNIQUES, OFFER_COST } from '../data/skills';
+import { subRankToString, subRankLetter, skillThreshold, SUBRANK_MAX } from '../core/ranks';
+import { SKILLS, RARITY_NAMES, TECHNIQUES } from '../data/skills';
 import { TITLES, TRAIT_NAMES } from '../data/titles';
 import { ITEMS } from '../data/items';
 import { EQUIP_SLOTS, EQUIP_SLOT_NAMES, type EquipSlot } from '../core/types';
@@ -26,7 +26,7 @@ import { equip, unequip, transact } from '../core/transactions';
 import { coinRow, plainMoney } from '../ui/coins';
 import { divineExpToNext, divineStat, DIVINE_STATS, DIVINE_STAT_NAMES } from '../core/divine';
 import { DIVINE_BY_ID } from '../data/divine';
-import { nextTier, rollOffer, type OfferRarity } from '../core/skills';
+import { nextTier, rollOfferCards, OFFER_ODDS, OFFER_NAMES, OFFER_RARITIES, techniquesOf, ownedTechniques, sanitizeSlots, techniqueSource, techniqueCost, techniqueCooldown, techniquePower, SKILL_SLOTS_OPEN, SKILL_SLOTS_TOTAL, type OfferSp } from '../core/skills';
 import * as R from '../game/rules';
 import { SLOT_KEYS, slotInfo, type SlotKey } from '../core/save';
 import type { UIScene } from './UIScene';
@@ -104,6 +104,7 @@ export class MenuScene extends Phaser.Scene {
     this.invDetail = null;
     this.histShown = HISTORY_PAGE;
     this.viewKey = '';
+    this.notices = [];
   }
 
   create() {
@@ -399,38 +400,104 @@ export class MenuScene extends Phaser.Scene {
       y += ch + gap;
     }
 
-    // ---------------------------------------------------------- SKILLS
+    // ---------------------------------------------------------- SKILLS (0.9.0: nadirlik çerçevesi, rütbe arka planı, slotlar)
     if (show('skills')) {
-      const cardH = 92;
-      const ch = 44 + Math.max(1, p.skills.length) * (cardH + 8) + (p.sp > 0 ? 60 : 4);
+      const owned = ownedTechniques(p.skills);
+      const slots = sanitizeSlots(G.state.skillSlots, owned);
+      const inFight = !!(this.world?.inBattle || this.world?.player?.inCombat);
+      const techRows = (s: any) => techniquesOf(s).length;
+      const cardH = (s: any) => 92 + techRows(s) * 44;
+      const slotH = 112;
+      const ch = 44 + slotH + 10 + p.skills.reduce((a: number, s: any) => a + cardH(s) + 8, 0) + (p.sp > 0 ? 60 : 4);
       const by = this.card(inner, 0, y, W, ch, 'SKILLS', 'blue', `${p.skills.length} skill`, 'skills');
-      let ry = by;
+      // --- yetenek slotları: 1. açık, 2. kilitli "Yakında"
+      inner.add(txt(this, 18, by - 4, 'YETENEK SLOTLARI', { size: 13, bold: true, font: FONT.title, color: '#bfe4ff' }));
+      inner.add(txt(this, W - 18, by - 4, inFight ? 'Savaşta yetenek değiştirilemez.' : 'Yalnızca takılı yetenek kullanılır · pasifler her zaman açık', { size: 12, italic: true, color: inFight ? COLORS.textRed : '#6f9fcf' }).setOrigin(1, 0));
+      const sw = (W - 28 - 10) / 2;
+      for (let i = 0; i < SKILL_SLOTS_TOTAL; i++) {
+        const sx = 14 + i * (sw + 10), sy = by + 20;
+        const g = this.add.graphics();
+        const locked = i >= SKILL_SLOTS_OPEN;
+        g.fillStyle(locked ? 0x10182a : 0x0a1a3a, 0.95);
+        g.fillRoundedRect(sx, sy, sw, 80, 8);
+        g.lineStyle(1.5, locked ? 0x3a4a66 : 0x7cc8ff, 0.9);
+        g.strokeRoundedRect(sx, sy, sw, 80, 8);
+        inner.add(g);
+        inner.add(txt(this, sx + 12, sy + 6, `Slot ${i + 1}`, { size: 12, bold: true, color: locked ? '#5a6a88' : '#9fd6ff' }));
+        if (locked) {
+          inner.add(uiIcon(this, sx + sw / 2 - 52, sy + 44, 'lock', 26));
+          inner.add(txt(this, sx + sw / 2 - 30, sy + 30, 'Yakında', { size: 22, bold: true, font: FONT.title, color: '#7a8aa8' }));
+          continue;
+        }
+        const t = slots[i] ? TECHNIQUES[slots[i]!] : null;
+        if (!t) {
+          inner.add(txt(this, sx + 14, sy + 32, owned.length ? 'Boş — aşağıdan bir yetenek tak.' : 'Boş — henüz aktif yeteneğin yok.', { size: 15, italic: true, color: '#8fa8c8' }));
+          continue;
+        }
+        const src = techniqueSource(t.id);
+        const owner = src ? p.skills.find((x: any) => x.id === src.skill) ?? null : null;
+        inner.add(iconImage(this, sx + 32, sy + 46, SKILLS[src?.skill ?? '']?.icon ?? 'stone', 34));
+        inner.add(txt(this, sx + 58, sy + 24, t.name, { size: 18, bold: true, color: '#ffffff' }));
+        inner.add(txt(this, sx + 58, sy + 50, `MP ${techniqueCost(t.id, owner)} · Bekleme ${techniqueCooldown(t.id, owner)} sn · Güç ×${techniquePower(owner?.rank ?? 0).toFixed(2)}`, { size: 13, color: '#9fd6ff' }));
+      }
+      let ry = by + slotH + 10;
       for (const s of p.skills) {
         const def = SKILLS[s.id];
+        const L = subRankLetter(s.rank);
+        const hgt = cardH(s);
         const g = this.add.graphics();
-        g.fillStyle(0x061230, 0.85);
-        g.fillRoundedRect(14, ry, W - 28, cardH, 8);
-        g.lineStyle(1, def.rarity === 'legendary' ? 0xffd56a : def.rarity === 'rare' ? 0xb08aff : 0x3d8bdb, 0.8);
-        g.strokeRoundedRect(14, ry, W - 28, cardH, 8);
+        // arka plan rütbe rengi (G → X), çerçeve nadirlik rengi
+        g.fillStyle(RANK_BG[L], 0.9);
+        g.fillRoundedRect(14, ry, W - 28, hgt, 8);
+        g.fillStyle(0x061230, 0.55);
+        g.fillRoundedRect(14, ry, W - 28, hgt, 8);
+        g.lineStyle(2.5, RARITY_FRAME[def.rarity], 1);
+        g.strokeRoundedRect(14, ry, W - 28, hgt, 8);
         g.fillStyle(0x000000, 0.4);
         g.fillRoundedRect(24, ry + 12, 56, 56, 8);
         inner.add(g);
         inner.add(iconImage(this, 52, ry + 40, def.icon, 46));
         inner.add(txt(this, 94, ry + 8, def.name, { size: 19, bold: true, color: '#ffffff' }));
         const nameW = 94 + txt(this, 0, -999, def.name, { size: 19, bold: true }).setVisible(false).width + 10;
-        let cx = this.chip(inner, nameW, ry + 9, subRankToString(s.rank), 0x2a4a8a);
-        this.chip(inner, cx, ry + 9, RARITY_NAMES[def.rarity], def.rarity === 'legendary' ? 0x5a4410 : def.rarity === 'rare' ? 0x3a2a60 : 0x2a3040);
+        let cx = this.chip(inner, nameW, ry + 9, subRankToString(s.rank), RANK_BG[L]);
+        this.chip(inner, cx, ry + 9, RARITY_NAMES[def.rarity], def.rarity === 'legendary' ? 0x5a4410 : def.rarity === 'epic' ? 0x4a2470 : def.rarity === 'rare' ? 0x1a3a70 : 0x3a3a44);
         const max = s.rank >= SUBRANK_MAX;
         const th = skillThreshold(s.rank);
-        this.progress(inner, 94, ry + 38, Math.min(300, W - 140), 14, max ? 1 : s.exp / th, 0x3ab8e0, max ? 'MAX' : `${fmtExp(s.exp)} / ${th}`);
-        const techs = def.tiers.filter((t) => t.technique && parseRank(t.at) <= s.rank).map((t) => TECHNIQUES[t.technique!]?.name);
-        inner.add(txt(this, 94, ry + 60, def.desc + (techs.length ? `  ·  Teknikler: ${techs.join(', ')}` : ''), { size: 13, color: '#9fc8ff', wrap: W - 130 }));
+        this.progress(inner, 94, ry + 38, Math.min(300, W - 140), 14, max ? 1 : s.exp / th, max ? 0xffd040 : 0x3ab8e0, max ? 'MAX' : `${fmtExp(s.exp)} / ${th}`);
+        inner.add(txt(this, 94, ry + 60, def.desc, { size: 13, color: '#9fc8ff', wrap: W - 130 }));
         const nt = nextTier(s);
-        if (nt && W > 600) inner.add(txt(this, W - 24, ry + 40, `Sonraki (${nt.at}): ${nt.note}`, { size: 12, italic: true, color: '#6f9fcf', wrap: W - 440, align: 'right' }).setOrigin(1, 0));
-        ry += cardH + 8;
+        if (nt && W > 600) inner.add(txt(this, W - 24, ry + 38, `Sonraki (${nt.at}): ${nt.note}`, { size: 12, italic: true, color: '#8fb8e8', wrap: W - 440, align: 'right' }).setOrigin(1, 0));
+        // aktif yetenekler: tak / çıkar (yalnızca savaş dışında)
+        let ty = ry + 86;
+        for (const tid of techniquesOf(s)) {
+          const t = TECHNIQUES[tid];
+          const on = slots.includes(tid);
+          const tg = this.add.graphics();
+          tg.fillStyle(on ? 0x16305e : 0x0a1530, 0.95);
+          tg.fillRoundedRect(94, ty, W - 122, 38, 6);
+          tg.lineStyle(1, on ? 0x7cc8ff : 0x34507a, 1);
+          tg.strokeRoundedRect(94, ty, W - 122, 38, 6);
+          inner.add(tg);
+          inner.add(txt(this, 106, ty + 4, t.name + (on ? '  · takılı' : ''), { size: 14, bold: true, color: on ? '#e6f6ff' : '#bfd6f0' }));
+          inner.add(fitText(txt(this, 106, ty + 21, `MP ${techniqueCost(tid, s)} · ${techniqueCooldown(tid, s)} sn · ${t.desc}`, { size: 11, color: '#8fa8c8' }), W - 122 - 150));
+          const b = new Button(this, W - 90, ty + 19, on ? 'Çıkar' : 'Tak', () => {
+            if (this.world?.inBattle || this.world?.player?.inCombat) {
+              this.showNotice({ title: 'YETENEK SLOTU', lines: ['Yetenekler yalnızca savaş dışında değiştirilir.'] });
+              return;
+            }
+            R.setSkillSlot(0, on ? null : tid);
+            Sound.sfx('click');
+            this.render();
+          }, { w: 96, h: 30, size: 13, style: 'blue', disabled: inFight });
+          b.setName('slot_' + tid);
+          inner.add(b);
+          ty += 44;
+        }
+        ry += hgt + 8;
       }
       if (p.sp > 0) {
         const b = new Button(this, 170, ry + 26, `Sistem Teklifi (SP: ${p.sp})`, () => this.systemOffer(), { w: 300, h: 48, style: 'blue', size: 16 });
+        b.setName('offer_btn');
         inner.add(b);
       }
       y += ch + gap;
@@ -657,39 +724,92 @@ export class MenuScene extends Phaser.Scene {
     });
   }
 
+  /**
+   * Sistem Teklifi (0.9.0, S3): 1 SP Basic / 2 SP Medium / 3 SP High chance. Kart sayısı = harcanan SP; her kart
+   * nadirliğini ayrı çeker (core/skills rollOfferCards). Teklif açmak haftanın hakkını kullanır; boş kartın SP'si iade.
+   */
   async systemOffer() {
     const p = G.p;
-    const opts: { r: OfferRarity; label: string }[] = [
-      { r: 'common', label: `Sıradan (${OFFER_COST.common} SP)` },
-      { r: 'rare', label: `Nadir (${OFFER_COST.rare} SP)` },
-      { r: 'legendary', label: `Efsanevi (${OFFER_COST.legendary} SP)` },
-    ];
     const can = R.canLearnSkill();
     if (!can.ok) {
-      R.sysmsg('SİSTEM TEKLİFİ', [can.reason!]);
-      return;
-    }
-    const i = await panelChoice(this, 'SİSTEM TEKLİFİ — NADİRLİK', opts.map((o) => ({
-      title: o.label,
-      desc: o.r === 'common' ? 'Gelişimi sınırlı, işe yarar skill\'ler.' : o.r === 'rare' ? 'Üst rütbelerde güçlü teknikler açan skill\'ler.' : 'Üst rütbelerde awakening yaşayan efsanevi skill\'ler.',
-      footer: p.sp >= OFFER_COST[o.r] ? 'Sistem 3 rastgele skill önerir, biri seçilir. İade yok.' : 'SP yetersiz.',
-    })), true, true);
-    if (i < 0) return;
-    const r = opts[i].r;
-    if (p.sp < OFFER_COST[r]) {
+      this.showNotice({ title: 'SİSTEM TEKLİFİ', lines: [can.reason!] });
       Sound.sfx('error');
       return;
     }
-    const offer = rollOffer(r, p.skills.map((s) => s.id));
-    if (!offer.length) {
-      R.sysmsg('SİSTEM TEKLİFİ', ['Bu nadirlikte önerilebilecek skill kalmadı.']);
+    const pct = (x: number) => `%${Math.round(x * 100)}`;
+    const COL: Record<OfferSp, number> = { 1: 0xa0a0aa, 2: 0x4aa8ff, 3: 0xffcf4a };
+    const sps: OfferSp[] = [1, 2, 3];
+    const i = await panelChoice(this, 'SİSTEM TEKLİFİ', sps.map((sp) => ({
+      title: `${sp} SP · ${OFFER_NAMES[sp]}`,
+      frame: COL[sp],
+      tag: { text: `${sp} kart`, color: sp === 1 ? '#c8c8d0' : sp === 2 ? '#8fd0ff' : '#ffe08a' },
+      desc: OFFER_RARITIES.map((r, k) => `${RARITY_NAMES[r]}: ${pct(OFFER_ODDS[sp][k])}`).join('\n') + '\n\nHer kart nadirliğini ayrı çeker.',
+      footer: p.sp >= sp ? 'Teklif açmak bu haftanın skill hakkını kullanır.' : 'SP yetersiz.',
+      disabled: p.sp < sp,
+    })), true, true);
+    if (i < 0) return;
+    const sp = sps[i];
+    if (p.sp < sp) {
+      Sound.sfx('error');
       return;
     }
-    p.sp -= OFFER_COST[r];
+    p.sp -= sp;
+    R.useWeeklyLearn();
+    const res = rollOfferCards(sp, p.skills.map((s) => s.id));
+    p.sp += res.refund;
     G.scheduleSave();
-    const j = await panelChoice(this, `SİSTEM TEKLİFİ — ${RARITY_NAMES[r].toUpperCase()}`, offer.map((s) => ({ title: s.name, desc: s.desc + '\n\n' + s.tiers.slice(0, 3).map((t) => `${t.at}: ${t.note}`).join('\n'), icon: s.icon })), true);
-    R.learnSkill(offer[j].id, 'Sistem Teklifi');
+    if (res.cards.every((c) => !c)) {
+      this.showNotice({ title: 'SİSTEM TEKLİFİ', lines: ['Sistem uygun skill bulamadı.', `${res.refund} SP iade edildi.`] });
+      this.render();
+      return;
+    }
+    const j = await panelChoice(this, `SİSTEM TEKLİFİ — ${sp} KART`, res.cards.map((s) => s ? {
+      title: s.name,
+      icon: s.icon,
+      frame: RARITY_FRAME[s.rarity],
+      tag: { text: RARITY_NAMES[s.rarity], color: '#' + RARITY_FRAME[s.rarity].toString(16).padStart(6, '0') },
+      desc: s.desc + '\n\n' + s.tiers.slice(0, 3).map((t) => `${t.at}: ${t.note}`).join('\n'),
+    } : {
+      title: 'Boş',
+      frame: 0x50586a,
+      disabled: true,
+      button: '—',
+      desc: 'Sistem uygun skill bulamadı.\n\nBu kartın SP\'si iade edildi.',
+    }), true, 'Hiçbirini seçme');
+    if (j >= 0 && res.cards[j]) R.learnSkill(res.cards[j]!.id, 'Sistem Teklifi', { weekly: false });
+    if (res.refund) this.showNotice({ title: 'SİSTEM TEKLİFİ', lines: [`${res.refund} boş kart: ${res.refund} SP iade edildi.`] });
     this.render();
+  }
+
+  /** Menünün üstünde sistem bildirimi (0.9.0: UI sahnesi menünün arkasında kaldığı için bildirimler burada). */
+  notices: Phaser.GameObjects.Container[] = [];
+
+  showNotice(m: { title: string; lines?: string[]; sound?: string }) {
+    const W = Display.uiW;
+    const w = Math.min(560, W - 60);
+    const lines = (m.lines ?? []).map((l) => plainMoney(l));
+    const h = 58 + lines.length * 22;
+    const y0 = 30 + this.notices.reduce((a, n) => a + (n as any).h + 10, 0);
+    const c = this.add.container(W / 2, y0).setDepth(300);
+    (c as any).h = h;
+    const g = this.add.graphics();
+    drawBlue(g, -w / 2, 0, w, h, 0.95);
+    c.add(g);
+    c.add(txt(this, 0, 10, `【 ${m.title} 】`, { size: 16, bold: true, font: FONT.title, color: '#e6f6ff' }).setOrigin(0.5, 0));
+    lines.forEach((l, i) => c.add(fitText(txt(this, 0, 38 + i * 22, l, { size: 15, color: COLORS.textBlue }).setOrigin(0.5, 0), w - 30)));
+    const z = this.add.zone(-w / 2, 0, w, h).setOrigin(0, 0).setInteractive();
+    c.add(z);
+    const close = () => {
+      if (!c.active) return;
+      this.notices = this.notices.filter((n) => n !== c);
+      this.tweens.add({ targets: c, alpha: 0, duration: 200, onComplete: () => c.destroy() });
+    };
+    z.on('pointerup', close);
+    c.setAlpha(0);
+    this.tweens.add({ targets: c, alpha: 1, duration: 180 });
+    this.time.delayedCall(3800, close);
+    this.notices.push(c);
+    Sound.sfx(m.sound ?? 'system', 0.7);
   }
 
   // ================================================================ ENVANTER

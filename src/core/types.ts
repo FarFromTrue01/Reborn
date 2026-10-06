@@ -71,12 +71,28 @@ export interface ItemDef {
   bound?: boolean;
 }
 
-export type SkillRarity = 'common' | 'rare' | 'legendary' | 'innate';
+export type SkillRarity = 'common' | 'rare' | 'epic' | 'legendary' | 'innate';
 
+/** Hasar/menzil/hız türü anahtarları: silah türleri, 'any' ve büyü elementleri. */
+export type DmgKind = WeaponType | 'any' | 'fire' | 'spell' | 'ice' | 'lightning';
+export type KindMap = Partial<Record<DmgKind, number>>;
+
+/**
+ * Skill pasifi (0.9.0). Tablolar o rütbedeki TOPLAM değeri yazar; mergedPassive alan alan birleştirir.
+ * Sayılar ve eşlem değerleri ara kademelerde bir sonraki kilometre taşına doğru üçte bir ilerler; bayraklar ilerlemez.
+ */
 export interface SkillPassive {
   stats?: Partial<Stats>;
-  /** Hasar çarpanı (ör. kılıç hasarı +%15 → {weapon:'sword', pct:0.15}). */
-  damagePct?: { weapon?: WeaponType | 'any' | 'fire' | 'spell'; pct: number };
+  /** Hasar çarpanı türe göre (ör. kılıç hasarı +%15 → { sword: 0.15 }). */
+  dmg?: KindMap;
+  /** Kritik şansı (silah türüne göre). */
+  crit?: KindMap;
+  /** Saldırı hızı (silah türüne göre). */
+  atkSpd?: KindMap;
+  /** Saldırıların dayanıklılık maliyeti (silah türüne göre, -0.1 = -%10). */
+  atkStamina?: KindMap;
+  /** Menzil (mızrak erişimi, yay menzili). */
+  range?: KindMap;
   staminaFlat?: number;
   hpPct?: number;
   dodgeWindowPct?: number;
@@ -87,29 +103,101 @@ export interface SkillPassive {
   regenPct?: number;
   gatherBonus?: number;
   areaPct?: number;
-  reachPct?: number;
   runCostPct?: number;
-  /** Daha temiz animasyon (Kılıç Ustalığı G–E). */
-  cleanAnim?: boolean;
+  // ---- Gizlilik
+  noticeDelay?: number;
+  shadow?: boolean;
+  ghost?: boolean;
+  // ---- Kaçınma
+  perfectDodgeStamina?: number;
+  critAfterPerfect?: boolean;
+  freeDodge?: boolean;
+  // ---- Okçuluk
+  arrowSpeedPct?: number;
+  stillBowPct?: number;
+  // ---- İlk Yardım
+  bandageTimePct?: number;
+  afterCombatRegen?: boolean;
+  debuffDurPct?: number;
+  healShare?: number;
+  secondWind?: boolean;
+  // ---- Atletizm
+  staminaRegenPct?: number;
+  freeRun?: boolean;
+  // ---- Toplayıcılık
+  rareGatherPct?: number;
+  gatherTimePct?: number;
+  gatherExtra2?: number;
+  regrowHalf?: boolean;
+  // ---- skill'in kendi teknikleri için
+  /** Bu skill'in tekniklerinin MP'si (-0.3 = -%30). */
+  mpPct?: number;
+  /** Bu skill'in tekniklerinin bekleme çarpanı (0.5 = yarıya). */
+  cdMult?: number;
+  /** Bu skill'in tekniklerinin menzili. */
+  techRangePct?: number;
+  // ---- Kılıç
+  comboFinisher?: number;
+  // ---- Ateş
+  burnDur?: number;
+  burnMult?: number;
+  // ---- Şifa
+  healParty?: boolean;
+  curseBreak?: boolean;
+  // ---- Buz
+  slowPct?: number;
+  slowMult?: number;
+  freezeRadiusMult?: number;
+  freezeDur?: number;
+  frozenDmgMult?: number;
+  // ---- Savaş Narası
+  allyDmgBuff?: number;
+  allyDefBuff?: number;
+  shoutRadiusPct?: number;
+  shoutAtkSpd?: number;
+  fearLow?: boolean;
+  staggerDur?: number;
+  // ---- Fırtına Kılıcı
+  windWaves?: number;
+  deflect?: number;
+  windOnHit?: boolean;
+  // ---- Yıldırım
+  chain?: number;
+  paralyzeChance?: number;
+  chainAll?: boolean;
+  // ---- Demir Beden
+  stunDurPct?: number;
+  noKnockback?: boolean;
+  dmgTakenPct?: number;
+  deathGuard?: boolean;
 }
 
 export interface TechniqueDef {
   id: string;
   name: string;
   desc: string;
+  /** Hesaplanır (core/skills techniqueMp); veride 0. */
   mp: number;
   cooldown: number; // saniye
-  kind: 'melee_multi' | 'projectile' | 'cone' | 'aoe' | 'wall' | 'heal' | 'counter' | 'buff' | 'dash';
-  /** Hasar tabanı (büyüler) ya da silah hasarına çarpan (fiziksel). */
+  kind: 'melee_multi' | 'projectile' | 'aoe' | 'heal' | 'parry' | 'buff' | 'dash' | 'lunge' | 'sweep' | 'shield' | 'cleanse' | 'shout' | 'taunt';
+  /** Hasar tabanı (büyüler) ya da normal vuruşa çarpan (fiziksel). */
   power: number;
   hits?: number;
-  element?: 'fire' | 'physical' | 'holy' | 'heal' | 'wind' | 'lightning';
+  element?: 'fire' | 'physical' | 'holy' | 'heal' | 'wind' | 'lightning' | 'ice';
   radius?: number;
   range?: number;
   duration?: number;
   weapon?: WeaponType;
   /** Kıvılcım gibi dünya ile etkileşim (meşale/ot yakma). */
   ignites?: boolean;
+  /** Büyü temelli: MP ×2 (0.9.0, S4). */
+  spell?: boolean;
+  /** Fiziksel mermi/alan (normal vuruşun katı; Rüzgâr Kesiği, Gök Yaran). */
+  physical?: boolean;
+  /** Alan yeteneği kullanıcının çevresinde (Cehennem Çemberi, Donduran Halka). */
+  self?: boolean;
+  /** Mermi sıradaki tüm düşmanları deler. */
+  pierce?: boolean;
 }
 
 export interface SkillTier {

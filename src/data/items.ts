@@ -197,7 +197,7 @@ const list: ItemDef[] = [
   },
   {
     id: 'mp_potion_s', name: 'Küçük MP İksiri', kind: 'consumable', price: 90, stack: true, icon: 'potion_blue',
-    effects: [{ type: 'mana', amount: 8 }], desc: 'Mavi ve soğuk. 8 MP yeniler.',
+    effects: [{ type: 'mana', amount: 25 }], desc: 'Mavi ve soğuk. 25 MP yeniler.',
   },
   {
     id: 'bandage', name: 'Bez Sargı', kind: 'consumable', price: 15, stack: true, icon: 'bandage',
@@ -221,6 +221,7 @@ const list: ItemDef[] = [
   { id: 'goblin_ear', name: 'Goblin Kulağı', kind: 'material', rank: 'F', price: 10, sell: 4, stack: true, icon: 'goblin_ear', desc: 'Sivri, yeşil bir kulak. Lonca av kanıtı olarak kabul ediyor.' },
   { id: 'goblin_trinket', name: 'Goblin Biblosu', kind: 'junk', rank: 'G', price: 8, sell: 3, stack: true, icon: 'trinket', desc: 'Kemik, tüy ve parlak bir düğme. Goblinlere göre çok değerli.' },
   { id: 'herb', name: 'Şifalı Ot', kind: 'material', rank: 'G', price: 5, sell: 2, stack: true, icon: 'herb', desc: 'Ormanda biten acı yapraklı ot. Şifacı alır.' },
+  { id: 'silver_herb', name: 'Gümüş Yapraklı Ot', kind: 'material', rank: 'F', price: 30, sell: 10, stack: true, icon: 'herb', desc: 'Yapraklarının altı gümüşi. Şifalı otların arasında nadiren biter; usta toplayıcılar tanır.' },
   { id: 'firewood', name: 'Odun', kind: 'material', rank: 'G', price: 2, sell: 1, stack: true, icon: 'wood', desc: 'Kuru odun parçası.' },
   { id: 'chief_tusk', name: 'Şef Dişi', kind: 'material', rank: 'F', price: 120, sell: 40, stack: true, icon: 'tusk', desc: 'Goblin şefinin kırık dişi. Bir kahramanlık kanıtı.' },
 

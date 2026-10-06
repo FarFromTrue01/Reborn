@@ -3,7 +3,7 @@ import { G } from './G';
 import { addExp, STAT_POINTS_PER_LEVEL, SP_PER_LEVEL, type StatKey } from '../core/formulas';
 import { addDivineExp, victoryDivineExp, isMeaningfulVictory, trainingExp, streakMultiplier, TRAINING_SESSIONS_PER_DAY, divineExpToNext } from '../core/divine';
 import { fmtMult, fmtHp } from '../ui/format';
-import { addSkillExp, canLearnThisWeek, weekOfDay, newSkill } from '../core/skills';
+import { addSkillExp, canLearnThisWeek, weekOfDay, newSkill, ownedTechniques, sanitizeSlots } from '../core/skills';
 import { SKILLS, TECHNIQUES, HIDDEN_DISCOVERIES, RARITY_NAMES } from '../data/skills';
 import { subRankToString } from '../core/ranks';
 import { transact, type ItemQty } from '../core/transactions';
@@ -174,10 +174,11 @@ export function gainSkillExp(id: string, raw: number) {
     const def = SKILLS[id];
     const lines = [`${def.name}: ${subRankToString(r.rankUps[0] - 1)} → ${subRankToString(r.state.rank)}`];
     for (const t of r.unlocked) {
-      if (t.technique) lines.push(`Yeni teknik: ${TECHNIQUES[t.technique]?.name ?? t.technique}`);
+      if (t.technique) lines.push(`Yeni yetenek: ${TECHNIQUES[t.technique]?.name ?? t.technique} (Status → Skills'ten takılır)`);
       else lines.push(t.note);
     }
     sysmsg('SKILL GELİŞTİ', lines, { sound: 'skillup' });
+    fillEmptySlot();
     G.invalidate();
   }
   G.events.emit('skills');
@@ -189,24 +190,57 @@ export function canLearnSkill(): { ok: boolean; reason?: string } {
   return { ok: true };
 }
 
-export function learnSkill(id: string, via: string): boolean {
+/**
+ * Yeni skill. weekly: Sistem Teklifi, öğretmenler ve kitaplar haftalık sınıra tabi; hikâyedeki gizli keşifler
+ * (HIDDEN_DISCOVERIES, director.discovery) sınırın dışında (weekly: false) ve haftanın hakkını kullanmaz.
+ * Teklifin hakkı teklif açılınca kullanılır (useWeeklyLearn), seçim ayrıca hakkı düşürmez.
+ */
+export function learnSkill(id: string, via: string, opts: { weekly?: boolean } = {}): boolean {
+  const weekly = opts.weekly ?? true;
   if (hasSkill(id)) {
     toast('Bu skill\'e zaten sahipsin.', 'warn');
     return false;
   }
-  const c = canLearnSkill();
-  if (!c.ok) {
-    sysmsg('ÖĞRENİLEMEDİ', [c.reason!]);
-    return false;
+  if (weekly) {
+    const c = canLearnSkill();
+    if (!c.ok) {
+      sysmsg('ÖĞRENİLEMEDİ', [c.reason!]);
+      return false;
+    }
+    useWeeklyLearn();
   }
   G.p.skills.push(newSkill(id));
-  G.state.lastSkillLearnWeek = weekOfDay(G.state.time.day);
   const def = SKILLS[id];
   sysmsg('YENİ SKILL', [`${def.name} (G-) [${RARITY_NAMES[def.rarity]}]`, def.desc, `Kaynak: ${via}`], { sound: 'skillup', big: true });
+  fillEmptySlot();
   G.invalidate();
   G.events.emit('skills');
   G.scheduleSave();
   return true;
+}
+
+/** Bu haftanın yeni skill hakkını kullan (teklif açmak da kullanır; kartlar boş gelse ya da seçilmese bile). */
+export function useWeeklyLearn() {
+  G.state.lastSkillLearnWeek = weekOfDay(G.state.time.day);
+}
+
+/** Açık slot boşsa ilk aktif yeteneği tak (yeni yetenek açılınca elle takmaya gerek kalmasın). */
+export function fillEmptySlot() {
+  const owned = ownedTechniques(G.p.skills);
+  const slots = sanitizeSlots(G.state.skillSlots, owned);
+  if (!slots[0] && owned.length) slots[0] = owned[0];
+  G.state.skillSlots = slots;
+}
+
+/** Yetenek tak/çıkar (yalnızca savaş dışında; çağıran denetler). */
+export function setSkillSlot(i: number, tech: string | null) {
+  const owned = ownedTechniques(G.p.skills);
+  const slots = [...sanitizeSlots(G.state.skillSlots, owned)];
+  if (tech) for (let k = 0; k < slots.length; k++) if (slots[k] === tech) slots[k] = null;
+  slots[i] = tech;
+  G.state.skillSlots = sanitizeSlots(slots, owned);
+  G.events.emit('skills');
+  G.scheduleSave();
 }
 
 /** Gizli keşif sayaçlarını kontrol et. */
@@ -317,11 +351,19 @@ export function consumeItem(id: string, eat: { state: EatState; now: number } | 
   if (!t.ok) return { ok: false, reason: t.reason };
   const p = G.p;
   for (const e of it.effects ?? []) {
-    if (e.type === 'heal') p.hp = Math.min(G.d.maxHp, p.hp + Math.round(e.amount! * G.d.healMult * 10) / 10);
+    if (e.type === 'heal') {
+      const amt = Math.round(e.amount! * G.d.healMult * 10) / 10;
+      p.hp = Math.min(G.d.maxHp, p.hp + amt);
+      // İlk Yardım S- (Saha Hekimi): iyileşmenin yarısı yakındaki yoldaşlara
+      G.events.emit('healed', amt);
+    }
     if (e.type === 'mana') p.mp = Math.min(G.d.maxMp, p.mp + e.amount!);
     if (e.type === 'stamina') p.stamina = Math.min(G.d.maxStamina, p.stamina + e.amount!);
     if (e.type === 'regen') {
-      addBuff({ id: 'regen', t: e.duration!, amount: (e.amount! * G.d.healMult) / e.duration! });
+      // İlk Yardım D-: sargı süresi yarıya iner (toplam iyileşme aynı)
+      const dur = Math.max(1, e.duration! * (1 + (G.d.fx.bandageTimePct ?? 0)));
+      addBuff({ id: 'regen', t: dur, amount: (e.amount! * G.d.healMult) / dur });
+      G.events.emit('healed', e.amount! * G.d.healMult);
       G.count('bandagesUsed');
       gainSkillExp('first_aid', 1.5);
       checkDiscoveries();

@@ -42,7 +42,7 @@ export const SHOPS: Record<string, ShopDef> = {
     stock: ['hp_potion_s', 'mp_potion_s', 'antidote', 'bandage'],
     buys: ['material'],
     // otlar, iksir malzemeleri
-    expertise: ['consumable', 'herb', 'rat_tail', 'slime_jelly', 'color_core'],
+    expertise: ['consumable', 'herb', 'silver_herb', 'rat_tail', 'slime_jelly', 'color_core'],
   },
   inn: {
     id: 'inn', name: 'Yorgun Yaban Domuzu Hanı', keeper: 'bertram', map: 'inn', hours: [5, 24], rate: 0.35,

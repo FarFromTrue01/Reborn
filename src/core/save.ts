@@ -7,6 +7,8 @@ import { questDef, rankupQuest } from '../data/quests';
 import { BOARD_TEMPLATES } from '../data/sidequests';
 import { STAT_POINTS_PER_LEVEL } from './formulas';
 import { normalizeWallet, emptyWallet } from './money';
+import { normalizeSkillExp, ownedTechniques, sanitizeSlots } from './skills';
+import { SKILLS, REMOVED_TECHNIQUES } from '../data/skills';
 
 /** 0.3.0'daki dünya boyutu (worldgen.ts WORLD_W/H ile aynı olmalı; testle doğrulanır). */
 export const NEW_WORLD_W = 169;
@@ -89,7 +91,27 @@ const MIGRATIONS: ((d: any) => any)[] = [
   // v6 → v7 (0.6.0): İlk Kadeh'e "masaya otur" amacı eklendi (ilerleme dizileri tanımla eşitlenir); kayıttaki pano
   // ilanlarına yönlendirme (where) eklenir. Eksik ana görev ve bekleme adımları oyunda ensureMainQuest ile açılır.
   (d) => migrateV6toV7(d),
+  // v7 → v8 (0.9.0): yeni skill sistemi — yetenek slotları, yeni EXP eşikleri, kaldırılan teknikler.
+  (d) => migrateV7toV8(d),
 ];
+
+/**
+ * 0.8.0 kaydını 0.9.0'a taşır (tests/g5b.test.ts):
+ * - Yeni alanlar: skillSlots (ilk sıradaki aktif yetenek takılı gelir), onceADay.
+ * - Birikmiş skill EXP'si yeni (daha düşük) eşiklere göre rütbe atlatır.
+ * - Kaldırılan teknikler (Çift Ok, Alev Püskürtmesi, Alev Duvarı): bekleme süreleri ve slot kayıtları silinir.
+ */
+export function migrateV7toV8(d: any): any {
+  const p = d.player;
+  if (p?.skills) p.skills = p.skills.map((s: any) => (SKILLS[s.id] ? normalizeSkillExp({ id: s.id, rank: s.rank ?? 0, exp: s.exp ?? 0 }) : s));
+  const owned = p?.skills ? ownedTechniques(p.skills.filter((s: any) => SKILLS[s.id])) : [];
+  const prev = Array.isArray(d.skillSlots) ? d.skillSlots.filter((t: any) => t && !REMOVED_TECHNIQUES.includes(t)) : [];
+  d.skillSlots = sanitizeSlots(prev.length ? prev : owned.slice(0, 1), owned);
+  d.onceADay ??= {};
+  d.gatheredAt ??= {};
+  d.saveVersion = 8;
+  return d;
+}
 
 /** 0.5.x kaydını 0.6.0'a taşır (tests/g4a.test.ts). */
 export function migrateV6toV7(d: any): any {

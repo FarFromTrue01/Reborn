@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { parseSubRank, subRankToString, skillThreshold } from '../src/core/ranks';
-import { addSkillExp, techniquesOf, usageExp, canLearnThisWeek, rollOffer, currentPassive } from '../src/core/skills';
+import { addSkillExp, techniquesOf, usageExp, canLearnThisWeek, rollOfferCards, currentPassive } from '../src/core/skills';
 import { appraisalView, noticesAppraisal } from '../src/core/appraisal';
 import { createMonster, monsterExp, rollDrops, splitExp } from '../src/core/monster';
 import { MONSTERS } from '../src/data/monsters';
@@ -25,7 +25,7 @@ describe('Rütbeler', () => {
     expect(skillThreshold(parseSubRank('G-'))).toBe(15);
     expect(skillThreshold(parseSubRank('G+'))).toBe(15);
     expect(skillThreshold(parseSubRank('F-'))).toBe(40);
-    expect(skillThreshold(parseSubRank('X-'))).toBe(1_000_000);
+    expect(skillThreshold(parseSubRank('X-'))).toBe(25_000);
   });
 });
 
@@ -36,15 +36,14 @@ describe('Skill gelişimi', () => {
     expect(r.state.exp).toBe(5);
     expect(r.rankUps).toEqual([1, 2]);
   });
-  it('Ateş Büyüsü F-\'de alev püskürtmesi açılır, D-\'de Ateş Topu', () => {
+  it('Ateş Büyüsü G-\'de Kıvılcım, D-\'de Ateş Topu (Alev Püskürtmesi 0.9.0\'da kalktı)', () => {
     const r = addSkillExp({ id: 'fire_magic', rank: 2, exp: 0 }, 15);
     expect(subRankToString(r.state.rank)).toBe('F-');
-    expect(r.unlocked.map((t) => t.technique)).toContain('flame_spray');
-    expect(techniquesOf({ id: 'fire_magic', rank: parseSubRank('D-'), exp: 0 })).toEqual(['spark', 'flame_spray', 'fireball']);
+    expect(techniquesOf({ id: 'fire_magic', rank: parseSubRank('D-'), exp: 0 })).toEqual(['spark', 'fireball']);
   });
-  it('Kılıç Ustalığı E\'ye kadar bonus vermez, C-\'de +%15', () => {
-    expect(currentPassive({ id: 'sword_mastery', rank: parseSubRank('E+'), exp: 0 }).damagePct).toBeUndefined();
-    expect(currentPassive({ id: 'sword_mastery', rank: parseSubRank('C-'), exp: 0 }).damagePct?.pct).toBe(0.15);
+  it('Kılıç Ustalığı F-\'de +%5, C-\'de +%15 kılıç hasarı', () => {
+    expect(currentPassive({ id: 'sword_mastery', rank: parseSubRank('F-'), exp: 0 }).dmg?.sword).toBe(0.05);
+    expect(currentPassive({ id: 'sword_mastery', rank: parseSubRank('C-'), exp: 0 }).dmg?.sword).toBe(0.15);
   });
   it('Kullanım EXP: boşa kullanım 0, zayıf hedef az, güçlü hedef çok', () => {
     expect(usageExp(1, null, 0)).toBe(0);
@@ -57,11 +56,12 @@ describe('Skill gelişimi', () => {
     expect(canLearnThisWeek(0, 7)).toBe(false);
     expect(canLearnThisWeek(0, 8)).toBe(true);
   });
-  it('Sistem teklifi en fazla 3 farklı, sahip olunmayan skill', () => {
-    const o = rollOffer('common', ['stealth']);
-    expect(o.length).toBe(3);
-    expect(new Set(o.map((s) => s.id)).size).toBe(3);
-    expect(o.every((s) => s.rarity === 'common' && s.id !== 'stealth')).toBe(true);
+  it('Sistem teklifi: 3 SP → 3 farklı, sahip olunmayan skill', () => {
+    const o = rollOfferCards(3, ['stealth']);
+    expect(o.cards.length).toBe(3);
+    const ids = o.cards.filter(Boolean).map((s) => s!.id);
+    expect(new Set(ids).size).toBe(ids.length);
+    expect(ids.includes('stealth')).toBe(false);
   });
 });
 

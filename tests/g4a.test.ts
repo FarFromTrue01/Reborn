@@ -260,7 +260,7 @@ describe('Kayıt göçü v6 → v7 (0.6.0)', () => {
     for (const o of old.objectives) delete o.where;
     s.quests.quests[b.id] = { id: b.id, status: 'active', progress: old.objectives.map(() => 0), startedDay: 3, def: old };
     const m: any = migrate(JSON.parse(JSON.stringify(s)), 6);
-    expect(m.saveVersion).toBe(7);
+    expect(m.saveVersion).toBe(8);
     expect(m.quests.quests.m_celebrate.progress).toEqual([0, 0]);
     expect(m.quests.quests[b.id].def.objectives[0].where).toBeDefined();
   });

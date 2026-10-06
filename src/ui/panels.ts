@@ -179,10 +179,18 @@ export interface CardOpt {
   desc: string;
   icon?: string;
   footer?: string;
+  /** Kart çerçevesinin rengi (ör. skill nadirliği). */
+  frame?: number;
+  /** Seçilemez (ör. boş kart, SP yetersiz). */
+  disabled?: boolean;
+  /** Düğme yazısı (varsayılan "Seç"). */
+  button?: string;
+  /** Başlığın altında küçük renkli etiket (nadirlik adı). */
+  tag?: { text: string; color: string };
 }
 
 /** Ortada kartlarla seçim (Divine skill, Sistem Teklifi). İptal yoksa mutlaka biri seçilir. */
-export function panelChoice(scene: Phaser.Scene, title: string, opts: CardOpt[], blue = true, cancellable = false): Promise<number> {
+export function panelChoice(scene: Phaser.Scene, title: string, opts: CardOpt[], blue = true, cancellable: boolean | string = false): Promise<number> {
   return new Promise((resolve) => {
     const W = Display.uiW, H = Display.uiH;
     const c = scene.add.container(0, 0).setDepth(150);
@@ -200,16 +208,29 @@ export function panelChoice(scene: Phaser.Scene, title: string, opts: CardOpt[],
       const g = scene.add.graphics();
       if (blue) drawBlue(g, 0, 0, cw, ch, 0.9);
       else drawFrame(g, 0, 0, cw, ch);
+      if (o.frame !== undefined) {
+        g.lineStyle(4, o.frame, o.disabled ? 0.45 : 1);
+        g.strokeRoundedRect(3, 3, cw - 6, ch - 6, 8);
+        g.fillStyle(o.frame, 0.12);
+        g.fillRoundedRect(3, 3, cw - 6, 86, { tl: 8, tr: 8, bl: 0, br: 0 });
+      }
       card.add(g);
       if (o.icon && scene.textures.get('icons').has(o.icon)) card.add(scene.add.image(cw / 2, 52, 'icons', o.icon).setScale(1.6));
-      card.add(txt(scene, cw / 2, 100, o.title, { size: 18, bold: true, color: '#ffffff', align: 'center', wrap: cw - 30, font: FONT.title }).setOrigin(0.5, 0));
-      card.add(txt(scene, 18, 160, o.desc, { size: 15, color: blue ? COLORS.textBlue : COLORS.text, wrap: cw - 36, lineSpacing: 3 }));
+      const tt = txt(scene, cw / 2, 96, o.title, { size: 18, bold: true, color: o.disabled ? '#9aa6b8' : '#ffffff', align: 'center', wrap: cw - 30, font: FONT.title }).setOrigin(0.5, 0);
+      card.add(tt);
+      let dy = 160;
+      if (o.tag) {
+        card.add(txt(scene, cw / 2, 100 + tt.height + 2, o.tag.text, { size: 13, bold: true, color: o.tag.color, align: 'center' }).setOrigin(0.5, 0));
+        dy = Math.max(dy, 100 + tt.height + 26);
+      }
+      card.add(txt(scene, 18, dy, o.desc, { size: 14, color: blue ? COLORS.textBlue : COLORS.text, wrap: cw - 36, lineSpacing: 3 }));
       if (o.footer) card.add(txt(scene, cw / 2, ch - 70, o.footer, { size: 13, italic: true, color: COLORS.textDim, align: 'center', wrap: cw - 30 }).setOrigin(0.5, 0));
-      const b = new Button(scene, cw / 2, ch - 34, 'Seç', () => {
+      const b = new Button(scene, cw / 2, ch - 34, o.button ?? 'Seç', () => {
         Sound.sfx('skillup');
         c.destroy();
         resolve(i);
-      }, { w: cw - 40, h: 50, style: blue ? 'blue' : 'gold' });
+      }, { w: cw - 40, h: 50, style: blue ? 'blue' : 'gold', disabled: o.disabled });
+      b.setName('card_' + i);
       card.add(b);
       card.setAlpha(0);
       card.y += 20;
@@ -217,10 +238,11 @@ export function panelChoice(scene: Phaser.Scene, title: string, opts: CardOpt[],
       c.add(card);
     });
     if (cancellable) {
-      const b = new Button(scene, W / 2, y0 + ch + 50, 'Vazgeç', () => {
+      const b = new Button(scene, W / 2, y0 + ch + 50, typeof cancellable === 'string' ? cancellable : 'Vazgeç', () => {
         c.destroy();
         resolve(-1);
-      }, { w: 200, h: 52 });
+      }, { w: 240, h: 52 });
+      b.setName('card_cancel');
       c.add(b);
     }
   });

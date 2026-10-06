@@ -10,6 +10,7 @@ import { TILE } from './types';
 import type { WorldScene } from '../scenes/WorldScene';
 import { Sound } from '../audio/audio';
 import type { Companion } from './companion';
+import { applyStatus, statusMods, tickStatuses, type Status } from '../core/status';
 
 export type EState = 'idle' | 'wander' | 'alert' | 'chase' | 'windup' | 'strike' | 'recover' | 'flee' | 'return' | 'hurt' | 'dead' | 'stunned';
 
@@ -52,6 +53,13 @@ export class Enemy {
   foeT = 0;
   /** Joseph'in bu düşmana son vuruşu (sahne zamanı, sn): yoldaşlar onun hedefini bitirmeyi tercih etmez (0.8.0). */
   josephHitAt = -99;
+  /** Durum etkileri (0.9.0, core/status): yanma, yavaşlatma, dondurma, sendeleme, felç, korku, kışkırtma. */
+  statuses: Status[] = [];
+  /** Yanma hasarının birikimi (saniyede bir sayı olarak gösterilir). */
+  burnAcc = 0;
+  /** Oyuncuyu kesintisiz gördüğü süre (Gizlilik B-: geç fark etme). */
+  seeT = 0;
+  statusIcon: Phaser.GameObjects.Image | null = null;
 
   constructor(public w: WorldScene, monsterId: string, x: number, y: number, spawnId: string, level?: number) {
     this.def = MONSTERS[monsterId];
@@ -90,7 +98,31 @@ export class Enemy {
     this.stateT = 0;
   }
 
+  /** Durum etkisi uygula (boss/level kuralları core/status'ta). Uygulandıysa true. */
+  addStatus(st: Status, userLevel: number): boolean {
+    const r = applyStatus(this.statuses, st, { boss: !!this.def.boss, level: this.level }, userLevel);
+    if (!r.applied) return false;
+    this.statuses = r.list;
+    if (r.applied.kind === 'freeze' || r.applied.kind === 'stagger' || r.applied.kind === 'paralyze') {
+      // hazırlanan saldırı bozulur
+      if (this.state === 'windup') {
+        this.telegraph.clear();
+        this.actor.tint(null);
+        this.icon.setText('');
+        this.setState('hurt');
+      }
+    }
+    if (r.applied.kind === 'taunt') this.foe = null;
+    if (r.applied.kind === 'fear' && this.state !== 'dead') this.setState('flee');
+    return true;
+  }
+
+  get frozenNow(): boolean {
+    return this.statuses.some((s) => s.kind === 'freeze' && s.t > 0);
+  }
+
   destroy() {
+    this.statusIcon?.destroy();
     this.actor.destroy();
     this.hpBar.destroy();
     this.icon.destroy();
@@ -129,8 +161,31 @@ export class Enemy {
     }
     const p = this.w.player;
     const pd = p.actor;
-    const speed = this.def.speed * TILE * (this.slowT > 0 ? 0.5 : 1);
+    // durum etkileri: yanma hasarı, hız, hareket edememe, kaçma, kışkırtma
+    let mods = statusMods(this.statuses);
+    if (this.statuses.length) {
+      const r = tickStatuses(this.statuses, dt);
+      this.statuses = r.list;
+      if (r.burn > 0) {
+        this.burnAcc += r.burn;
+        if (this.burnAcc >= 1 || !this.statuses.some((s) => s.kind === 'burn')) {
+          this.w.statusDamage(this, this.burnAcc);
+          this.burnAcc = 0;
+          if ((this.state as EState) === 'dead') return;
+        }
+      }
+      mods = statusMods(this.statuses);
+    }
+    this.drawStatus(mods);
+    const speed = this.def.speed * TILE * (this.slowT > 0 ? 0.5 : 1) * mods.speed;
     this.slowT -= dt;
+    if (!mods.canAct) {
+      body.setVelocity(0, 0);
+      a.play('idle');
+      this.drawUI();
+      return;
+    }
+    if (mods.taunted) this.foe = null;
     // Geri tepme ve vuruş donması (hit-stop) yalnızca hareketi ezer; YZ (hazırlık sayacı, savurma, kovalama) sürer.
     // Böylece iptal beklemesi (core/combat canInterrupt) sırasında gelen vuruşlar düşmanı itip dondursa da saldırısını
     // durduramaz: saldırı hızı ne kadar yüksek olursa olsun sık vurarak kilitlenemez.
@@ -144,11 +199,13 @@ export class Enemy {
     }
 
     const playerOk = !p.dead && !this.w.cutscene;
-    const vis = playerOk ? this.canSee(pd.x, pd.y, p.d.detectionMult * (p.running ? 1.35 : 1) * (p.sneaking ? 0.7 : 1)) : { see: false, dist: 99, behind: false };
+    const vis = playerOk && !p.hidden ? this.canSee(pd.x, pd.y, p.d.detectionMult * (p.running ? 1.35 : 1) * (p.sneaking ? 0.7 : 1)) : { see: false, dist: 99, behind: false };
 
     // Farkındalık göstergesi
+    if (vis.see) this.seeT += dt;
+    else this.seeT = 0;
     if (!this.aware && this.behavior !== 'flee') {
-      if (vis.see) {
+      if (vis.see && this.seeT >= (p.d.fx.noticeDelay ?? 0)) {
         const rate = (1.6 / Math.max(0.6, vis.dist)) * (p.running ? 1.8 : 1) * (vis.dist < 1.5 ? 4 : 1);
         this.awareness = Math.min(1, this.awareness + rate * dt);
         // Gizli yaklaşma sayacı (hidden discovery)
@@ -292,6 +349,7 @@ export class Enemy {
         a.face(dirFromVec(away.x, away.y));
         a.play(this.def.id === 'wolf' ? 'run' : 'walk');
         a.animSpeed = 1.3;
+        if (mods.fleeing) break;
         if (this.stateT > (this.behavior === 'flee' ? 4 : 3) || distP > 9) {
           if (this.behavior === 'flee') {
             this.aware = false;
@@ -464,6 +522,25 @@ export class Enemy {
       body.setVelocity(body.velocity.x + (Math.random() - 0.5) * speed, body.velocity.y + (Math.random() - 0.5) * speed);
     }
     return false;
+  }
+
+  /** Durum görünümü: donmuşta buz mavisi, başın üstünde etki simgesi (en önemlisi). */
+  drawStatus(m: { frozen: boolean }) {
+    const a = this.actor;
+    const order: Status['kind'][] = ['freeze', 'paralyze', 'stagger', 'fear', 'burn', 'slow', 'taunt'];
+    const top = order.find((k) => this.statuses.some((s) => s.kind === k));
+    if (m.frozen) a.tint(0x9fdcff);
+    else if ((a as any).__statusTint) a.tint(null);
+    (a as any).__statusTint = m.frozen;
+    if (!top || this.state === 'dead') {
+      this.statusIcon?.setVisible(false);
+      return;
+    }
+    const key = top === 'freeze' ? 'st_freeze' : 'st_' + top;
+    if (!this.statusIcon) this.statusIcon = this.w.add.image(0, 0, 'uiicons', key).setScale(14 / 72).setDepth(960002);
+    this.statusIcon.setFrame(key).setVisible(true);
+    const ttop = a.y - (a.kind === 'lpc' ? 58 : 34) * (this.def.scale ?? 1);
+    this.statusIcon.setPosition(a.x + 18, ttop - 4);
   }
 
   drawUI() {

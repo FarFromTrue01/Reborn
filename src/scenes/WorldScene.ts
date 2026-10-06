@@ -21,7 +21,10 @@ import { PropCollision, blockedAt } from '../world/collision';
 import { daylight, hourOf, advance } from '../core/time';
 import { resolvePhysical, resolveSpell } from '../world/combat';
 import { monsterExp, rollDrops, splitExp } from '../core/monster';
-import { usageExp, achievementExp, techniquesOf } from '../core/skills';
+import { usageExp, achievementExp, equippedTechniques, sanitizeSlots, ownedTechniques } from '../core/skills';
+import { useTechnique, ownerOf, elementStatus, ELEMENT_COLOR } from '../world/techniques';
+import { BURN_PER_SEC } from '../core/status';
+import type { TechniqueDef } from '../core/types';
 import { TECHNIQUES } from '../data/skills';
 import { ITEMS } from '../data/items';
 import { DIVINE_BY_ID } from '../data/divine';
@@ -103,7 +106,7 @@ function encodeFog(arr: Uint8Array) {
 }
 
 interface Pickup { img: Phaser.GameObjects.Image; id: string; qty: number; money: number; x: number; y: number; t: number }
-interface Projectile { img: Phaser.GameObjects.Image; vx: number; vy: number; life: number; fromPlayer: boolean; comp?: Companion; enemy?: Enemy; tech?: string; power: number; radius: number; hits: Set<Enemy>; ignite?: boolean; element?: string; physical?: boolean }
+interface Projectile { img: Phaser.GameObjects.Image; vx: number; vy: number; life: number; fromPlayer: boolean; comp?: Companion; enemy?: Enemy; tech?: string; power: number; radius: number; hits: Set<Enemy>; ignite?: boolean; element?: string; physical?: boolean; pierce?: boolean; skill?: string; arrow?: boolean }
 
 export class WorldScene extends Phaser.Scene {
   mapData!: MapData;
@@ -311,6 +314,10 @@ export class WorldScene extends Phaser.Scene {
     const onSettings = () => (this.lighting.quality = G.settings.quality);
     G.events.on('settings', onSettings);
     this.events.once('shutdown', () => G.events.off('settings', onSettings));
+    // iksir/sargı iyileşmesi: İlk Yardım S- (Saha Hekimi) payı yoldaşlara
+    const onHealed = (amt: number) => this.shareHeal(amt, 0);
+    G.events.on('healed', onHealed);
+    this.events.once('shutdown', () => G.events.off('healed', onHealed));
     Q.waitOf = (id) => this.questWait(id)?.text ?? null;
     this.events.once('shutdown', () => (Q.waitOf = null));
     this.questArrow = this.add.graphics().setDepth(966000);
@@ -549,7 +556,7 @@ export class WorldScene extends Phaser.Scene {
   companionHit(c: Companion, e: Enemy, dir: Phaser.Math.Vector2, mult = 1) {
     if (!e.alive) return;
     // 0.8.0 (C6): yoldaş hasarı ×0,15 (yardım eder, işi yapmaz)
-    const res = resolvePhysical({ d: c.d, level: c.level }, { d: e.d, level: e.level }, { mult: mult * COMPANION_DMG_MULT });
+    const res = resolvePhysical({ d: c.d, level: c.level }, { d: e.d, level: e.level }, { mult: mult * COMPANION_DMG_MULT * (1 + (c.rallyT > 0 ? c.rallyDmg : 0)) });
     e.aware || e.becomeAware(true);
     e.barShowT = 3;
     if (res.miss) {
@@ -824,7 +831,7 @@ export class WorldScene extends Phaser.Scene {
     if (t.monster) for (const s of wm.spawns) if (s.monster === t.monster) out.push({ x: s.x, y: s.y });
     if (t.item) {
       // yalnızca bugün toplanmamış noktalar: ok, elması olan en yakın ağacı gösterir
-      for (const g of wm.gathers) if (g.item === t.item && (G.state.gathered[g.id] ?? 0) !== G.state.time.day) out.push({ x: g.x, y: g.y });
+      for (const g of wm.gathers) if (g.item === t.item && !this.gatheredNow(g.id)) out.push({ x: g.x, y: g.y });
       const droppers = Object.values(MONSTERS).filter((md) => md.drops.some((d) => d.id === t.item)).map((md) => md.id);
       for (const s of wm.spawns) if (droppers.includes(s.monster)) out.push({ x: s.x, y: s.y });
     }
@@ -1605,7 +1612,7 @@ export class WorldScene extends Phaser.Scene {
     for (const n of this.npcs) consider(n.x, n.y - 10, 'Konuş', 'npc', n, 40);
     for (const p of this.r.propImages) if (p.p.interact && this.director.propAvailable(p.p.interact)) consider(p.p.x, p.p.y - 8, this.interactLabel(p.p.interact), 'prop', p.p, p.p.interact === 'sit_table' ? 52 : 38);
     for (const g of this.mapData.gathers) {
-      const avail = (G.state.gathered[g.id] ?? 0) !== G.state.time.day;
+      const avail = !this.gatheredNow(g.id);
       // görseli olmayan toplama noktası olmaz (bire bir: worldgen prop.gather)
       if (avail && this.gatherImg(g.id)) consider(g.x * TILE + 16, g.y * TILE + 16, 'Topla', 'gather', g, 30);
     }
@@ -1635,12 +1642,31 @@ export class WorldScene extends Phaser.Scene {
     else if (it.kind === 'warp') this.tryWarp(it.ref);
   }
 
+  /**
+   * Toplama noktası bugün toplandı mı? Kaynaklar ertesi gün yeniden doğar; Toplayıcılık X- (Bereket) ile yarı sürede
+   * (toplandıktan 12 oyun saati sonra).
+   */
+  gatheredNow(id: string): boolean {
+    if ((G.state.gathered[id] ?? 0) !== G.state.time.day) return false;
+    const at = G.state.gatheredAt?.[id];
+    return !(G.d.fx.regrowHalf && at !== undefined && this.absMinute() - at >= 12 * 60);
+  }
+
   gather(g: MapData['gathers'][number]) {
-    if ((G.state.gathered[g.id] ?? 0) === G.state.time.day) return;
+    if (this.gatheredNow(g.id)) return;
     G.state.gathered[g.id] = G.state.time.day;
-    // elma ağacı bir toplamada 3 elma verir (0.8.0); Toplayıcılık şansı üstüne
+    (G.state.gatheredAt ??= {})[g.id] = this.absMinute();
+    // elma ağacı bir toplamada 3 elma verir (0.8.0); Toplayıcılık: ek ürün şansı (B-'den kesin +1), A- %30 ile +2,
+    // D-'den nadir malzeme (şifalı otta Gümüş Yapraklı Ot)
+    const fx = G.d.fx;
     let qty = gatherQty(g.kind);
-    if (Math.random() < G.d.gatherBonus) qty++;
+    const bonus = G.d.gatherBonus;
+    qty += Math.floor(bonus) + (Math.random() < bonus - Math.floor(bonus) ? 1 : 0);
+    if (Math.random() < (fx.gatherExtra2 ?? 0)) qty++;
+    if (g.kind === 'herb' && Math.random() < (fx.rareGatherPct ?? 0)) {
+      R.giveItems([{ id: 'silver_herb', qty: 1 }], 'Toplama');
+      this.ui.toastInfo('Nadir bir ot buldun!');
+    }
     // toplarken durur ve otu koparır (kısa 'cast' durumu: hareket yok, bitince idle)
     const pl = this.player;
     if (pl.state === 'free') {
@@ -1677,7 +1703,7 @@ export class WorldScene extends Phaser.Scene {
         const gx = g.x * TILE + 16, gy = g.y * TILE + 16;
         if (Math.abs(gx - a.x) > R2 || Math.abs(gy - a.y) > R2) continue;
         const d = Math.hypot(gx - a.x, gy - a.y);
-        if (d > R2 || (G.state.gathered[g.id] ?? 0) === day) continue;
+        if (d > R2 || this.gatheredNow(g.id)) continue;
         const img = this.gatherImg(g.id);
         if (!img || !img.visible) continue;
         seen.add(g.id);
@@ -1715,7 +1741,7 @@ export class WorldScene extends Phaser.Scene {
     this.gatherDay = day;
     for (const p of this.r.propImages) {
       if (!p.p.gather || p.p.key !== 'herb_plant') continue;
-      p.img.setAlpha((G.state.gathered[p.p.gather] ?? 0) === day ? 0.25 : 1);
+      p.img.setAlpha(this.gatheredNow(p.p.gather) ? 0.25 : 1);
     }
   }
 
@@ -2062,6 +2088,13 @@ export class WorldScene extends Phaser.Scene {
     }
     const reach = pl.weaponReach() * TILE + (heavy ? 8 : 0);
     const arc = Phaser.Math.DegToRad(heavy ? 140 : 110) / 2;
+    // Kılıç Ustalığı A- (Kılıç Ustası): ardışık üçüncü normal vuruş kombonun son vuruşu ×1,5
+    pl.combo = !heavy && pl.t - pl.comboAt < 1.3 ? pl.combo + 1 : 1;
+    pl.comboAt = pl.t;
+    const finisher = d.weaponType === 'sword' && !heavy && pl.combo % 3 === 0 ? d.fx.comboFinisher ?? 1 : 1;
+    if (finisher > 1) this.fx.number(a.x, a.y - 56, 'Kombo!', 'divine');
+    // Fırtına Tanrısı (Fırtına Kılıcı X-): her kılıç vuruşu bir rüzgâr dalgası
+    if (d.weaponType === 'sword' && d.fx.windOnHit) this.spawnSpellProjectile(dir.clone(), 'wind_cut', 0.6, 8, ELEMENT_COLOR.wind, false, 'wind', 4, true, { skill: 'storm_blade' });
     const ox = a.x, oy = a.y - 14;
     this.fx.slashArc(ox + dir.x * 16, oy + dir.y * 16, dir.angle(), heavy ? 0xffd27a : 0xffffff, heavy ? 1.3 : 1);
     let hitAny = false;
@@ -2072,7 +2105,7 @@ export class WorldScene extends Phaser.Scene {
       if (dist > reach) continue;
       if (Math.abs(Phaser.Math.Angle.Wrap(v.angle() - dir.angle())) > arc && v.length() > 18) continue;
       hitAny = true;
-      this.hitEnemy(e, { heavy, dir, physical: true });
+      this.hitEnemy(e, { heavy, dir, physical: true, mult: finisher > 1 ? finisher : undefined });
     }
     // çalı yakma/kesme yok; boşa vuruş
     if (!hitAny) Sound.sfx('miss', 0.3);
@@ -2086,13 +2119,17 @@ export class WorldScene extends Phaser.Scene {
     const att = { d: G.d, level: G.p.level };
     const def = { d: e.d, level: e.level };
     const holy = pl.holyNext && o.physical;
-    if (o.spell) res = resolveSpell(att, def, o.spell.base, { element: o.spell.element, mult: o.mult });
+    // 0.9.0: donmuş düşmana ×2 (Buz X-), mükemmel kaçıştan sonraki ilk vuruş kesin kritik (Kaçınma A-)
+    const frozenMult = e.frozenNow ? G.d.fx.frozenDmgMult ?? 1 : 1;
+    const forceCrit = pl.critNext && !!o.physical;
+    if (forceCrit) pl.critNext = false;
+    if (o.spell) res = resolveSpell(att, def, o.spell.base, { element: o.spell.element, mult: (o.mult ?? 1) * frozenMult });
     else
       res = resolvePhysical(att, def, {
-        mult: (o.heavy ? 1.8 : 1) * (o.mult ?? 1) * (holy ? 2.5 : 1),
+        mult: (o.heavy ? 1.8 : 1) * (o.mult ?? 1) * (holy ? 2.5 : 1) * frozenMult,
         weak: counter,
         sneakMult: sneak ? G.d.sneakMult : undefined,
-        forceCrit: false,
+        forceCrit,
       });
     if (holy) {
       pl.holyNext = false;
@@ -2101,7 +2138,10 @@ export class WorldScene extends Phaser.Scene {
       for (const o2 of this.enemies) if (o2 !== e && o2.alive && Math.hypot(o2.x - e.x, o2.y - e.y) < 2.2 * TILE) this.hitEnemy(o2, { dir: o.dir, spell: { base: 4 }, mult: 1 });
     }
     if (counter) pl.counterT = 0;
-    e.aware || e.becomeAware(true);
+    // Gizlilik X- (Hayalet): gizli saldırı sürüyü uyandırmaz, öldürünce gizlilik (Gölge) bozulmaz
+    const ghost = !!G.d.fx.ghost && sneak;
+    const wasHidden = pl.hidden || pl.hiddenBroke;
+    e.aware || e.becomeAware(!ghost);
     e.barShowT = 3;
     this.enterCombat();
     if (res.miss) {
@@ -2138,7 +2178,10 @@ export class WorldScene extends Phaser.Scene {
       G.count('bowHits');
       R.checkDiscoveries();
     }
-    if (e.c.hp <= 0) this.killEnemy(e, o.skill ?? weaponSkill);
+    if (e.c.hp <= 0) {
+      this.killEnemy(e, o.skill ?? weaponSkill);
+      if (ghost && wasHidden) pl.hidden = true;
+    }
     else if (canInterrupt({ state: e.state, heavy: !!o.heavy, boss: !!e.def.boss, sinceInterrupt: e.sinceInterrupt })) {
       // Vuruş hazırlıktaki saldırıyı keser (boss yalnızca ağır vuruşla); ardından 1,2 sn yeniden kesilemez.
       e.sinceInterrupt = 0;
@@ -2270,6 +2313,22 @@ export class WorldScene extends Phaser.Scene {
   resolveIncoming(e: Enemy | null, calc: () => { damage: number; crit: boolean; miss: boolean }, dir: Phaser.Math.Vector2) {
     const pl = this.player;
     if (pl.dead || this.cutscene) return;
+    // Karşı Saldırı (Kılıç Ustalığı B-): duruşta gelen darbe engellenir ve otomatik karşılık verilir
+    if (pl.parryT > 0) {
+      pl.parryT = 0;
+      Sound.sfx('perfect');
+      this.fx.number(pl.actor.x, pl.actor.y - 52, 'Savuşturdu!', 'divine');
+      this.fx.glow(pl.actor.x, pl.actor.y - 20, 0xbfe4ff, 50, 300);
+      pl.invulnT = Math.max(pl.invulnT, 0.25);
+      if (e && e.alive && Math.hypot(e.x - pl.actor.x, e.y - pl.actor.y) < (pl.weaponReach() + 1.5) * TILE) {
+        const v = new Phaser.Math.Vector2(e.x - pl.actor.x, e.y - pl.actor.y).normalize();
+        pl.actor.face(dirFromVec(v.x, v.y, pl.actor.dir));
+        pl.actor.play('slash', { loop: false, restart: true, speed: 2 });
+        this.fx.slashArc(pl.actor.x + v.x * 16, pl.actor.y - 14 + v.y * 16, v.angle(), 0xbfe4ff, 1.2);
+        this.hitEnemy(e, { dir: v, physical: true, mult: pl.parryPower, skill: 'sword_mastery' });
+      }
+      return;
+    }
     if (pl.invulnT > 0) {
       // Mükemmel kaçış?
       const sinceDodge = pl.t - pl.dodgeStart;
@@ -2298,6 +2357,9 @@ export class WorldScene extends Phaser.Scene {
     this.slowmoT = 0.45 * G.d.slowmoMult * (G.state.divine.skills.includes('swift_grace') ? 1.5 : 1);
     pl.counterT = 1.6;
     pl.invulnT = Math.max(pl.invulnT, 0.3);
+    // Kaçınma C-: max dayanıklılığın %5'i geri; A-: sonraki ilk vuruş kesin kritik
+    if (G.d.fx.perfectDodgeStamina) G.p.stamina = Math.min(G.d.maxStamina, G.p.stamina + G.d.maxStamina * G.d.fx.perfectDodgeStamina);
+    if (G.d.fx.critAfterPerfect) pl.critNext = true;
     this.fx.number(pl.actor.x, pl.actor.y - 52, 'Mükemmel!', 'divine');
     this.fx.glow(pl.actor.x, pl.actor.y - 20, 0x9fd6ff, 70, 500);
     if (G.state.divine.skills.length) G.state.divine.light = Math.min(LIGHT_MAX, G.state.divine.light + LIGHT_ON_PERFECT_DODGE * (G.state.divine.skills.includes('swift_grace') ? 2 : 1));
@@ -2313,6 +2375,8 @@ export class WorldScene extends Phaser.Scene {
     if (G.state.divine.skills.includes('guardian_aura')) d = roundDamage(d * 0.9);
     const ironSkin = pl.buffs.find((b) => b.id === 'iron_skin');
     if (ironSkin) d = roundDamage(d * 0.5);
+    // Demir Beden S- (Çelik Ruh): alınan hasar -%20
+    if (G.d.fx.dmgTakenPct) d = roundDamage(d * (1 + G.d.fx.dmgTakenPct));
     if (pl.shield > 0) {
       const ab = Math.min(pl.shield, d);
       pl.shield = applyDamage(pl.shield, ab);
@@ -2329,6 +2393,27 @@ export class WorldScene extends Phaser.Scene {
       Sound.sfx('holy');
       R.sysmsg('İKİNCİ NEFES', ['Öldürücü darbeyi ışık karşıladı. 1 HP ile ayaktasın.'], { sound: 'system' });
       return;
+    }
+    // Günde bir kez: Ölümsüz Kale (Demir Beden X-) ölümcül darbe yerine 3 sn yenilmezlik; İkinci Nefes (İlk Yardım X-) 1 HP
+    if (applyDamage(p.hp, d) <= 0) {
+      const day = G.state.time.day;
+      const once = (G.state.onceADay ??= {});
+      if (G.d.fx.deathGuard && once.deathGuard !== day) {
+        once.deathGuard = day;
+        pl.invulnT = 3;
+        this.fx.glow(pl.actor.x, pl.actor.y - 20, 0xd0d8e8, 90, 1200);
+        Sound.sfx('holy');
+        R.sysmsg('ÖLÜMSÜZ KALE', ['Ölümcül darbe bedenine işlemedi. 3 sn yenilmezsin.'], { sound: 'system' });
+        return;
+      }
+      if (G.d.fx.secondWind && once.secondWind !== day) {
+        once.secondWind = day;
+        p.hp = 1;
+        pl.invulnT = 1.2;
+        this.fx.glow(pl.actor.x, pl.actor.y - 20, 0x9fffa0, 90, 900);
+        R.sysmsg('İKİNCİ NEFES', ['Ölümcül darbede 1 HP ile ayakta kaldın.'], { sound: 'system' });
+        return;
+      }
     }
     p.hp = applyDamage(p.hp, d);
     pl.actor.flash(0xff4030, 0.12);
@@ -2358,14 +2443,21 @@ export class WorldScene extends Phaser.Scene {
   spawnArrow(dir: Phaser.Math.Vector2, mult: number) {
     const a = this.player.actor;
     const img = this.add.image(a.x + dir.x * 12, a.y - 22 + dir.y * 8, 'arrow').setRotation(dir.angle()).setDepth(930000);
-    this.projectiles.push({ img, vx: dir.x * 11 * TILE, vy: dir.y * 11 * TILE, life: 0.75, fromPlayer: true, power: mult, radius: 10, hits: new Set(), physical: true });
+    // Okçuluk: E- oklar daha hızlı, C- menzil, S- (Keskin Göz) hareketsizken +%20
+    const fx = G.d.fx;
+    const sp = 11 * TILE * (1 + (fx.arrowSpeedPct ?? 0));
+    const still = Math.hypot(Input.moveX, Input.moveY) < 0.08;
+    const m = mult * (still ? 1 + (fx.stillBowPct ?? 0) : 1);
+    this.projectiles.push({ img, vx: dir.x * sp, vy: dir.y * sp, life: (0.75 * G.d.bowRangeMult * 11 * TILE) / sp, fromPlayer: true, power: m, radius: 10, hits: new Set(), physical: true, arrow: true });
   }
 
-  spawnSpellProjectile(dir: Phaser.Math.Vector2, techId: string, power: number, radius: number, color: number, ignite: boolean, element: string, range: number, physical = false) {
+  spawnSpellProjectile(dir: Phaser.Math.Vector2, techId: string, power: number, radius: number, color: number, ignite: boolean, element: string, range: number, physical = false, o: { pierce?: boolean; skill?: string } = {}) {
     const a = this.player.actor;
-    const img = this.add.image(a.x + dir.x * 12, a.y - 22 + dir.y * 8, physical ? 'slash' : 'bolt').setTint(color).setBlendMode(Phaser.BlendModes.ADD).setDepth(930000).setScale(physical ? 0.5 : 1.3).setRotation(dir.angle());
+    const big = techId === 'glacier_spear' || techId === 'fireball';
+    const img = this.add.image(a.x + dir.x * 12, a.y - 22 + dir.y * 8, physical ? 'slash' : 'bolt').setTint(color).setBlendMode(Phaser.BlendModes.ADD).setDepth(930000).setScale(physical ? 0.5 : big ? 2 : 1.3).setRotation(dir.angle());
+    if (techId === 'glacier_spear') img.setScale(2.6, 1.1);
     const sp = 8 * TILE;
-    this.projectiles.push({ img, vx: dir.x * sp, vy: dir.y * sp, life: range / 8, fromPlayer: true, tech: techId, power, radius, hits: new Set(), ignite, element, physical });
+    this.projectiles.push({ img, vx: dir.x * sp, vy: dir.y * sp, life: range / 8, fromPlayer: true, tech: techId, power, radius, hits: new Set(), ignite, element, physical, pierce: o.pierce, skill: o.skill });
   }
 
   updateProjectiles(dt: number) {
@@ -2388,10 +2480,15 @@ export class WorldScene extends Phaser.Scene {
               dead = true;
               break;
             }
-            if (p.physical) this.hitEnemy(e, { dir, physical: true, mult: p.power, skill: p.tech ? this.techSkill(p.tech) : undefined });
-            else this.hitEnemy(e, { dir, spell: { base: p.power, element: p.element }, skill: p.tech ? this.techSkill(p.tech) : undefined, knock: 0.5 });
-            if (p.tech === 'fireball') this.explode(p.img.x, p.img.y, 1.5 * TILE * G.d.areaMult, p.power * 0.6, p.tech);
-            if (p.tech !== 'static_bolt') dead = true;
+            const skill = p.skill ?? (p.tech ? this.techSkill(p.tech) : undefined);
+            if (p.physical) this.hitEnemy(e, { dir, physical: true, mult: p.power, skill: p.tech ? skill : undefined });
+            else this.hitEnemy(e, { dir, spell: { base: p.power, element: p.element }, skill, knock: 0.5 });
+            if (p.tech && !p.physical) elementStatus(this, e, p.element, p.power, p.tech);
+            // Ateş Topu: çarptığı yerde 1,5 kare yarıçapta patlar (doğrudan vurulan hariç)
+            if (p.tech === 'fireball') this.explode(p.img.x, p.img.y, 1.5 * TILE * G.d.areaMult, p.power, p.tech, e);
+            // Statik Ok: zincirlenir (G- 1, F- 2 hedef)
+            if (p.tech === 'static_bolt') this.chainLightning(e, p.power, Math.max(1, Math.round(G.d.fx.chain ?? 1)), skill, new Set([e]));
+            if (!p.pierce) dead = true;
           }
         }
       } else {
@@ -2405,11 +2502,24 @@ export class WorldScene extends Phaser.Scene {
             if (!res.miss) c.hurt(res.damage, new Phaser.Math.Vector2(p.vx, p.vy).normalize());
           }
         }
-        if (!dead && Math.hypot(a.x - p.img.x, a.y - 18 - p.img.y) < p.radius + 8) {
-          dead = true;
+        if (!dead && Math.hypot(a.x - p.img.x, a.y - 18 - p.img.y) < p.radius + 8 && !p.hits.has(a as any)) {
           const e = p.enemy!;
           const dir = new Phaser.Math.Vector2(p.vx, p.vy).normalize();
-          this.resolveIncoming(e, () => resolveSpell({ d: e.d, level: e.level }, { d: G.d, level: G.p.level }, e.def.natural.dmg, { element: 'fire' }), dir);
+          // Rüzgâr Zırhı (Fırtına Kılıcı B-): gelen mermilerin %25'i sapar
+          if (Math.random() < (G.d.fx.deflect ?? 0)) {
+            p.hits.add(a as any);
+            const vx = p.vx;
+            p.vx = -p.vy;
+            p.vy = vx;
+            this.fx.number(a.x, a.y - 50, 'Saptı', 'miss');
+            this.fx.sparks(p.img.x, p.img.y, 0xd8fff0, 5);
+          } else {
+            dead = true;
+            const hpBefore = G.p.hp;
+            this.resolveIncoming(e, () => resolveSpell({ d: e.d, level: e.level }, { d: G.d, level: G.p.level }, e.def.natural.dmg, { element: 'fire' }), dir);
+            // şaman ateşi yakar (0.9.0, S6): 2 sn, taban hasarın %20'si/sn
+            if (G.p.hp < hpBefore && G.p.hp > 0) this.player.addStatus({ kind: 'burn', t: 2, power: ((e.def.natural.dmg[0] + e.def.natural.dmg[1]) / 2) * BURN_PER_SEC });
+          }
         }
       }
       if (dead) {
@@ -2421,15 +2531,18 @@ export class WorldScene extends Phaser.Scene {
   }
 
   techSkill(tech: string): string | undefined {
-    for (const s of G.p.skills) if (techniquesOf(s).includes(tech)) return s.id;
-    return undefined;
+    return ownerOf(tech)?.id;
   }
 
-  explode(x: number, y: number, r: number, power: number, tech?: string) {
+  explode(x: number, y: number, r: number, power: number, tech?: string, except?: Enemy) {
     this.fx.ring(x, y, 0xff8a30, r, 400);
     this.fx.glow(x, y, 0xff7a20, r, 500);
     Sound.sfx('fire');
-    for (const e of this.enemies) if (e.alive && Math.hypot(e.x - x, e.y - y) < r) this.hitEnemy(e, { dir: new Phaser.Math.Vector2(e.x - x, e.y - y).normalize(), spell: { base: power, element: 'fire' }, skill: tech ? this.techSkill(tech) : undefined });
+    for (const e of [...this.enemies]) {
+      if (!e.alive || e === except || Math.hypot(e.x - x, e.y - y) >= r) continue;
+      this.hitEnemy(e, { dir: new Phaser.Math.Vector2(e.x - x, e.y - y).normalize(), spell: { base: power, element: 'fire' }, skill: tech ? this.techSkill(tech) : undefined });
+      elementStatus(this, e, 'fire', power, tech);
+    }
   }
 
   tryIgnite(x: number, y: number) {
@@ -2453,116 +2566,155 @@ export class WorldScene extends Phaser.Scene {
     }
   }
 
-  // ================================================================= teknikler
+  // ================================================================= teknikler (0.9.0: src/world/techniques.ts)
+  /** Takılı (kullanılabilir) yetenekler: yetenek slotları (S5). Divine yetenekleri bu sistemin dışında. */
   equippedTechniques(): string[] {
-    const out: string[] = [];
-    for (const s of G.p.skills) for (const t of techniquesOf(s)) if (!out.includes(t)) out.push(t);
-    return out.slice(0, 4);
+    return equippedTechniques(sanitizeSlots(G.state.skillSlots, ownedTechniques(G.p.skills)));
   }
 
   useSkillSlot(i: number) {
-    const techs = this.equippedTechniques();
-    const id = techs[i];
-    if (!id) return;
-    const t = TECHNIQUES[id];
+    const id = this.equippedTechniques()[i];
+    if (id) useTechnique(this, id);
+  }
+
+  /** Alan yeteneği (Cehennem Çemberi, Donduran Halka, Gök Gürültüsü, Göğün Hükmü, Gök Yaran). */
+  areaBlast(x: number, y: number, r: number, t: TechniqueDef, power: number, skill?: string) {
+    const col = ELEMENT_COLOR[t.element ?? ''] ?? 0xffffff;
+    this.fx.ring(x, y, col, r, 450);
+    this.fx.glow(x, y, col, r, 500);
+    Sound.sfx(t.element === 'fire' ? 'fire' : t.element === 'lightning' ? 'holy' : t.element === 'ice' ? 'heal' : 'heavy', 0.8);
+    if (t.element === 'lightning') {
+      const bolt = this.add.rectangle(x, y - 200, 6, 220, 0xe6f6ff, 0.95).setOrigin(0.5, 0).setBlendMode(Phaser.BlendModes.ADD).setDepth(930000);
+      this.tweens.add({ targets: bolt, alpha: 0, scaleX: 3, duration: 260, onComplete: () => bolt.destroy() });
+    }
+    if (t.ignites) this.tryIgnite(x, y);
+    const fx = G.d.fx;
+    for (const e of [...this.enemies]) {
+      if (!e.alive || Math.hypot(e.x - x, e.y - y) > r + e.actor.bodyR) continue;
+      const dir = new Phaser.Math.Vector2(e.x - x, e.y - y).normalize();
+      if (t.physical) this.hitEnemy(e, { dir, physical: true, mult: power, skill });
+      else this.hitEnemy(e, { dir, spell: { base: power, element: t.element }, skill });
+      if (t.id === 'frost_ring' && e.alive) e.addStatus({ kind: 'freeze', t: fx.freezeDur ?? 1.5 }, G.p.level);
+      // Yıldırımın Kendisi (X-): tüm yıldırım büyüleri zincirlenir
+      if (t.element === 'lightning' && fx.chainAll && e.alive) this.chainLightning(e, power * 0.5, 1, skill, new Set([e]));
+    }
+  }
+
+  /** Statik Ok zinciri: vurulan düşmandan en yakın vurulmamış düşmana (3 kare) n kez sıçrar. */
+  chainLightning(from: Enemy, power: number, n: number, skill: string | undefined, hit: Set<Enemy>) {
+    let cur = from;
+    for (let k = 0; k < n; k++) {
+      let best: Enemy | null = null, bd = 3 * TILE;
+      for (const e of this.enemies) {
+        if (!e.alive || hit.has(e)) continue;
+        const d = Math.hypot(e.x - cur.x, e.y - cur.y);
+        if (d < bd) { bd = d; best = e; }
+      }
+      if (!best) return;
+      hit.add(best);
+      const g = this.add.graphics().setDepth(930000).setBlendMode(Phaser.BlendModes.ADD);
+      g.lineStyle(2, 0xcfeaff, 1);
+      g.beginPath();
+      g.moveTo(cur.x, cur.y - 18);
+      const mx = (cur.x + best.x) / 2 + (Math.random() - 0.5) * 16, my = (cur.y + best.y) / 2 - 18 + (Math.random() - 0.5) * 16;
+      g.lineTo(mx, my);
+      g.lineTo(best.x, best.y - 18);
+      g.strokePath();
+      this.tweens.add({ targets: g, alpha: 0, duration: 220, onComplete: () => g.destroy() });
+      this.hitEnemy(best, { dir: new Phaser.Math.Vector2(best.x - cur.x, best.y - cur.y).normalize(), spell: { base: power, element: 'lightning' }, skill });
+      cur = best;
+    }
+  }
+
+  /**
+   * Nara (Savaş Narası): yarıçaptaki, kullanıcıdan düşük ya da eşit leveldeki düşmanlar sendeler (bosslara ve yüksek
+   * leveldekilere hiçbir rütbede işlemez); Korkutan Ses: 3+ level düşükler kaçar; yoldaşlara hasar/savunma;
+   * Savaş Lordu: kendine saldırı hızı.
+   */
+  warShout(t: TechniqueDef, own: { allyDmgBuff?: number; allyDefBuff?: number; shoutRadiusPct?: number }) {
     const pl = this.player;
-    if ((pl.skillCd[id] ?? 0) > 0) {
-      Sound.sfx('error', 0.4);
-      return;
+    const fx = G.d.fx;
+    const r = (t.radius ?? 3) * TILE * (1 + (own.shoutRadiusPct ?? fx.shoutRadiusPct ?? 0));
+    pl.setState('cast');
+    pl.actor.play('cast', { loop: false, restart: true, speed: 1.4 });
+    this.fx.ring(pl.actor.x, pl.actor.y - 14, 0xffb070, r, 450);
+    this.fx.ring(pl.actor.x, pl.actor.y - 14, 0xffe0b0, r * 0.7, 350);
+    if (G.settings.shake) this.cameras.main.shake(160, 0.004 * (4 / Display.worldZoom));
+    Sound.sfx('alert', 1);
+    for (const e of this.enemies) {
+      if (!e.alive || Math.hypot(e.x - pl.actor.x, e.y - pl.actor.y) > r + e.actor.bodyR) continue;
+      if (e.def.boss || e.level > G.p.level) {
+        this.fx.number(e.x, e.y - 40, 'Etkisiz', 'miss');
+        continue;
+      }
+      if (fx.fearLow && e.level <= G.p.level - 3) e.addStatus({ kind: 'fear', t: 4 }, G.p.level);
+      else e.addStatus({ kind: 'stagger', t: fx.staggerDur ?? 0.5 }, G.p.level);
+      e.aware || e.becomeAware(false);
+      this.fx.number(e.x, e.y - 40, fx.fearLow && e.level <= G.p.level - 3 ? 'Korku!' : 'Sendeledi', 'miss');
     }
-    if (G.p.mp < t.mp) {
-      this.fx.number(pl.actor.x, pl.actor.y - 50, 'MP yetersiz', 'miss');
-      Sound.sfx('error', 0.4);
-      return;
+    const ad = own.allyDmgBuff ?? 0, df = own.allyDefBuff ?? 0;
+    if (ad || df) for (const c of this.companions) if (!c.down) c.rally(ad, df, 8);
+    if (fx.shoutAtkSpd) {
+      pl.buffs = pl.buffs.filter((b) => b.id !== 'shout_haste');
+      pl.buffs.push({ id: 'shout_haste', t: 6, amount: fx.shoutAtkSpd });
     }
-    if (t.weapon && t.weapon !== G.d.weaponType) {
-      this.fx.number(pl.actor.x, pl.actor.y - 50, 'Uygun silah yok', 'miss');
-      Sound.sfx('error', 0.4);
-      return;
+  }
+
+  /** Joseph'i iyileştir (yetenek): İlk Yardım S- (Saha Hekimi) ve Şifa A- (Kutsal Işık) yoldaşlara yansır. */
+  healJoseph(amt: number, party = false) {
+    const pl = this.player;
+    G.p.hp = Math.min(G.d.maxHp, G.p.hp + amt);
+    this.fx.number(pl.actor.x, pl.actor.y - 50, `+${fmtHp(amt)}`, 'heal');
+    this.fx.glow(pl.actor.x, pl.actor.y - 20, 0x9fffa0, 50);
+    Sound.sfx('heal');
+    this.shareHeal(amt, party ? 1 : 0);
+  }
+
+  /** Yakındaki yoldaşlara iyileşme payı (oran: Kutsal Işık 1, Saha Hekimi 0,5). */
+  shareHeal(amt: number, ratio = 0) {
+    const r = Math.max(ratio, G.d.fx.healShare ?? 0);
+    if (r <= 0) return;
+    const a = this.player.actor;
+    for (const c of this.companions) {
+      if (c.down || Math.hypot(c.x - a.x, c.y - a.y) > 5 * TILE) continue;
+      c.hp = Math.min(c.maxHp, c.hp + amt * r);
+      this.fx.number(c.x, c.y - 46, `+${fmtHp(Math.round(amt * r * 10) / 10)}`, 'heal');
     }
-    G.p.mp -= t.mp;
-    pl.skillCd[id] = t.cooldown;
-    // silahla yapılan beceri: silah sırttaysa hemen ele
-    if (t.weapon || t.kind === 'melee_multi') pl.drawNow();
-    const dir = this.aimAssist(t.range ?? 2);
-    pl.actor.face(dirFromVec(dir.x, dir.y, pl.actor.dir));
-    const skill = this.techSkill(id);
-    const color = t.element === 'fire' ? 0xff8a30 : t.element === 'lightning' ? 0xbfe4ff : t.element === 'wind' ? 0xd8fff0 : t.element === 'heal' ? 0x9fffa0 : 0xffffff;
-    switch (t.kind) {
-      case 'projectile': {
-        pl.setState('cast');
-        pl.actor.play(t.weapon === 'bow' ? 'shoot' : 'cast', { loop: false, restart: true, speed: 1.6 });
-        const hits = t.hits ?? 1;
-        for (let k = 0; k < hits; k++) {
-          const dd = dir.clone().rotate((k - (hits - 1) / 2) * 0.12);
-          this.time.delayedCall(k * 60, () => this.spawnSpellProjectile(dd, id, t.power, t.radius ? 8 : 8, color, !!t.ignites, t.element ?? 'physical', t.range ?? 5, t.weapon === 'bow' || t.element === 'wind'));
-        }
-        Sound.sfx(t.element === 'fire' ? 'fire' : 'swing', 0.6);
-        break;
-      }
-      case 'cone': {
-        pl.setState('cast');
-        pl.actor.play('cast', { loop: false, restart: true, speed: 1.6 });
-        const r = (t.range ?? 2) * TILE * G.d.areaMult;
-        for (let k = 0; k < 14; k++) {
-          const dd = dir.clone().rotate((Math.random() - 0.5) * 1.0);
-          const im = this.add.image(pl.actor.x, pl.actor.y - 18, 'bolt').setTint(color).setBlendMode(Phaser.BlendModes.ADD).setDepth(930000);
-          this.tweens.add({ targets: im, x: im.x + dd.x * r, y: im.y + dd.y * r, alpha: 0, scale: 2, duration: 350, onComplete: () => im.destroy() });
-        }
-        for (const e of this.enemies) {
-          if (!e.alive) continue;
-          const v = new Phaser.Math.Vector2(e.x - pl.actor.x, e.y - pl.actor.y);
-          if (v.length() < r && Math.abs(Phaser.Math.Angle.Wrap(v.angle() - dir.angle())) < 0.6) this.hitEnemy(e, { dir, spell: { base: t.power, element: t.element }, skill });
-        }
-        this.tryIgnite(pl.actor.x + dir.x * 24, pl.actor.y + dir.y * 24);
-        Sound.sfx('fire');
-        break;
-      }
-      case 'melee_multi': {
-        const n = t.hits ?? 1;
-        for (let k = 0; k < n; k++) {
-          this.time.delayedCall(k * 140, () => {
-            pl.actor.play(G.d.weaponType === 'spear' ? 'thrust' : 'slash', { loop: false, restart: true, speed: 2.2 });
-            Sound.sfx('swing');
-            const reach = pl.weaponReach() * TILE * (t.range ? t.range / 1.5 : 1);
-            this.fx.slashArc(pl.actor.x + dir.x * 16, pl.actor.y - 14 + dir.y * 16, dir.angle() + (k % 2 ? 0.6 : -0.6), 0xbfe4ff);
-            for (const e of this.enemies) {
-              if (!e.alive) continue;
-              const v = new Phaser.Math.Vector2(e.x - pl.actor.x, e.y - pl.actor.y);
-              if (v.length() - e.actor.bodyR < reach && Math.abs(Phaser.Math.Angle.Wrap(v.angle() - dir.angle())) < 1.0) this.hitEnemy(e, { dir, physical: true, mult: t.power, skill });
-            }
-          });
-        }
-        pl.setState('attack');
-        pl.attackHitDone = true;
-        pl.attackDur = n * 0.14 + 0.25;
-        break;
-      }
-      case 'heal': {
-        const amt = Math.round(t.power * spellPowerMult(G.d.stats.INT, G.d.stats.MNA) * G.d.healMult);
-        G.p.hp = Math.min(G.d.maxHp, G.p.hp + amt);
-        this.fx.number(pl.actor.x, pl.actor.y - 50, `+${fmtHp(amt)}`, 'heal');
-        this.fx.glow(pl.actor.x, pl.actor.y - 20, 0x9fffa0, 50);
-        Sound.sfx('heal');
-        if (skill && G.p.hp < G.d.maxHp) R.gainSkillExp(skill, 0.8);
-        pl.setState('cast');
-        pl.actor.play('cast', { loop: false, restart: true, speed: 1.6 });
-        break;
-      }
-      case 'buff': {
-        pl.buffs.push({ id: id === 'regeneration' ? 'regen' : id, t: t.duration ?? 5, amount: t.power });
-        this.fx.glow(pl.actor.x, pl.actor.y - 20, color, 50);
-        Sound.sfx('heal');
-        break;
-      }
-      case 'aoe':
-      case 'wall':
-      case 'counter': {
-        this.explode(pl.actor.x + dir.x * 40, pl.actor.y + dir.y * 40, (t.radius ?? 2) * TILE * G.d.areaMult, t.power, id);
-        break;
-      }
-    }
+  }
+
+  /** Durum etkisinin hasarı (yanma): vuruş hissiyatı yok, yalnızca sayı. */
+  statusDamage(e: Enemy, dmg: number) {
+    if (!e.alive || dmg <= 0) return;
+    const d = roundDamage(dmg);
+    e.c.hp = applyDamage(e.c.hp, d);
+    e.damageBy.joseph = (e.damageBy.joseph ?? 0) + d;
+    e.barShowT = 2;
+    this.fx.number(e.x, e.y - 34, fmtHp(d), 'dmg');
+    if (e.c.hp <= 0) this.killEnemy(e, 'fire_magic');
+  }
+
+  /** Joseph'in yanması (şaman ateşi). */
+  burnPlayer(dmg: number) {
+    const pl = this.player;
+    if (pl.dead || this.cutscene) return;
+    const d = roundDamage(dmg);
+    G.p.hp = applyDamage(G.p.hp, d);
+    this.fx.number(pl.actor.x, pl.actor.y - 44, `-${fmtHp(d)}`, 'hurt');
+    if (G.p.hp <= 0) this.playerDeath();
     G.events.emit('stats');
+  }
+
+  /** Delici Hamle: atılma sırasında değen her düşmana bir kez. */
+  lungeContact(pl: Player) {
+    const L = pl.lungeHit;
+    if (!L) return;
+    const reach = pl.weaponReach() * TILE * 0.9;
+    for (const e of this.enemies) {
+      if (!e.alive || L.hits.has(e)) continue;
+      if (Math.hypot(e.x - pl.actor.x, e.y - pl.actor.y) - e.actor.bodyR > reach) continue;
+      L.hits.add(e);
+      this.hitEnemy(e, { dir: pl.dodgeVec.clone(), physical: true, mult: L.power, skill: L.skill });
+    }
   }
 
   ownedDivineActives(): string[] {

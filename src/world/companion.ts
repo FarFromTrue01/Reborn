@@ -70,6 +70,18 @@ export class Companion {
     this.lastPos = { x, y };
   }
 
+  /** Savaş Narası (F-, S-): yoldaşa geçici hasar ve savunma (0.9.0). */
+  rallyDmg = 0;
+  rallyDef = 0;
+  rallyT = 0;
+
+  rally(dmg: number, def: number, dur: number) {
+    this.rallyDmg = Math.max(this.rallyDmg, dmg);
+    this.rallyDef = Math.max(this.rallyDef, def);
+    this.rallyT = dur;
+    this.w.fx.glow(this.x, this.y - 20, 0xffb070, 30, 400);
+  }
+
   get x() { return this.actor.x; }
   get y() { return this.actor.y; }
   get name() { return this.def.name; }
@@ -202,6 +214,8 @@ export class Companion {
     const a = this.actor;
     a.tickAnim(dt);
     a.tickFlash(dt);
+    this.rallyT -= dt;
+    if (this.rallyT <= 0) this.rallyDmg = this.rallyDef = 0;
     this.stateT += dt;
     this.cooldownT -= dt;
     this.repathT -= dt;
@@ -434,6 +448,7 @@ export class Companion {
   /** Düşmandan darbe. */
   hurt(dmg: number, dir: Phaser.Math.Vector2) {
     if (this.down || this.invulnT > 0) return;
+    if (this.rallyT > 0 && this.rallyDef > 0) dmg = Math.max(0.1, Math.round(dmg * (1 - this.rallyDef) * 10) / 10);
     this.hp = applyDamage(this.hp, dmg);
     this.invulnT = 0.35;
     this.actor.flash(0xff4030, 0.12);

@@ -85,5 +85,7 @@
  "vest_wool": "A_Clothing02.png",
  "hat_felt": "C_Hat01.png",
  "diamond": "I_Diamond.png",
- "coin_plat": "I_SilverBar.png"
+ "coin_plat": "I_SilverBar.png",
+ "sk_ice": "S_Ice02.png",
+ "sk_warcry": "S_Buff14.png"
 }
