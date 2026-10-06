@@ -1,6 +1,7 @@
 # Güncelleme planı — devam notu
 
 Dört aşamalı plan — **tamamlandı (0.7.0)**. Her oturum yalnızca kendi grubunu yaptı ve bu dosyayı güncelledi.
+0.7.0 sonrası plan iki yarı: **Grup 5A** (hatalar, dünya, denge, silah görselleri) — ✅ 0.8.0; **Grup 5B** (arayüz ve beceri sistemi) — sırada.
 
 | Grup | Kapsam | Durum |
 | --- | --- | --- |
@@ -9,6 +10,8 @@ Dört aşamalı plan — **tamamlandı (0.7.0)**. Her oturum yalnızca kendi gru
 | **3. Arayüz** | Appraisal paneli (NPC/kendi/yaratık), eşya rütbeleri, saygınlık gösterimi, HUD görev kategorileri, Lonca Kartı barı, terfi görevi ve animasyonu, görev bitiş animasyonu, görev EXP kuralı, Ayarlar paneli | ✅ 0.5.0 |
 | **4A. Görevler ve içerik** | Ana görev güvencesi, pano akışı, NPC hedefli amaçlar, şifalı ot, yaralılar, sahne karakterleri, kâhyanın kesesi, yan görev iş yerleri ve mavi işaretler, lonca/pano, görev saatine kadar uyku, han oturma yerleri, yoldaş takibi, Dorn, Eros ve soylu adı, Grup 3'ten kalan dört düzeltme | ✅ 0.6.0 |
 | **4B. Animasyon ve silahlar** | Silah modelleri, saldırı animasyonları, kılıcı sırta koyma, konuşurken yürüme animasyonu | ✅ 0.7.0 |
+| **5A. Hatalar, dünya, denge, silah görselleri** | Sistem bildirimi, kapı amacı, QA yoklaması; elmalar, görev eşyası, otlar, Dorn/muhafız yürüyüşü, Varg, dükkânlar, şort, doğu suru, mini oyun müziği ve servis hedefi, karartma, savaş ganimeti, satış aralığı, sabit joystick; hız, kaçış, hasar sayıları, yoldaşlar, NPC statları; silah kareleri | ✅ 0.8.0 |
+| **5B. Arayüz ve beceri sistemi** | (ayrı talimat) | ⏳ |
 
 ## Grup 1'de yapılanlar (0.3.1)
 
@@ -157,15 +160,117 @@ Başsız tarayıcıda FPS'i yazılım GPU'nun doldurma hızı sınırlıyor; DPR
 - Sırta koyarken süzülen yay büyük ve ince; 0,35 sn'lik geçişte göze batmıyor ama durağan karede iri görünüyor. Çatlak sopanın çatlağı oyun ölçeğinde zor seçilir (asıl fark renk).
 - Gerçek tablette denenemedi (yalnızca başsız tarayıcı).
 
+## Grup 5A'da yapılanlar (0.8.0)
+
+### A. Hatalar
+
+- **A1 Sistem bildirimi takılması** — kök neden: `sysShowing` kapanma animasyonu bitmeden sıfırlanıyordu; o arada gelen bildirim kuyruğa girip hiç gösterilmiyor, gösterilen de kapanmıyordu. Yeni `SysFlow` (`src/ui/sysFlow.ts`, Phaser'sız, test edilir): `current` / `closing` / `queue`; kapanış animasyonu bitince yalnızca hâlâ aynı bildirimse sıradakine geçer. `UIScene` bildirimleri, kaplamaları ve zamanlayıcıyı bu akışa bağlar.
+- **A2 Kapıdan hızlı geçiş** — `questTick` yarım saniyede bir çalıştığı için hızlı geçişte "binaya git" amacı atlanıyordu. `tryWarp` artık geçişten hemen önce `questTick` + `completeDoorGoals(from, to)` çağırır; kapı hedefli amaç (`src/world/questGo.ts`, `doorGoal`) binaya girince tamamlanır. Haritaya yüklemede de (`loadMap`) aynı kontrol.
+- **A3 QA yoklaması** — `tools/qa/helpers.mjs`: `until(fn)`, `frames(n)`, `gameSec(s)`; `run()` sahne başlangıcını bekler ve oturur; `tp`/`warp` yoklamalı. `steps_g4a.mjs` sabit beklemeler yerine koşul yoklar; uyanma kontrolü 08:00–08:10 toleranslı.
+
+### B. Görevler, NPC'ler, dünya
+
+- **B1** Elma ağacı başına 3 elma (`gatherQty`); ok bugün toplanmamış en yakın elma ağacına; elma kalmadıysa "Bugünlük elma kalmadı — yarın yeniden toplanır". **B2** Köprü yanındaki `apple3` ağacı kalktı (Köksüz'ü örtüyordu). **B3** Görevin istediği eşya envanterden de hızlı yemekle de yenmez: "Görev için lazım." (`questNeeded`, `QUEST_ITEM_REASON`).
+- **B4** Şifalı ot görseli 14×3 px'lik yanlış kesimdi → 24×15 yaprak demeti, ×1,25 ölçek (oyunda 30×19 px). Joseph'in 3,5 karo yakınındaki toplanabilirler yumuşak, nabız gibi parlar (`updateGatherGlow`).
+- **B5** Dorn sahnede `walkPath` ile yol bularak yürür; takılırsa (0,7 sn) bir sonraki yol noktasına alınır, kilitlenmez. **B6** Muhafız (ve diyalogdan sonra yürüyen diğer NPC'ler): kök neden `Npc.update`'in `talking` dalıydı — senaryo yürütürken hızı sıfırlıyor, idle'a ve Joseph'e çeviriyordu. `actor.driven` sayacı: senaryonun sürdüğü aktörü NPC/yoldaş güncellemesi bırakır; yürüme animasyonu ve yön hareketten gelir.
+- **B7** Varg F rütbesi, F+ kılıç ustalığı, ucuz teçhizat (paslı kısa kılıç, dolgulu zırh, deri başlık ve çizme); "E rütbe olmadan" laflı replikler değişti (Aurelio'nunki korundu). **B8** Dükkânlarda beceri kitabı yok. **B9** Yan görev EXP'si ×2 (4–12; sınır: aynı süre fare avının ⅔'ü). **B10** Yırtık şort kahverengi (katman + simge; simge `tools/custom_icons.py`).
+- **B11** Saraya benzeyen figür kalktı. Doğu kenarı boydan boya taş sur (`tools/build_eastwall.py`, LPC `base_out_atlas` tuğla + ızgara), ana yolun sura değdiği yerde kemerli kapı ve iki kule; dört **Geçit Şövalyesi** (Aldric, Bren, Osric, Ywain; L8–9, gün boyu kapıda).
+- **B12** Mini oyunlarda tek müzik (`minigame`), bitince dünya müziği kaldığı yerden (`pushMusic`/`popMusic`).
+- **B13** Servis: günlük hedef = mevcut tempoda gelen müşterilerin %60'ı (1. gün 5, 2. gün 6, 3. gün 8), HUD'da "Hedef x/y". Kazanma: hedef kadar müşteriye servis + tabaklar bulaşıkta. Kaybetme anında: geç kalan sipariş ya da süresi (18/16/14 sn) dolan kirli tabak → "Kaybettin" + neden + "Tekrar dene". Ücret yalnızca kazanınca.
+- **B14** Sağdaki siyah şerit: karartma perdeleri oluşturuldukları andaki boyutta kalıyordu. `fullScreenRect` (16 px taşma, `Display.onResize` ile yeniden boyutlanır) bütün tam ekran karartmalarda.
+- **B15** Savaşta toplanan ganimet savaş bitene kadar "risk altında"; savaş bitince "Savaş bitti. Ganimet güvende."; o arada ölünce kaybedilir ve ölüm ekranında yazar.
+- **B16** Satış (`src/core/selling.ts`): aralık taban değerin ×0,8–×1,5'i; teklif = aralıkta 0,5·uzmanlık + 0,5·yakınlık. Her dükkânın uzmanlık listesi (`shops.ts`, `expertise`); satış sekmesinde teklif, aralık, uzmanlık ve yakınlık; drop tablosunda "Tür · alt–üst bronz". Al-sat kârı yok (test).
+- **B17** Sabit joystick modunda yalnızca daire joystick; sol yarı kuralı yalnızca serbest modda (`touch.test.ts`).
+
+### C. Denge ve dövüş
+
+- **C1** `DIVINE_STAT_FLOOR.speed` 1 → 0,75; Joseph'e özel yürüme çarpanı ⅔ (`JOSEPH_WALK_MULT`, `src/core/movement.ts`), koşu = yürüme ×1,6. `BASE_SPEED` (5,2) ve kaçış mesafesi değişmedi. Tavşan 4,2 → 3,5.
+- **C2** Ayarlar → **Hareket hızı (max = X)**: −/+ 0,1, dokununca sayı girişi, "Max" seçeneği (varsayılan). Değer max'a sabitlenir, en az %40; ayar hiç hızlandırmaz. Ayar sürümü 4 (eski `moveSpeed` kaydı silinir, Max olur).
+- **C3** Dayanıklılık tabanı 0,75.
+- **C4** Hasar sayıları: Pixelify 13 px kalın + 3 px kontur "5"in boşluklarını kapatıyordu → Alegreya Sans kalın, 16–21 px, 2 px kontur. 0,3 / 0,5 / 0,6 / 0,8 / 0,9 ayırt ediliyor (QA ekran görüntüsü `g5a_c4_dmg_variants`).
+- **C5** Kaçış 20 → 7,5 dayanıklılık (`dodgeCostMult` hâlâ uygulanır), 0,8 sn bekleme (sessiz). Joseph'in vuruşu düşmanı geri itmez (hitstop, parlama, kıvılcım duruyor); Joseph'in geri itilmesi aynı.
+- **C6** Yoldaşlar: hasar ×0,15 (`COMPANION_DMG_MULT`), vuruşlar arası 2,2–2,8 sn, 0,4 sn görünür hazırlanma (yavaş kare + parlama), hedef seçerken Joseph'in son 2,5 sn'de vurduğu düşmandan kaçınma (`companionTargetScore`). Ölçüm (değirmen bodrumu, 4 Dev Fare, Vera + Lina, Joseph Budaklı Sopa, hasar almaz; `ONLY=party`, oyun saniyesi):
+
+  | Çarpan | Joseph vurmaz: bodrum temizlenme süresi | Joseph aktif: öldürmelerde Joseph'in payı |
+  | --- | --- | --- |
+  | ×1 (0.7.0) | her vuruş bir fare (Vera ~6–15 hasar, Dev Fare 3 HP) | — |
+  | ×0,35 | 15,4 / 9,4 → ort. 12,4 sn ✗ | %63 |
+  | ×0,25 | 10,3 / 12,7 / 11,5 → ort. 11,5 sn ✗ (Vera %45 tek vuruş) | %67 |
+  | **×0,15** | 18,7 / 21,7 / 22,6 → **ort. 21,0 sn** ✓ (son tam turda 28,1 / 16,1) | **%67** (8/12) ✓ (son tam turda %88) |
+
+  Ölçütler: Joseph hiç vurmazsa ≳15 sn; Joseph aktifken öldürmelerin ≥%40'ı Joseph'in.
+- **C7** Saldırı temposu: dövüşen NPC'ler yalnızca yoldaşlar; temposu C6 ile yaratık temposuna yaklaştı (yaratıklar değişmedi).
+- **C8** Geliştirici "+1 level" `STAT_POINTS_PER_LEVEL` (6) puan verir. Bütün NPC'lerin ve yoldaşların taban statları tam 6 × level (oranlar korunarak en büyük kalan yöntemiyle; büyücülerde MNA). Test: `tests/g5a.test.ts`.
+
+### D. Silah görselleri
+
+Önce/sonra tablolar `tools/qa/g5a/` (`python3 tools/qa/g5a_weapons.py <0.7.0 joseph klasörü>`, en yakın komşu ile büyütülmüş, dört yön); oyun içi pozlar `steps_g5a` → `weapons`.
+
+- **D1** `d1_sword_hilt.png`: kısa kılıç saldırısının geri çekiş karelerinde kabza kare kare kaydırıldı (`ARMING_SLASH_OFFSET`) — sayfa ayrık kollu LPC gövdesi için çizilmiş.
+- **D2** `d2_walk_spear.png`, `d2_walk_bow.png`: mızrak (dik) ve yay (yanda) için elde yürüme katmanları (`w_spear_walk`, `w_bow_walk`, 128 px); savaşta sırta düşmezler.
+- **D3** `d3_dagger_up.png`: LPC'de boş olan yukarı saplama satırı çizildi (tutuş baş/gövde dışında, hazırlanmada eğik).
+- **D4** `d4_cleaver_hurt.png`: pala vurulurken kaybolmaz (aşağı yöndeki yürüme karesi görünür, vurulma pozu hep aşağı bakar).
+- **D5** `d5_carry.png`: yandan sırttaki kılıç sırta yakın, hançer sağa bakarken görünür, mızrak sapı yüzün önünden geçmez; önden görünüm aynı.
+- **D6** `d6_bow_float.png`: süzülen yay ×0,75, elden sırta düz yolla (ele bağlı), yukarı bakarken başın arkasından — kiriş başın üstünden geçmez.
+- **D7** `d7_cracked_stick.png`: Çatlak Sopa'da zikzak çatlak, kıymık ve yarık uç.
+- **D8** Gerçek tablette FPS — aşağıdaki listeyi oyuncu doldurur.
+
+### D8: Tablette FPS ölçüm listesi (oyuncu için)
+
+1. Ayarlar → Görüntü → **FPS göstergesi** açık; FPS sınırı 60, grafik kalitesi önce **Yüksek**.
+2. Her yerde 20 sn bekle, sonra 20 sn yürü; göstergedeki en düşük ve ortalama değeri not et:
+   - **Açık dünya** (köyün dışındaki orman yolu): dururken ___ / yürürken ___
+   - **Köy meydanı** (gündüz 10:00–16:00, kalabalıkken): dururken ___ / yürürken ___
+   - **Han** (akşam 19:00–21:00, dolu): dururken ___ / yürürken ___
+3. Aynı üç yeri **Orta** ve **Düşük** kalitede tekrarla.
+4. Cihaz modeli, Android sürümü, tarayıcı (ya da ana ekran uygulaması) ve pil tasarrufu modu açık mı — not et.
+5. 45 FPS'in altına düşen yer varsa o anın ekran görüntüsü (FPS göstergesi görünür halde).
+
+| Yer | Yüksek | Orta | Düşük |
+| --- | --- | --- | --- |
+| Açık dünya | | | |
+| Köy meydanı | | | |
+| Han (akşam) | | | |
+
+### Uçtan uca QA (başsız Chromium, 1280×854, DPR 1)
+
+`npm run build && npx vite preview --port 4173 &`, sonra `URL='http://localhost:4173/?qa=1' DPR=1 OUT=screens/g5a node tools/qa/shot.mjs g5a` (`ONLY=sys,door,apples,herbs,dorn,guard,shorts,east,bridge,dmg,serve,fade,party,weapons`).
+
+Son tam tur (0.8.0 derlemesi): **steps_g5a hepsi tamam**, **steps_g4a hepsi tamam (60 kontrol)**.
+
+- **A1:** kapanış animasyonu sırasında gelen ikinci bildirim gösterildi, 9 sn sonra ekranda bildirim yok, kuyruk boş (`g5a_a1_second_note`, `g5a_a1_cleared`).
+- **A2:** kapıdan hızlı geçişte "şifacıya git" amacı tamamlandı; içeride amaç "Ilse Nine'ye tedaviyi öde" (`g5a_a2_inside`).
+- **B1/B3:** ok elması olan en yakın ağaca (iki ağaçta doğru), bir günde iki ağaçtan 6 elma; görev elması envanterden ve hızlı yemekle yenmedi, "Görev için lazım" (`g5a_b3_quest_item_warning`).
+- **B4:** otun görüntüsü 30×19 px (eskiden 14×3), yakında 8 toplanabilir parlıyor (`g5a_b4_herbs_glow`, `g5a_b1_apple_tree_glow`).
+- **B5:** Dorn sahnesi 34 örnekte hiç takılmadı (yürürken en uzun durma 0,00 sn), sahne bitti.
+- **B6:** muhafız 172 örnekte hep yürüme animasyonuyla ve önüne bakarak yürüdü; Joseph en çok 4,1 karo geride izledi, çamaşır iplerine 2,3 karo kala durdu. `steps_g4a`'da aynı adım: 4,2 karo / en büyük ara 4,6 (önceden muhafız yavaş karede ara noktanın çevresinde gidip geliyor, sonra ışınlanıyordu — ayrı commit).
+- **B10:** kahverengi şort dört yönde (`g5a_b10_shorts_*`).
+- **B11:** geçitte 4 şövalye, saray figürü yok (`g5a_east_gate`, `g5a_east_wall_n/s`); köprü yolunda (64,62) ağaç yok, Köksüz görünür (`g5a_bridge_path`).
+- **B13:** 1. gün hedef 5; geç sipariş → "Kaybettin", "Tekrar dene" baştan başlattı; kirli tabak süresi → kaybetme; hedefe ulaşınca kazanıldı (`g5a_b13_serve_*`).
+- **B14:** perde ve kamera karartması 1280×854, 1600×720, 1920×1080, 2340×1080'de kenardan kenara (`g5a_b14_*`).
+- **C4:** aynı ekranda eski (Pixelify) ve yeni yazı: eskide 0,5 ile 0,8 karışıyor, yenide 0,3 / 0,5 / 0,6 / 0,8 / 0,9 ayrı (`g5a_c4_dmg_numbers`).
+- **C6:** yukarıdaki tablo (`g5a_c6_cellar_fight`).
+- **D:** oyun içi pozlar `g5a_d*` (kılıç geri çekiş, mızrak/yay yürüyüşü dört yön, hançer yukarı, pala vurulma, çatlak sopa).
+
+- Testler: 494 → 530 (`tests/g5a.test.ts` 27 test; denge/ekonomi/ayar testleri güncellendi). Kayıt şeması değişmedi (yalnızca ayarlar v4).
+
+### Tatmin edici olmayanlar / açık kalanlar
+
+- Silah kareleri yalnızca başsız tarayıcıda ve büyütülmüş tablolarda incelendi; gerçek tablette bakılmadı.
+- Yayın yandan yürüme görünümü gövdenin arkasında (yüzün önünden geçmesin diye); önden bakışta yay elin önünde.
+- Pala vurulurken görünen kare aşağı yön yürüme karesi (vurulma pozu LPC'de hep aşağı bakar).
+- C6 ölçümü başsız tarayıcıda kare süresi 50 ms'ye sabitken yapıldı; oyun saniyesi olarak ölçüldü, gerçek cihazda da aynı olmalı.
+
 ## Sonraki oturum için notlar
 
-- **Plan tamamlandı.** Grup 4B'den açık kalanlar: yukarıdaki "tatmin edici olmayanlar" listesi; ileride gürz/topuz için `w_club` hazır, uzun kılıç için LPC `longsword` saldırı sayfaları (192 px, klasik gövdeyle birebir uyumlu) kullanılabilir. Terfi animasyonu için ayrı bir ses bestesi hâlâ yok (mevcut `levelup` + `holy`). `fmtHp` 10 altını hep bir ondalık gösterir ("HP 5,0 / 5,0").
+- **Sırada Grup 5B** (arayüz ve beceri sistemi; 5A bunlara dokunmadı). 4B'nin "tatmin edici olmayanlar" listesindeki kabza, yay/mızrak yürüyüşü, hançer yukarı saplama, pala vurulma, sırttaki görünümler, süzülen yay ve çatlak sopa 5A'da (D1–D7) ele alındı.
+- 4B'den açık kalanlar: ileride gürz/topuz için `w_club` hazır, uzun kılıç için LPC `longsword` saldırı sayfaları (192 px, klasik gövdeyle birebir uyumlu) kullanılabilir. Terfi animasyonu için ayrı bir ses bestesi hâlâ yok (mevcut `levelup` + `holy`). `fmtHp` 10 altını hep bir ondalık gösterir ("HP 5,0 / 5,0").
 - **4A'dan kalanlar / karar bekleyenler:** tam haritada mavi işaretler henüz keşfedilmemiş (sisli) yerlerde de görünür — yön bulmak için bilerek bırakıldı, istenirse sise bağlanabilir. Kâhyanın kesesinde 4 şüpheli var (ilerleme 0/4). Bölüm I'in mini oyunlu adımları (iş, hasat) geliştirici "Tamamla" ile geçilince güvence bir sonraki görevi açar ama sahne bayraklarını (ör. `bertram_done`) kurmaz; gerçek oyunda bu yol kullanılmaz.
-- Eski plandaki "yardımlı savaş, yoldaş YZ" maddeleri Grup 2 talimatında yoktu, dokunulmadı (yoldaşlar silah ×2'den dolaylı güçlendi: düşük HP'li ilk yaratıkları hızlı bitirirler, Joseph'in EXP'si yalnızca kendi vurduklarından gelir). Gerekirse ayrı bir oturumda.
+- Eski plandaki "yardımlı savaş, yoldaş YZ" maddeleri Grup 2 talimatında yoktu, dokunulmadı (yoldaşlar silah ×2'den dolaylı güçlendi: düşük HP'li ilk yaratıkları hızlı bitirirler, Joseph'in EXP'si yalnızca kendi vurduklarından gelir). 0.8.0'da (C6) yoldaşların hasarı, temposu ve hedef seçimi ayarlandı; yardımlı savaşa dokunulmadı.
 - **Grup 4 için:** Tarla Faresi yalnızca otlak görevinde doğuyor; dünyaya (güney tarlaları) yerleştirmek içerik işi. `pack_hunter` title'ı artık otlak görevinden değil, ormandaki kurtlardan gelir.
 
 - **Varsayılan dal hâlâ `claude/vigilant-darwin-hcoqh5`.** Araçlarla değiştirilemiyor; kullanıcı Settings → General → Default branch → `main` yapmalı, sonra eski dal silinebilir.
-- Gerçek tablet FPS'i ölçülemedi (yalnızca başsız tarayıcı). Kullanıcıdan Ayarlar → FPS göstergesi ile açık dünya / meydan / han değerlerini istemek iyi olur.
+- Gerçek tablet FPS'i ölçülemedi (yalnızca başsız tarayıcı). Oyuncu için liste: yukarıda "D8: Tablette FPS ölçüm listesi" — doldurulunca bu dosyaya eklenmeli.
 - Joseph'in portre dokusu her ekipman kombinasyonu için ayrı (`portrait_lpc_joseph_…`, 128×128); küçük bir birikim, kullanılan dokuyu silmek riskli olduğu için bırakıldı.
 - Yoldaşlar (`companion.ts`) hâlâ kendi `findPath`'ini senkron çağırıyor (saniyede en fazla bir kez, ≤5000 adım); gerekirse `PathQueue`'ya alınabilir.
 - `manifest.webmanifest` `orientation: landscape` korundu; Android'de açılışta sorun sürerse ilk aday bu.

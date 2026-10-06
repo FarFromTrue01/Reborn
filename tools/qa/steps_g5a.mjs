@@ -138,6 +138,9 @@ export default async ({ page, wait, shot, evalG }) => {
     // ahırın yanında, Dorn'un yolunda çit/bina olan bir yer
     await W(() => { const w = window.__game.scene.getScene('World'); const p = w.pointsOf('world').barn_yard; w.loadMap('world', p.x - 2, p.y + 2, 'right'); });
     await h.frames(6);
+    // önceki bölümlerden kalan ya da girişte başlayan bir sahne varsa önce o bitsin (yoksa director.scene meşgul döner)
+    await h.run([], 200, undefined, { start: 1500 });
+    await h.until(() => !window.__game.scene.getScene('World').director.busy, null, 20000);
     let samples = 0, stillMax = 0, still = 0, last = null;
     await W(() => { const w = window.__game.scene.getScene('World'); w.director.scene(async () => w.director.ch2.dornScene()); });
     const t0 = Date.now();
@@ -150,7 +153,7 @@ export default async ({ page, wait, shot, evalG }) => {
       if (samples === 3) await shot('g5a_b5_dorn_walk');
     });
     log(`  sahne ${((Date.now() - t0) / 1000).toFixed(1)} sn (gerçek) sürdü, örnek ${samples}, yürürken en uzun takılma ${stillMax.toFixed(2)} sn (oyun)`);
-    check(!res.cut && stillMax < 1.0, 'B5: Dorn duvara takılmadan yürüdü, sahne bitti');
+    check(samples > 3 && !res.cut && stillMax < 1.0, 'B5: Dorn duvara takılmadan yürüdü, sahne bitti');
   }
 
   // ================================================================ B6: muhafızı izleme
