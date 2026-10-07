@@ -63,14 +63,16 @@ describe('Bölüm II görev verisi', () => {
     expect(questDef('f_wolves')!.reward.money).toBe(40);
     expect(questDef('f_cellar')!.reward.money).toBe(30);
   });
-  it('30 (G×3) + 15 (kurtlar) = 45 puan → G rütbesi (40)', () => {
+  it('0.11.0 (C15): 30 (G×3) + 15 (fareler) = 45 puan → henüz G değil (60); iki G ilanıyla G', () => {
     const g = newGuildState();
     g.member = true;
     for (let i = 0; i < 3; i++) applyReward(g, QUEST_POINTS.G, 20);
     applyReward(g, 30, 40, true);
     expect(g.points).toBe(45);
+    expect(earnedRank(g.points, 0, 0)).toBe(0);
+    expect(RANK_THRESHOLDS[1]).toBe(60);
+    for (let i = 0; i < 2; i++) applyReward(g, QUEST_POINTS.G, 20, false, 'G', 0);
     expect(earnedRank(g.points, 0, 0)).toBe(1); // G
-    expect(RANK_THRESHOLDS[1]).toBe(40);
   });
   it('Bodrum ve yeni canavarlar', () => {
     expect(interiors.mill_cellar).toBeTruthy();

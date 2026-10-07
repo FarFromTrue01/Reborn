@@ -6,6 +6,9 @@ import { NPCS, NPC_BY_ID } from '../data/npcs';
 import { ITEMS } from '../data/items';
 import { SHOPS } from '../data/shops';
 import { RESPAWN_MINUTES } from '../world/worldgen';
+import { appraisalView } from './appraisal';
+import { parseSubRank, subRankToString } from './ranks';
+import { TITLES, TRAIT_NAMES } from '../data/titles';
 
 export type CodexKind = 'monsters' | 'people' | 'plants';
 
@@ -19,6 +22,31 @@ export interface CodexMonster {
   drops: string[];
   /** Görüldüğü yerler (bölge adı). */
   places: string[];
+  /** C13 (0.11.0): son Appraisal'ın anlık kaydı (kullanılan Appraisal rütbesi ve gün). */
+  snap?: CodexSnapMonster;
+}
+
+/** Yaratık Appraisal kaydı. */
+export interface CodexSnapMonster {
+  /** Kullanılan Appraisal rütbesi (alt kademe). */
+  by: number;
+  day: number;
+}
+
+/**
+ * C13 (0.11.0): kişi Appraisal'ının anlık kaydı — Appraisal yapıldığı an görülebilen alanlar ve kullanılan Appraisal
+ * rütbesi. Kart bu kaydı gösterir (Appraisal sonradan yükselince eski kayıtlar kendiliğinden açılmaz). Görülemeyen
+ * alan "???"; trait görülemiyorsa null (satır hiç çıkmaz, C14).
+ */
+export interface CodexSnapPerson {
+  rank: string;
+  /** Lonca rütbesi (alt kademe; rozet için). null: lonca rütbesi yok; undefined: okunamadı. */
+  rankSub: number | null | undefined;
+  level: string;
+  title: string;
+  trait: string | null;
+  by: number;
+  day: number;
 }
 
 export interface CodexPerson {
@@ -28,6 +56,8 @@ export interface CodexPerson {
   appraised: number;
   /** Görüldüğü yerler ve saatleri ("Han · 08–21"). */
   places: string[];
+  /** C13: son Appraisal'ın anlık kaydı. */
+  snap?: CodexSnapPerson;
 }
 
 export interface CodexPlant {
@@ -40,10 +70,12 @@ export interface CodexState {
   monsters: Record<string, CodexMonster>;
   people: Record<string, CodexPerson>;
   plants: Record<string, CodexPlant>;
+  /** C13 (0.11.0): kartına dokunulmuş kayıtlar ("tür:kimlik"); bilinip görülmeyenlerde kırmızı "!". */
+  seen?: Record<string, true>;
 }
 
 export function newCodex(): CodexState {
-  return { monsters: {}, people: {}, plants: {} };
+  return { monsters: {}, people: {}, plants: {}, seen: {} };
 }
 
 // ---------------------------------------------------------------- bölgeler
@@ -89,12 +121,13 @@ const addPlace = (list: string[], place: string | null | undefined) => {
   if (place && !list.includes(place)) list.push(place);
 };
 
-/** Yaratık Appraisal ile incelendi. Döner: yeni mi bilindi (bildirim için). */
-export function codexAppraiseMonster(c: CodexState, id: string, level: number, place: string | null, day: number): boolean {
+/** Yaratık Appraisal ile incelendi. Döner: yeni mi bilindi (bildirim için). `by`: kullanılan Appraisal rütbesi. */
+export function codexAppraiseMonster(c: CodexState, id: string, level: number, place: string | null, day: number, by = 0): boolean {
   if (!MONSTERS[id]) return false;
   const e = (c.monsters[id] ??= { firstDay: 0, levels: null, kills: 0, drops: [], places: [] });
   const fresh = !e.firstDay;
   if (fresh) e.firstDay = day;
+  e.snap = { by, day };
   e.levels = e.levels ? [Math.min(e.levels[0], level), Math.max(e.levels[1], level)] : [level, level];
   addPlace(e.places, place);
   return fresh;
@@ -124,12 +157,14 @@ export function codexMeet(c: CodexState, id: string, place: string | null, day: 
   return fresh;
 }
 
-/** NPC Appraisal ile incelendi (tanışmadan da olabilir: önce ad açılır). */
-export function codexAppraisePerson(c: CodexState, id: string, place: string | null, day: number): boolean {
+/** NPC Appraisal ile incelendi (tanışmadan da olabilir: önce ad açılır). `by`: kullanılan Appraisal rütbesi. */
+export function codexAppraisePerson(c: CodexState, id: string, place: string | null, day: number, by = 0): boolean {
   if (!NPC_BY_ID[id]) return false;
   const fresh = !c.people[id];
   const e = (c.people[id] ??= { met: day, appraised: 0, places: [] });
   if (!e.appraised) e.appraised = day;
+  // C13: yeniden Appraisal yapılınca kayıt güncellenir
+  e.snap = personSnapshot(id, by, day) ?? e.snap;
   addPlace(e.places, place);
   return fresh;
 }
@@ -155,6 +190,89 @@ export function codexName(kind: CodexKind, id: string): string {
   if (kind === 'monsters') return MONSTERS[id]?.name ?? id;
   if (kind === 'people') return NPC_BY_ID[id]?.name ?? id;
   return PLANTS.find((p) => p.id === id)?.name ?? id;
+}
+
+// ---------------------------------------------------------------- 0.11.0 (C13): anlık kayıt, rozet, "!", sayaçlar
+/** Appraisal anında görülebilenler (core/appraisal appraisalView ile aynı kural). */
+export function personSnapshot(id: string, by: number, day: number): CodexSnapPerson | null {
+  const n = NPC_BY_ID[id];
+  if (!n) return null;
+  const theirs = n.creature.skills.find((s) => s.id === 'appraisal')?.rank ?? 0;
+  const v = appraisalView(by, theirs);
+  const t = n.creature.titles[0];
+  const tr = n.creature.traits[0];
+  return {
+    rank: v.identity ? n.guildLabel ?? (n.creature.guildRank !== null ? subRankToString(n.creature.guildRank) : 'Yok') : Q,
+    rankSub: v.identity ? n.creature.guildRank : undefined,
+    level: v.identity ? String(n.creature.level) : Q,
+    title: t ? TITLES[t]?.name ?? '—' : '—',
+    trait: v.traits ? (tr ? `${TRAIT_NAMES[tr]?.name ?? tr} (${TRAIT_NAMES[tr]?.rank ?? '?'})` : '—') : null,
+    by,
+    day,
+  };
+}
+
+/** Kartın en altındaki satır: "Appraisal: G- ile incelendi · 5. gün". */
+export function snapLine(snap: { by: number; day: number } | undefined): string | null {
+  return snap ? `Appraisal: ${subRankToString(snap.by)} ile incelendi · ${snap.day}. gün` : null;
+}
+
+/**
+ * Listede ad kutusunun sağındaki rozet: yaratıkta kendi rütbesi, kişide lonca rütbesi (Appraisal'ın okuyamadıysa
+ * "???", lonca rütbesi yoksa rozet yok), bitkide eşyanın rütbesi. Bilinmeyen kayıtta rozet yok.
+ */
+export function codexBadge(c: CodexState, kind: CodexKind, id: string): { sub: number } | { letter: string } | 'unknown' | null {
+  if (!codexKnown(c, kind, id)) return null;
+  if (kind === 'monsters') return MONSTERS[id] ? { sub: parseSubRank(MONSTERS[id].rank) } : null;
+  if (kind === 'plants') {
+    const r = ITEMS[PLANTS.find((p) => p.id === id)?.item ?? '']?.rank;
+    return r ? { letter: r } : null;
+  }
+  const snap = c.people[id]?.snap;
+  if (!snap) return 'unknown';
+  if (snap.rankSub === undefined) return 'unknown';
+  return snap.rankSub === null ? null : { sub: snap.rankSub };
+}
+
+const seenKey = (kind: CodexKind, id: string) => `${kind}:${id}`;
+
+/** Bilinen ama kartına henüz dokunulmamış kayıt (kırmızı "!"). */
+export function codexIsNew(c: CodexState, kind: CodexKind, id: string): boolean {
+  return codexKnown(c, kind, id) && !c.seen?.[seenKey(kind, id)];
+}
+
+export function codexMarkSeen(c: CodexState, kind: CodexKind, id: string) {
+  (c.seen ??= {})[seenKey(kind, id)] = true;
+}
+
+/** Kırmızı işaretli kayıt sayısı (tür verilmezse hepsi). */
+export function codexNewCount(c: CodexState, kind?: CodexKind): number {
+  const kinds = kind ? [kind] : CODEX_KINDS.map((k) => k.kind);
+  let n = 0;
+  for (const k of kinds) for (const id of codexIds(k)) if (codexIsNew(c, k, id)) n++;
+  return n;
+}
+
+/** Türün tamamında bilinen / toplam ("Karakterler — Toplam: x / y"). */
+export function codexTotals(c: CodexState, kind: CodexKind): { known: number; total: number } {
+  const ids = codexIds(kind);
+  return { known: ids.filter((id) => codexKnown(c, kind, id)).length, total: ids.length };
+}
+
+/** Sıralama: bilinenler önce (alfabetik), bilinmeyenler sonra. */
+export function codexSorted(c: CodexState, kind: CodexKind, ids: string[]): string[] {
+  const known = ids.filter((id) => codexKnown(c, kind, id)).sort((a, b) => codexName(kind, a).localeCompare(codexName(kind, b), 'tr'));
+  const unknown = ids.filter((id) => !codexKnown(c, kind, id));
+  return [...known, ...unknown];
+}
+
+/** Göç (v10): Appraisal geçmişi olup anlık kaydı olmayan kişiler için kayıt o anki rütbeyle bir kez oluşturulur. */
+export function codexSnapshotMigrate(c: CodexState, by: number, day: number) {
+  for (const [id, e] of Object.entries(c.people)) if (e.appraised && !e.snap) e.snap = personSnapshot(id, by, e.appraised || day) ?? undefined;
+  for (const e of Object.values(c.monsters)) if (e.firstDay && !e.snap) e.snap = { by, day: e.firstDay };
+  c.seen ??= {};
+  // eski kayıtlarda bilinen her şey "görülmüş" sayılır (yüzlerce "!" çıkmasın)
+  for (const k of CODEX_KINDS) for (const id of codexIds(k.kind)) if (codexKnown(c, k.kind, id)) c.seen[seenKey(k.kind, id)] = true;
 }
 
 // ---------------------------------------------------------------- sayfalar ve kart verisi
@@ -184,6 +302,8 @@ export interface CodexCard {
   subtitle: string;
   rows: [string, string][];
   notes: string[];
+  /** C13: kartın en altı ("Appraisal: G- ile incelendi · 5. gün"). */
+  footer?: string | null;
 }
 
 const Q = '???';
@@ -206,6 +326,7 @@ export function monsterCard(c: CodexState, id: string): CodexCard {
       ['İlk inceleme', `${e.firstDay}. gün`],
     ],
     notes: [m.desc],
+    footer: snapLine(e.snap),
   };
 }
 
@@ -229,24 +350,28 @@ const PERSON_NOTES: Record<string, [flag: string, note: string][]> = {
   healer: [['vl_healed_day', 'Vera ve Lina\'yı iyileştirdi.']],
 };
 
-export function personCard(c: CodexState, id: string, ctx: { appraisalVisible?: (id: string) => { rank: string; level: string; title: string; trait: string } | null; affinity: number; flags: Record<string, unknown> }): CodexCard {
+/**
+ * Kişi kartı. 0.11.0 (C13): Appraisal alanları o anki rütbeyle yeniden hesaplanmaz; Appraisal anının kaydı (snap)
+ * gösterilir. C14: trait yalnızca görülebildiyse (snap.trait null ise satır yok).
+ */
+export function personCard(c: CodexState, id: string, ctx: { affinity: number; flags: Record<string, unknown> }): CodexCard {
   const n = NPC_BY_ID[id];
   const e = c.people[id];
   if (!n || !e) return { known: false, title: Q, subtitle: '', rows: [], notes: [] };
-  const ap = e.appraised ? ctx.appraisalVisible?.(id) ?? null : null;
+  const ap = e.snap ?? null;
   const shop = n.shop ? SHOPS[n.shop] : null;
   const rows: [string, string][] = [
     ['Rolü', n.title || Q],
     ['Rütbe', ap?.rank ?? Q],
     ['Level', ap?.level ?? Q],
     ['Unvan', ap?.title ?? Q],
-    ['Trait', ap?.trait ?? Q],
-    ['Görüldüğü yer', e.places.join(', ') || Q],
   ];
+  if (ap?.trait) rows.push(['Trait', ap.trait]);
+  rows.push(['Görüldüğü yer', e.places.join(', ') || Q]);
   if (shop) rows.push(['Satar', shop.stock.map((s) => ITEMS[s]?.name ?? s).join(', ')]);
   rows.push(['İlişki', relationText(ctx.affinity)]);
   const notes = (PERSON_NOTES[id] ?? []).filter(([f]) => !!ctx.flags[f]).map(([, t]) => t);
-  return { known: true, title: n.name, subtitle: n.title ?? '', rows, notes };
+  return { known: true, title: n.name, subtitle: n.title ?? '', rows, notes, footer: snapLine(ap ?? undefined) };
 }
 
 export function plantCard(c: CodexState, id: string): CodexCard {

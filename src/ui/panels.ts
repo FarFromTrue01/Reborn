@@ -5,6 +5,7 @@ import { COLORS, FONT, txt, drawFrame, drawBlue, Button, fullScreenRect } from '
 import { Sound } from '../audio/audio';
 import { DragGesture } from './dragGesture';
 import { cardLayout, cardSections } from './cardLayout';
+import { buildSysBox } from './sysBox';
 
 export class ScrollList extends Phaser.GameObjects.Container {
   inner: Phaser.GameObjects.Container;
@@ -349,6 +350,26 @@ export function panelChoice(scene: Phaser.Scene, title: string, opts: CardOpt[],
       c.add(b);
     }
     c.once('destroy', () => lists.forEach((l) => l.destroy()));
+  });
+}
+
+/** Bilgi kutusu (sistem bildirimi tasarımında) + "Anladım" düğmesi; dokununca kapanır. */
+export function infoBox(scene: Phaser.Scene, title: string, lines: string[], ok = 'Anladım'): Promise<void> {
+  return new Promise((resolve) => {
+    const W = Display.uiW, H = Display.uiH;
+    const c = scene.add.container(0, 0).setDepth(170);
+    c.add(fullScreenRect(scene, 0x000000, 0.6).setInteractive());
+    const w = Math.min(560, W - 60);
+    const box = buildSysBox(scene, { title, lines, width: w });
+    const top = Math.max(20, (H - box.h - 80) / 2);
+    box.setPosition(W / 2, top);
+    c.add(box);
+    const b = new Button(scene, W / 2, top + box.h + 40, ok, () => {
+      c.destroy();
+      resolve();
+    }, { w: 220, h: 54, style: 'blue' });
+    b.setName('info_ok');
+    c.add(b);
   });
 }
 

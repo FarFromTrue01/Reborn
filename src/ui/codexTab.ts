@@ -2,17 +2,17 @@
 // "Eros"…). Solda kayıt listesi (bilinmeyen: karartılmış siluet ve "???"), sağda kart. Veri core/codex.ts.
 import Phaser from 'phaser';
 import { G } from '../game/G';
-import { COLORS, FONT, txt, uiIcon, iconImage, Button } from './kit';
+import { COLORS, FONT, txt, uiIcon, iconImage, Button, rankBadge, itemRankBadge, fitText } from './kit';
 import { ScrollList } from './panels';
 import { ornamentLine } from './appraisalPanel';
 import { Sound } from '../audio/audio';
 import { monsterIconKey, ensurePortrait } from './portraits';
-import { CODEX_KINDS, codexPages, codexKnown, codexName, monsterCard, personCard, plantCard, PLANTS, type CodexKind, type CodexCard } from '../core/codex';
+import {
+  CODEX_KINDS, codexPages, codexKnown, codexName, monsterCard, personCard, plantCard, PLANTS, codexBadge, codexIsNew, codexMarkSeen,
+  codexNewCount, codexSorted, codexTotals, type CodexKind, type CodexCard,
+} from '../core/codex';
 import { NPC_BY_ID } from '../data/npcs';
 import { ITEMS } from '../data/items';
-import { appraisalView } from '../core/appraisal';
-import { subRankToString } from '../core/ranks';
-import { TITLES, TRAIT_NAMES } from '../data/titles';
 
 /** Oturum boyunca seçili tür, sayfa ve kayıt. */
 const SEL: { kind: CodexKind; page: number; id: string | null } = { kind: 'monsters', page: 0, id: null };
@@ -46,32 +46,53 @@ function entryImage(scene: Phaser.Scene, kind: CodexKind, id: string, x: number,
   return scene.add.circle(x, y, size / 2, 0x000000, 0.6);
 }
 
-/** Appraisal'ın bu NPC'de gösterdikleri (rütbe, level, unvan, trait; fark yetmiyorsa "???"). */
-function appraisalOf(id: string) {
-  const n = NPC_BY_ID[id];
-  if (!n) return null;
-  const mine = G.p.skills.find((s) => s.id === 'appraisal')?.rank ?? 0;
-  const theirs = n.creature.skills.find((s) => s.id === 'appraisal')?.rank ?? 0;
-  const v = appraisalView(mine, theirs);
-  const t = n.creature.titles[0];
-  const tr = n.creature.traits[0];
-  return {
-    rank: v.identity ? n.guildLabel ?? (n.creature.guildRank !== null ? subRankToString(n.creature.guildRank) : 'Yok') : '???',
-    level: v.identity ? String(n.creature.level) : '???',
-    title: t ? TITLES[t]?.name ?? '—' : '—',
-    trait: v.traits ? (tr ? `${TRAIT_NAMES[tr]?.name ?? tr} (${TRAIT_NAMES[tr]?.rank ?? '?'})` : '—') : '???',
-  };
-}
-
 function cardOf(kind: CodexKind, id: string): CodexCard {
   const c = G.state.codex;
   if (kind === 'monsters') return monsterCard(c, id);
   if (kind === 'plants') return plantCard(c, id);
-  return personCard(c, id, { appraisalVisible: appraisalOf, affinity: G.state.affinity[id] ?? 0, flags: G.state.flags });
+  return personCard(c, id, { affinity: G.state.affinity[id] ?? 0, flags: G.state.flags });
+}
+
+/** Kırmızı "!" rozeti (yeni keşif / sayı). */
+function newMark(scene: Phaser.Scene, x: number, y: number, label = '!'): Phaser.GameObjects.Container {
+  const c = scene.add.container(x, y);
+  const g = scene.add.graphics();
+  const r = label.length > 1 ? 11 : 9;
+  g.fillStyle(0xd02a2a, 1);
+  g.fillCircle(0, 0, r);
+  g.lineStyle(1.5, 0xffd0c0, 1);
+  g.strokeCircle(0, 0, r);
+  c.add(g);
+  c.add(txt(scene, 0, 0, label, { size: label.length > 1 ? 11 : 13, bold: true, color: '#ffffff' }).setOrigin(0.5));
+  return c;
+}
+
+/** C13: Menüdeki Ansiklopedi düğmesi için kırmızı işaretli kayıt sayısı. */
+export function codexBadgeCount(): number {
+  return codexNewCount(G.state.codex);
+}
+
+/** Ad kutusunun sağındaki rütbe rozeti (bilinmeyen kayıtta yok; okunamayan kişide "???"). */
+function badgeFor(scene: Phaser.Scene, kind: CodexKind, id: string, x: number, y: number): Phaser.GameObjects.GameObject | null {
+  const b = codexBadge(G.state.codex, kind, id);
+  if (!b) return null;
+  if (b === 'unknown') {
+    const c = scene.add.container(x, y);
+    const g = scene.add.graphics();
+    g.fillStyle(0x2a2430, 1);
+    g.fillRoundedRect(-17, -11, 34, 22, 6);
+    g.lineStyle(1, COLORS.goldDark, 1);
+    g.strokeRoundedRect(-17, -11, 34, 22, 6);
+    c.add([g, txt(scene, 0, 0, '???', { size: 12, bold: true, color: '#8a8070' }).setOrigin(0.5)]);
+    return c;
+  }
+  if ('sub' in b) return rankBadge(scene, x, y, b.sub, 28, true);
+  return itemRankBadge(scene, x, y, b.letter, 26);
 }
 
 export function renderCodexTab(scene: Phaser.Scene & { render(): void }, c: Phaser.GameObjects.Container, w: number, h: number) {
-  c.add(uiIcon(scene, 16, 16, 'history', 30));
+  // C13: kendi simgesi (menüdeki düğmeyle aynı; Konuşmalar'ınki değil)
+  c.add(uiIcon(scene, 16, 16, 'skills', 30));
   c.add(txt(scene, 38, 0, 'Ansiklopedi', { size: 24, font: FONT.title, color: COLORS.textGold }));
   // tür sekmeleri
   CODEX_KINDS.forEach((k, i) => {
@@ -86,6 +107,9 @@ export function renderCodexTab(scene: Phaser.Scene & { render(): void }, c: Phas
     b.add(uiIcon(scene, -50, 0, k.icon, 20));
     b.setAlpha(on ? 1 : 0.7);
     c.add(b);
+    // C13: türdeki kırmızı işaretli kayıt sayısı
+    const nNew = codexNewCount(G.state.codex, k.kind);
+    if (nNew) c.add(newMark(scene, b.x + 64, 4, String(nNew)));
   });
   const pages = codexPages(G.state.codex, SEL.kind);
   SEL.page = Math.max(0, Math.min(pages.length - 1, SEL.page));
@@ -97,7 +121,11 @@ export function renderCodexTab(scene: Phaser.Scene & { render(): void }, c: Phas
   c.add([prev, next]);
   c.add(txt(scene, 156, py + 4, page.locked ? '???' : page.region.name, { size: 16, bold: true, font: FONT.title, color: '#f3dc95', align: 'center' }).setOrigin(0.5, 0));
   c.add(txt(scene, 156, py + 24, `Sayfa ${SEL.page + 1}/${pages.length}`, { size: 11, color: COLORS.textDim }).setOrigin(0.5, 0));
-  c.add(txt(scene, 330, py + 8, page.locked ? 'Bu bölgeye henüz ayak basmadın.' : `Bilinen: ${page.known}/${page.total}`, { size: 15, bold: true, color: page.locked ? COLORS.textDim : '#cfe6b8' }));
+  // C13: sayaçlar — "Karakterler — Toplam: x / y" ve "Brindlewood ve Çevresi: z / t"
+  const tot = codexTotals(G.state.codex, SEL.kind);
+  const kindName = CODEX_KINDS.find((k) => k.kind === SEL.kind)!.name;
+  c.add(txt(scene, 330, py, `${kindName} — Toplam: ${tot.known} / ${tot.total}`, { size: 15, bold: true, color: '#f3dc95' }));
+  c.add(txt(scene, 330, py + 20, page.locked ? 'Bu bölgeye henüz ayak basmadın.' : `${page.region.name}: ${page.known} / ${page.total}`, { size: 14, bold: true, color: page.locked ? COLORS.textDim : '#cfe6b8' }));
   const top = py + 46;
   if (page.locked) {
     const g = scene.add.graphics();
@@ -112,9 +140,16 @@ export function renderCodexTab(scene: Phaser.Scene & { render(): void }, c: Phas
   const list = new ScrollList(scene, 0, top, lw, h - top - 8);
   c.add(list);
   list.updateMask();
-  const id0 = SEL.id && page.ids.includes(SEL.id) ? SEL.id : page.ids.find((id) => codexKnown(G.state.codex, SEL.kind, id)) ?? page.ids[0];
+  // C13: bilinenler önce (alfabetik), bilinmeyenler sonra
+  const ids = codexSorted(G.state.codex, SEL.kind, page.ids);
+  const id0 = SEL.id && ids.includes(SEL.id) ? SEL.id : ids.find((id) => codexKnown(G.state.codex, SEL.kind, id)) ?? ids[0];
+  // seçili kayda dokunuldu: "!" kalkar ve kayıtta saklanır
+  if (id0 && SEL.id === id0 && codexIsNew(G.state.codex, SEL.kind, id0)) {
+    codexMarkSeen(G.state.codex, SEL.kind, id0);
+    G.scheduleSave();
+  }
   let y = 0;
-  for (const id of page.ids) {
+  for (const id of ids) {
     const known = codexKnown(G.state.codex, SEL.kind, id);
     const on = id === id0;
     const rc = scene.add.container(0, y);
@@ -125,7 +160,13 @@ export function renderCodexTab(scene: Phaser.Scene & { render(): void }, c: Phas
     g.strokeRoundedRect(0, 0, lw - 14, 52, 8);
     rc.add(g);
     rc.add(entryImage(scene, SEL.kind, id, 28, 26, 40, known));
-    rc.add(txt(scene, 56, 15, known ? codexName(SEL.kind, id) : '???', { size: 15, bold: true, color: known ? COLORS.text : '#5a5246' }));
+    const nameT = txt(scene, 56, 15, known ? codexName(SEL.kind, id) : '???', { size: 15, bold: true, color: known ? COLORS.text : '#5a5246' });
+    rc.add(nameT);
+    fitText(nameT, lw - 14 - 56 - 48);
+    // C13: ad kutusunun sağında rütbe rozeti; yeni keşifte kutuda kırmızı "!"
+    const bdg = badgeFor(scene, SEL.kind, id, lw - 14 - 24, 26);
+    if (bdg) rc.add(bdg);
+    if (codexIsNew(G.state.codex, SEL.kind, id)) rc.add(newMark(scene, 10, 8));
     const z = scene.add.zone(0, 0, lw - 14, 52).setOrigin(0, 0).setInteractive({ useHandCursor: true });
     z.on('pointerup', (p: Phaser.Input.Pointer) => {
       if (list.wasDrag() || !list.containsPointer(p)) return;
@@ -172,4 +213,6 @@ export function renderCodexTab(scene: Phaser.Scene & { render(): void }, c: Phas
     c.add(t);
     yy += t.height + 4;
   }
+  // C13: kartın en altında Appraisal kaydı
+  if (card.footer) c.add(txt(scene, dx + dw - 16, h - 18, card.footer, { size: 12, italic: true, color: '#8fb8d8' }).setOrigin(1, 1));
 }

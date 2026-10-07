@@ -3,7 +3,7 @@ import Phaser from 'phaser';
 import { G } from '../game/G';
 import { Q, KIND_NAMES, questExp } from '../game/questrt';
 import { visibleObjectives, objectiveDone, objectiveLabel } from '../core/quests';
-import { QUEST_POINTS, groupPoints } from '../core/guild';
+import { QUEST_POINTS, questPointsFor, questPointsLabel } from '../core/guild';
 import { COLORS, FONT, txt, uiIcon, Button } from './kit';
 import { ScrollList, confirmBox } from './panels';
 import { KIND_ICON, loadQuestHudPrefs, saveQuestHudPref } from './hudQuests';
@@ -111,7 +111,8 @@ export function renderQuestsTab(scene: Phaser.Scene & { render(): void }, c: Pha
   if (def.guild && def.rank) {
     c.add(uiIcon(scene, dx + 30, yy + 12, 'rank_' + def.rank, 30));
     const pts = def.reward.points ?? QUEST_POINTS[def.rank];
-    c.add(txt(scene, dx + 52, yy + 2, `Rütbe ${def.rank} görevi · ${def.group ? `${groupPoints(pts)} Lonca Puanı (grup: ${pts} puanın yarısı)` : `${pts} Lonca Puanı`}`, { size: 14, bold: true, color: '#f3dc95', wrap: dw - 70 }));
+    const pr = questPointsFor(pts, def.rank, G.state.guild.member ? G.p.guildRank : null, !!def.group);
+    c.add(txt(scene, dx + 52, yy + 2, `Rütbe ${def.rank} görevi · ${questPointsLabel(pr)}${def.group ? ` (grup: ${pts} puanın yarısı)` : ''}`, { size: 14, bold: true, color: '#f3dc95', wrap: dw - 70 }));
     yy += 34;
   }
   const dt = txt(scene, dx + 18, yy, def.desc, { size: 15, color: COLORS.text, wrap: dw - 36, lineSpacing: 3 });

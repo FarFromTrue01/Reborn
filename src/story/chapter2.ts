@@ -20,7 +20,7 @@ import { deadlineNotice, penaltyOf } from '../core/guild';
 import { storyGate, celebrateOpen } from './gates';
 import { currentObjective, activeQuests, type QuestDef, type QuestTarget } from '../core/quests';
 import { questDef } from '../data/quests';
-import { canTakeQuest, riskText, QUEST_POINTS, reRegister, REREGISTER_FEE, pointsToNext } from '../core/guild';
+import { canTakeQuest, riskText, QUEST_POINTS, reRegister, REREGISTER_FEE, pointsToNext, questPointsFor, questPointsLabel, RANK_THRESHOLDS } from '../core/guild';
 import { subRankToString } from '../core/ranks';
 import { equip, transact } from '../core/transactions';
 import { walletTotal } from '../core/money';
@@ -202,7 +202,7 @@ export class Chapter2 {
     Q.start('g3_letter', true);
     R.giveItems([{ id: 'guild_letter', qty: 1 }], 'Lonca mektubu');
     Q.track('g1_rats');
-    R.sysmsg('G GÖREVLERİ', ['Ahırdaki Fareler · 10 Lonca Puanı · {m:20}', 'Şifacıya Ot · 10 Lonca Puanı · {m:30}', 'Kontrol Noktasına Mektup · 10 Lonca Puanı · {m:30}', 'G rütbesi için 40 Lonca Puanı gerekir.'], { big: true });
+    R.sysmsg('G GÖREVLERİ', ['Ahırdaki Fareler · 10 Lonca Puanı · {m:20}', 'Şifacıya Ot · 10 Lonca Puanı · {m:30}', 'Kontrol Noktasına Mektup · 10 Lonca Puanı · {m:30}', `G rütbesi için ${RANK_THRESHOLDS[1]} Lonca Puanı gerekir.`], { big: true });
     await this.say('celeste', 'Başarısız olursan puanın gider ve ödülün iki katını ödersin. Kartın da gidebilir. İyi şanslar.', 'alayci');
     G.save('auto');
   }
@@ -330,7 +330,7 @@ export class Chapter2 {
         if (G.p.guildRank !== null && G.p.guildRank >= 1) {
           await this.say('vera', 'G oldun, köksüz. Hana gel, kutlarız. Biz önden gidiyoruz; geç kalma.', 'normal');
           if (!Q.status('m_celebrate')) this.startCelebrate();
-        } else await this.say('vera', 'G eşiğine az kaldı, köksüz. Yine de hana gel, bir kadeh içeriz. Geç kalma.', 'normal');
+        } else await this.say('vera', 'G eşiğine az kaldı, köksüz. Panodan bir iki ilan daha. G olduğun akşam handa kutlarız.', 'normal');
         break;
       case 'f_cellar':
         await this.say('celeste', 'Değirmen bodrumu. Dört dev fare. Otuz bronz kişi başı, on beş puan.', 'normal');
@@ -358,7 +358,7 @@ export class Chapter2 {
     // üç G görevi bitince
     if (Q.active('m_grank') && ['g1_rats', 'g2_herbs', 'g3_letter'].every((g) => Q.done(g))) {
       Q.complete('m_grank');
-      R.sysmsg('G GÖREVLERİ TAMAM', [`Lonca Puanı: ${G.state.guild.points}/40`, 'G rütbesine 10 puan kaldı.'], { sound: 'title' });
+      R.sysmsg('G GÖREVLERİ TAMAM', [`Lonca Puanı: ${G.state.guild.points}/${RANK_THRESHOLDS[1]}`, `G rütbesine ${Math.max(0, RANK_THRESHOLDS[1] - G.state.guild.points)} puan kaldı.`], { sound: 'title' });
       this.ui.closeDialogue();
       await this.think('Yetmiş bronz. Hayatımda kazandığım en çok para. Bu paraya şimdi dokunamam; bir sonraki iş için lazım.');
       await this.think('Biraz hava alayım. Ormanın kenarı sakin olur.');
@@ -385,7 +385,8 @@ export class Chapter2 {
       await this.say('celeste', 'Elinde üç ilan var. Önce onları bitir. Lonca açgözlü maceracı sevmez.', 'alayci');
       return;
     }
-    const opts = posts.map((q) => `${q.rank} · ${q.title} · {m:${q.reward.money}}`);
+    // C15: ilanda gerçek puan (rütbenin altındaysa indirimli ya da 0)
+    const opts = posts.map((q) => `${q.rank} · ${q.title} · {m:${q.reward.money}} · ${questPointsLabel(questPointsFor(q.reward.points ?? QUEST_POINTS[q.rank!], q.rank!, G.p.guildRank ?? 0, !!q.group))}`);
     opts.push('Vazgeç');
     const c = await this.ui.choice(opts);
     if (c >= posts.length) return;

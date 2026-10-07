@@ -16,15 +16,16 @@ export const REREGISTER_FEE = 100;
  * G: 40, G+: 100, F-: 180 (en az Level 1). Sonrası her kademede belirgin artar.
  */
 export const RANK_THRESHOLDS: number[] = [
-  0, 40, 100, // G-, G, G+
-  180, 300, 450, // F-, F, F+
-  700, 1000, 1400, // E-, E, E+
-  2000, 2800, 3800, // D
-  5200, 7000, 9200, // C
-  12000, 16000, 21000, // B
-  28000, 37000, 48000, // A
-  65000, 85000, 110000, // S
-  150000, 220000, // X-, X
+  // 0.11.0 (C15): yeni eşikler (rütbenin altındaki görevler artık az ya da hiç puan vermez)
+  0, 60, 150, // G-, G, G+
+  300, 500, 750, // F-, F, F+
+  1200, 1700, 2300, // E-, E, E+
+  3200, 4300, 5600, // D
+  7500, 9800, 12500, // C
+  16000, 21000, 27000, // B
+  35000, 45000, 58000, // A
+  75000, 97000, 125000, // S
+  170000, 250000, // X-, X
 ];
 
 /** Bir kademeye terfi için gereken en düşük Level: harfin ilk kademesinde o harfin tipik alt sınırı (F- → Level 1). */
@@ -58,6 +59,26 @@ export function canTakeQuest(myRank: SubRank, questLetter: Letter): boolean {
 /** Grup görevi: herkes puanın %50'sini alır (aşağı yuvarlanır). */
 export function groupPoints(points: number): number {
   return Math.floor(points * 0.5);
+}
+
+/**
+ * 0.11.0 (C15): rütbenin altındaki görevler. Görevin harfi Joseph'in harfinden bir düşükse puanın %25'i (aşağı
+ * yuvarlanır), iki ve daha fazla düşükse 0. Grup görevlerinde önce %50, sonra bu indirim.
+ * Döner: gerçek puan ve kaç harf altta olduğu (0: rütbede ya da üstte).
+ */
+export function questPointsFor(base: number, questLetter: Letter, myRank: SubRank | null, group = false): { points: number; below: number } {
+  const p = group ? groupPoints(base) : base;
+  if (myRank === null) return { points: p, below: 0 };
+  const below = Math.max(0, subRankLetterIndex(myRank) - LETTERS.indexOf(questLetter));
+  if (below === 0) return { points: p, below };
+  if (below === 1) return { points: Math.floor(p * 0.25), below };
+  return { points: 0, below };
+}
+
+/** İlanda ve bitiş animasyonunda puan yazısı: "+2 Lonca Puanı (rütbenin altında)", "0 puan". */
+export function questPointsLabel(r: { points: number; below: number }): string {
+  if (r.points <= 0) return '0 puan (rütbenin çok altında)';
+  return `+${r.points} Lonca Puanı${r.below ? ' (rütbenin altında)' : ''}`;
 }
 
 export interface GuildState {
@@ -154,8 +175,8 @@ export interface RewardResult {
  * Görev ödülü: puan eklenir, ödül varsa önce loncaya olan borç kapatılır.
  * group: grup görevi (puanın yarısı).
  */
-export function applyReward(g: GuildState, points: number, money: number, group = false): RewardResult {
-  const pts = group ? groupPoints(points) : points;
+export function applyReward(g: GuildState, points: number, money: number, group = false, letter?: Letter, myRank: SubRank | null = null): RewardResult {
+  const pts = letter ? questPointsFor(points, letter, myRank, group).points : group ? groupPoints(points) : points;
   g.points += pts;
   const toDebt = Math.min(g.debt, money);
   g.debt -= toDebt;

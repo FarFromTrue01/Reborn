@@ -46,19 +46,19 @@ describe('C3: Lonca Puanı ve rütbe', () => {
     expect(groupPoints(15)).toBe(7);
     expect(groupPoints(1)).toBe(0);
   });
-  it('Eşikler: G 40, G+ 100, F- 180 (ve Level 1)', () => {
-    expect(RANK_THRESHOLDS[parseSubRank('G')]).toBe(40);
-    expect(RANK_THRESHOLDS[parseSubRank('G+')]).toBe(100);
-    expect(RANK_THRESHOLDS[parseSubRank('F-')]).toBe(180);
+  it('Eşikler (0.11.0, C15): G 60, G+ 150, F- 300 (ve Level 1)', () => {
+    expect(RANK_THRESHOLDS[parseSubRank('G')]).toBe(60);
+    expect(RANK_THRESHOLDS[parseSubRank('G+')]).toBe(150);
+    expect(RANK_THRESHOLDS[parseSubRank('F-')]).toBe(300);
     expect(levelRequirement(parseSubRank('F-'))).toBe(1);
-    expect(earnedRank(39, 0, 0)).toBe(0);
-    expect(earnedRank(40, 0, 0)).toBe(parseSubRank('G'));
-    expect(earnedRank(100, 0, 0)).toBe(parseSubRank('G+'));
-    expect(earnedRank(200, 0, 0)).toBe(parseSubRank('G+')); // Level 0: F- olamaz
-    expect(earnedRank(200, 0, 1)).toBe(parseSubRank('F-'));
+    expect(earnedRank(59, 0, 0)).toBe(0);
+    expect(earnedRank(60, 0, 0)).toBe(parseSubRank('G'));
+    expect(earnedRank(150, 0, 0)).toBe(parseSubRank('G+'));
+    expect(earnedRank(320, 0, 0)).toBe(parseSubRank('G+')); // Level 0: F- olamaz
+    expect(earnedRank(320, 0, 1)).toBe(parseSubRank('F-'));
     for (let i = 1; i < RANK_THRESHOLDS.length; i++) expect(RANK_THRESHOLDS[i]).toBeGreaterThan(RANK_THRESHOLDS[i - 1]);
   });
-  it('Bölüm II hesabı: G1 + G2 + G3 = 30, ortak görev 15 → 45: tam bu görevle G', () => {
+  it('Bölüm II hesabı (0.11.0): G1 + G2 + G3 = 30, ortak görev 15 → 45; G için pano (G Rütbesi adımı)', () => {
     const g = newGuildState();
     g.member = true;
     for (let i = 0; i < 3; i++) applyReward(g, QUEST_POINTS.G, 20);
@@ -66,8 +66,8 @@ describe('C3: Lonca Puanı ve rütbe', () => {
     expect(earnedRank(g.points, 0, 0)).toBe(0);
     applyReward(g, QUEST_POINTS.F, 40, true);
     expect(g.points).toBe(45);
-    expect(earnedRank(g.points, 0, 0)).toBe(parseSubRank('G'));
-    expect(pointsToNext(g.points, parseSubRank('G'))).toBe(55);
+    expect(earnedRank(g.points, 0, 0)).toBe(0);
+    expect(pointsToNext(g.points, 0)).toBe(15);
   });
   it('G, F ve E içinde terfi sınavsız; E-\'den itibaren (harf atlayan) sınavlı', () => {
     expect(examRequired(parseSubRank('G'))).toBe(false);

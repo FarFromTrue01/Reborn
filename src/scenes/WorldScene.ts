@@ -38,6 +38,7 @@ import { DIVINE_BY_ID } from '../data/divine';
 import { LIGHT_MAX, LIGHT_ON_HIT, LIGHT_ON_PERFECT_DODGE, LIGHT_ON_STUN, streakExpired } from '../core/divine';
 import { refundEvade } from '../core/combat';
 import { BubbleQueue } from '../world/bubbleQueue';
+import { LOOT_COLOR, LOOT_LIFE_SEC, LootFxPool, lootVisible, type LootKind } from '../world/lootFx';
 import { newQueue, queueLimit as zoneQueueLimit, clearBoss, type AttackQueue } from '../core/attackQueue';
 import { STAGGER_FILL, skillStagger, stunDamageMult } from '../core/stagger';
 import { COUNTER_DMG_SKILLED, counterWindow, HEAVY_DMG_MULT, RHYTHM_STEPS } from '../core/rhythm';
@@ -123,7 +124,7 @@ function encodeFog(arr: Uint8Array) {
   return btoa(s);
 }
 
-interface Pickup { img: Phaser.GameObjects.Image; id: string; qty: number; money: number; x: number; y: number; t: number; from?: string }
+interface Pickup { img: Phaser.GameObjects.Image; id: string; qty: number; money: number; x: number; y: number; t: number; from?: string; kind?: LootKind; fx?: ReturnType<LootFxPool['take']>; sparkT?: number }
 interface Projectile { img: Phaser.GameObjects.Image; vx: number; vy: number; life: number; fromPlayer: boolean; comp?: Companion; enemy?: Enemy; tech?: string; power: number; radius: number; hits: Set<Enemy>; ignite?: boolean; element?: string; physical?: boolean; pierce?: boolean; skill?: string; arrow?: boolean }
 
 export class WorldScene extends Phaser.Scene {
@@ -150,6 +151,8 @@ export class WorldScene extends Phaser.Scene {
   darkness = 0;
   timeAcc = 0;
   pickups: Pickup[] = [];
+  /** C16: ganimet ışıltısı havuzu (en çok 20). */
+  lootFx: LootFxPool | null = null;
   projectiles: Projectile[] = [];
   /** C4: haritadaki yoldaşlar (G.state.party'den kurulur). */
   companions: Companion[] = [];
@@ -233,6 +236,7 @@ export class WorldScene extends Phaser.Scene {
     this.darkness = 0;
     this.timeAcc = 0;
     this.pickups = [];
+    this.lootFx = null;
     this.projectiles = [];
     this.companions = [];
     this.incoming = [];
@@ -415,6 +419,8 @@ export class WorldScene extends Phaser.Scene {
     for (const c of this.companions) c.destroy();
     this.companions = [];
     for (const p of this.pickups) p.img.destroy();
+    this.lootFx?.destroy();
+    this.lootFx = new LootFxPool(this);
     for (const p of this.projectiles) p.img.destroy();
     for (const r of this.rays) r.destroy();
     for (const t of this.buildingMarks.values()) t.destroy();
@@ -2048,7 +2054,8 @@ export class WorldScene extends Phaser.Scene {
     if (actor) this.fx.glow(actor.x, actor.y - 24, 0x7cc8ff, 30, 400);
     this.ui.showAppraisal(c, npcDef);
     // B15: ansiklopedi (yaratık kartı Appraisal ile açılır; karakterde Appraisal bilgileri eklenir)
-    const fresh = npcDef ? codexAppraisePerson(G.state.codex, npcDef.id, this.placeName(true), G.state.time.day) : codexAppraiseMonster(G.state.codex, c.id, c.level, this.placeName(), G.state.time.day);
+    // C13: Appraisal anının kaydı (kullanılan Appraisal rütbesiyle)
+    const fresh = npcDef ? codexAppraisePerson(G.state.codex, npcDef.id, this.placeName(true), G.state.time.day, mine) : codexAppraiseMonster(G.state.codex, c.id, c.level, this.placeName(), G.state.time.day, mine);
     if (fresh) this.codexAdded(npcDef ? 'people' : 'monsters', npcDef?.id ?? c.id);
     this.director.onAppraise(npcDef?.id ?? c.id);
   }
@@ -2553,7 +2560,16 @@ export class WorldScene extends Phaser.Scene {
         this.fx.luck(tx, ty - 26);
       });
     }
-    this.pickups.push({ img, id, qty, money, x: tx, y: ty, t: 0, from });
+    // C16: ışıltı (nadirliğe göre renk; havuz doluysa efektsiz)
+    const kind: LootKind = special ? 'special' : money ? 'money' : 'common';
+    this.lootFx ??= new LootFxPool(this);
+    this.pickups.push({ img, id, qty, money, x: tx, y: ty, t: 0, from, kind, fx: this.lootFx.take(), sparkT: Math.random() * 2 });
+  }
+
+  /** C16: ganimet kaldırılırken efekti havuza geri ver. */
+  private dropPickupFx(p: Pickup) {
+    this.lootFx?.give(p.fx);
+    p.fx = null;
   }
 
   updatePickups(dt: number) {
@@ -2561,6 +2577,17 @@ export class WorldScene extends Phaser.Scene {
     for (const p of [...this.pickups]) {
       p.t += dt;
       p.img.setY(p.y - 4 - Math.sin(p.t * 4) * 2);
+      // C16: ışıltı ve son 15 sn'de yanıp sönme; ara sıra küçük parıltı
+      const vis = lootVisible(p.t);
+      p.img.setVisible(vis);
+      if (!p.fx && this.lootFx) p.fx = this.lootFx.take();
+      if (p.fx) this.lootFx!.draw(p.fx, p.x, p.y, p.kind ?? 'common', p.t, vis);
+      p.sparkT = (p.sparkT ?? 0) - dt;
+      if (p.sparkT <= 0 && vis) {
+        p.sparkT = 1.2 + Math.random() * 1.6;
+        const sp = this.add.image(p.x + (Math.random() - 0.5) * 14, p.y - 8 - Math.random() * 10, 'spark').setTint(LOOT_COLOR[p.kind ?? 'common']).setBlendMode(Phaser.BlendModes.ADD).setDepth(p.y + 2).setScale(0.6);
+        this.tweens.add({ targets: sp, y: sp.y - 12, alpha: 0, duration: 600, onComplete: () => sp.destroy() });
+      }
       if (p.t < 0.6) continue;
       const d = Math.hypot(a.x - p.x, a.y - p.y);
       if (d < 48) {
@@ -2579,10 +2606,13 @@ export class WorldScene extends Phaser.Scene {
         }
         Sound.sfx(p.money ? 'coin' : 'pickup');
         p.img.destroy();
+        this.dropPickupFx(p);
         this.pickups = this.pickups.filter((x) => x !== p);
+        continue;
       }
-      if (p.t > 120) {
+      if (p.t > LOOT_LIFE_SEC) {
         p.img.destroy();
+        this.dropPickupFx(p);
         this.pickups = this.pickups.filter((x) => x !== p);
       }
     }

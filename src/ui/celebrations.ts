@@ -26,6 +26,9 @@ export interface QuestDoneInfo {
   /** Lonca Puanı (yoksa 0) ve sonrası toplam. */
   points: number;
   pointsTotal: number;
+  /** C15: lonca görevi mi ve Joseph'in rütbesinin kaç harf altında (puan yazısı için). */
+  guild?: boolean;
+  pointsBelow?: number;
   /** Joseph'in lonca rütbesi (puan barının aralığı için; üye değilse null). */
   rank?: SubRank | null;
   items: { id: string; qty: number }[];
@@ -130,7 +133,7 @@ export function playQuestComplete(scene: Phaser.Scene, q: QuestDoneInfo, onDone:
   if (q.toDebt > 0) rows.push('debt');
   if (q.exp && q.exp.amount > 0) rows.push('exp');
   for (let i = 0; i < q.items.length; i++) rows.push('item');
-  if (q.points > 0) rows.push('points');
+  if (q.points > 0 || q.guild) rows.push('points');
   if (q.text && q.money <= 0) rows.push('text');
   const rowH = 44;
   const ph = 112 + Math.max(1, rows.length) * rowH + 16;
@@ -281,7 +284,8 @@ export function playQuestComplete(scene: Phaser.Scene, q: QuestDoneInfo, onDone:
         at, dur, onStart: () => Sound.sfx('skillup', 0.6),
         draw: (p) => {
           rowIn(row, p);
-          pt.setText(`+${Math.round(q.points * ease.Cubic.Out(Math.min(1, p * 1.3)))} Lonca Puanı`);
+          // C15: gerçek puan; rütbenin altındaysa belirtilir, hiç vermiyorsa "0 puan"
+          pt.setText(q.points <= 0 ? '0 puan (rütbenin çok altında)' : `+${Math.round(q.points * ease.Cubic.Out(Math.min(1, p * 1.3)))} Lonca Puanı${q.pointsBelow ? ' (rütbenin altında)' : ''}`);
           const f = p * segs.length;
           const si = Math.min(segs.length - 1, Math.floor(f));
           const s = segs[si];

@@ -538,6 +538,8 @@ export class Director {
       const ranges = Object.entries(rr).map(([k, [a, b]]) => `${k} ${a}–${b}`).join(' / ');
       out.push({ key: 'tut_board', label: `Lonca panosundan ilan al — her sabah yeni ilanlar, ${ranges} bronz, aynı anda en fazla ${MAX_BOARD_QUESTS}`, optional: true, target: { map: 'guild', point: 'board', radius: 1.5 } });
     }
+    // C12: Sistem Teklifi öğreticisi (ilk SP)
+    if (R.offerTutorialActive()) out.push({ key: 'tut_offer', label: 'Sistem Teklifi\'ni dene: Menü → Status → Sistem Teklifi', optional: true, target: null });
     const w = this.w.questWait(id);
     const now = absMinute(G.state.time.day, G.state.time.minute);
     if (w && w.until !== null && w.until > now && w.until - now <= 36 * 60 && this.hasBed()) {

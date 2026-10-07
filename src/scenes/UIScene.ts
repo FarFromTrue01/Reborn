@@ -11,6 +11,7 @@ import { QuestBox, PartyBars } from '../ui/hudQuests';
 import { playQuestComplete, playRankUp, type QuestDoneInfo, type PromotionInfo } from '../ui/celebrations';
 import { buildAppraisalPanel } from '../ui/appraisalPanel';
 import { ToastStack } from '../ui/toastStack';
+import * as R from '../game/rules';
 import { readTimeMs } from '../core/readTime';
 import { buildSysBox } from '../ui/sysBox';
 import { sysDuration, sysPlacement } from '../ui/sysLayout';
@@ -320,6 +321,26 @@ export class UIScene extends Phaser.Scene {
     // menü ve appraisal butonları
     const menuB = new Button(this, W - 52, 216, '☰', () => this.openMenu(), { w: 60, h: 60, style: 'round', size: 26 });
     this.hud.add(menuB);
+    // C12: Sistem Teklifi öğreticisi sürerken menü düğmesi parlar
+    const glow = this.add.graphics();
+    this.hud.add(glow);
+    this.hud.moveBelow(glow as any, menuB as any);
+    this.tweens.addCounter({
+      from: 0, to: 1, duration: 900, yoyo: true, repeat: -1,
+      onUpdate: (tw) => {
+        if (!glow.active) {
+          tw.stop();
+          return;
+        }
+        glow.clear();
+        if (!R.offerTutorialActive() || this.autoFlow) return;
+        const k = tw.getValue() ?? 0;
+        glow.fillStyle(0x7cc8ff, 0.18 + 0.22 * k);
+        glow.fillCircle(menuB.x, menuB.y, 34 + 6 * k);
+        glow.lineStyle(2.5, 0xbfe4ff, 0.6 + 0.4 * k);
+        glow.strokeCircle(menuB.x, menuB.y, 33 + 4 * k);
+      },
+    });
     const apB = new Button(this, W - 124, 216, '', () => { Input.press('appraise'); }, { w: 60, h: 60, style: 'round', icon: 'sk_appraisal' });
     this.hud.add(apB);
     // Görevler kutusu ve yoldaş HP çubukları (HP panelinin altında)

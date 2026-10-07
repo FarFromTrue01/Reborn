@@ -4,12 +4,12 @@ import { guildBar, guildBarSegments, RANK_THRESHOLDS } from '../src/core/guild';
 
 describe('lonca puan barı (Kısım 1, madde 6)', () => {
   it('bar mevcut rütbenin başından bir sonrakinin puanına', () => {
-    const b = guildBar(36, 0);
+    const b = guildBar(54, 0);
     expect(b.lo).toBe(0);
-    expect(b.hi).toBe(40);
+    expect(b.hi).toBe(60);
     expect(b.frac).toBeCloseTo(0.9);
-    const c = guildBar(70, 1);
-    expect(c).toMatchObject({ lo: 40, hi: 100 });
+    const c = guildBar(105, 1);
+    expect(c).toMatchObject({ lo: 60, hi: 150 });
     expect(c.frac).toBeCloseTo(0.5);
   });
   it('en yüksek rütbede bar dolu', () => {
@@ -17,22 +17,22 @@ describe('lonca puan barı (Kısım 1, madde 6)', () => {
     expect(guildBar(999999, top)).toEqual({ lo: RANK_THRESHOLDS[top], hi: null, frac: 1 });
   });
   it('eşik geçilmezse tek dilim, önceki puandan yenisine', () => {
-    const s = guildBarSegments(10, 30, 0);
+    const s = guildBarSegments(15, 45, 0);
     expect(s).toHaveLength(1);
     expect(s[0].from).toBeCloseTo(0.25);
     expect(s[0].to).toBeCloseTo(0.75);
   });
   it('eşik geçilince bar dolar ve yeni aralıkta baştan başlar', () => {
-    const s = guildBarSegments(30, 55, 0);
+    const s = guildBarSegments(45, 75, 0);
     expect(s).toHaveLength(2);
-    expect(s[0]).toMatchObject({ rank: 0, lo: 0, hi: 40, to: 1 });
-    expect(s[1]).toMatchObject({ rank: 1, lo: 40, hi: 100, from: 0 });
-    expect(s[1].to).toBeCloseTo(15 / 60);
+    expect(s[0]).toMatchObject({ rank: 0, lo: 0, hi: 60, to: 1 });
+    expect(s[1]).toMatchObject({ rank: 1, lo: 60, hi: 150, from: 0 });
+    expect(s[1].to).toBeCloseTo(15 / 90);
   });
   it('terfisi yapılmamış (puanı zaten eşiğin üstünde) oyuncuda bar önce dolar', () => {
-    const s = guildBarSegments(45, 50, 0);
+    const s = guildBarSegments(65, 70, 0);
     expect(s[0]).toMatchObject({ from: 1, to: 1 });
-    expect(s[1].from).toBeCloseTo(5 / 60);
+    expect(s[1].from).toBeCloseTo(5 / 90);
   });
 });
 

@@ -233,17 +233,18 @@ import { parseSubRank } from '../src/core/ranks';
 describe('Lonca kartı etiketi: mutlak puan / sonraki eşik (B6)', () => {
   const R = (s: string) => parseSubRank(s);
   it('örnekler; çubuğun dolum oranı aynı', () => {
-    expect(guildBarLabel(0, R('G-'))).toBe('0 / 40');
-    expect(guildBarLabel(39, R('G-'))).toBe('39 / 40');
-    expect(guildBarLabel(40, R('G'))).toBe('40 / 100');
-    expect(gbar6(40, R('G')).frac).toBe(0);
-    expect(guildBarLabel(70, R('G'))).toBe('70 / 100');
-    expect(gbar6(70, R('G')).frac).toBeCloseTo(0.5);
-    expect(guildBarLabel(80, R('G'))).toBe('80 / 100');
-    expect(gbar6(80, R('G')).frac).toBeCloseTo(2 / 3);
-    expect(guildBarLabel(100, R('G+'))).toBe('100 / 180');
-    expect(guildBarLabel(200, R('F-'))).toBe('200 / 300');
-    expect(guildBarLabel(150000, R('X-'))).toBe('150000 / 220000');
+    // 0.11.0 (C15): yeni eşikler
+    expect(guildBarLabel(0, R('G-'))).toBe('0 / 60');
+    expect(guildBarLabel(59, R('G-'))).toBe('59 / 60');
+    expect(guildBarLabel(60, R('G'))).toBe('60 / 150');
+    expect(gbar6(60, R('G')).frac).toBe(0);
+    expect(guildBarLabel(105, R('G'))).toBe('105 / 150');
+    expect(gbar6(105, R('G')).frac).toBeCloseTo(0.5);
+    expect(guildBarLabel(120, R('G'))).toBe('120 / 150');
+    expect(gbar6(120, R('G')).frac).toBeCloseTo(2 / 3);
+    expect(guildBarLabel(150, R('G+'))).toBe('150 / 300');
+    expect(guildBarLabel(320, R('F-'))).toBe('320 / 500');
+    expect(guildBarLabel(170000, R('X-'))).toBe('170000 / 250000');
     expect(guildBarLabel(999999, R('X'))).toBe('En yüksek rütbe');
   });
 });
@@ -518,8 +519,9 @@ describe('Ansiklopedi (B15)', () => {
     expect(a.rows.find((r) => r[0] === 'İlişki')![1]).toBe('Sana ısınıyor');
     expect(a.notes).toContain('Sana iş, yatak ve bir gömlek verdi.');
     expect(a.rows.some((r) => r[0] === 'Satar')).toBe(true);
-    codexAppraisePerson(c, 'bertram', 'Han · akşam', 2);
-    const b = personCard(c, 'bertram', { affinity: 0, flags: {}, appraisalVisible: () => ({ rank: 'E (emekli)', level: '9', title: 'Kurt Sürüsü Avcısı', trait: '???' }) });
+    // 0.11.0 (C13): kart, Appraisal anının kaydını gösterir (kullanılan rütbe: burada X+, her şey okunur)
+    codexAppraisePerson(c, 'bertram', 'Han · akşam', 2, 26);
+    const b = personCard(c, 'bertram', { affinity: 0, flags: {} });
     expect(b.rows.find((r) => r[0] === 'Level')![1]).toBe('9');
     expect(relationText(-4)).toBe('Senden hoşlanmıyor');
   });

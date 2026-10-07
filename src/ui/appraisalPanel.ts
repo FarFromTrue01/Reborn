@@ -195,11 +195,12 @@ export function buildAppraisalPanel(scene: Phaser.Scene, c: any, npc: NpcDef | n
     ['age', 'Yaş', v.identity ? (c.age === null || c.age === undefined ? '—' : String(c.age)) : Q],
   ];
   if (!creature || titles.length) idCells.push(['title', 'Title', titleVal]);
-  // B21: NPC'lerin küçük trait'leri Appraisal farkı yeterliyse görünür, değilse "???" (Joseph'in kendi kartında yok:
-  // Divine Paladin yalnızca Status'ta)
-  if (npc && !opts.self) {
+  // B21: NPC'lerin küçük trait'leri Appraisal farkı yeterliyse görünür (Joseph'in kendi kartında yok: Divine Paladin
+  // yalnızca Status'ta). 0.11.0 (C14): görülemiyorsa satır hiç çıkmaz ("???" yok); yaratıklarda trait satırı yok.
+  // Kimlik kutuları kalanlara göre yeniden dizilir.
+  if (npc && !opts.self && v.traits) {
     const tr: string | undefined = c.traits?.[0];
-    idCells.push(['traits', 'Trait', v.traits ? (tr ? `${TRAIT_NAMES[tr]?.name ?? tr} (${TRAIT_NAMES[tr]?.rank ?? '?'})` : 'Yok') : Q]);
+    idCells.push(['traits', 'Trait', tr ? `${TRAIT_NAMES[tr]?.name ?? tr} (${TRAIT_NAMES[tr]?.rank ?? '?'})` : 'Yok']);
   }
   const iw = (RW - (idCells.length - 1) * 8) / idCells.length;
   idCells.forEach(([ic, lab, val], i) => tile(RX + i * (iw + 8), ry, iw, 50, ic, lab, val));

@@ -23,6 +23,14 @@ export function toast(text: string, kind: ToastKind = 'info', icon?: string) {
   G.events.emit('toast', { text, kind, icon });
 }
 
+/**
+ * C12 (0.11.0): Sistem Teklifi öğreticisi açık mı? İlk kez Level 1 olup SP alınca bir kerelik, isteğe bağlı amaç;
+ * teklif kullanılınca (tut_offer) biter.
+ */
+export function offerTutorialActive(): boolean {
+  return G.p.level >= 1 && G.p.sp > 0 && !G.flag('tut_offer');
+}
+
 /** Mavi sistem paneli. */
 export function sysmsg(title: string, lines: string[] = [], opts: { sound?: string; big?: boolean } = {}) {
   G.events.emit('sysmsg', { title, lines, ...opts });

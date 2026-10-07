@@ -15,7 +15,7 @@ import { fmtExp, fmtHp } from '../ui/format';
 import { prestigeLabel, itemPrestige } from '../core/prestige';
 import { pointsToNext, RANK_THRESHOLDS, levelRequirement, examRequired, guildBar, guildBarLabel } from '../core/guild';
 import { daysLeft, CITY_NAMES } from '../core/cards';
-import { ScrollList, panelChoice, confirmBox } from '../ui/panels';
+import { ScrollList, panelChoice, confirmBox, infoBox } from '../ui/panels';
 import { buildSettings } from '../ui/settingsPanel';
 import { itemLabel, itemEffectsText } from '../ui/format';
 import { STAT_KEYS, expToNext, STAT_POINTS_PER_LEVEL, strDamageMult } from '../core/formulas';
@@ -26,7 +26,7 @@ import { SKILLS, RARITY_NAMES, TECHNIQUES } from '../data/skills';
 import { TITLES, TRAIT_NAMES } from '../data/titles';
 import { ITEMS } from '../data/items';
 import { monsterIconKey } from '../ui/portraits';
-import { renderCodexTab } from '../ui/codexTab';
+import { renderCodexTab, codexBadgeCount } from '../ui/codexTab';
 import { showDivineInfo } from '../ui/traitInfo';
 import type { MapMarker, MarkerKind } from '../world/mapMarkers';
 import { EQUIP_SLOTS, EQUIP_SLOT_NAMES, type EquipSlot } from '../core/types';
@@ -198,6 +198,22 @@ export class MenuScene extends Phaser.Scene {
     for (const [t] of TABS) {
       const b = this.children.getByName('tab_' + t) as Button;
       if (b) b.setAlpha(t === this.tab ? 1 : 0.62);
+    }
+    // C13: Ansiklopedi düğmesinde kırmızı işaretli kayıt sayısı
+    const cb = this.children.getByName('tab_codex') as Button | null;
+    if (cb) {
+      (cb.getByName('codex_new') as Phaser.GameObjects.Container | null)?.destroy();
+      const n = codexBadgeCount();
+      if (n) {
+        const m = this.add.container(cb.w / 2 - 16, -cb.h / 2 + 10).setName('codex_new');
+        const g = this.add.graphics();
+        g.fillStyle(0xd02a2a, 1);
+        g.fillCircle(0, 0, 11);
+        g.lineStyle(1.5, 0xffd0c0, 1);
+        g.strokeCircle(0, 0, 11);
+        m.add([g, txt(this, 0, 0, String(n), { size: 12, bold: true, color: '#ffffff' }).setOrigin(0.5)]);
+        cb.add(m);
+      }
     }
     this.content.removeAll(true);
     this.invDetail = null;
@@ -521,6 +537,16 @@ export class MenuScene extends Phaser.Scene {
       if (p.sp > 0) {
         const b = new Button(this, 170, ry + 26, `Sistem Teklifi (SP: ${p.sp})`, () => this.systemOffer(), { w: 300, h: 48, style: 'blue', size: 16 });
         b.setName('offer_btn');
+        // C12: öğretici sürerken düğme vurgulanır (parlayan çerçeve)
+        if (R.offerTutorialActive()) {
+          const hl = this.add.graphics();
+          hl.lineStyle(3, 0xbfe4ff, 1);
+          hl.strokeRoundedRect(170 - 156, ry + 26 - 30, 312, 60, 10);
+          hl.fillStyle(0x7cc8ff, 0.12);
+          hl.fillRoundedRect(170 - 156, ry + 26 - 30, 312, 60, 10);
+          inner.add(hl);
+          this.tweens.add({ targets: hl, alpha: 0.25, duration: 650, yoyo: true, repeat: -1 });
+        }
         inner.add(b);
       }
       y += ch + gap;
@@ -762,6 +788,16 @@ export class MenuScene extends Phaser.Scene {
       Sound.sfx('error');
       return;
     }
+    // C12: ilk açılışta kısa sistem metni (1/2/3 SP, kart başına nadirlik, haftada bir skill)
+    if (!G.flag('offer_intro')) {
+      G.setFlag('offer_intro');
+      await infoBox(this, 'SİSTEM TEKLİFİ', [
+        'Sistem, harcadığın SP kadar skill kartı açar: 1, 2 ya da 3 kart.',
+        'Her kartın nadirliği ayrı çekilir; çok SP harcamak nadir kart şansını artırır.',
+        'Kartlardan birini seçersin. Seçmezsen SP geri gelmez.',
+        'Haftada bir yeni skill: teklif açmak bu haftanın hakkını kullanır.',
+      ]);
+    }
     const pct = (x: number) => `%${Math.round(x * 100)}`;
     const COL: Record<OfferSp, number> = { 1: 0xa0a0aa, 2: 0x4aa8ff, 3: 0xffcf4a };
     const sps: OfferSp[] = [1, 2, 3];
@@ -783,6 +819,8 @@ export class MenuScene extends Phaser.Scene {
     }
     p.sp -= sp;
     R.useWeeklyLearn();
+    // C12: teklif kullanıldı — öğretici biter
+    G.setFlag('tut_offer');
     const res = rollOfferCards(sp, p.skills.map((s) => s.id));
     p.sp += res.refund;
     G.scheduleSave();

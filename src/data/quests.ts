@@ -1,7 +1,7 @@
 // Görev tanımları (C2). Ana görevler "m_" ile başlar. Joseph G olana kadar her şey ana görevdir
 // (panodaki G görevleri dahil); yan görevler ve isteğe bağlı pano görevleri G olduktan sonra açılır.
 import type { QuestDef } from '../core/quests';
-import { rankupQuestId } from '../core/guild';
+import { rankupQuestId, RANK_THRESHOLDS } from '../core/guild';
 import { subRankToString, type SubRank } from '../core/ranks';
 import { SIDE_QUESTS } from './sidequests';
 
@@ -62,7 +62,7 @@ export const MAIN_QUESTS: QuestDef[] = [
   },
   {
     id: 'm_grank', kind: 'main', chapter: 2, title: 'G- Rütbe', giver: 'celeste',
-    desc: 'Pano açıldı. Celeste bana yalnızca G görevlerini gösteriyor. G rütbesine yükselmek için 40 Lonca Puanı lazım.',
+    desc: `Pano açıldı. Celeste bana yalnızca G görevlerini gösteriyor. G rütbesine yükselmek için ${RANK_THRESHOLDS[1]} Lonca Puanı lazım.`,
     objectives: [
       { type: 'custom', label: 'G görevi: Ahırdaki Fareler', target: 'g1_rats', where: W('barn_yard', 4) },
       { type: 'custom', label: 'G görevi: Şifacıya Ot', target: 'g2_herbs', where: W('forest_edge', 6) },
@@ -150,8 +150,8 @@ export const MAIN_QUESTS: QuestDef[] = [
   {
     // Kutlamadan sonra G rütbesine yetmeyen puan (0.6.0, nadir): panodan G ilanlarıyla tamamlanır.
     id: 'm_gpoints', kind: 'main', chapter: 2, title: 'G Rütbesi', giver: 'celeste',
-    desc: 'G eşiğine az kaldı. Panodaki G ilanlarıyla 40 Lonca Puanına ulaşmalıyım; Vera kutlamayı ona saklıyor.',
-    objectives: [{ type: 'custom', label: '40 Lonca Puanına ulaş (pano)', target: 'g_points', where: NPC('guild', 'celeste') }],
+    desc: `G eşiğine az kaldı. Panodaki G ilanlarıyla ${RANK_THRESHOLDS[1]} Lonca Puanına ulaşmalıyım; Vera kutlamayı ona saklıyor.`,
+    objectives: [{ type: 'custom', label: `${RANK_THRESHOLDS[1]} Lonca Puanına ulaş (pano)`, target: 'g_points', where: NPC('guild', 'celeste') }],
     reward: {},
   },
   {

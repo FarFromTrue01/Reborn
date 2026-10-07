@@ -6,7 +6,7 @@ import {
   questTargetOf, type QuestDef, type ObjectiveType, type QuestTarget, type QuestGuide,
 } from '../core/quests';
 import { questDef, rankupQuest } from '../data/quests';
-import { QUEST_POINTS, applyReward, applyPenalty, earnedRank, examRequired, riskText, isRankupQuest, boardDaysLeft } from '../core/guild';
+import { QUEST_POINTS, applyReward, applyPenalty, earnedRank, examRequired, riskText, isRankupQuest, boardDaysLeft, questPointsFor, questPointsLabel } from '../core/guild';
 import { activeQuests, questExp } from '../core/quests';
 import type { SubRank } from '../core/ranks';
 import { subRankToString } from '../core/ranks';
@@ -85,7 +85,10 @@ export const Q = {
     if (!startQuest(G.state.quests, def, G.state.time.day, !!dynamic)) return false;
     if (!silent) {
       const lines = [def.title, def.objectives[0]?.label ?? ''];
-      if (def.guild && def.rank) lines.push(`Rütbe ${def.rank} · ${QUEST_POINTS[def.rank]} Lonca Puanı${def.group ? ' (grup: yarısı)' : ''}`);
+      if (def.guild && def.rank) {
+        const pr = questPointsFor(def.reward.points ?? QUEST_POINTS[def.rank], def.rank, G.state.guild.member ? G.p.guildRank : null, !!def.group);
+        lines.push(`Rütbe ${def.rank} · ${questPointsLabel(pr)}${def.group ? ' (grup: yarısı)' : ''}`);
+      }
       R.sysmsg(def.kind === 'main' ? 'YENİ ANA GÖREV' : def.kind === 'board' ? 'PANO GÖREVİ ALINDI' : 'YENİ YAN GÖREV', lines, { sound: 'system' });
     }
     changed();
@@ -143,13 +146,15 @@ export const Q = {
     let toDebt = 0;
     let points = 0;
     if (def.guild && def.rank) {
-      const r = applyReward(G.state.guild, def.reward.points ?? QUEST_POINTS[def.rank], money, !!def.group);
+      // C15: rütbenin altındaki görevde puan indirimi (bir harf %25, iki ve daha fazla 0)
+      const r = applyReward(G.state.guild, def.reward.points ?? QUEST_POINTS[def.rank], money, !!def.group, def.rank, G.state.guild.member ? G.p.guildRank : null);
       paid = r.paid;
       toDebt = r.toDebt;
       points = r.points;
     }
     // Ödül animasyonu önce kuyruğa girsin: arkasından gelen "LEVEL ATLADIN" ve "YENİ ANA GÖREV: Terfi" sırayı bozmasın
-    const info: QuestDoneInfo = { title: def.title, kind: def.kind, money: paid, toDebt, points, pointsTotal: G.state.guild.points, rank: G.state.guild.member ? G.p.guildRank : null, items: def.reward.items ?? [], exp: null, text: def.reward.text };
+    const below = def.guild && def.rank && G.state.guild.member && G.p.guildRank !== null ? Math.max(0, Math.floor(G.p.guildRank / 3) - 'GFEDCBASX'.indexOf(def.rank)) : 0;
+    const info: QuestDoneInfo = { title: def.title, kind: def.kind, money: paid, toDebt, points, pointsTotal: G.state.guild.points, rank: G.state.guild.member ? G.p.guildRank : null, items: def.reward.items ?? [], exp: null, text: def.reward.text, guild: !!(def.guild && def.rank), pointsBelow: below };
     const expReward = questExp(def);
     if (expReward > 0) {
       // gainExp ile aynı hesap (çarpan dahil); sahne sonucu önceden bilsin, level bildirimi sahneden sonra gelsin
