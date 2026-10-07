@@ -1844,12 +1844,18 @@ export class Director {
       const c = await this.ui.choice([`${spot.name} antrenmanı yap (1 saat)`, 'Vazgeç']);
       if (c !== 0) return;
       this.ui.closeDialogue();
-      const perf = await new Promise<number>((resolve) => {
-        this.w.scene.launch('Minigame', { kind, done: resolve });
+      // C11: başarısızlıkta "Tekrar dene" ya da "Bırak"; günlük seans yalnızca başarıda sayılır, "Bırak" EXP vermez
+      const res = await new Promise<{ perf: number; won: boolean }>((resolve) => {
+        this.w.scene.launch('Minigame', { kind, allowQuit: true, done: (perf: number, won?: boolean) => resolve({ perf, won: !!won }) });
         this.w.scene.bringToTop('Minigame');
         this.w.paused = true;
       });
       this.w.paused = false;
+      const perf = res.perf;
+      if (!res.won) {
+        await this.think('Bugünlük bu kadar. Bir dahaki sefere daha iyi.');
+        return;
+      }
       this.advanceClock(60);
       const e = R.completeTraining(spot.divineExp, perf);
       G.p.stamina = Math.max(0, G.p.stamina - 30);

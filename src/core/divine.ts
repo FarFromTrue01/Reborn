@@ -57,14 +57,15 @@ export function isAwakeningLevel(level: number): boolean {
  * d = yaratığın leveli − Joseph'in NORMAL leveli.
  */
 export function challengeRate(d: number): number {
+  // 0.11.0 (C10): oranlar ÷3 civarı (Divine başlangıçta normal levelden hızlı ilerliyordu)
   if (d <= -3) return 0;
-  if (d === -2) return 0.003;
-  if (d === -1) return 0.008;
-  if (d === 0) return 0.02;
-  if (d === 1) return 0.04;
-  if (d === 2) return 0.08;
-  if (d === 3) return 0.15;
-  return 0.25;
+  if (d === -2) return 0.001;
+  if (d === -1) return 0.003;
+  if (d === 0) return 0.007;
+  if (d === 1) return 0.013;
+  if (d === 2) return 0.027;
+  if (d === 3) return 0.05;
+  return 0.083;
 }
 
 /** Divine levelle azalma: her 5 levelde ödül oranı yarıya iner. L = Joseph'in DIVINE leveli. */

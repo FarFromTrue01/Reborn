@@ -7,12 +7,17 @@ import { COLORS, FONT, txt, drawFrame, Button, fullScreenRect } from '../ui/kit'
 import { G } from '../game/G';
 import { ServeGame, serveDifficulty } from './serveGame';
 import { SERVE_LOSS_TEXT } from '../core/serve';
+import { LIFT_ZONE_FRAC, MINIGAME_GOAL, MISS_PENALTY_SEC, RUN_MAX_STEP, RUN_MIN_STEP, accuracy, minigameWon, runStepDelta, swingAccepted } from '../core/minigameRules';
 
 type Kind = 'chop' | 'lift' | 'run' | 'harvest' | 'serve';
 
 export class MinigameScene extends Phaser.Scene {
   kind: Kind = 'chop';
-  done!: (perf: number) => void;
+  done!: (perf: number, won?: boolean) => void;
+  /** C11: antrenmanda kaybedince "Bırak" da var (EXP yok); hasatta yalnızca "Tekrar dene". */
+  allowQuit = false;
+  /** C11: son basış (savuruş kilidi 0,4 sn). */
+  lastPressAt = -9;
   g!: Phaser.GameObjects.Graphics;
   info!: Phaser.GameObjects.Text;
   timeT!: Phaser.GameObjects.Text;
@@ -55,11 +60,12 @@ export class MinigameScene extends Phaser.Scene {
     super('Minigame');
   }
 
-  init(data: { kind: Kind; done: (p: number) => void; day?: number }) {
+  init(data: { kind: Kind; done: (p: number, won?: boolean) => void; day?: number; allowQuit?: boolean }) {
     this.resetState();
     this.serveDay = data.day ?? 1;
     this.kind = data.kind;
     this.done = data.done;
+    this.allowQuit = !!data.allowQuit;
     this.dur = data.kind === 'chop' ? 24 : data.kind === 'lift' ? 25 : data.kind === 'harvest' ? 22 : data.kind === 'serve' ? serveDifficulty(this.serveDay).limit : 30;
   }
 
@@ -90,6 +96,8 @@ export class MinigameScene extends Phaser.Scene {
     this.serve = null;
     this.serveDay = 1;
     this.loseScreen = null;
+    this.allowQuit = false;
+    this.lastPressAt = -9;
   }
 
   create() {
@@ -108,10 +116,10 @@ export class MinigameScene extends Phaser.Scene {
     const titles = { chop: 'Odun Kesme Kütüğü', lift: 'Taş Kaldırma', run: 'Koşu Parkuru', harvest: 'Hasat: Haldor\'un Buğdayı', serve: `Servis Koşturmacası · Gün ${this.serveDay}` };
     const helps = {
       serve: 'Tezgâhtan bira, güveç ya da ekmek al; süre bitmeden masaya götür. Kirli tabakları topla, bulaşığa bırak.',
-      harvest: 'Orak işareti yeşil alandan geçerken biç! Her temiz vuruş bir demet.',
-      chop: 'İbre yeşil alandan geçerken vur! Tam ortası en iyisi.',
-      lift: 'Basılı tut: taş kalkar. Bırak: iner. İbreyi altın bölgede tut.',
-      run: 'Sol ve Sağ butonlarına sırayla, düzenli bas. Ritmi koru!',
+      harvest: `Orak işareti yeşil alandan geçerken biç! ${MINIGAME_GOAL.harvest.sec} sn'de ${MINIGAME_GOAL.harvest.count} demet. Iska süreden 1 sn yer.`,
+      chop: `İbre yeşil alandan geçerken vur! ${MINIGAME_GOAL.chop.sec} sn'de ${MINIGAME_GOAL.chop.count} kütük. Iska süreden 1 sn yer.`,
+      lift: `Basılı tut: taş kalkar. Bırak: iner. İbreyi altın bölgede tut (sürenin en az %${Math.round(LIFT_ZONE_FRAC * 100)}'ı).`,
+      run: 'Sol ve Sağ butonlarına sırayla, düzenli bas. Çok hızlı basmak yavaşlatır! Süre bitmeden parkuru bitir.',
     };
     txt(this, W / 2, py + 26, titles[this.kind], { size: 26, font: FONT.title, color: COLORS.textGold }).setOrigin(0.5, 0);
     this.info = txt(this, W / 2, py + 70, helps[this.kind], { size: 17, color: COLORS.textDim, align: 'center', wrap: pw - 60 }).setOrigin(0.5, 0);
@@ -214,6 +222,10 @@ export class MinigameScene extends Phaser.Scene {
     if (!this.running) return;
     if (this.kind === 'chop' || this.kind === 'harvest') {
       if (!down) return;
+      // C11: savuruş sürerken (0,4 sn) yeni basış yok sayılır — tuşa basıp durmak işe yaramaz
+      const now = this.time.now / 1000;
+      if (!swingAccepted(this.lastPressAt, now)) return;
+      this.lastPressAt = now;
       this.attempts++;
       this.swingT = 0;
       const d = Math.abs(this.marker - this.zoneC);
@@ -234,9 +246,15 @@ export class MinigameScene extends Phaser.Scene {
             this.tweens.add({ targets: sh, scaleY: 0.2, alpha: 0.3, duration: 160, yoyo: true, hold: 600 });
           }
         });
+        if (this.logs >= MINIGAME_GOAL[this.kind].count) this.time.delayedCall(250, () => this.finish());
       } else {
+        // C11: ıska — kırmızı parlama ve süreden 1 sn
         Sound.sfx('miss');
-        this.flash(0xff5040);
+        this.flash(0xff5040, 0.3);
+        this.t = Math.min(this.dur, this.t + MISS_PENALTY_SEC);
+        const W = Display.uiW;
+        const pen = txt(this, W / 2 + 300, Display.uiH / 2 - 140, `−${MISS_PENALTY_SEC} sn`, { size: 22, bold: true, color: COLORS.textRed, stroke: true }).setOrigin(0.5).setDepth(10);
+        this.tweens.add({ targets: pen, y: pen.y - 30, alpha: 0, duration: 700, onComplete: () => pen.destroy() });
       }
     } else if (this.kind === 'lift') this.holding = down;
   }
@@ -245,23 +263,18 @@ export class MinigameScene extends Phaser.Scene {
     if (!this.running) return;
     const now = this.time.now / 1000;
     this.steps++;
-    if (side !== this.lastSide) {
-      const dt = now - this.lastStepT;
-      const good = dt > 0.12 && dt < 0.45;
-      if (good) this.goodSteps++;
-      this.speed = Math.min(1, this.speed + (good ? 0.12 : 0.05));
-      Sound.sfx('step', 0.8);
-    } else {
-      this.speed = Math.max(0, this.speed - 0.15);
-      Sound.sfx('error', 0.3);
-    }
+    // C11: ritimsiz (çok hızlı) basış hızı artırmaz, düşürür
+    const interval = now - this.lastStepT;
+    const delta = runStepDelta(side === this.lastSide, interval);
+    if (side !== this.lastSide && interval >= RUN_MIN_STEP && interval <= RUN_MAX_STEP) this.goodSteps++;
+    this.speed = Phaser.Math.Clamp(this.speed + delta, 0, 1);
+    Sound.sfx(delta > 0 ? 'step' : 'error', delta > 0 ? 0.8 : 0.3);
     this.lastSide = side;
     this.lastStepT = now;
   }
 
-  flash(color: number) {
-    const W = Display.uiW, H = Display.uiH;
-    const r = fullScreenRect(this, color, 0.15);
+  flash(color: number, alpha = 0.15) {
+    const r = fullScreenRect(this, color, alpha);
     this.tweens.add({ targets: r, alpha: 0, duration: 250, onComplete: () => r.destroy() });
   }
 
@@ -300,7 +313,7 @@ export class MinigameScene extends Phaser.Scene {
       g.fillStyle(0xffffff, 1);
       g.fillTriangle(bx + this.marker * bw - 10, by - 14, bx + this.marker * bw + 10, by - 14, bx + this.marker * bw, by + 2);
       g.fillRect(bx + this.marker * bw - 2, by, 4, 40);
-      this.info.setText(this.kind === 'harvest' ? `Biçilen demet: ${this.logs}` : `Kesilen kütük: ${this.logs}`);
+      this.info.setText(this.kind === 'harvest' ? `Demet: ${this.logs} / ${MINIGAME_GOAL.harvest.count}` : `Kütük: ${this.logs} / ${MINIGAME_GOAL.chop.count}`);
       if (this.swingT >= 0) {
         this.swingT += dt;
         const f = Math.min(5, Math.floor(this.swingT / 0.05));
@@ -329,7 +342,7 @@ export class MinigameScene extends Phaser.Scene {
       const feet = this.joe.y;
       if (this.prop) this.prop.setY(feet - 40 - this.needle * 110 + Math.sin(this.t * 30) * (this.holding ? 1.5 : 0));
       this.setJoeFrame(2, Math.min(6, 1 + Math.round(this.needle * 5)));
-      this.info.setText(`Bölgede: ${this.inZone.toFixed(1)} sn`);
+      this.info.setText(`Bölgede: ${this.inZone.toFixed(1)} / ${(this.dur * LIFT_ZONE_FRAC).toFixed(0)} sn`);
     } else {
       if (this.running) {
         this.speed = Math.max(0, this.speed - dt * 0.35);
@@ -396,18 +409,56 @@ export class MinigameScene extends Phaser.Scene {
     this.running = false;
     let perf = 0;
     if (this.serve) perf = this.serve.perf();
-    else if (this.kind === 'chop' || this.kind === 'harvest') perf = Math.min(1, this.hits / 14) * (this.attempts ? Math.min(1, 0.5 + this.logs / this.attempts / 2) : 0);
-    else if (this.kind === 'lift') perf = Math.min(1, this.inZone / (this.dur * 0.75));
+    else if (this.kind === 'chop' || this.kind === 'harvest') perf = Math.min(1, this.hits / 12) * (0.4 + 0.6 * accuracy(this.logs, this.attempts));
+    else if (this.kind === 'lift') perf = Math.min(1, this.inZone / (this.dur * 0.85));
     else perf = Math.min(1, this.dist) * 0.6 + (this.steps ? (this.goodSteps / this.steps) * 0.4 : 0);
     perf = Phaser.Math.Clamp(perf, 0, 1);
-    Sound.sfx(perf > 0.6 ? 'levelup' : 'skillup', 0.6);
+    const won = minigameWon(this.kind, { count: this.logs, inZone: this.inZone, dur: this.dur, dist: this.dist });
     const W = Display.uiW, H = Display.uiH;
-    const t = txt(this, W / 2, H / 2 + 100, `Performans: %${Math.round(perf * 100)}`, { size: 30, font: FONT.title, color: COLORS.textGold, stroke: true }).setOrigin(0.5);
+    if (!won) {
+      this.showLose();
+      return;
+    }
+    Sound.sfx(perf > 0.6 ? 'levelup' : 'skillup', 0.6);
+    const t = txt(this, W / 2, H / 2 + 100, `Başardın! Performans: %${Math.round(perf * 100)}`, { size: 30, font: FONT.title, color: COLORS.textGold, stroke: true }).setOrigin(0.5);
     t.setScale(0.5);
     this.tweens.add({ targets: t, scale: 1, duration: 300, ease: 'Back.Out' });
     this.time.delayedCall(1700, () => {
       this.scene.stop();
-      this.done(perf);
+      this.done(perf, true);
     });
+  }
+
+  /** C11: hedefe ulaşılamadı — "Kaybettin", "Tekrar dene" (antrenmanda ayrıca "Bırak": EXP yok, seans sayılmaz). */
+  private showLose() {
+    Sound.sfx('error', 0.7);
+    const W = Display.uiW, H = Display.uiH;
+    const pw = 540, ph = 260;
+    const px = (W - pw) / 2, py = (H - ph) / 2;
+    const c = this.add.container(0, 0).setDepth(30);
+    const dim = fullScreenRect(this, 0x000000, 0.55).setInteractive();
+    const fg = this.add.graphics();
+    drawFrame(fg, px, py, pw, ph);
+    c.add([dim, fg]);
+    c.add(txt(this, W / 2, py + 26, 'Kaybettin', { size: 36, font: FONT.title, color: COLORS.textRed }).setOrigin(0.5, 0));
+    const why = this.kind === 'harvest' ? `Süre bitti: ${this.logs} / ${MINIGAME_GOAL.harvest.count} demet.`
+      : this.kind === 'chop' ? `Süre bitti: ${this.logs} / ${MINIGAME_GOAL.chop.count} kütük.`
+      : this.kind === 'lift' ? `Taş bölgede ${this.inZone.toFixed(1)} sn kaldı; en az ${(this.dur * LIFT_ZONE_FRAC).toFixed(0)} sn gerekir.`
+      : `Süre bitti: parkurun %${Math.round(Math.min(1, this.dist) * 100)}'i.`;
+    c.add(txt(this, W / 2, py + 88, why, { size: 18, color: COLORS.text, align: 'center', wrap: pw - 60 }).setOrigin(0.5, 0));
+    c.add(txt(this, W / 2, py + 122, this.kind === 'harvest' ? 'Haldor ücreti ancak iş bitince öder.' : 'Antrenman yalnızca başarıda sayılır.', { size: 15, color: COLORS.textDim, align: 'center' }).setOrigin(0.5, 0));
+    const kind = this.kind, done = this.done, allowQuit = this.allowQuit, day = this.serveDay;
+    const retry = new Button(this, allowQuit ? W / 2 - 130 : W / 2, py + ph - 50, 'Tekrar dene', () => this.scene.restart({ kind, day, done, allowQuit }), { w: 230, h: 60, size: 22 });
+    retry.setName('mg_retry');
+    c.add(retry);
+    if (allowQuit) {
+      const quit = new Button(this, W / 2 + 130, py + ph - 50, 'Bırak', () => {
+        this.scene.stop();
+        done(0, false);
+      }, { w: 200, h: 60, size: 22, style: 'ghost' });
+      quit.setName('mg_quit');
+      c.add(quit);
+    }
+    this.loseScreen = c;
   }
 }

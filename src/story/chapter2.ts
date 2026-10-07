@@ -3,6 +3,8 @@
 // ertesi gün dostluk ve ilk ortak F görevi (otlaktaki fareler) → G rütbe (Terfi: Celeste o anda işler) → ilk kadeh →
 // kâhyanın kesesi → ikinci ortak F görevi (değirmen bodrumu) → 10 gümüş → veda → giriş kartı ve şehir manzarası.
 // Yan görevler ve pano ilanları ilk kadehten sonra açılır.
+import { nearestFree } from '../world/path';
+import { PARTY_DOOR_LINES, activePartyZone, leashStep, newLeash, partyDoorAllowed, zoneDistance } from '../core/partyZone';
 import Phaser from 'phaser';
 import { G } from '../game/G';
 import { Q } from '../game/questrt';
@@ -1340,6 +1342,7 @@ export class Chapter2 {
     if (this.tickT > 0) return;
     this.tickT = 0.5;
     if (!this.started() || this.w.cutscene) return;
+    this.partyTick(0.5);
     this.spawnQuestEnemies();
     const w = this.w;
     const a = w.player.actor;
@@ -1440,7 +1443,56 @@ export class Chapter2 {
       this.d.scene(async () => this.think('Önce şifacı. Lina\'nın nefesi zayıflıyor.'));
       return false;
     }
+    // C8 (0.11.0): yoldaşlarla birlikteyken yalnızca görevin gerektirdiği yerlere girilir; Vera sırayla bir replik
+    if (G.state.party.length && w.to) {
+      const z = activePartyZone((id) => Q.active(id));
+      if (z && !partyDoorAllowed(z.def, this.w.mapData.id, w.to)) {
+        const n = Number(G.flag('party_door_line') || 0);
+        G.setFlag('party_door_line', n + 1);
+        const vera = this.w.companion('vera');
+        const line = PARTY_DOOR_LINES[n % PARTY_DOOR_LINES.length];
+        if (vera) this.w.bubbleAt(vera.actor, line, 3);
+        else this.ui.toastInfo(line);
+        return false;
+      }
+    }
     return true;
+  }
+
+  private leash = newLeash();
+
+  /** C8: görev bölgesinin dışına çıkınca Vera uyarır; uzaklaşmaya devam edilirse grup rotaya döner. */
+  private partyTick(dt: number) {
+    const w = this.w;
+    const z = G.state.party.length ? activePartyZone((id) => Q.active(id)) : null;
+    if (!z || w.mapData.id !== 'world' || !w.companions.length) {
+      this.leash = newLeash();
+      return;
+    }
+    const a = w.player.actor;
+    const p = { x: a.x / TILE, y: a.y / TILE };
+    const { dist, nearest } = zoneDistance(z.def, w.mapData.points, p);
+    const r = leashStep(this.leash, dist, dt);
+    const vera = w.companion('vera');
+    if (r === 'warn') {
+      if (vera) w.bubbleAt(vera.actor, z.def.warn, 3.2);
+      else this.ui.toastInfo(z.def.warn);
+    } else if (r === 'return') {
+      this.d.scene(async () => {
+        await this.ui.curtain(1, 450);
+        const [tx, ty] = nearestFree(w.mapData.solid, w.mapData.w, w.mapData.h, Math.round(nearest.x), Math.round(nearest.y));
+        a.setPosition(tx * TILE + 16, ty * TILE + 22);
+        a.body2?.reset(a.x, a.y);
+        w.companions.forEach((c, i) => {
+          const [cx, cy] = nearestFree(w.mapData.solid, w.mapData.w, w.mapData.h, tx + (i ? 1 : -1), ty + 1);
+          c.actor.setPosition(cx * TILE + 16, cy * TILE + 22);
+          c.actor.body2.reset(c.actor.x, c.actor.y);
+        });
+        w.followPlayer();
+        await this.ui.curtain(0, 450);
+        await this.say('vera', z.def.back, 'kizgin');
+      });
+    }
   }
 
   /** Bu NPC bu haritada nerede olmalı? */

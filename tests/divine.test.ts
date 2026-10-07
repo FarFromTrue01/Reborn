@@ -77,14 +77,15 @@ describe('Divine EXP: öldürme', () => {
   it('Oran tablosu (d = yaratık leveli − normal level)', () => {
     expect(challengeRate(-5)).toBe(0);
     expect(challengeRate(-3)).toBe(0);
-    expect(challengeRate(-2)).toBe(0.003);
-    expect(challengeRate(-1)).toBe(0.008);
-    expect(challengeRate(0)).toBe(0.02);
-    expect(challengeRate(1)).toBe(0.04);
-    expect(challengeRate(2)).toBe(0.08);
-    expect(challengeRate(3)).toBe(0.15);
-    expect(challengeRate(4)).toBe(0.25);
-    expect(challengeRate(9)).toBe(0.25);
+    // 0.11.0 (C10): ÷3 civarı
+    expect(challengeRate(-2)).toBe(0.001);
+    expect(challengeRate(-1)).toBe(0.003);
+    expect(challengeRate(0)).toBe(0.007);
+    expect(challengeRate(1)).toBe(0.013);
+    expect(challengeRate(2)).toBe(0.027);
+    expect(challengeRate(3)).toBe(0.05);
+    expect(challengeRate(4)).toBe(0.083);
+    expect(challengeRate(9)).toBe(0.083);
   });
   it('Azalma 0.5^(L/5): her 5 divine levelde yarıya', () => {
     expect(challengeDecay(0)).toBe(1);
@@ -92,25 +93,25 @@ describe('Divine EXP: öldürme', () => {
     expect(challengeDecay(10)).toBeCloseTo(0.25);
   });
   it('EXP = oran × divineExpToNext(L) × azalma, boss ×3', () => {
-    expect(challengeExp(0, 0, 0)).toBeCloseTo(10);
-    expect(challengeExp(1, 0, 0)).toBeCloseTo(20);
-    expect(challengeExp(3, 0, 0, true)).toBeCloseTo(0.15 * 500 * 3);
-    expect(challengeExp(1, 1, 5)).toBeCloseTo(0.02 * 3000 * 0.5);
+    expect(challengeExp(0, 0, 0)).toBeCloseTo(3.5);
+    expect(challengeExp(1, 0, 0)).toBeCloseTo(6.5);
+    expect(challengeExp(3, 0, 0, true)).toBeCloseTo(0.05 * 500 * 3);
+    expect(challengeExp(1, 1, 5)).toBeCloseTo(0.007 * 3000 * 0.5);
   });
   it('d normal levelle, azalma divine levelle: ikisi karışmaz', () => {
     // Normal Lv2, Divine Lv0, yaratık Lv2 → d=0, azalma yok
-    expect(victoryDivineExp(2, 2, 0, false, 0)).toBe(10);
+    expect(victoryDivineExp(2, 2, 0, false, 0)).toBe(4);
     // Normal Lv0, Divine Lv2, yaratık Lv2 → d=+2, azalma 0.5^(2/5)
-    expect(victoryDivineExp(2, 0, 2, false, 0)).toBe(Math.round(0.08 * 1500 * 0.5 ** 0.4));
+    expect(victoryDivineExp(2, 0, 2, false, 0)).toBe(Math.round(0.027 * 1500 * 0.5 ** 0.4));
   });
-  it('Eş seviye avla level atlama: L0 50, L5 100, L10 197 öldürme', () => {
+  it('Eş seviye avla level atlama (0.11.0): L0 125, L5 273, L10 550 öldürme', () => {
     const kills = (l: number) => Math.ceil(divineExpToNext(l) / victoryDivineExp(0, 0, l, false, 0));
-    expect(kills(0)).toBe(50);
-    expect(kills(5)).toBe(100);
-    expect(kills(10)).toBe(197);
+    expect(kills(0)).toBe(125);
+    expect(kills(5)).toBe(273);
+    expect(kills(10)).toBe(550);
   });
   it('En az 1 EXP (oranı 0 olanlar hariç)', () => {
-    expect(victoryDivineExp(0, 2, 20, false, 0)).toBe(2); // %0,3 × 10500 × 1/16 ≈ 1,97
+    expect(victoryDivineExp(0, 2, 20, false, 0)).toBe(1); // %0,1 × 10500 × 1/16 ≈ 0,66 → en az 1
     expect(victoryDivineExp(0, 1, 40, false, 0)).toBe(1); // çok küçük → 1
     expect(victoryDivineExp(0, 3, 0, false, 0)).toBe(0); // d=−3 → gerçekten 0
     expect(victoryDivineExp(0, 9, 0, true, 5)).toBe(0);
@@ -119,8 +120,8 @@ describe('Divine EXP: öldürme', () => {
     expect(streakMultiplier(0)).toBe(1);
     expect(streakMultiplier(3)).toBeCloseTo(1.3);
     expect(streakMultiplier(12)).toBeCloseTo(1.5);
-    expect(victoryDivineExp(1, 0, 0, false, 2)).toBe(24);
-    expect(victoryDivineExp(1, 0, 0, true, 20)).toBe(90);
+    expect(victoryDivineExp(1, 0, 0, false, 2)).toBe(8);
+    expect(victoryDivineExp(1, 0, 0, true, 20)).toBe(29);
   });
   it('Seri 30 sn öldürmesiz kalınca sıfırlanır', () => {
     expect(STREAK_TIMEOUT_SEC).toBe(30);
@@ -137,15 +138,13 @@ describe('Divine EXP: antrenman', () => {
     expect(trainingExp([12, 25], 0.5)).toBe(19);
     expect(trainingExp([12, 25], 7)).toBe(25);
   });
-  it('Köyün üç antrenman noktası 12–25, divine levelden bağımsız', () => {
-    for (const id of ['train_chop', 'train_lift', 'train_run']) expect(TRAINING_SPOTS[id].divineExp).toEqual([12, 25]);
+  it('Köyün üç antrenman noktası 4–10 (0.11.0, C10), divine levelden bağımsız', () => {
+    for (const id of ['train_chop', 'train_lift', 'train_run']) expect(TRAINING_SPOTS[id].divineExp).toEqual([4, 10]);
   });
-  it('Köy antrenmanı eskiyen bir kaynak: L1 ≈ 8–9 gün, L3 adımı (1500) ≈ 25 gün', () => {
-    const perDay = 3 * trainingExp([12, 25], 0.5); // ortalama performansla 57/gün
-    expect(divineExpToNext(0) / perDay).toBeGreaterThan(7);
-    expect(divineExpToNext(0) / perDay).toBeLessThan(10);
-    expect(divineExpToNext(2) / perDay).toBeGreaterThan(22);
-    expect(divineExpToNext(2) / perDay).toBeLessThan(30);
+  it('Köy antrenmanı eskiyen bir kaynak: tek başına L1 ≈ 24 gün', () => {
+    const perDay = 3 * trainingExp([4, 10], 0.5); // ortalama performansla 21/gün
+    expect(divineExpToNext(0) / perDay).toBeGreaterThan(20);
+    expect(divineExpToNext(0) / perDay).toBeLessThan(30);
   });
   it('Level atlama ve awakening listesi', () => {
     const r = addDivineExp(0, 0, 500 + 1000 + 1500 + 10);

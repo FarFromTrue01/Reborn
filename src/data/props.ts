@@ -201,8 +201,9 @@ export interface TrainingSpot {
 }
 
 export const TRAINING_SPOTS: Record<string, TrainingSpot> = {
-  // Köyün antrenman alanı: kasıtlı olarak çabuk eskiyen bir kaynak (tek başına L1 ≈ 8 gün, L3 ≈ 25 gün).
-  train_chop: { name: 'Odun Kesme', minigame: 'chop', divineExp: [12, 25] },
-  train_lift: { name: 'Taş Kaldırma', minigame: 'lift', divineExp: [12, 25] },
-  train_run: { name: 'Koşu Parkuru', minigame: 'run', divineExp: [12, 25] },
+  // Köyün antrenman alanı: kasıtlı olarak çabuk eskiyen bir kaynak. 0.11.0 (C10): [12, 25] → [4, 10], performansa göre;
+  // günlük seans yalnızca başarıda sayılır (C11).
+  train_chop: { name: 'Odun Kesme', minigame: 'chop', divineExp: [4, 10] },
+  train_lift: { name: 'Taş Kaldırma', minigame: 'lift', divineExp: [4, 10] },
+  train_run: { name: 'Koşu Parkuru', minigame: 'run', divineExp: [4, 10] },
 };
