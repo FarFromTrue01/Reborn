@@ -1,4 +1,5 @@
 import {
+  UNARMED_DAMAGE,
   addStats, critChance, agiAttackSpeedMult, agiMoveMult, maxHP, maxMP, maxStamina, zeroStats, round1,
   luckyMissChance, dropChanceMult, spellAreaMult, agiDodgeCostMult, agiDodgeWindowMult, gatherDoubleChance, skillExpMult,
   statusDurationMult, STAT_KEYS, type Stats,
@@ -135,7 +136,7 @@ export function derive(c: CreatureData, divine?: DivineContext | null): Derived 
   // Silah
   const wid = c.equipment.weapon;
   const w = wid ? ITEMS[wid] : null;
-  const weaponDmg: [number, number] = w?.dmg ?? c.natural?.dmg ?? [1, 1];
+  const weaponDmg: [number, number] = w?.dmg ?? c.natural?.dmg ?? UNARMED_DAMAGE;
   const weaponName = w?.name ?? c.natural?.name ?? 'Yumruk';
   const wt = w?.weaponType ?? null;
   const wCrit = (fx.crit?.any ?? 0) + (wt ? fx.crit?.[wt] ?? 0 : 0);

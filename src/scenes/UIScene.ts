@@ -344,6 +344,26 @@ export class UIScene extends Phaser.Scene {
       });
       b.on('pointerup', () => b.setScale(1));
       b.on('pointerout', () => b.setScale(1));
+      if (key === 'heavy') {
+        // A6: Ağır butonu basılı tutulur (şarj), bırakınca ağır saldırı çıkar
+        b.removeAllListeners('pointerdown');
+        b.on('pointerdown', () => {
+          Sound.unlock();
+          if (this.dialogueOpen()) {
+            this.advanceDialogue();
+            return;
+          }
+          Input.held.add('heavy');
+          b.setScale(0.92);
+        });
+        const up = () => {
+          Input.held.delete('heavy');
+          b.setScale(1);
+        };
+        b.on('pointerup', up);
+        b.on('pointerout', up);
+        b.on('pointerupoutside', up);
+      }
       this.touch.add(b);
       this.touchButtons[key] = b;
       return b;

@@ -159,7 +159,10 @@ export function debuffDurationMult(adaptation: number): number {
 // ---------------------------------------------------------------- Işık barı
 
 export const LIGHT_MAX = 100;
-export const LIGHT_ON_HIT = 7;
+/** 0.11.0 (A10): normal vuruş 3 (eskiden 7); bar asıl kusursuz kaçış ve sersemletmeyle dolar. */
+export const LIGHT_ON_HIT = 3;
+/** Bir düşmanı sersemletmek (A10). */
+export const LIGHT_ON_STUN = 10;
 export const LIGHT_ON_DODGE = 5;
 export const LIGHT_ON_PERFECT_DODGE = 14;
 export const LIGHT_DECAY_PER_SEC = 2.5;

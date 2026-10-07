@@ -37,3 +37,11 @@ export function walkSetting(natural: number, setting: number | null): { max: num
 export function fmtSpeed(v: number): string {
   return r1(v).toFixed(1).replace('.', ',');
 }
+
+/**
+ * 0.11.0 (A8): düşmanların kovalama hızı tanımdaki hızın ×0,75'i (kare/sn). Saldırı atılması ve ürkek hayvanların
+ * kaçışı bu çarpanı almaz. Başlangıç Joseph'i (2,6 kare/sn) ilk bölgedeki yaratıklardan yavaş değil; kurt yürüyen
+ * Joseph'ten biraz hızlı, koşandan yavaş.
+ */
+export const CHASE_SPEED_MULT = 0.75;
+export const chaseSpeed = (defSpeed: number) => defSpeed * CHASE_SPEED_MULT;

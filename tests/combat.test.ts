@@ -1,43 +1,13 @@
-// Dövüş kuralları (0.4.0): saldırı iptali, mükemmel kaçış iadesi, köşeye sıkışan tavşan, koşu döngüsü.
+// Dövüş kuralları (0.4.0): mükemmel kaçış iadesi, köşeye sıkışan tavşan, koşu döngüsü.
 import { describe, it, expect } from 'vitest';
-import { canInterrupt, INTERRUPT_LOCKOUT_SEC, refundEvade, corneredStep, newCorneredState } from '../src/core/combat';
+import { refundEvade, corneredStep, newCorneredState } from '../src/core/combat';
 import { MONSTERS } from '../src/data/monsters';
 
-describe('Vuruşla saldırı iptali', () => {
-  const base = { state: 'windup', heavy: false, boss: false, sinceInterrupt: 99 };
-  it('Normal vuruş da hazırlıktaki saldırıyı keser', () => {
-    expect(canInterrupt(base)).toBe(true);
-    expect(canInterrupt({ ...base, heavy: true })).toBe(true);
-  });
-  it('Yalnızca windup: savurma (strike) ve diğer durumlar kesilmez', () => {
-    for (const state of ['strike', 'recover', 'chase', 'hurt', 'idle']) expect(canInterrupt({ ...base, state })).toBe(false);
-  });
-  it('Boss normal vuruşla kesilmez, ağır vuruşla kesilir', () => {
-    expect(canInterrupt({ ...base, boss: true })).toBe(false);
-    expect(canInterrupt({ ...base, boss: true, heavy: true })).toBe(true);
-  });
-  it('İptalden sonra 1,2 sn yeniden kesilemez', () => {
-    expect(INTERRUPT_LOCKOUT_SEC).toBe(1.2);
-    expect(canInterrupt({ ...base, sinceInterrupt: 0 })).toBe(false);
-    expect(canInterrupt({ ...base, sinceInterrupt: 1.19 })).toBe(false);
-    expect(canInterrupt({ ...base, sinceInterrupt: 1.2 })).toBe(true);
-  });
-  it('Yüksek saldırı hızıyla kilitleme yok: 0,1 sn arayla vurulan düşman yine saldırır', () => {
-    // Düşman: windup 0,5 sn, iptalde 0,25 sn hurt sonra yeniden windup. Oyuncu her 0,1 sn vuruyor.
-    let t = 0, since = 99, state = 'windup', stateT = 0, struck = false;
-    const dt = 0.01;
-    let nextHit = 0;
-    while (t < 5 && !struck) {
-      t += dt; since += dt; stateT += dt;
-      if (state === 'windup' && stateT >= 0.5) struck = true;
-      if (state === 'hurt' && stateT >= 0.25) { state = 'windup'; stateT = 0; }
-      if (t >= nextHit) {
-        nextHit += 0.1;
-        if (canInterrupt({ state, heavy: false, boss: false, sinceInterrupt: since })) { since = 0; state = 'hurt'; stateT = 0; }
-      }
-    }
-    expect(struck).toBe(true);
-    expect(t).toBeLessThan(2.5);
+describe('Vuruş saldırıyı kesmez (0.11.0, A1)', () => {
+  it('canInterrupt ve kilit süresi kalktı; hazırlığı yalnızca sersemleme bozar (bkz. g7combat)', async () => {
+    const mod: Record<string, unknown> = await import('../src/core/combat');
+    expect(mod.canInterrupt).toBeUndefined();
+    expect(mod.INTERRUPT_LOCKOUT_SEC).toBeUndefined();
   });
 });
 

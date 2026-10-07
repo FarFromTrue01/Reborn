@@ -265,6 +265,11 @@ export function applyDamage(hp: number, damage: number): number {
   return Math.max(0, Math.round((hp - damage) * 10) / 10);
 }
 
+/**
+ * Yumruğun taban hasarı. 0.11.0 (A9): L0 Joseph'te Divine Güç ×0,5 ile vuruş başı 0,5 — fare 3, sümüksü 6 vuruş.
+ * Talimattaki [0,5, 0,5] bu etkin değeri verir; taban 0,5 olsaydı vuruş 0,3'e yuvarlanır, fare 5 / sümüksü 10 vuruşta
+ * ölürdü (bkz. PLAN.md Kararlar). Eskiden derive bu sabiti kullanmıyordu (aynı değer elle yazılıydı).
+ */
 export const UNARMED_DAMAGE: [number, number] = [1, 1];
 
 /** Silah taban hasarı aralıkları (rütbeye göre). Yumruk hariç hepsi 0.3.x'in iki katı. */

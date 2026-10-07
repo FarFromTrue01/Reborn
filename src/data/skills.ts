@@ -43,7 +43,7 @@ const skills: SkillDef[] = [
       { at: 'D-', passive: { dodgeWindowPct: 0.35, dodgeCostPct: -0.25 }, note: 'Pencere +%35, maliyet -%25.' },
       { at: 'C-', passive: { perfectDodgeStamina: 0.05 }, note: 'Mükemmel kaçış max dayanıklılığın %5\'ini geri verir.' },
       { at: 'B-', passive: { dodgeWindowPct: 0.5, dodgeCostPct: -0.3 }, note: 'Pencere +%50, maliyet -%30.' },
-      { at: 'A-', passive: { critAfterPerfect: true }, note: 'Mükemmel kaçıştan sonraki ilk vuruş kesin kritik.' },
+      { at: 'A-', passive: { counterSkilled: true }, note: 'Karşı saldırı penceresi 0,6 → 1,0 sn ve karşı vuruş hasarı ×1,3.' },
       { at: 'S-', awakening: true, passive: { freeDodge: true }, note: 'Awakening: Rüzgâr Gibi. 6 sn\'de bir, bir kaçış bedava olur ve 0,8 sn kaçış beklemesini yok sayar.' },
       { at: 'X-', awakening: true, passive: { dodgeWindowPct: 1, dodgeCostPct: -0.5 }, note: 'Awakening: Dokunulmaz. Mükemmel kaçış penceresi ×2, maliyet -%50.' },
     ],

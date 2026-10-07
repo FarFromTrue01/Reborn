@@ -24,8 +24,9 @@ export const JOSEPH_TARGET_SEC = 2.5;
  * Hedef puanı (küçük = önce): uzaklık; kendisine saldıran −2; Joseph'in o an vurduğu düşman +6 (başka hedef
  * varsa ona gider, yoksa yine yardım eder).
  */
-export function companionTargetScore(distTiles: number, attacksMe: boolean, josephsTarget: boolean): number {
-  return distTiles + (attacksMe ? -2 : 0) + (josephsTarget ? 6 : 0);
+export function companionTargetScore(distTiles: number, attacksMe: boolean, josephsTarget: boolean, stunned = false): number {
+  // 0.11.0 (A11): sersemlemiş düşman öncelikli (açık verdiği anda vurulur)
+  return distTiles + (attacksMe ? -2 : 0) + (josephsTarget ? 6 : 0) + (stunned ? -8 : 0);
 }
 
 export interface CompanionDef {

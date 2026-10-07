@@ -5,6 +5,10 @@ import { windupOffset } from './combatFx';
 import { Actor, dirFromVec, type Dir } from './actor';
 import { MONSTERS, type MonsterDef, type MonsterBehavior } from '../data/monsters';
 import { corneredStep, newCorneredState } from '../core/combat';
+import { inTelegraph, telegraphDir, telegraphShape, type TelegraphShape } from '../core/telegraph';
+import { addStagger, newStagger, staggerCap, tickStagger, type StaggerState } from '../core/stagger';
+import { acquire, canStrike, clearBoss, isTurn, noteStrike, release, want, type AttackQueue } from '../core/attackQueue';
+import { CHASE_SPEED_MULT } from '../core/movement';
 import { createMonster } from '../core/monster';
 import { derive, type Derived } from '../core/creature';
 import type { CreatureData } from '../core/types';
@@ -14,9 +18,25 @@ import { Sound } from '../audio/audio';
 import type { Companion } from './companion';
 import { applyStatus, statusMods, tickStatuses, type Status } from '../core/status';
 
-export type EState = 'idle' | 'wander' | 'alert' | 'chase' | 'windup' | 'strike' | 'recover' | 'flee' | 'return' | 'hurt' | 'dead' | 'stunned';
+/** 'circle' (0.11.0, A4): saldırı sırasını bekler, hedefin 2–3 kare çevresinde dolaşır. 'stunned' (A3): sersem. */
+export type EState = 'idle' | 'wander' | 'alert' | 'chase' | 'circle' | 'windup' | 'strike' | 'recover' | 'flee' | 'return' | 'hurt' | 'dead' | 'stunned';
+
+/** Sırasını bekleyen düşmanın hedefe uzaklığı (kare) ve dolaşma hızı (kovalama hızına oran). */
+const CIRCLE_RADIUS = 2.5;
+const CIRCLE_SPEED = 0.45;
 
 let NEXT_ID = 1;
+
+/** Beş köşeli yıldız (sersemleme). */
+function starPoints(x: number, y: number, ro: number, ri: number): Phaser.Math.Vector2[] {
+  const pts: Phaser.Math.Vector2[] = [];
+  for (let i = 0; i < 10; i++) {
+    const r = i % 2 ? ri : ro;
+    const a = -Math.PI / 2 + (i * Math.PI) / 5;
+    pts.push(new Phaser.Math.Vector2(x + Math.cos(a) * r, y + Math.sin(a) * r));
+  }
+  return pts;
+}
 
 export class Enemy {
   uid = NEXT_ID++;
@@ -38,15 +58,23 @@ export class Enemy {
   barShowT = 0;
   cooldownT = 0;
   attackCount = 0;
-  /** Son saldırı iptalinden bu yana geçen süre (sn); core/combat canInterrupt. */
-  sinceInterrupt = 99;
+  /** 0.11.0 (A3): sendeleme barı (core/stagger). */
+  stagger: StaggerState = newStagger();
+  /** A2: hazırlık başında kilitlenen saldırı şekli (kırmızı alan = hasar alanı). */
+  shape: TelegraphShape | null = null;
+  /** A4: elinde saldırı hakkı olan sıra (hedefin sırası). */
+  token: AttackQueue | null = null;
+  /** Dolaşırken yön (+1 / −1) ve açı. */
+  orbitDir = Math.random() < 0.5 ? 1 : -1;
+  orbitAng: number | null = null;
+  /** Dolu bar parlaması (sn). */
+  staggerFlashT = 0;
   /** Ürkek hayvanın köşeye sıkışma sayacı (def.cornered). */
   corner = newCorneredState();
   heavyAttack = false;
   lastSeenT = 0;
   strikeHit = false;
   approachCounted = false;
-  stunT = 0;
   slowT = 0;
   lunge = new Phaser.Math.Vector2();
   hitThisSwing = false;
@@ -97,6 +125,14 @@ export class Enemy {
 
   setState(s: EState) {
     if (this.state === 'windup' && s !== 'windup') this.lean(0);
+    // A4: hak hazırlık başında alınır; saldırı bitince (recover sonu), ölünce, kaçınca ya da sersemleyince bırakılır.
+    // Saldırısını bitiren sıranın sonuna geçer; ölen/kaçan/eve dönen sıradan çıkar.
+    if (this.token && s !== 'windup' && s !== 'strike' && s !== 'recover') {
+      release(this.token, this.uid, this.w.nowSec(), s === 'chase' || s === 'circle');
+      this.token = null;
+    }
+    if (s !== 'windup' && s !== 'strike') this.shape = null;
+    if (s === 'dead' || s === 'return' || s === 'idle') this.w.leaveQueues(this);
     this.state = s;
     this.stateT = 0;
   }
@@ -108,16 +144,40 @@ export class Enemy {
     this.statuses = r.list;
     if (r.applied.kind === 'freeze' || r.applied.kind === 'stagger' || r.applied.kind === 'paralyze') {
       // hazırlanan saldırı bozulur
-      if (this.state === 'windup') {
-        this.telegraph.clear();
-        this.actor.tint(null);
-        this.icon.setText('');
-        this.setState('hurt');
-      }
+      if (this.state === 'windup') this.cancelWindup('hurt');
     }
     if (r.applied.kind === 'taunt') this.foe = null;
     if (r.applied.kind === 'fear' && this.state !== 'dead') this.setState('flee');
     return true;
+  }
+
+  /** Hazırlığı boz (sersemleme ya da durum etkisi): kırmızı alan kalkar, hak bırakılır. */
+  cancelWindup(next: EState) {
+    this.telegraph.clear();
+    this.actor.tint(null);
+    this.icon.setText('');
+    this.setState(next);
+  }
+
+  /** A3: bar doldu — sersemle (saldıramaz, yürümez; hazırlıktaysa saldırısı iptal). */
+  onStunned() {
+    if (this.state === 'windup' || this.state === 'strike') this.cancelWindup('stunned');
+    else this.setState('stunned');
+    this.actor.body2.setVelocity(0, 0);
+    this.staggerFlashT = 0.25;
+    this.actor.flash(0xffe066, 0.18);
+  }
+
+  /** Vuruşun sendeleme dolumu. Sersemlediyse true. */
+  addStaggerHit(amount: number): boolean {
+    if (!this.alive) return false;
+    if (!addStagger(this.stagger, amount, staggerCap(this.def.id), !!this.def.boss)) return false;
+    this.onStunned();
+    return true;
+  }
+
+  get stunned(): boolean {
+    return this.stagger.stunT > 0;
   }
 
   get frozenNow(): boolean {
@@ -156,10 +216,23 @@ export class Enemy {
     a.tickFlash(dt);
     this.stateT += dt;
     this.cooldownT -= dt;
-    this.sinceInterrupt += dt;
+    this.staggerFlashT -= dt;
     const body = a.body2;
     if (this.state === 'dead') {
       body.setVelocity(0, 0);
+      return;
+    }
+    // A3: sendeleme barı boşalır; sersemleme: saldıramaz, yürümez, hafifçe yalpalar
+    if (tickStagger(this.stagger, dt)) {
+      a.setAngle(0);
+      if (this.state === 'stunned') this.setState(this.aware ? 'chase' : 'idle');
+    }
+    if (this.state === 'stunned' || this.stunned) {
+      if (this.state !== 'stunned') this.setState('stunned');
+      body.setVelocity(0, 0);
+      a.play('idle');
+      a.setAngle(Math.sin(this.stateT * 9) * 7);
+      this.drawUI();
       return;
     }
     const p = this.w.player;
@@ -181,6 +254,8 @@ export class Enemy {
     }
     this.drawStatus(mods);
     const speed = this.def.speed * TILE * (this.slowT > 0 ? 0.5 : 1) * mods.speed;
+    // A8: kovalama hızı def.speed × 0,75 (atılma ve ürkek hayvanın kaçışı değişmez)
+    const chaseSpeed = speed * CHASE_SPEED_MULT;
     this.slowT -= dt;
     if (!mods.canAct) {
       body.setVelocity(0, 0);
@@ -194,12 +269,6 @@ export class Enemy {
     // durduramaz: saldırı hızı ne kadar yüksek olursa olsun sık vurarak kilitlenemez.
     const knocked = a.kb.lengthSq() > 1;
     const frozen = a.frozenT > 0;
-    if (this.stunT > 0) {
-      this.stunT -= dt;
-      body.setVelocity(0, 0);
-      this.drawUI();
-      return;
-    }
 
     const playerOk = !p.dead && !this.w.cutscene;
     const vis = playerOk && !p.hidden ? this.canSee(pd.x, pd.y, p.d.detectionMult * (p.running ? 1.35 : 1) * (p.sneaking ? 0.7 : 1)) : { see: false, dist: 99, behind: false };
@@ -231,7 +300,7 @@ export class Enemy {
     // C4: hedef seçimi — Joseph ya da yakındaki bir yoldaş (Joseph'e hafif öncelik)
     if (this.aware) {
       this.foeT -= dt;
-      if (this.foeT <= 0 && this.state !== 'windup' && this.state !== 'strike') {
+      if (this.foeT <= 0 && this.state !== 'windup' && this.state !== 'strike' && this.state !== 'recover') {
         this.foeT = 0.6;
         this.pickFoe(playerOk);
       }
@@ -266,32 +335,45 @@ export class Enemy {
         }
         break;
       }
-      case 'chase': {
+      case 'chase':
+      case 'circle': {
         if ((!playerOk && !this.foe) || (!this.foe && this.lastSeenT > 4 && distP > 6) || Math.hypot(this.x - this.home.x, this.y - this.home.y) > 16 * TILE) {
           this.aware = false;
           this.awareness = 0.3;
           this.setState('return');
           break;
         }
+        // A4: saldırı sırası — sırası gelmeyen hedefin çevresinde dolaşır, hedefe dönük durur
+        const q = this.w.attackQueue(this.foe);
+        const boss = !!this.def.boss;
+        const now = this.w.nowSec();
+        want(q, this.uid, distP, now);
+        const turn = isTurn(q, this.uid, this.w.queueLimit(), now, boss);
+        if (!turn) {
+          if (this.state !== 'circle') this.setState('circle');
+          this.circleAround(fp, toP, distP, chaseSpeed, dt);
+          break;
+        }
+        if (this.state === 'circle') this.setState('chase');
         if (this.def.behavior === 'caster') {
           // mesafeyi koru
           if (distP < 2.8) {
-            const away = toP.clone().normalize().scale(-speed);
+            const away = toP.clone().normalize().scale(-chaseSpeed);
             body.setVelocity(away.x, away.y);
             a.face(dirFromVec(toP.x, toP.y));
             a.play('walk');
           } else if (distP > this.def.attackRange) {
-            this.moveTo({ x: fp.x, y: fp.y }, speed, dt);
+            this.moveTo({ x: fp.x, y: fp.y }, chaseSpeed, dt);
           } else {
             body.setVelocity(0, 0);
             a.face(dirFromVec(toP.x, toP.y));
             a.play('idle');
           }
-          if (distP <= this.def.attackRange + 0.5 && this.cooldownT <= 0) this.startWindup();
+          if (distP <= this.def.attackRange + 0.5 && this.cooldownT <= 0 && acquire(q, this.uid, this.w.queueLimit(), now, boss)) this.startWindup(q);
           break;
         }
-        if (distP <= this.def.attackRange + 0.25 && this.cooldownT <= 0) {
-          this.startWindup();
+        if (distP <= this.def.attackRange + 0.25 && this.cooldownT <= 0 && acquire(q, this.uid, this.w.queueLimit(), now, boss)) {
+          this.startWindup(q);
           break;
         }
         // Sürü: hafif yanlara açıl
@@ -306,7 +388,7 @@ export class Enemy {
           body.setVelocity(0, 0);
           a.face(dirFromVec(toP.x, toP.y));
           a.play('idle');
-        } else this.moveTo(tgt, speed * (distP > 3 ? 1 : 0.85), dt, this.def.id === 'wolf' && distP > 3 ? 'run' : 'walk');
+        } else this.moveTo(tgt, chaseSpeed * (distP > 3 ? 1 : 0.85), dt, this.def.id === 'wolf' && distP > 3 ? 'run' : 'walk');
         break;
       }
       case 'windup': {
@@ -315,10 +397,12 @@ export class Enemy {
         // uyarı: parlama
         const pulse = Math.sin(this.stateT * 30) > 0;
         a.tint(pulse ? 0xff6050 : null);
-        this.drawTelegraph(this.stateT / wt);
+        this.drawTelegraph(Math.min(1, this.stateT / wt));
         // B23: geri çekilme pozu (saldırmadan önce yaylanır)
-        this.lean(windupOffset(this.stateT / wt));
-        if (this.stateT >= wt) {
+        this.lean(windupOffset(Math.min(1, this.stateT / wt)));
+        // A4: aynı hedefe başka bir düşman 0,5 sn içinde vurduysa hazırlık biraz uzar (saldırılar okunabilir kalsın)
+        if (this.stateT >= wt && (!this.token || canStrike(this.token, this.uid, this.w.nowSec()))) {
+          if (this.token) noteStrike(this.token, this.uid, this.w.nowSec());
           a.tint(null);
           this.lean(0);
           this.telegraph.clear();
@@ -365,6 +449,7 @@ export class Enemy {
         break;
       }
       case 'return': {
+        clearBoss(this.w.attackQueue(this.foe), this.uid);
         if (this.moveTo(this.home, speed * 0.7, dt) || this.stateT > 12) {
           this.setState('idle');
           // eve dönünce iyileş
@@ -444,11 +529,16 @@ export class Enemy {
     }
   }
 
-  startWindup() {
+  /** A2: hazırlık başında saldırının yönü ve şekli kilitlenir (hedefin o anki konumuna doğru). A4: hak alınmıştır. */
+  startWindup(q: AttackQueue | null = null) {
     this.setState('windup');
+    this.token = q;
     this.attackCount++;
     this.heavyAttack = this.def.behavior === 'boss' && this.attackCount % 3 === 0;
     const pd = this.foePos();
+    this.shape = telegraphShape({
+      x: this.x, y: this.y, tx: pd.x, ty: pd.y, attackRange: this.def.attackRange, heavy: this.heavyAttack, attack: this.def.attack, tile: TILE,
+    });
     this.actor.face(dirFromVec(pd.x - this.x, pd.y - this.y));
     this.actor.play('idle');
     this.icon.setText('!').setColor('#ff3020');
@@ -456,12 +546,13 @@ export class Enemy {
     if (!this.foe) this.w.registerIncoming(this, this.def.windup * (this.heavyAttack ? 1.5 : 1));
   }
 
+  /** Saldırı: hedefe yeniden dönmez; atılma ve mermi hazırlık başında kilitlenen yönde. */
   strike() {
     this.setState('strike');
     this.hitThisSwing = false;
-    const pd = this.foePos();
-    const v = new Phaser.Math.Vector2(pd.x - this.x, pd.y - this.y).normalize();
-    this.actor.face(dirFromVec(v.x, v.y));
+    const dv = this.shape ? telegraphDir(this.shape) : { x: this.facingVec()[0], y: this.facingVec()[1] };
+    const v = new Phaser.Math.Vector2(dv.x, dv.y);
+    if (this.shape?.kind !== 'circle') this.actor.face(dirFromVec(v.x, v.y));
     if (this.def.attack === 'bolt') {
       this.actor.play('cast', { loop: false, speed: 1.4 });
       this.w.spawnBolt(this, v);
@@ -469,9 +560,52 @@ export class Enemy {
       return;
     }
     this.lunge.copy(v).scale(TILE * (this.heavyAttack ? 1.5 : 2.4));
+    if (this.shape?.kind === 'circle') this.lunge.set(0, 0);
     this.actor.play(this.actor.kind === 'lpc' ? 'slash' : 'attack', { loop: false, speed: 1.6, restart: true });
     Sound.sfx(this.def.id === 'wolf' || this.def.id === 'rat' ? 'bite' : 'swing', 0.6);
     this.icon.setText('');
+  }
+
+  /** A2: hasar alanı kırmızı alanla aynı saf fonksiyon (Joseph/yoldaşın ayaklarındaki gövde merkezi). */
+  strikeHits(p: { x: number; y: number }): boolean {
+    return !!this.shape && inTelegraph(this.shape, p);
+  }
+
+  /** A4: sırasını beklerken hedefin 2–3 kare çevresinde yavaşça dolaş, hedefe dönük dur, araya girme. */
+  circleAround(fp: { x: number; y: number }, toP: Phaser.Math.Vector2, distP: number, chaseSpeed: number, dt: number) {
+    const body = this.actor.body2;
+    const ang = Math.atan2(this.y - fp.y, this.x - fp.x);
+    if (this.orbitAng === null) this.orbitAng = ang;
+    // yavaşça yan yan: açı saniyede ~0,25 rad ilerler; yarıçap 2–3 kare
+    this.orbitAng += this.orbitDir * 0.25 * dt;
+    if (Math.abs(Phaser.Math.Angle.Wrap(this.orbitAng - ang)) > 0.8) this.orbitAng = ang + this.orbitDir * 0.3;
+    const r = CIRCLE_RADIUS * TILE;
+    const tx = fp.x + Math.cos(this.orbitAng) * r, ty = fp.y + Math.sin(this.orbitAng) * r;
+    const dx = tx - this.x, dy = ty - this.y;
+    const d = Math.hypot(dx, dy);
+    const sp = chaseSpeed * CIRCLE_SPEED * (distP < 2 ? 1.4 : 1);
+    if (d > 4) {
+      // ayrışma (moveTo ile aynı): diğer düşmanlara girmesin
+      let sx = 0, sy = 0;
+      for (const e of this.w.enemies) {
+        if (e === this || !e.alive) continue;
+        const ex = this.x - e.x, ey = this.y - e.y;
+        const ed = Math.hypot(ex, ey);
+        if (ed < 26 && ed > 0.1) {
+          sx += (ex / ed) * (26 - ed) * 3;
+          sy += (ey / ed) * (26 - ed) * 3;
+        }
+      }
+      body.setVelocity((dx / d) * sp + sx, (dy / d) * sp + sy);
+      this.actor.play('walk');
+      this.actor.animSpeed = 0.7;
+    } else {
+      body.setVelocity(0, 0);
+      this.actor.play('idle');
+    }
+    this.actor.face(dirFromVec(toP.x, toP.y));
+    // ara ara yön değiştir
+    if (Math.random() < dt * 0.15) this.orbitDir *= -1;
   }
 
   /** B23: görselleri bakış yönünün tersine kaydır (hazırlıkta geri çekilme); 0: yerine. */
@@ -485,31 +619,31 @@ export class Enemy {
     }
   }
 
+  /** A2: kırmızı alan hazırlık başındaki şekil (dönmez); hasar testi aynı şekli kullanır. */
   drawTelegraph(t: number) {
     const g = this.telegraph;
     g.clear();
-    const [fx, fy] = this.facingVec();
-    const r = (this.def.attackRange + 0.4) * TILE * (this.heavyAttack ? 1.7 : 1);
-    const a = Math.atan2(fy, fx);
+    const sh = this.shape;
+    if (!sh) return;
     // B23: vuracağı alan belirgin — dolgu, kenar çizgisi ve dolan çizgi
     g.fillStyle(0xff2a1a, 0.18 + 0.27 * t);
-    if (this.heavyAttack) {
-      g.fillCircle(this.x, this.y, r);
+    if (sh.kind === 'circle') {
+      g.fillCircle(sh.x, sh.y, sh.r);
       g.lineStyle(2, 0xff5040, 0.8);
-      g.strokeCircle(this.x, this.y, r * t);
-    } else if (this.def.attack === 'bolt') {
-      const pd = this.foePos();
+      g.strokeCircle(sh.x, sh.y, sh.r * t);
+    } else if (sh.kind === 'line') {
       g.lineStyle(2, 0xffa040, 0.3 + 0.5 * t);
-      g.lineBetween(this.x, this.y - 20, pd.x, pd.y - 16);
+      g.lineBetween(sh.x, sh.y - 20, sh.x + Math.cos(sh.angle) * sh.len, sh.y - 20 + Math.sin(sh.angle) * sh.len);
     } else {
-      g.slice(this.x, this.y, r, a - 0.9, a + 0.9, false);
+      const a = sh.angle;
+      g.slice(sh.x, sh.y, sh.r, a - sh.half, a + sh.half, false);
       g.fillPath();
       g.lineStyle(1.5, 0xff3020, 0.55 + 0.4 * t);
-      g.slice(this.x, this.y, r, a - 0.9, a + 0.9, false);
+      g.slice(sh.x, sh.y, sh.r, a - sh.half, a + sh.half, false);
       g.strokePath();
       g.lineStyle(2.5, 0xff8060, 0.85);
       g.beginPath();
-      g.arc(this.x, this.y, r * t, a - 0.9, a + 0.9);
+      g.arc(sh.x, sh.y, sh.r * t, a - sh.half, a + sh.half);
       g.strokePath();
     }
   }
@@ -591,6 +725,23 @@ export class Enemy {
       g.fillRect(a.x - w / 2, top, w, h);
       g.fillStyle(this.def.boss ? 0xff8a20 : 0xe03030, 1);
       g.fillRect(a.x - w / 2, top, w * f, h);
+      // A3: can barının altında ince sarı sendeleme çizgisi (dolu barda kısa parlama)
+      const st = this.stagger;
+      const sf = this.stunned ? 1 : Math.min(1, st.fill / staggerCap(this.def.id));
+      g.fillStyle(0x000000, 0.6);
+      g.fillRect(a.x - w / 2 - 1, top + h + 1, w + 2, 2 + 1);
+      g.fillStyle(this.staggerFlashT > 0 ? 0xffffff : this.stunned ? 0xffc030 : 0xf5d442, 1);
+      g.fillRect(a.x - w / 2, top + h + 1.5, w * sf, 1.5);
+    }
+    // A3: sersemlemede başın üstünde dönen yıldızlar
+    if (this.stunned && this.state !== 'dead') {
+      const cx = a.x, cy = top - 10;
+      for (let i = 0; i < 3; i++) {
+        const an = this.stateT * 5 + (i * Math.PI * 2) / 3;
+        const sx = cx + Math.cos(an) * 10, sy = cy + Math.sin(an) * 3.5;
+        g.fillStyle(0xffe066, 1);
+        g.fillPoints(starPoints(sx, sy, 3.6, 1.5), true);
+      }
     }
     if (this.state === 'dead') {
       g.clear();

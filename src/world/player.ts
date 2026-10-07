@@ -20,8 +20,13 @@ import { LIGHT_MAX, LIGHT_DECAY_PER_SEC } from '../core/divine';
 import { RUN_THRESHOLD } from '../core/stamina';
 import type { EvadeCost } from '../core/combat';
 import { applyStatus, statusMods, tickStatuses, scaledDuration, type Status } from '../core/status';
+import {
+  RHYTHM_STEPS, beginSwing, breakRhythm, endSwing, newRhythm, pressAttack, recovering, type RhythmState,
+  CHARGE_MOVE_MULT, HEAVY_STAMINA, cancelCharge, chargeRatio, chargeStep, newCharge, type ChargeState,
+} from '../core/rhythm';
 
-export type PState = 'free' | 'attack' | 'heavy' | 'dodge' | 'hurt' | 'dead' | 'cast' | 'locked' | 'dash' | 'draw';
+/** 'charge' (0.11.0, A6): ağır saldırı için basılı tutuluyor. */
+export type PState = 'free' | 'attack' | 'heavy' | 'dodge' | 'hurt' | 'dead' | 'cast' | 'locked' | 'dash' | 'draw' | 'charge';
 
 // kare/saniye (1.0x insanda); yoldaşlar da kullanır. Joseph'in ⅔ yürüme çarpanı core/movement'ta (0.8.0).
 export { BASE_SPEED } from '../core/movement';
@@ -131,9 +136,12 @@ export class Player {
   critNext = false;
   /** Son bedava kaçış (Kaçınma S-: 6 sn'de bir). */
   freeDodgeAt = -99;
-  /** Kılıç kombosu: ardışık normal vuruş sayısı ve son vuruşun zamanı (Kılıç Ustalığı A-). */
-  combo = 0;
-  comboAt = -9;
+  /** 0.11.0 (A5): 3 vuruşluk ritim (eski combo/comboAt sayacı). Devam eden savuruşun adımı: swingStep. */
+  rhythm: RhythmState = newRhythm();
+  swingStep = 0;
+  /** A6: basılı tutulan ağır saldırının şarjı ve halkası. */
+  charge: ChargeState = newCharge();
+  chargeRing: Phaser.GameObjects.Graphics | null = null;
   /** Savaştan çıkınca hızlı yenilenme (İlk Yardım C-). */
   afterCombatT = 0;
   private wasInCombat = false;
@@ -364,9 +372,49 @@ export class Player {
   }
 
   setState(s: PState) {
+    // A5: vurulma, kaçış, ağır saldırı ve diğer her şey ritmi bozar (zincirleme savuruş dışında)
+    if (this.state === 'attack' && s !== 'attack') breakRhythm(this.rhythm);
+    // A6: vurulmak ya da kaçmak şarjı iptal eder (bedel ödenmez)
+    if (this.state === 'charge' && s !== 'charge') this.endCharge();
     this.state = s;
     this.stateT = 0;
     if (s !== 'attack' && s !== 'heavy') this.plan = null;
+  }
+
+  private endCharge() {
+    cancelCharge(this.charge);
+    this.chargeRing?.clear();
+  }
+
+  /** A6: şarj halkası (Joseph'in çevresinde dolan). */
+  private drawChargeRing() {
+    const a = this.actor;
+    const g = (this.chargeRing ??= this.w.add.graphics());
+    g.clear();
+    const k = chargeRatio(this.charge);
+    if (k <= 0) return;
+    g.setDepth(a.depth + 0.4);
+    const cx = a.x, cy = a.y - 14, r = 22;
+    g.lineStyle(3, 0x000000, 0.45);
+    g.strokeCircle(cx, cy, r);
+    const full = k >= 1;
+    g.lineStyle(full ? 3 : 2.5, full ? 0xffe28a : 0xffb040, full ? 0.6 + 0.4 * Math.abs(Math.sin(this.t * 14)) : 0.95);
+    g.beginPath();
+    g.arc(cx, cy, r, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * k);
+    g.strokePath();
+    if (full) {
+      g.lineStyle(1.5, 0xfff4c0, 0.5);
+      g.strokeCircle(cx, cy, r + 4);
+    }
+  }
+
+  /** A5: normal saldırı basışı — ritim kuralı (erken basış yok sayılır, pencerede tamponlanır). Yay ritmin dışında. */
+  private pressNormal() {
+    if (this.d.weaponType === 'bow') {
+      this.attackPressed(false);
+      return;
+    }
+    if (pressAttack(this.rhythm, this.t) === 'start') this.attackPressed(false);
   }
 
   weaponReach(): number {
@@ -495,8 +543,16 @@ export class Player {
       case 'free': {
         // eylemler
         if (Input.consume('dodge')) { this.tryDodge(); break; }
-        if (Input.consume('attack')) { this.attackPressed(false); break; }
-        if (Input.consume('heavy')) { this.attackPressed(true); break; }
+        // A5: 3. vuruştan sonra 0,3 sn toparlanma — yalnızca kaçış
+        if (recovering(this.rhythm, this.t)) {
+          Input.consume('attack');
+          body.setVelocity(0, 0);
+          if (!(this.sheath && this.posing)) a.play('idle');
+          break;
+        }
+        if (Input.consume('attack')) { this.pressNormal(); break; }
+        // A6: ağır saldırı basılı tutulur (şarj), bırakınca çıkar
+        if (Input.held.has('heavy') && !this.w.cutscene) { this.beginCharge(); break; }
         for (let i = 1; i <= 4; i++) if (Input.consume(('skill' + i) as any)) this.w.useSkillSlot(i - 1);
         for (let i = 1; i <= 3; i++) if (Input.consume(('div' + i) as any)) this.w.useDivineSlot(i - 1);
         if (Input.consume('interact')) this.w.interact();
@@ -539,6 +595,41 @@ export class Player {
           // sırta koyma/çekme sırasında gövde spellcast karelerini oynatır (tickSheath)
           if (!(this.sheath && this.posing)) a.play('idle');
         }
+        break;
+      }
+      case 'charge': {
+        // A6: şarj — hareket ×0,4; vurulmak ya da kaçmak iptal eder; bırakınca doluysa ağır saldırı
+        if (Input.consume('dodge')) {
+          this.setState('free');
+          this.tryDodge();
+          break;
+        }
+        Input.consume('attack');
+        const r = chargeStep(this.charge, Input.held.has('heavy') && !this.w.cutscene, dt);
+        this.drawChargeRing();
+        if (r === 'fire') {
+          this.chargeRing?.clear();
+          this.setState('free');
+          this.releaseHeavy();
+          break;
+        }
+        if (r === 'fizzle') {
+          this.chargeRing?.clear();
+          this.setState('free');
+          break;
+        }
+        const walk = walkSetting(naturalWalk(d.moveSpeed), G.settings.walkSpeed);
+        const sp = MV_BASE * TILE * d.moveSpeed * JOSEPH_WALK_MULT * mlen * walk.mult * this.burden * statusMods(this.statuses).speed * CHARGE_MOVE_MULT;
+        if (mlen > 0.08) {
+          body.setVelocity((mx / Math.max(mlen, 0.001)) * sp, (my / Math.max(mlen, 0.001)) * sp);
+          a.face(dirFromVec(mx, my, a.dir));
+          a.play('walk');
+          a.animSpeed = 0.5;
+        } else {
+          body.setVelocity(0, 0);
+          if (!(this.sheath && this.posing)) a.play('idle');
+        }
+        if (Math.floor(this.stateT / 0.12) !== Math.floor((this.stateT - dt) / 0.12) && this.charge.t >= 0.5) this.w.fx.glow(a.x, a.y - 16, 0xffe28a, 24, 160);
         break;
       }
       case 'draw': {
@@ -702,19 +793,31 @@ export class Player {
     this.startAttack(heavy);
   }
 
-  startAttack(heavy: boolean) {
+  /** A6: şarj başlar (silah sırttaysa hızlıca çekilir). Bedel bırakınca ödenir. */
+  beginCharge() {
+    if (this.sheathed || (this.sheath && this.sheath.kind === 'stow')) this.beginSheath('draw', true);
+    this.setState('charge');
+    chargeStep(this.charge, true, 0);
+    this.sinceAttack = 0;
+    Sound.sfx('windup', 0.3);
+  }
+
+  /** A6: dolu şarj bırakıldı — ağır saldırı (×1,8 hasar, sendeleme 3, dayanıklılık 18 × indirimler). */
+  releaseHeavy() {
     const p = G.p;
-    if (heavy) {
-      // Kılıç Ustalığı G-: kılıçla saldırıların dayanıklılık maliyeti -%10
-      const wt = this.d.weaponType;
-      const cost = 18 * (1 + (this.d.fx.atkStamina?.any ?? 0) + (wt ? this.d.fx.atkStamina?.[wt] ?? 0 : 0));
-      if (p.stamina < cost) {
-        this.w.fx.number(this.actor.x, this.actor.y - 50, 'Yorgun!', 'miss');
-        return;
-      }
-      p.stamina = round2(p.stamina - cost);
-      this.staminaDelay = 0.8;
+    // Kılıç Ustalığı G-: kılıçla saldırıların dayanıklılık maliyeti -%10
+    const wt = this.d.weaponType;
+    const cost = HEAVY_STAMINA * (1 + (this.d.fx.atkStamina?.any ?? 0) + (wt ? this.d.fx.atkStamina?.[wt] ?? 0 : 0));
+    if (p.stamina < cost) {
+      this.w.fx.number(this.actor.x, this.actor.y - 50, 'Yorgun!', 'miss');
+      return;
     }
+    p.stamina = round2(p.stamina - cost);
+    this.staminaDelay = 0.8;
+    this.attackPressed(true);
+  }
+
+  startAttack(heavy: boolean) {
     if (this.sheathed || this.sheath) this.setSheathed(false);
     const aim = this.w.aimAssist(this.weaponReach());
     this.attackDir.copy(aim);
@@ -723,6 +826,13 @@ export class Player {
     // Savaş Lordu (Savaş Narası B-): naradan sonra saldırı hızı
     const haste = this.buffs.find((b) => b.id === 'shout_haste')?.amount ?? 0;
     this.attackDur = (base / (this.d.attackSpeed * (1 + haste))) * (heavy ? 1.7 : 1);
+    // A5: ritim — 1. ve 2. vuruş ×0,85, 3. vuruş ×1,35 (yay ve ağır saldırı ritmin dışında)
+    this.swingStep = 0;
+    if (!heavy && this.d.weaponType !== 'bow') {
+      this.swingStep = this.rhythm.next;
+      this.attackDur *= RHYTHM_STEPS[this.swingStep].dur;
+      beginSwing(this.rhythm, this.t, this.attackDur);
+    }
     // saldırınca Gölge bozulur (Hayalet: öldürürse geri gelir)
     this.hiddenBroke = this.hidden;
     this.hidden = false;
@@ -744,6 +854,8 @@ export class Player {
     const body = a.body2;
     const D = this.attackDur, t = this.stateT;
     const heavy = this.state === 'heavy';
+    // A5: savuruş sırasında basış — %55'ten önce yok sayılır, sonra tamponlanır (tuşa sürekli basmak hızlandırmaz)
+    if (!heavy && this.d.weaponType !== 'bow' && Input.consume('attack')) pressAttack(this.rhythm, this.t);
     const fr = attackFrameAt(p, t, D);
     a.setManualFrame(fr.frame);
     const dir = this.attackDir;
@@ -794,8 +906,12 @@ export class Player {
     }
     if (t >= D) {
       this.plan = null;
-      this.setState('free');
-      a.play('idle');
+      // A5: pencerede basıldıysa sıradaki vuruş hemen çıkar; 3. vuruştan sonra toparlanma
+      const chain = !heavy && this.d.weaponType !== 'bow' ? endSwing(this.rhythm, this.t) : 'idle';
+      this.state = 'free';
+      this.stateT = 0;
+      if (chain === 'chain') this.startAttack(false);
+      else a.play('idle');
     } else if (t > D * 0.75 && Input.peek('dodge')) {
       // geç iptal: kaçış ile
       Input.consume('dodge');

@@ -201,7 +201,7 @@ export class Companion {
       if (dp > 11) continue;
       const dm = Math.hypot(e.x - this.x, e.y - this.y) / TILE;
       // kendisine saldırana öncelik; Joseph'in o an vurduğu düşmanı bitirmeyi tercih etme
-      const score = companionTargetScore(dm, e.foe === this, this.w.time.now / 1000 - e.josephHitAt < JOSEPH_TARGET_SEC);
+      const score = companionTargetScore(dm, e.foe === this, this.w.time.now / 1000 - e.josephHitAt < JOSEPH_TARGET_SEC, e.stunned);
       if (score < bd) {
         bd = score;
         best = e;

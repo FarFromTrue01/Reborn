@@ -2,6 +2,7 @@
 // Hasar: fiziksel yetenekler normal vuruşun katı (resolvePhysical, mult), büyüler taban hasar × büyü gücü
 // (resolveSpell). İkisi de teknik gücüyle (skill'in her alt kademesinde +%5) çarpılır.
 import Phaser from 'phaser';
+import { skillStagger } from '../core/stagger';
 import { G } from '../game/G';
 import * as R from '../game/rules';
 import { Sound } from '../audio/audio';
@@ -107,7 +108,7 @@ export function useTechnique(w: WorldScene, id: string): boolean {
           for (const e of w.enemies) {
             if (!e.alive) continue;
             const v = new Phaser.Math.Vector2(e.x - pl.actor.x, e.y - pl.actor.y);
-            if (v.length() - e.actor.bodyR < reach && Math.abs(Phaser.Math.Angle.Wrap(v.angle() - dir.angle())) < 1.0) w.hitEnemy(e, { dir, physical: true, mult: t.power * pw, skill });
+            if (v.length() - e.actor.bodyR < reach && Math.abs(Phaser.Math.Angle.Wrap(v.angle() - dir.angle())) < 1.0) w.hitEnemy(e, { dir, physical: true, mult: t.power * pw, skill, stagger: skillStagger(t.id) / n });
           }
         });
       }
@@ -125,7 +126,7 @@ export function useTechnique(w: WorldScene, id: string): boolean {
       for (const e of w.enemies) {
         if (!e.alive) continue;
         const v = new Phaser.Math.Vector2(e.x - pl.actor.x, e.y - pl.actor.y);
-        if (v.length() - e.actor.bodyR < reach && Math.abs(Phaser.Math.Angle.Wrap(v.angle() - dir.angle())) <= Math.PI / 2) w.hitEnemy(e, { dir: v.normalize(), physical: true, mult: t.power * pw, skill });
+        if (v.length() - e.actor.bodyR < reach && Math.abs(Phaser.Math.Angle.Wrap(v.angle() - dir.angle())) <= Math.PI / 2) w.hitEnemy(e, { dir: v.normalize(), physical: true, mult: t.power * pw, skill, stagger: skillStagger(t.id) });
       }
       pl.setState('attack');
       pl.attackHitDone = true;

@@ -111,7 +111,7 @@ export interface SkillPassive {
   ghost?: boolean;
   // ---- Kaçınma
   perfectDodgeStamina?: number;
-  critAfterPerfect?: boolean;
+  counterSkilled?: boolean;
   freeDodge?: boolean;
   // ---- Okçuluk
   arrowSpeedPct?: number;

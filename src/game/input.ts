@@ -35,6 +35,7 @@ class InputState {
 
   clear() {
     this.pressed.clear();
+    this.held.clear();
     this.moveX = 0;
     this.moveY = 0;
     this.run = false;
