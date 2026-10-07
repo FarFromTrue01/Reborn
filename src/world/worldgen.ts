@@ -28,6 +28,30 @@ export const VILLAGE_X0 = 62;
 export const HERBS_AT_FOREST_EDGE = 9;
 /** Ormanda ağaçlar arasına fazladan bir karo boşluk bırakılma olasılığı (0.3.0: ~%30 seyrek orman). */
 const GAP_P = 0.3;
+/**
+ * 0.10.0 (B8): ormanın içinde (köprünün batısı, harita kenarındaki sık orman hariç) düşük frekanslı bir gürültü
+ * açıklıklar açar: ağaçlar tek tek seyrelmez, kümeler halinde kalır. Ormandaki ağaç sayısı ~%40–45 azalır
+ * (268 → ~150). Gürültü dünya tohumundan bağımsız (karo koordinatından), kümeler her oyunda aynı.
+ */
+const FOREST_X1 = 56;
+const GLADE_CELL = 6;
+export const GLADE_THRESHOLD = 0.53;
+
+function hash2(x: number, y: number): number {
+  let h = (x * 374761393 + y * 668265263) | 0;
+  h = Math.imul(h ^ (h >>> 13), 1274126177);
+  return ((h ^ (h >>> 16)) >>> 0) / 4294967296;
+}
+
+/** Düzgün değer gürültüsü 0..1 (hücre GLADE_CELL karo). */
+export function gladeNoise(x: number, y: number): number {
+  const gx = x / GLADE_CELL, gy = y / GLADE_CELL;
+  const x0 = Math.floor(gx), y0 = Math.floor(gy);
+  const fx = gx - x0, fy = gy - y0;
+  const sx = fx * fx * (3 - 2 * fx), sy = fy * fy * (3 - 2 * fy);
+  const a = hash2(x0, y0), b = hash2(x0 + 1, y0), c = hash2(x0, y0 + 1), d = hash2(x0 + 1, y0 + 1);
+  return a + (b - a) * sx + (c - a) * sy + (a - b - c + d) * sx * sy;
+}
 
 export interface BuildingMeta {
   w: number;
@@ -611,6 +635,8 @@ export function buildWorld(bmeta: Record<string, BuildingMeta>): MapData {
     const villageArea = x > VILLAGE_X0 && x < BARRIER_X - 4 && y > 26 && y < H - 6;
     if (villageArea && !border(x, y) && rnd() > 0.02) continue;
     if (!forest && rnd() > 0.06) continue;
+    // B8: orman içinde açıklıklar (kenar sık ormanı ve köy çevresi aynı)
+    if (forest && !border(x, y) && x < FOREST_X1 && gladeNoise(x, y) < GLADE_THRESHOLD) continue;
     const big = forest && rnd() < 0.45;
     // 0.3.0: ağaçlar arası en az bir karo boşluk (r+1), orman ~%30 seyrek
     const r = big ? 2 : 1;
@@ -631,6 +657,8 @@ export function buildWorld(bmeta: Record<string, BuildingMeta>): MapData {
     if (reserved[idx(x, y)] && rnd() < 0.85) continue;
     const villageArea = x > VILLAGE_X0 && x < BARRIER_X - 4 && y > 26 && y < H - 6;
     if (villageArea && rnd() < 0.85) continue;
+    // B8: açıklıklar çalıyla dolmasın (dekor sayısı artmasın)
+    if (t === TERRAIN.forest && x < FOREST_X1 && gladeNoise(x, y) < GLADE_THRESHOLD && rnd() < 0.75) continue;
     const roll = rnd();
     let key = BUSH_KEYS[Math.floor(rnd() * 5)];
     if (roll < 0.08) key = 'mushrooms';

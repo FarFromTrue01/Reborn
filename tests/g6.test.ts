@@ -247,3 +247,37 @@ describe('Lonca kartı etiketi: mutlak puan / sonraki eşik (B6)', () => {
     expect(guildBarLabel(999999, R('X'))).toBe('En yüksek rütbe');
   });
 });
+
+import { statHintText } from '../src/core/statText';
+import { STAT_KEYS as SK6, STAT_RULES as SR6, maxStamina as ms6 } from '../src/core/formulas';
+describe('Status ipuçları gerçek formülle uyuşur (A4/B9)', () => {
+  it('her statın ipucu sabitlerdeki sayıları gösterir', () => {
+    expect(statHintText('STR')).toContain('%8');
+    expect(statHintText('VIT')).toContain(`dayanıklılık +${SR6.VIT.stamina}`);
+    expect(statHintText('AGI')).toContain(`dayanıklılık +${SR6.AGI.stamina}`);
+    expect(statHintText('AGI')).toContain('saldırı hızı +%1,5 (≤%60)');
+    expect(statHintText('INT')).toContain('skill EXP +%1,5 (≤+%50)');
+    expect(statHintText('LUK')).toContain('çift ürün +%1 (≤%20)');
+    // ipucundaki dayanıklılık katsayıları formülle aynı
+    expect(ms6(1, 0) - ms6(0, 0)).toBe(SR6.VIT.stamina);
+    expect(ms6(0, 1) - ms6(0, 0)).toBe(SR6.AGI.stamina);
+    for (const k of SK6) expect(statHintText(k).length).toBeGreaterThan(10);
+  });
+});
+
+import { TREE_KEYS_FOREST, TREE_KEYS_LIGHT } from '../src/data/props';
+import { HERBS_AT_FOREST_EDGE } from '../src/world/worldgen';
+describe('Ormanda daha az ağaç (B8)', () => {
+  it('ormandaki ağaç sayısı ~%40–45 az (268 → ~150), kenar sık orman korunur, otlar aynı', () => {
+    const w = MAPS.world;
+    const trees = w.props.filter((p: any) => TREE_KEYS_FOREST.includes(p.key) || TREE_KEYS_LIGHT.includes(p.key));
+    const forest = trees.filter((p: any) => p.x / 32 < 56);
+    expect(forest.length).toBeGreaterThanOrEqual(140);
+    expect(forest.length).toBeLessThanOrEqual(170);
+    const border = forest.filter((p: any) => { const x = Math.floor(p.x / 32), y = Math.floor((p.y - 30) / 32); return x < 3 || y < 2 || y > w.h - 4; });
+    expect(border.length).toBeGreaterThanOrEqual(35);
+    // toplam dekor artmadı (performans)
+    expect(w.props.length).toBeLessThan(2573);
+    expect(w.gathers.filter((g: any) => g.item === 'herb').length).toBeGreaterThanOrEqual(HERBS_AT_FOREST_EDGE);
+  });
+});

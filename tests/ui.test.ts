@@ -66,18 +66,24 @@ describe('Görev EXP kuralı', () => {
     for (const q of MAIN_QUESTS) expect(questExp(q), q.id).toBe(0);
     expect(questExp({ ...MAIN_QUESTS[0], reward: { exp: 50 } })).toBe(0);
   });
-  it('Yan görevler az EXP verir: aynı süre avlanmanın en fazla üçte ikisi (0.8.0: ödüller 2 katına çıktı)', () => {
+  // 0.10.0 (B7): yan ve pano görevlerinin EXP'si iki katına çıktı. Sınır artık "aynı sürede avlanmanın tamamı":
+  // görevin EXP'si, görevin sürdüğü dakikalarda fare avlayarak kazanılandan fazla olamaz (av hâlâ en hızlı yol).
+  // Görev süresi kaba tahmin: her öldürme/toplama birimi 0,5 dk + her konuşma/teslim/yürüme amacı 2 dk, en az 3 dk.
+  const questMinutes = (q: { objectives: { type: string; count?: number }[] }) =>
+    Math.max(QUEST_MIN, q.objectives.reduce((a, o) => a + (o.type === 'kill' || o.type === 'collect' ? (o.count ?? 1) * 0.5 : 2), 0));
+  it('Yan görevler: aynı dakikada av ≥ görev (B7: ödüller ×2)', () => {
     for (const q of SIDE_QUESTS) {
       const e = questExp(q);
       expect(e, q.id).toBeGreaterThan(0);
-      expect(e, q.id).toBeLessThanOrEqual((huntPerMin * QUEST_MIN * 2) / 3);
+      expect(e, q.id).toBeLessThanOrEqual(huntPerMin * questMinutes(q));
     }
   });
-  it('Pano görevleri az EXP verir', () => {
+  it('Pano görevleri: G 6, F 12 EXP; aynı dakikada av ≥ görev', () => {
+    expect(BOARD_EXP).toEqual({ G: 6, F: 12 });
     for (let day = 1; day <= 30; day++)
       for (const q of boardForDay(day)) {
         expect(questExp(q)).toBe(BOARD_EXP[q.rank as 'G' | 'F']);
-        expect(questExp(q)).toBeLessThanOrEqual((huntPerMin * QUEST_MIN) / 3);
+        expect(questExp(q)).toBeLessThanOrEqual(huntPerMin * questMinutes(q));
       }
   });
 });

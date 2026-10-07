@@ -769,11 +769,13 @@ export class Chapter2 {
 
   /** E4: Vera'nın savaş dersi (fareler gelmeden önce). */
   async veraLesson() {
+    // B5 (0.10.0): Vera ve Lina yalnızca dünyanın içinden konuşur (buton, ayar, arayüz adı yok); arayüz bilgisi ayrı
+    // "İPUCU" bildiriminde. "Yardımlı savaş" ipucu kalktı (varsayılan açık).
     const hints: [string, string, string][] = [
-      ['vera', 'Dinle köksüz. Dört şey. Bir: saldırı gelmeden kırmızı parlar. O an Kaçış\'a bas. Doğru anda kaçarsan zaman yavaşlar.', 'İPUCU: Düşman kırmızı parlayınca Kaçış — mükemmel kaçış zamanı yavaşlatır ve karşı saldırı açar.'],
+      ['vera', 'Dinle köksüz. Dört şey. Bir: bir yaratık saldırmadan önce bir an geri çekilir, sanki nefes alır. O an yana sıçra. Tam zamanında sıçrarsan dünya bir anlığına yavaşlar, sana bir boşluk kalır.', 'İPUCU: Düşman saldırıya hazırlanırken (başında "!", yerde kırmızı alan) Kaçış — tam zamanında kaçış zamanı yavaşlatır.'],
       ['vera', 'İki: sürünün önünde durma. Ben önünü tutarım, sen yanına geç. Yandan ve arkadan vurmak kolaydır.', 'İPUCU: Kuşat — yoldaşın önü tutarken yandan ya da arkadan vur.'],
-      ['lina', 'Üç: koşmak dayanıklılık yer! Biterse nefes nefese kalırsın, kaçamazsın. Hihi, Vera\'ya olmuştu.', 'İPUCU: Dayanıklılık bitince koşamazsın; joystick\'i bırak ya da yavaşla, dolsun.'],
-      ['vera', 'Dört: elin titriyorsa Ayarlar\'daki "Yardımlı savaş" seni en yakın düşmana çevirir. Utanılacak bir şey değil.', 'İPUCU: Ayarlar → Yardımlı savaş: menzildeki en yakın düşmana otomatik dönersin.'],
+      ['lina', 'Üç: koşmak bacak ister, sıçramak nefes! Art arda sıçrarsan nefesin kesilir, sonra kaçacak gücün kalmaz. Hihi, Vera\'ya olmuştu.', 'İPUCU: Kaçış ve ağır saldırı dayanıklılık harcar, koşmak harcamaz. Dayanıklılık bekledikçe dolar.'],
+      ['vera', 'Dört: gözünü düşmandan ayırma ve ilk darbeyi sen vur. Seni görmeden vurduğun darbe iki darbeye bedeldir. Bekleyen ısırılır.', 'İPUCU: Seni fark etmemiş bir düşmana vurulan ilk darbe güçlüdür (gizli saldırı).'],
     ];
     for (const [who, line, hint] of hints) {
       await this.say(who, line, 'normal');
