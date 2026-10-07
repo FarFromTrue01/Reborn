@@ -18,7 +18,7 @@ import { transact, equip } from '../core/transactions';
 import { walletTotal, emptyWallet, formatPrice } from '../core/money';
 import { nextMorning, hourOf, clockLabel, fromAbsMinute, advanceWithDays } from '../core/time';
 import { canSleep, absMinute } from '../core/sleep';
-import { SHIFT_MEAL } from '../core/hunger';
+import { SHIFT_MEAL, SHIFT_LUNCH, shiftSatiety } from '../core/hunger';
 import { codexMeet } from '../core/codex';
 import { awakenDue } from '../core/traitWheel';
 import { activeQuests, type QuestGuide, type QuestTarget } from '../core/quests';
@@ -982,7 +982,7 @@ export class Director {
     await this.say('lina', 'Hihi! Bulaşık prensi!', 'gulen');
     await this.think('...Bir iş, bir yatak, bir gömlek. Bu dünyadaki ilk sahip olduklarım.');
     Q.start('m_bertram', true);
-    R.sysmsg('İŞ: YORGUN YABAN DOMUZU HANI', [`${JOBS.bertramShifts} vardiya (günde en fazla 1, 06:00–15:00 arası başlar)`, `Ödeme: ${JOBS.bertramShifts}. günün sonunda {m:${JOBS.bertramPay}}`, `Vardiya günlerinin yemeği Bertram\'dan (+${SHIFT_MEAL} Tokluk).`, 'Tavan arasındaki yatak artık senin (yeniden doğma noktası).']);
+    R.sysmsg('İŞ: YORGUN YABAN DOMUZU HANI', [`${JOBS.bertramShifts} vardiya (günde en fazla 1, 06:00–15:00 arası başlar)`, `Ödeme: ${JOBS.bertramShifts}. günün sonunda {m:${JOBS.bertramPay}}`, `Vardiya günlerinin yemekleri Bertram\'dan (öğlen +${SHIFT_LUNCH}, akşam +${SHIFT_MEAL} Tokluk).`, 'Tavan arasındaki yatak artık senin (yeniden doğma noktası).']);
     G.save('auto');
   }
 
@@ -1205,12 +1205,11 @@ export class Director {
     G.setFlag('serve_best', best);
     G.state.counters.workDays = shift;
     G.setFlag('worked_today', day);
-    // vardiya akşama kadar sürer: geçen saatler (uyanık) Tokluğu düşürür, sonra Bertram'ın güveci (B13)
+    // vardiya akşama kadar sürer: öğle yemeği, geçen saatler (uyanık) ve Bertram'ın akşam güveci (B13)
     const end = Math.max(G.state.time.minute, 21 * 60);
-    R.passHunger(end - G.state.time.minute);
+    R.setSatiety(shiftSatiety(G.state.satiety ?? 100, end - G.state.time.minute));
     G.state.time.minute = end;
-    R.feed(SHIFT_MEAL);
-    R.toast(`Bertram'ın güveci: +${SHIFT_MEAL} Tokluk`, 'info', 'inv_food');
+    R.toast(`Bertram'ın öğle yemeği ve güveci: Tokluk ${Math.round(G.state.satiety)}`, 'info', 'inv_food');
     G.p.hp = G.d.maxHp;
     G.p.stamina = G.d.maxStamina;
     Q.notify('custom', 'shift');

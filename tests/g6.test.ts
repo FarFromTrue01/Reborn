@@ -295,7 +295,7 @@ describe('kaynak beklemesi uyunamaz (B10.4)', () => {
   });
 });
 
-import { decaySatiety, eatSatiety, hungerState, hungerMods, bestFood, SATIETY_START, FULL_AT, SHIFT_MEAL } from '../src/core/hunger';
+import { decaySatiety, eatSatiety, hungerState, hungerMods, bestFood, SATIETY_START, FULL_AT, SHIFT_MEAL, shiftSatiety } from '../src/core/hunger';
 import { ITEMS as IT6 } from '../src/data/items';
 import { newGameState as ngs6 } from '../src/core/state';
 import { migrateV8toV9 } from '../src/core/save';
@@ -321,6 +321,15 @@ describe('Tokluk (B13)', () => {
     expect(eatSatiety(90, 50)).toEqual({ value: 100, refused: false });
     expect(eatSatiety(FULL_AT, 10)).toEqual({ value: FULL_AT, refused: true });
     expect(SHIFT_MEAL).toBe(40);
+  });
+  it('vardiya günü (öğle + akşam yemeği): yeni oyunun Joseph\'i 07:00–21:00 çalışınca "Çok aç"a düşmez', () => {
+    // 40 + 30 öğle − 14 sa × 4 = 14 → + 40 güveç = 54; gece 9 sa uyku (−18) → 36; ikinci gün yine "Tok" biter
+    const d1 = shiftSatiety(SATIETY_START, 14 * 60);
+    expect(d1).toBe(54);
+    const morning = decaySatiety(d1, 9 * 60, true);
+    expect(hungerState(morning)).toBe('normal');
+    expect(hungerState(shiftSatiety(morning, 15 * 60))).toBe('normal');
+    expect(shiftSatiety(100, 60)).toBe(100);
   });
   it('en uygun yiyecek: ihtiyacı aşmayan en büyük, yoksa en küçük', () => {
     const f = [{ id: 'apple', satiety: 10, price: 3 }, { id: 'stew', satiety: 40, price: 12 }, { id: 'pie', satiety: 50, price: 18 }];

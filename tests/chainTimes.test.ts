@@ -112,7 +112,7 @@ describe('Zincir saat denetimi (A3/B2)', () => {
     });
   }
   it('tablo', () => {
-    if (process.env.CHAIN_TABLE) console.log(['| Geçiş | İlk amaç | Günün saatleri |', '|---|---|---|', ...table].join('\n'));
+    if ((globalThis as { process?: { env: Record<string, string | undefined> } }).process?.env.CHAIN_TABLE) console.log(['| Geçiş | İlk amaç | Günün saatleri |', '|---|---|---|', ...table].join('\n'));
     expect(table.length).toBe(TRANSITIONS.length);
   });
 });

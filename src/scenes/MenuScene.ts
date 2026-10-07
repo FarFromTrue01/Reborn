@@ -1089,7 +1089,11 @@ export class MenuScene extends Phaser.Scene {
     const w = this.cw, h = this.ph - 48;
     const world = this.world;
     const m = world.mapData.indoor ? getMap(world, 'world') : world.mapData;
-    c.add(txt(this, 0, 0, 'Harita — ' + (world.mapData.indoor ? `${world.mapData.name} (dışarısı)` : 'Elonth: Brindlewood çevresi'), { size: 20, font: FONT.title, color: COLORS.textGold }));
+    const title = txt(this, 0, 0, 'Harita — ' + (world.mapData.indoor ? `${world.mapData.name} (dışarısı)` : 'Elonth: Brindlewood çevresi'), { size: 20, font: FONT.title, color: COLORS.textGold });
+    // sağdaki üç filtre düğmesiyle çakışmasın
+    const room = w - 3 * 124 - 12;
+    if (title.width > room) title.setScale(Math.max(0.6, room / title.width));
+    c.add(title);
     const scale = Math.min((w - 10) / m.w, (h - 50) / m.h);
     const mw = Math.floor(m.w * scale), mh = Math.floor(m.h * scale);
     const key = 'bigmap';

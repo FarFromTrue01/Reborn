@@ -19,6 +19,13 @@ export const STARVING_MAX_STAMINA = 0.75;
 export const FULL_AT = 95;
 /** Bertram'ın vardiya sonundaki yemeği (güveç). */
 export const SHIFT_MEAL = 40;
+/** Vardiyanın ortasındaki öğle yemeği (mutfaktan): uzun vardiyada Joseph "Çok aç"a düşmesin. */
+export const SHIFT_LUNCH = 30;
+
+/** Vardiya günü: öğle yemeği, çalışılan saatlerin azalması, akşam güveci — tek adımda (ara uyarı yok). */
+export function shiftSatiety(s: number, minutes: number): number {
+  return Math.min(SATIETY_MAX, decaySatiety(Math.min(SATIETY_MAX, s + SHIFT_LUNCH), minutes, false) + SHIFT_MEAL);
+}
 
 export type HungerState = 'normal' | 'hungry' | 'starving';
 

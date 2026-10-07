@@ -169,12 +169,14 @@ export class PrologueScene extends Phaser.Scene {
     // olasılık tablosu: sığarsa tek satır, yoksa iki satır
     const itemW = 118;
     const perRow = itemW * TRAIT_ODDS.length <= W - 40 ? TRAIT_ODDS.length : Math.ceil(TRAIT_ODDS.length / 2);
+    const odds = this.add.container(0, 0);
+    root.add(odds);
     TRAIT_ODDS.forEach(([r, pct], i) => {
       const row = Math.floor(i / perRow), col = i % perRow;
       const n = row === 0 ? Math.min(perRow, TRAIT_ODDS.length) : TRAIT_ODDS.length - perRow;
       const x = W / 2 + (col - (n - 1) / 2) * itemW, y = H * 0.15 + row * 46;
-      root.add(uiIcon(this, x - 30, y, 'rank_' + r, 32));
-      root.add(txt(this, x - 10, y, pctLabel(pct), { size: 17, bold: true, color: r === 'X' ? '#8a40d0' : '#2a3a5a' }).setOrigin(0, 0.5));
+      odds.add(uiIcon(this, x - 30, y, 'rank_' + r, 32));
+      odds.add(txt(this, x - 10, y, pctLabel(pct), { size: 17, bold: true, color: r === 'X' ? '#8a40d0' : '#2a3a5a' }).setOrigin(0, 0.5));
     });
     // çevir düğmesi
     const btnY = H * 0.56;
@@ -247,7 +249,9 @@ export class PrologueScene extends Phaser.Scene {
     if (this.skipping) { root.destroy(); return; }
     // sonuç: X
     const win = cards[cards.length - 1];
-    for (const c of cards) if (c !== win) this.tweens.add({ targets: c, alpha: 0.15, duration: 400 });
+    for (const c of cards) if (c !== win) this.tweens.add({ targets: c, alpha: 0, duration: 400 });
+    // tablo, kart yukarı kayınca onunla çakışmasın: sonuç kendi olasılığını yazar
+    this.tweens.add({ targets: odds, alpha: 0, duration: 400 });
     Sound.sfx('awaken');
     Sound.sfx('title', 0.8);
     const flash = fullScreenRect(this, 0xffe9a0, 0).setDepth(73).setBlendMode(Phaser.BlendModes.ADD);
@@ -276,7 +280,7 @@ export class PrologueScene extends Phaser.Scene {
     win.add(txt(this, 0, 18, 'DIVINE\nPALADIN', { size: 17, bold: true, font: FONT.title, color: '#ffe9a0', align: 'center' }).setOrigin(0.5));
     frameG.setVisible(false);
     // kart yukarı kayar ve büyür; altında başlık, olasılık, sistem satırı ve açıklama
-    const cardY = Math.max(ch * 0.62 + 20, H * 0.22);
+    const cardY = Math.max(ch * 0.62 + 46, H * 0.25);
     this.tweens.add({ targets: strip, y: cardY, duration: 600, ease: 'Cubic.Out' });
     this.tweens.add({ targets: win, scale: 1.25, duration: 600, ease: 'Back.Out' });
     await this.wait(this.skipping ? 0 : 650);

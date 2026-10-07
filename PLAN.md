@@ -1,7 +1,7 @@
 # Güncelleme planı — devam notu
 
 Dört aşamalı plan — **tamamlandı (0.7.0)**. Her oturum yalnızca kendi grubunu yaptı ve bu dosyayı güncelledi.
-0.7.0 sonrası plan iki yarı: **Grup 5A** (hatalar, dünya, denge, silah görselleri) — ✅ 0.8.0; **Grup 5B** (arayüz ve beceri sistemi) — ✅ 0.9.0.
+0.7.0 sonrası plan iki yarı: **Grup 5A** (hatalar, dünya, denge, silah görselleri) — ✅ 0.8.0; **Grup 5B** (arayüz ve beceri sistemi) — ✅ 0.9.0. Ardından **Grup 6** (hatalar, oyuncu notları, denge ve yeni sistemler) — ✅ 0.10.0.
 
 | Grup | Kapsam | Durum |
 | --- | --- | --- |
@@ -12,6 +12,7 @@ Dört aşamalı plan — **tamamlandı (0.7.0)**. Her oturum yalnızca kendi gru
 | **4B. Animasyon ve silahlar** | Silah modelleri, saldırı animasyonları, kılıcı sırta koyma, konuşurken yürüme animasyonu | ✅ 0.7.0 |
 | **5A. Hatalar, dünya, denge, silah görselleri** | Sistem bildirimi, kapı amacı, QA yoklaması; elmalar, görev eşyası, otlar, Dorn/muhafız yürüyüşü, Varg, dükkânlar, şort, doğu suru, mini oyun müziği ve servis hedefi, karartma, savaş ganimeti, satış aralığı, sabit joystick; hız, kaçış, hasar sayıları, yoldaşlar, NPC statları; silah kareleri | ✅ 0.8.0 |
 | **5B. Arayüz ve beceri sistemi** | Kısım 1: dükkân/yan görev seçenekleri, mavi ünlem, mini harita, Görevler düğmeleri, Konuşmalar, lonca barı, prolog Status, Appraisal, renkli artılar, savunma, kaydırma, sıralama, satın alma animasyonu · Kısım 2: skill sistemi | ✅ 0.9.0 |
+| **6. Hatalar, denge, yeni sistemler** | Kaydırma jesti, saat ilerletme, zincir saat denetimi, haritalar arası ok ve uyku yönlendirmesi, isteğe bağlı amaçlar; beş stat, yaratık HP ×1,5, görev EXP ×2, saldırı sıklığı, orman açıklıkları; Tokluk, Ansiklopedi, harita işaretleri, pano süre uyarıları, Bertram 2 gün ve çöp kutusu, skill yalnızca SP, ücretsiz koşu, dövüş geri bildirimi; trait çarkı, Divine uyanışı, trait metinleri | ✅ 0.10.0 |
 
 ## Grup 1'de yapılanlar (0.3.1)
 
@@ -315,7 +316,142 @@ Kurallar talimattaki gibi; sayılar değiştirilmedi. Saf kurallar `src/core/ski
 - **Denge notu:** MP formülü büyüleri erken oyunda pahalı yapıyor (Kıvılcım 10 MP; Level 0'da MNA'sız max MP 0, Level 6 + 4 MNA → 18). Sayılar talimattaki gibi bırakıldı.
 - Gerçek tablette denenemedi (yalnızca başsız tarayıcı).
 
+## Grup 6'da yapılanlar (0.10.0)
+
+Talimat: hatalar (A1–A7) ve oyuncu notları/kararları (B1–B23). Dövüş sisteminin kökten değişimi bu grupta yok; yalnızca sayısal denge ve geri bildirim. Sayılar talimattaki gibi; ayrıldığım yerler aşağıda **Kararlar**'da.
+
+### A. Hatalar
+
+- **A1/B4 kaydırma jesti:** `src/ui/dragGesture.ts` (`DragGesture`): sürükleme bilgisi jestin basış zamanına (`pointer.downTime`) bağlı; `wasDrag()` yalnızca **aynı** jest sürüklendiyse doğru. `Button`'ın `stopPropagation`'ı artık eski jestin bayrağını taşıtmıyor. `ScrollList` (Konuşmalar, dükkân, Görevler, Ayarlar, Ansiklopedi) bunu kullanır. Konuşmalar'da "Daha fazla göster" 40 satır ekler, görünüm yerinde kalır (QA: yukarı sürükle → bas → 40 → 80 → 120).
+- **A2 saat ilerletme:** `Director.advanceClock(dk)` gün değişince `R.onNewDay()` + `director.onNewDay()` çağırır; hasat ve antrenman bunu kullanır (öğretmen dersleri B17 ile kalktı).
+- **A3 zincir saatleri:** aşağıda "Zincir saat denetimi". `m_bertram` beklemesi (bugün çalışıldı ya da ≥ 15:00 → "Bertram yarın 06:00'da iş verir — yatakta uyuyarak atlayabilirsin"), `m_celebrate` davet gününe bağlı (`celebrate_day`; 18:00–02:00 akşam penceresi, kaçırılırsa ertesi akşam), `weaponScene` ve `boardOpening` metinleri saate göre ya da saatten bağımsız, `BOARD_EXCUSES` ve "pano yarın" metinleri kalktı (test). Hikâye kapıları saf modülde: `src/story/gates.ts` (`storyGate`).
+- **A4 stat ipuçları:** `src/core/statText.ts` ipuçlarını `STAT_RULES`'tan üretir (her sayı gerçek formülden; test).
+- **A5:** Vera'nın dersi dünya içi dille (B5).
+- **A7 (oynayarak bulunanlar):**
+  1. Vardiya sonrası ok merdivene, alt görev "Yukarı çık ve uyu" (B1).
+  2. İç mekânda ok her zaman bir geçişe yönelir: `src/world/nav.ts` `firstHop` harita geçiş grafiğinde (kapı + merdiven) BFS; tavan arasında ok merdivene. Test: bütün iç mekânlar × "hedef başka haritada" → ok null değil.
+  3. Ücret gecesi: Bertram'ın metni saate göre ("yarın sabah erkenden"), Haldor kapalı saatte "Hasada başla" seçeneğini hiç sunmaz ("Sabah altıda gel, orak hazır olur."), `m_harvest` 16:00–06:00 arası açılırsa bekleme + uyku yönlendirmesi.
+  4. Bekleme metni yatak varsa "— yatakta uyuyarak atlayabilirsin" ekler (her zaman); öğretici bir kez (B3).
+  5. `m_grank` (ve `custom` amacı bir alt göreve bağlı her amaç) alt görevin **şu anki** amacının hedefini gösterir (`questTargetOf`, test).
+  6. Ot toplama oku en yakın **toplanmamış** noktaya (`nearestSpot`), bölge noktası yedek.
+  7. Kamera: küçük iç mekânlarda kamera sınırına HUD payları (sol üst panel genişliği) eklenir; harita ekrandan küçükse ortalanır. QA: `inn` (5,3) ve (2,5) — oyuncu görev panelinin altında değil.
+  8. (a) Başlangıç ipuçları ekranın alt ortasında (`hintBottom`); (b) mini oyun açılırken diyalog kutusu kapanır; (c) görev ilerleme bildirimi panelin altına yeniden dizilir (`toast relayout`).
+  9. `m_inn`'e "Vera'yı Appraisal ile incele" amacı eklendi; öğretici sırasında HUD'da görev var.
+  10. Etkileşim alanları: prop'un kapladığı karelerin en yakını (`distToRect`), yatak için 52 px erişim (`BED_REACH`); tavan arasında (5,4) ve (5,5; yukarı) "Uyu" (QA ✓).
+  11. HP/dayanıklılık/MP yenilenmesi ve hasar iki ondalığa sabit (`round2`, `regenStep`).
+  12. Dövüş zorluğu: B5 + B11 (sopa ile fare 2 vuruş, QA ✓).
+  13. Servis: ilk müşteri 2,8 sn gecikmeyle ve ilk siparişin sabrı ×1,35 (`firstDelay`, `firstPatienceMult`).
+
+### B. Oyuncu notları
+
+- **B1 uyku yönlendirmesi:** `Director.questGuides()` aktif ana görevin altına dinamik, isteğe bağlı yönlendirme amaçları ekler (adım görevi değil; `ensureMainQuest` kapatmaz). Görev bir saati bekliyorsa ve yatak varsa: handa "Yukarı çık ve uyu: merdivenden tavan arasına çık" (ok merdivene), tavan arasında "…: yatağa yat" (ok yatağa), uyanınca kapanır; sabah tavan arasında ok aşağı merdivene. Ücret gecesinden sonra aynı yönlendirme Haldor beklemesinde.
+- **B2:** A3. Genel kural `tests/chainTimes.test.ts` ile denetleniyor.
+- **B3 öğreticiler (isteğe bağlı, bir kez):** `ObjectiveDef.optional` (görevin bitmesini engellemez, listede "(isteğe bağlı)"; `allObjectivesDone`/`currentObjective`/`visibleObjectives`/HUD/Görevler sekmesi biliyor). Pano: yan görevler açıldıktan sonra "Lonca panosundan ilan al — her sabah yeni ilanlar, G 15–40 / F 60–90 bronz, aynı anda en fazla 3" (ok panoya), panonun menüsü açılınca biter (`tut_board`); Celeste yan görevler açılınca panoyu bir kez daha açıkça anlatır. **Uyku öğreticisi `m_harvest`'e bağlandı** (ücret gecesi, Haldor 06:00 beklemesi; ilk karşılaşılan bekleme bu): "Beklemeyi uyuyarak atla: yatakta 'Görev saatine kadar uyu'" — o seçenek seçilince biter (`tut_sleep`). `m_bertram` vardiya gecelerinde "Yukarı çık ve uyu" kullanır.
+- **B5:** yaratık HP'si `hpByLevel` (level başına doğrudan değer, ×1,5 tablo, bir ondalık); Vera'nın dört dersi dünya içi dille (kaçış, kuşatma, nefes yerine "ilk vuruşu sen vur"/gözünü ayırma), "Yardımlı savaş" ipucu kalktı.
+- **B6:** `guildBarLabel(points, rank)` (`core/guild.ts`): "puan / sonraki eşik", çubuk oranı aynı; Lonca Kartı ve görev bitiş animasyonu aynı etiketi kullanır.
+- **B7:** yan görev EXP'leri ×2, `BOARD_EXP` G 6 / F 12. EXP kuralı testi: aynı dakikada av ≥ görev.
+- **B8:** orman açıklıkları (`gladeNoise`, eşik 0,53): ormandaki ağaç 268 → 158 (−%41), toplam dekor 2573 → 2214; kenar ormanı, köy çevresi, ot kümesi, elmalar ve doğma yerleri korundu.
+- **B9 beş stat:** bkz. README tablosu ve `STAT_RULES`. Max HP = (10 + 8×L) × (1 + 0,08×VIT), bir ondalık; dayanıklılık 50 + 5×VIT + 3×AGI; level başına 4 puan. LUK görünür: `luckOutcome(zar, taban, LUK'lu)` → "Şans!" (ıska, kritik, ganimet, çift toplama; yonca simgesi). NPC'ler 4×Level (DEX→AGI, MNA→INT, ×4/6, artık ana stata; test). Eşyalar/unvanlar DEX→AGI, MNA→INT. Yay hasarı AGI'den. Joseph 10 HP, fare 8 ısırıkta.
+- **B10:** tavşan 2,8; `src/world/sources.ts`: yalnızca yaşayan doğma grupları (`spawnAlive`), son yaratık ölünce ok anında sonraki bölgeye, hiçbiri yoksa "<Yaratık> kalmadı. Yeniden doğuş: bugün/yarın HH:MM" (`until: null` → uyku menüsünde görünmez; test). Toplamada noktalar ve düşüren yaratıklar birlikte; ikisi de tükenince en erken dönüş.
+- **B11:** `ATTACK_RATE_SCALE = 0.75` (yaratık bekleme ÷0,75, kesilme sonrası da), `COMPANION_COOLDOWN` [2,93, 3,73]; hazırlık süreleri aynı.
+- **B12:** 2 vardiya; servis yeni 1. gün = eski 2. gün, yeni 2. gün = eski 3. gün; **Çöp** bölmesi (`discardFood`: yiyecekler atılır, tabak atılmaz → "Tabaklar bulaşığa!"); metinler 2 güne göre; göç (1/3 → 1/2, ≥ 2/3 → iş bitmiş, ücret sonraki Bertram konuşmasında bir kez).
+- **B13 Tokluk:** `src/core/hunger.ts` (sayılar tek yerde). HUD barı, Status, eşya açıklamasında "+N Tokluk", "Tokum." (95+), hızlı yeme ve kullanım menüsü `bestFood` (ihtiyacı aşmayan en büyük). Bertram'ın vardiya günü yemeği (bkz. Kararlar), Haldor'un ekmeği. Göç: alan yoksa 80. Parasız oyuncu elma ağaçlarıyla (her gün) normale çıkabilir.
+- **B14:** `boardDaysLeft`, `deadlineLabel` ("2 gün kaldı", "Son gün!"), `deadlineNotice` (son gün sabahı ve 18:00'de bir kez, gerçek ceza tutarlarıyla); HUD'da son gün başlık turuncu.
+- **B15 Ansiklopedi:** `core/codex.ts` (veri, kartlar, sayfalar; genel yapı: tür + bölge + bilinme + kart), `ui/codexTab.ts`. Bölgeler: "Brindlewood ve Çevresi", "Eros" (kilitli "???"). Yaratık Appraisal ile, kişi ilk konuşmada (Appraisal ile ek bilgi), bitki ilk toplamada; "Ansiklopediye eklendi: <ad>". Göç: Appraisal geçmişi, toplama sayaçları, tanışma bayrakları.
+- **B16:** yeniden doğma 720 dk (Goblin Şefi dahil); `world/mapMarkers.ts`: keşfedilmiş alanlarda toplama kümeleri (yarıçap 5 karo; tükenmişse soluk + "yarın"), yaratık bölgeleri (bilinmiyorsa "?", tükenmişse soluk + "dönüş HH:MM"), takip edilen görevin hedefi. Harita: filtre düğmeleri, lejant, dokununca bilgi balonu; mini harita aynı işaretler.
+- **B17:** skill yalnızca Sistem Teklifi: öğretmen dersleri (`LESSONS`), kitaplar (dükkân ve drop; şamanın özel ganimeti artık Küçük MP İksiri), gizli keşifler (`HIDDEN_DISCOVERIES`, `pendingDiscoveries`, `declined_*`/`postponed_*`) kalktı; `learnSkill` başka kaynağı reddeder (test). Göç: envanterdeki kitaplar silinir, alış fiyatı iade edilir (`REMOVED_BOOKS`: Ateş Kitabı 450, Kıvılcım Parşömeni 100, Okçuluk 90, İlk Yardım 60 bronz), bir kez bildirilir.
+- **B18:** yol bulma ve otomatik yürüme yok; yalnızca A7.2.
+- **B19 trait çarkı:** `core/traitWheel.ts` (`TRAIT_ODDS` toplamı 100, sonuç hep `divine_paladin`, makara son kart X ve önünde A), `PrologueScene.traitWheel` ("Status'un oluşturuluyor…"dan sonra, `statusReveal`'dan önce). Açıklama gerçek veriden (`divineDescription`). Sonuçta olasılık tablosu ve diğer kartlar söner (QA'da kartın tabloyla çakıştığı görüldü, düzeltildi). `TRAIT_NAMES` ~21 ad (yalnızca görüntü). Status → Traits'e dokununca aynı açıklama (`ui/traitInfo.ts`).
+- **B20:** ilk hareket girdisinde `divineAwaken` (tek seferlik `dp_awaken`): adım, tökezleme (eğilme + çökme), ses, sarsıntı (ayara bağlı), kenar kızarması, iç ses; altın ışık sütunu ve parçacıklar, ekranda "DIVINE PALADIN — X" kartı, 2 sn aura; doğrulma ve ikinci iç ses. Göç: `woke` olan eski kayıtlarda `dp_awaken = true`.
+- **B21:** Bertram (ücret gecesi), lonca taşı ("Trait: —"), Celeste ("Trait'in yok. Çoğunun yoktur…"), Joseph'in iç sesleri (ilk koşu/yorgunluk, ilk level, ilk Divine Level, ilk Uyanış), Ilse Nine'nin masalı; birkaç NPC'ye küçük trait (Vera Gümüş Dil, Lina Keskin Kulaklar, Bertram Demir Karaciğer …); Appraisal'da trait farkı ≤ −1 ise görünür, değilse "???".
+- **B22:** koşu ücretsiz (`RUN_STAMINA_PER_SEC = 0`, kilit ve yenilenme gecikmesi kalktı); Atletizm: koşu hızı +% ve dayanıklılık yenilenmesi +%.
+- **B23:** `world/combatFx.ts`: vuruş donması 0,05/0,09 sn (Ayarlar → "Ekran sarsıntısı ve vuruş donması" ikisini birlikte kapatır), havuzlu sayılar (en çok 24; kritik büyük sarı, direnilen gri, ıska, Joseph'in aldığı kırmızı), yerinde sarsılma + ezilip açılma (0,1 sn, geri itme yok), malzemeye göre parçacık ve isabet sesi (et/sümük/zırh) + kritik çınlaması, saldırı hazırlığında 4 px geri çekilme ve "!", kaçış gölge izi, kusursuz kaçışta 0,2 sn ağır çekim, vurulunca kenar kızarması (hasar oranıyla), can %25 altında kalp atışı ve vinyet. Titreşim yok.
+
+### Kararlar (belirsiz kalanlar ve talimattan ayrıldığım yerler)
+
+- **Tek kayıt göçü (v8 → v9)** B9, B12, B13, B15, B17 ve B20'nin hepsini kapsar (talimat her birinde "+1" diyor; aynı sürümde art arda olduğundan tek sürüm yeterli).
+- **Bertram'ın vardiya yemeği:** talimattaki sayılarla (40 Tokluk ile başla, saatte −4, vardiya 07:00 → 21:00) yeni oyunun Joseph'i ilk vardiyanın ortasında 0'a düşüp "Çok aç!" uyarısı alıyordu (QA'da görüldü). Vardiya günlerine bir **öğle yemeği (+30)** eklendi; akşam güveci +40 aynı (`SHIFT_LUNCH`, `shiftSatiety`; ilk gün 40 → 54, ikinci gün de "Tok" biter; test). Eski "ilk günün güveci bedava" mekanizması bu otomatik yemekle değişti.
+- **Uyku öğreticisi** `m_harvest`'e bağlı (yukarıda). `m_vl_rest` beklemesinde öğretici tekrar etmez, kısa ek metin her zaman var.
+- **Yay hasarı AGI** ile; Goblin Şefi de 12 saatte döner; `m_celebrate` akşam penceresi 18:00–02:00; Appraisal'da trait görünürlüğü fark ≤ −1; vuruş donması "ekran sarsıntısı" ayarıyla birlikte kapanır; yaratık dayanıklılığı kullanılmadığından eklenmedi; hızlı yeme düğmesi: atanmış yiyecek varsa o, yoksa `bestFood`.
+- **Atletizm'in koşu bedeli pasifleri** koşu hızı ve dayanıklılık yenilenmesiyle değiştirildi.
+
+### Hikâyede önemli NPC'ler (B9)
+
+| NPC | Level | 0.9.0 statları (toplam) | 0.10.0 statları (toplam = 4×L) | Max HP 0.9.0 → 0.10.0 | Trait |
+| --- | --- | --- | --- | --- | --- |
+| Vera | 3 | STR 8, VIT 4, AGI 3, DEX 3 (18) | STR 5, VIT 3, AGI 4 (12) | 61 → 42,2 | Gümüş Dil |
+| Lina | 3 | DEX 8, AGI 6, VIT 3, LUK 1 (18) | VIT 2, AGI 9, LUK 1 (12) | 53 → 39,4 | Keskin Kulaklar |
+| Celeste | 4 | INT 9, MNA 6, DEX 4, AGI 5 (24) | AGI 6, INT 10 (16) | 37 → 42 | — |
+| Bertram (örnek) | 9 | STR 18, VIT 15, AGI 4, DEX 11, INT 3, LUK 3 (54) | STR 12, VIT 10, AGI 10, INT 2, LUK 2 (36) | — → 147,6 | Demir Karaciğer |
+
+Max HP'ler eşyasız/unvanlı türetilmiş değerdir (eşya ve unvan bonusları dahil). Yaralılar sahnesi `maxHp × 0,25` ile Vera ~10,6, Lina ~9,9 HP'de başlar.
+
+### Zincir saat denetimi (A3/B2)
+
+`tests/chainTimes.test.ts`: zincirdeki her geçişte (önceki görev bitti → sıradakinin ilk amacı) günün 24 saati için: amaç hemen yapılabilir mi (NPC programı `nextReach`, bina saatleri, hikâye kapıları `storyGate`), değilse bekleme saati ve metni var mı, yatak varken (`bertram_deal`) ≤ 36 saatte uyuyarak atlanabilir mi. **Açıklamasız kilitlenme (BLOCKED) yok**; bütün beklemeler yatakla atlanabiliyor. `CHAIN_TABLE=1 npx vitest run tests/chainTimes.test.ts` tabloyu yazdırır.
+
+| Geçiş | İlk amaç | Günün saatleri |
+|---|---|---|
+| (uyanış) → m_inn | Brindlewood'daki hana git | 00–00 hemen |
+| m_inn → m_bertram | Handa çalış (Bertram'la konuş) | 00–06 bekle (uyku) · 06–15 hemen · 15–00 bekle (uyku) |
+| m_bertram → m_harvest | Yaşlı Haldor'u bul | 00–06 bekle (uyku) · 06–16 hemen · 16–00 bekle (uyku) |
+| m_harvest → m_register | Bir gümüş biriktir (100 bronz) | 00–05 bekle (uyku) · 05–00 hemen |
+| m_register → m_weapon | Handa Bertram'la konuş | 00–05 bekle (uyku) · 05–00 hemen |
+| m_weapon → m_board | Loncaya dön, panodan görev al | 00–05 bekle (uyku) · 05–00 hemen |
+| m_board → g1_rats | Ahırdaki fareleri temizle | 00–00 hemen |
+| m_grank → m_air | Ormanın kenarına yürü | 00–00 hemen |
+| m_air → m_wounded | Lina'yı taşı; Vera'yla şifacıya git | 00–00 hemen |
+| m_wounded → m_vl_rest | Vera ve Lina'yı bul | 00–00 bekle (uyku) |
+| m_vl_rest → f_wolves | Vera ve Lina'yla otlağa git | 00–00 hemen |
+| f_wolves → m_celebrate | Akşam (18:00 sonrası) hana git | 00–18 bekle (uyku) · 18–00 hemen |
+| m_celebrate → m_next_day | Gündüz köy meydanına uğra | 00–00 bekle (uyku) |
+| m_next_day → m_theft | Şüphelileri incele (Appraisal) | 00–00 hemen |
+| m_theft → m_vl_cellar | Vera ve Lina'yla konuş | 00–00 bekle (uyku) |
+| m_vl_cellar → f_cellar | Değirmene git | 00–00 hemen |
+| f_cellar → m_silver | 10 gümüş biriktir (1.000 bronz) | 00–05 bekle (uyku) · 05–00 hemen |
+| m_silver → m_farewell | Handa Bertram'la konuş | 00–05 bekle (uyku) · 05–00 hemen |
+| m_farewell → m_gate | Kaptan Roderick'ten giriş kartı al (10 gümüş) | 00–00 hemen |
+
+"00–00 bekle (uyku)" satırları bilerek ertesi güne bağlı hikâye kapılarıdır (iyileşme gecesi, kadehin ertesi günü, keseden sonraki gün): görev biter bitmez "yarın …" beklemesi ve yatağa yönlendirme gelir. Denetimin bulup düzelttikleri: `m_bertram` beklemesi yoktu (ok Bertram'a kilitleniyordu), `m_harvest` 16:00 sonrası hemen ok veriyordu, `m_celebrate` bekleme günü uyuyunca kayıyordu, `weaponScene`/`boardOpening`/ücret gecesi metinleri saatle çelişiyordu.
+
+### Testler
+
+575 → 653 (26 dosya). Yeni: `tests/g6.test.ts` (56 test: jest damgası, `advanceClock`, `guildBarLabel`, iç mekân okları, `m_grank` hedefi, en yakın ot, beş stat formülleri, NPC 4×Level, `hpByLevel` her level, "Şans!" tespiti, tavşan hızı ve saldırı sıklığı, isteğe bağlı amaçlar, kaynak süzme ve bekleme, `objectiveWait m_bertram`, çöp kutusu, Tokluk ve vardiya yemeği, pano süre uyarısı, Ansiklopedi verisi ve göçü, harita işaretleri, `learnSkill` koruması, trait tablosu ve çark, uyanış bayrağı ve göçü, koşu bedeli, dövüş geri bildirimi sabitleri, v9 göçü), `tests/chainTimes.test.ts` (20).
+Kurallar değiştiği için güncellenenler (geri alınmadı): `formulas` (5 stat, HP tabanı 10, VIT yüzdeli, dayanıklılık), `balance` (TABLE ×1,5; fare yumrukla 3 / sopayla 2 vuruş; Joseph 10 HP, fareye 8 ısırık; adil dövüş ve yoldaş testleri B11 ile), `systems` (trait görünürlüğü), `g5a` (NPC 4×Level, INT, tavşan 2,8), `chapter2`/`g5a` servis (2 gün, hedefler [6, 8]), `economy` (2 vardiya, kitap/ders yok), `v3core` (kayıt sürümü 9, Bertram ücreti bekleyen; koşu kilidi testi B22 ile kalktı), `g4a` (kayıt sürümü), `ui` (EXP kuralı: aynı dakikada av ≥ görev), `combat` (`runStep` testi kalktı). QA betiklerinde `declined_*` hileleri ve kitaplar temizlendi, MNA → INT.
+
+### Uçtan uca QA (başsız Chromium, 1280×854, DPR 1, üretim derlemesi)
+
+`URL='http://localhost:4173/?qa=1' DPR=1 OUT=screens/g6 node tools/qa/shot.mjs g6` (`ONLY=prologue,inn,shift,attic,wage,harvest,guild,history,codex,combat,map2,hud`). **Yeni oyundan** başlayıp gerçek girdiyle: başlık → prolog (dokunarak) → **TRAIT ÇEVİR** düğmesine fareyle tık → Status → dünyada **D tuşuyla ilk adım** (tökezleme, kart, aura) → han kapısına W ile gir → Appraisal **Q** → Bertram'la konuş, "Çalışmaya hazırım" → **Servis Koşturmacası** (masalara sipariş taşıma, tabak toplama, bir kez yanlış ekmeği **çöpe** atma) → ok merdivene → **oku klavyeyle izleyerek** merdivenden tavan arasına → ok yatağa → **E** ile yatak, "Uyu" → 06:00 → aşağı → 2. vardiya → ücret gecesi, Haldor beklemesi ve uyku öğreticisi → yatakta "Görev saatine kadar uyu" → hasat mini oyunu → lonca kaydı → sopa → pano → G görevleri. Ekran görüntüleri: `tools/qa/g6/`.
+
+Son tam tur (üretim derlemesi, yeni oyundan): **43 denetim, hepsi ✓**, konsolda hata ve uyarı yok. Ekran görüntüleri (`tools/qa/g6/`, 128 renk):
+
+- **B19** çark: olasılık tablosu (`g6_b19_wheel_table`), akan makara (`…_spin`), sonuç ve gerçek veriden açıklama (`…_result`), ardından Status (`g6_b19_status_after`).
+- **B20** ilk adım: tökezleme (Joseph eğik ve basık: açı 9°, dikey ölçek 0,86; iç ses) (`g6_b20_stumble`), altın kart, ışık sütunu ve aura (`g6_b20_card_aura`). **A7.8a** ipucu ekranın alt ortasında (`g6_a78a_hint_bottom`).
+- **A7.9** Appraisal öğreticisinde amaç "Vera'yı Appraisal ile incele" (`g6_a79_appraise_objective`), Vera'nın kartı (`g6_inn_appraise_vera`). Vera/Lina'nın han replikleri Türkçe ve dünya içi.
+- **A7.7** kamera: `inn` (5,3) ve (2,5) — oyuncu ekranda (450, 339), görev panelinin altında değil (`g6_a77_inn_5_3`, `…_2_5`).
+- **B12** servis 1. gün (5 masa, hedef 6) ve 2. gün (hedef 8), çöp kutusu (`g6_b12_serve_day1`, `…_day2`); bir kez yanlış ekmek alınıp çöpe atıldı. Vardiya sonu Tokluk 39,7 → 53,7.
+- **B1/A7.1** vardiya sonrası bekleme metni "Bertram yarın 06:00'da iş verir — yatakta uyuyarak atlayabilirsin", alt görev "Yukarı çık ve uyu: merdivenden tavan arasına çık", ok merdivende (13,5; 3,5) (`g6_b1_arrow_ladder`). Ok klavyeyle izlenerek merdivenden tavan arasına çıkıldı; orada ok yatağa ve alt görev "…: yatağa yat" (`g6_b1_attic_arrow_bed`).
+- **A7.10** yatağa (5,4)'ten ve (5,5; yukarı bakarak) "Uyu" (`g6_a710_bed_reach`); **E** ile uyku menüsü: Uyu · Görev saatine kadar uyu (yarın 06:00) · Vazgeç (`g6_b3_sleep_menu`). Uyanış 06:00, bekleme ve alt görev kapandı; **A7.2** sabah tavan arasında ok aşağı merdivene (`g6_a72_attic_morning_arrow`).
+- Ücret gecesi: `m_bertram` bitti, 50 bronz. **B3** "Haldor yarın 06:00'da tarlada olur — yatakta uyuyarak atlayabilirsin" + isteğe bağlı "Beklemeyi uyuyarak atla: yatakta 'Görev saatine kadar uyu'" (`g6_b3_sleep_tutorial_hud`); yatakta o seçenek seçilince öğretici bitti, 06:00.
+- Hasat mini oyunu (`g6_harvest_minigame`), Haldor'un ekmeği (B13); lonca kaydı bildirimi (`g6_b21_stone`; taşın "Trait: —" satırı ve Celeste'nin B21 repliği oynandı ama ekran görüntüsüne girmedi); sopa, pano, G görevleri; **A7.5** `m_grank` oku alt görevin hedefinde (`g1_rats` → `barn_yard`) (`g6_a75_grank_target`).
+- **A1/B4** Konuşmalar 295 satır: fareyle yukarı sürükle → "Daha fazla göster" 40 → 80, görünüm yerinde; yeniden yukarı kaydırıp ikinci basış 80 → 120 (`g6_a1_history_more`).
+- **B15** Ansiklopedi Yaratıklar ve Karakterler (Bertram kartı: rol, Appraisal farkı yetmeyen alanlar "???", görüldüğü yer, sattıkları, ilişki, notlar) (`g6_b15_codex_*`); **B9** Status'ta beş stat ve gerçek sayılı ipuçları, Tokluk satırı (`g6_b9_status_stats`).
+- **B23** sopa ile fare: kritiksiz vuruş 1,0, fare 2 vuruşta (`g6_b23_hit_numbers`); sümüksü (`g6_b23_slime_hit`); kritik büyük sarı "2,9!" (`g6_b23_crit`); kusursuz kaçış (`g6_b23_perfect_dodge`); düşük can vinyeti ve kırmızı alınan hasar (`g6_b23_low_hp`).
+- **B16** harita: görev hedefi; dövüş bölgesi keşfedilince yaratık bölgesi "?" (Ansiklopedide bilinmiyor) (`g6_b16_map_markers`, `…2`). **B13** HUD'da Aç/Çok aç Tokluk barı (`g6_b13_hud_hungry`).
+
+QA'nın bulup düzelttikleri: trait çarkının sonucunda kart olasılık tablosuyla çakışıyordu (tablo ve diğer kartlar artık söner, kart aşağıda); Harita sekmesinin başlığı yeni filtre düğmelerinin altına giriyordu (başlık sığacak kadar küçülür); yeni oyunda ilk vardiyanın ortasında Tokluk 0'a düşüyordu (öğle yemeği, bkz. Kararlar).
+
+### Elle denenemeyenler / basitleştirilenler
+
+- Gerçek tablette denenmedi (yalnızca başsız tarayıcı, ~3–7 FPS).
+- Servis mini oyununda masalara dokunuş yerine oyunun kendi hedef/eylem çağrıları (`goTo` + `pick`/`serveTable`/`discard`) kullanıldı (dokunuş aynı çağrıları yapar); hasat zamanlama oyununda basış, işaretçi bölgedeyken karede yapıldı (başsız tarayıcının düşük kare hızında gerçek tuş zamanlaması tutmuyor).
+- Lonca kaydı, sopa ve pano adımlarında konumlar ışınlanarak geçildi (yürüme ve oklar ilk günlerde denendi). Görev zincirinin ilk lonca görevlerinden sonrası (Vera'nın dersi, yaralılar, İlk Kadeh, kese, bodrum) bu turda oynanmadı; birim testleri ve zincir denetimiyle doğrulandı.
+- Kusursuz kaçış ve kritik vuruş dövüşte zorlanarak tetiklendi (`perfectDodge`, `critNext`); pano son gün uyarıları, Ansiklopedi bildirimleri ve eski kayıtların göçü birim testleriyle.
+- Harita filtrelerine dokunma ve bilgi balonu ekran görüntüsüyle değil kodla/birim testleriyle doğrulandı.
+
 ## Sonraki oturum için notlar
+
+- **Grup 6 tamamlandı (0.10.0).** Açık kalanlar yukarıda "Elle denenemeyenler / basitleştirilenler" altında. Dövüş sisteminin kökten değişimi bir sonraki grupta (bu grupta yalnızca sayılar ve geri bildirim değişti). Ansiklopedinin "Eros" sayfası şehir içeriği gelince dolacak; yapı yeni türlere ("Eşyalar", "Yerler") açık (`CODEX_KINDS`).
 
 - **Grup 5B tamamlandı (0.9.0).** Açık kalanlar yukarıda "Yapılamayan / basitleştirilen" altında; 2. yetenek slotu kodda hazır (`SKILL_SLOTS_OPEN`), açılış koşulu henüz yok. 4B'nin "tatmin edici olmayanlar" listesindeki kabza, yay/mızrak yürüyüşü, hançer yukarı saplama, pala vurulma, sırttaki görünümler, süzülen yay ve çatlak sopa 5A'da (D1–D7) ele alındı.
 - 4B'den açık kalanlar: ileride gürz/topuz için `w_club` hazır, uzun kılıç için LPC `longsword` saldırı sayfaları (192 px, klasik gövdeyle birebir uyumlu) kullanılabilir. Terfi animasyonu için ayrı bir ses bestesi hâlâ yok (mevcut `levelup` + `holy`). `fmtHp` 10 altını hep bir ondalık gösterir ("HP 5,0 / 5,0").
