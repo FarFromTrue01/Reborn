@@ -210,3 +210,36 @@ export function riskText(points: number, reward: number): string {
 export function rankName(r: SubRank | null): string {
   return r === null ? 'Yok' : subRankToString(r);
 }
+
+// ---------------------------------------------------------------- B14: pano görevlerinde süre uyarısı (0.10.0)
+/**
+ * Kalan gün (bugün dahil): görev `startedDay + days` gününün sonuna kadar teslim edilebilir (chapter2.onNewDay:
+ * `day > startedDay + days` → başarısız). 1 = son gün, 0 ya da altı = süresi doldu.
+ */
+export function boardDaysLeft(startedDay: number, days: number, day: number): number {
+  return startedDay + days - day + 1;
+}
+
+/** "3 gün kaldı", "Son gün!" */
+export function deadlineLabel(left: number): string {
+  return left <= 1 ? 'Son gün!' : `${left} gün kaldı`;
+}
+
+/** Hatırlatma saati (son günün akşamı). */
+export const DEADLINE_EVENING_HOUR = 18;
+
+/**
+ * Hangi uyarı şimdi gösterilmeli? Son günün sabahı (uyanınca ya da gün değişince) bir kez büyük olmayan bildirim;
+ * aynı gün 18:00'den sonra bir kez kısa hatırlatma. shown: o gün gösterilenler.
+ */
+export function deadlineNotice(left: number, hour: number, shown: { morning?: boolean; evening?: boolean }): 'morning' | 'evening' | null {
+  if (left !== 1) return null;
+  if (!shown.morning) return 'morning';
+  if (hour >= DEADLINE_EVENING_HOUR && !shown.evening) return 'evening';
+  return null;
+}
+
+/** Ceza tutarları (gerçek değerler): puan ve bronz. */
+export function penaltyOf(points: number, reward: number): { points: number; fine: number } {
+  return { points, fine: reward * 2 };
+}

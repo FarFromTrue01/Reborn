@@ -6,7 +6,7 @@ import {
   questTargetOf, type QuestDef, type ObjectiveType, type QuestTarget, type QuestGuide,
 } from '../core/quests';
 import { questDef, rankupQuest } from '../data/quests';
-import { QUEST_POINTS, applyReward, applyPenalty, earnedRank, examRequired, riskText, isRankupQuest } from '../core/guild';
+import { QUEST_POINTS, applyReward, applyPenalty, earnedRank, examRequired, riskText, isRankupQuest, boardDaysLeft } from '../core/guild';
 import { activeQuests, questExp } from '../core/quests';
 import type { SubRank } from '../core/ranks';
 import { subRankToString } from '../core/ranks';
@@ -55,6 +55,13 @@ export const Q = {
     } catch {
       return [];
     }
+  },
+  /** B14: süreli görevde kalan gün (bugün dahil; 1 = son gün) ya da null. */
+  daysLeft(id: string): number | null {
+    const def = lookup(id);
+    const st = G.state.quests.quests[id];
+    if (!def?.days || !st || st.status !== 'active') return null;
+    return boardDaysLeft(st.startedDay, def.days, G.state.time.day);
   },
   def(id: string): QuestDef | undefined {
     return lookup(id);

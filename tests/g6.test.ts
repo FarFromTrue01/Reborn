@@ -421,3 +421,26 @@ describe('Skill öğrenmenin tek yolu SP (B17)', () => {
     expect(m.flags.postponed_archery).toBeUndefined();
   });
 });
+
+import { boardDaysLeft, deadlineLabel, deadlineNotice, penaltyOf } from '../src/core/guild';
+describe('Pano süre uyarısı (B14)', () => {
+  it('kalan gün: başarısızlık kuralıyla aynı (day > startedDay + days)', () => {
+    expect(boardDaysLeft(5, 3, 5)).toBe(4);
+    expect(boardDaysLeft(5, 3, 8)).toBe(1);
+    expect(boardDaysLeft(5, 3, 9)).toBe(0);
+    expect(deadlineLabel(3)).toBe('3 gün kaldı');
+    expect(deadlineLabel(1)).toBe('Son gün!');
+  });
+  it('uyarı zamanı: son günün sabahı bir kez, 18:00 sonrası bir kez', () => {
+    expect(deadlineNotice(2, 7, {})).toBeNull();
+    expect(deadlineNotice(1, 6, {})).toBe('morning');
+    expect(deadlineNotice(1, 12, { morning: true })).toBeNull();
+    expect(deadlineNotice(1, 18, { morning: true })).toBe('evening');
+    expect(deadlineNotice(1, 20, { morning: true, evening: true })).toBeNull();
+    // 18:00'den sonra yüklenen oyun: önce sabah bildirimi
+    expect(deadlineNotice(1, 19, {})).toBe('morning');
+  });
+  it('ceza tutarları gerçek: −puan, ödülün iki katı bronz', () => {
+    expect(penaltyOf(30, 75)).toEqual({ points: 30, fine: 150 });
+  });
+});

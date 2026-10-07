@@ -14,6 +14,7 @@ import type { Warp } from '../world/types';
 import type { Director } from './director';
 import { NPC_BY_ID } from '../data/npcs';
 import { SIDE_QUESTS, SIDE_SCRIPTS, boardForDay, MAX_BOARD_QUESTS, boardRewardRanges } from '../data/sidequests';
+import { deadlineNotice, penaltyOf } from '../core/guild';
 import { currentObjective, activeQuests, type QuestDef, type QuestTarget } from '../core/quests';
 import { questDef } from '../data/quests';
 import { canTakeQuest, riskText, QUEST_POINTS, reRegister, REREGISTER_FEE, pointsToNext } from '../core/guild';
@@ -1190,6 +1191,33 @@ export class Chapter2 {
       if (def?.days && st && this.day > st.startedDay + def.days) Q.fail(id);
     }
     if (Q.done('m_wounded') && !G.flag('friends_vl') && this.day > Number(G.flag('vl_healed_day') || 0)) G.setFlag('friends_vl', this.day);
+  }
+
+  /**
+   * B14: süreli (pano) görevlerin son günü uyarıları — sabah (gün değişince/uyanınca) bir kez, 18:00'den sonra bir
+   * kez daha. Ceza kuralı aynı; tutarlar gerçek değerlerle. Gösterilenler görevin data'sında (gün numarasıyla).
+   */
+  checkDeadlines() {
+    const hour = G.state.time.minute / 60;
+    for (const id of activeQuests(G.state.quests)) {
+      const left = Q.daysLeft(id);
+      if (left === null) continue;
+      const st = G.state.quests.quests[id];
+      st.data ??= {};
+      const shown = { morning: st.data.warnMorning === this.day, evening: st.data.warnEvening === this.day };
+      const n = deadlineNotice(left, hour, shown);
+      if (!n) continue;
+      const def = Q.def(id)!;
+      const pts = def.reward.points ?? (def.rank ? QUEST_POINTS[def.rank] : 0);
+      const pen = penaltyOf(pts, def.reward.money ?? 0);
+      if (n === 'morning') {
+        st.data.warnMorning = this.day;
+        R.sysmsg('SÜRE DOLUYOR', [`'${def.title}' bugün bitmezse başarısız sayılır: −${pen.points} puan, {m:${pen.fine}} ceza.`], { sound: 'alert' });
+      } else {
+        st.data.warnEvening = this.day;
+        R.toast(`Son gün: '${def.title}' gece yarısına kadar teslim edilmeli.`, 'warn', 'clock');
+      }
+    }
   }
 
   /** false: amacı şimdilik ilerletme. */

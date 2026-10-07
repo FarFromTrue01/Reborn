@@ -7,6 +7,7 @@ import { QUEST_POINTS, groupPoints } from '../core/guild';
 import { COLORS, FONT, txt, uiIcon, Button } from './kit';
 import { ScrollList, confirmBox } from './panels';
 import { KIND_ICON, loadQuestHudPrefs, saveQuestHudPref } from './hudQuests';
+import { deadlineLabel } from '../core/guild';
 import { richLine } from './coins';
 import { NPC_BY_ID } from '../data/npcs';
 import { ornamentLine } from './appraisalPanel';
@@ -158,6 +159,14 @@ export function renderQuestsTab(scene: Phaser.Scene & { render(): void }, c: Pha
     c.add(uiIcon(scene, dx + 28, yy + 10, 'reward', 20));
     c.add(richLine(scene, dx + 44, yy + 10, 'Ödül: ' + rw.join(' · '), { size: 15, color: '#cfe6b8' }));
     yy += 30;
+  }
+  // B14: süre
+  const left = st.status === 'active' ? Q.daysLeft(id0) : null;
+  if (left !== null) {
+    c.add(uiIcon(scene, dx + 28, yy + 10, 'clock', 20));
+    const lt = txt(scene, dx + 44, yy, `${deadlineLabel(left)}${left <= 1 ? ' — bugün bitmezse başarısız sayılır.' : ''}`, { size: 14, bold: true, color: left <= 1 ? '#ff8a50' : '#f3dc95', wrap: dw - 70 });
+    c.add(lt);
+    yy += lt.height + 10;
   }
   // risk
   const risk = Q.risk(def);

@@ -449,6 +449,7 @@ export class Director {
       delete G.state.flags.stat_reset_notice;
       this.w.time.delayedCall(1500, () => R.sysmsg('STAT SİSTEMİ DEĞİŞTİ', [`Stat sistemi değişti, puanlarını yeniden dağıt (${G.p.unspent} puan · Menü → Status).`], { sound: 'system' }));
     }
+    if (G.flag('woke')) this.w.time.delayedCall(3000, () => this.ch2.checkDeadlines());
     if (!G.flag('woke')) this.wakeScene();
     else this.ui.showZone(this.w.zone?.name ?? this.w.mapData.name);
     this.w.updateMusic();
@@ -525,6 +526,7 @@ export class Director {
 
   onHour(_h: number) {
     this.w.updateMusic();
+    this.ch2.checkDeadlines();
   }
 
   onRespawn() {
@@ -1642,6 +1644,7 @@ export class Director {
 
   /** Uyandıktan sonra (hikâye kancası). */
   async afterSleep() {
+    this.ch2.checkDeadlines();
     if (G.state.time.minute / 60 < 8 && G.flag('bertram_deal') && !G.flag('bertram_done') && G.flag('worked_today') !== G.state.time.day) await this.think('Sabah. Bertram aşağıda bekliyordur.');
   }
 

@@ -7,6 +7,7 @@ import { G } from '../game/G';
 import { Q } from '../game/questrt';
 import { activeQuests, currentObjective, visibleObjectives, hudQuestGroups, objectiveLabel, type QuestHudPrefs } from '../core/quests';
 import { COLORS, FONT, txt, uiIcon } from './kit';
+import { deadlineLabel } from '../core/guild';
 import { Sound } from '../audio/audio';
 
 export const KIND_ICON: Record<string, string> = { main: 'main_quest', side: 'side_quest', board: 'board_quest' };
@@ -57,7 +58,7 @@ export class QuestBox extends Phaser.GameObjects.Container {
     const log = G.state.quests;
     const ids = activeQuests(log);
     const prefs = loadQuestHudPrefs();
-    const key = JSON.stringify([this.collapsed, prefs, log.tracked, ids.map((id) => [id, log.quests[id].progress, Q.wait(id), Q.guides(id).map((g) => g.label)])]);
+    const key = JSON.stringify([this.collapsed, prefs, log.tracked, ids.map((id) => [id, log.quests[id].progress, Q.wait(id), Q.guides(id).map((g) => g.label), Q.daysLeft(id)])]);
     if (key === this.key && !force) return;
     this.key = key;
     this.removeAll(true);
@@ -138,13 +139,16 @@ export class QuestBox extends Phaser.GameObjects.Container {
     const vis = visibleObjectives(def, st);
     const o = def.objectives[ci >= 0 && vis.includes(ci) ? ci : vis[vis.length - 1]];
     const prog = o && (o.count ?? 1) > 1 ? ` ${st.progress[def.objectives.indexOf(o)]}/${o.count}` : '';
-    const t1 = txt(this.scene, 32, 2, def.title, { size: 14, bold: true, color: tracked ? '#ffe9a0' : COLORS.text, stroke: true });
-    const t2 = txt(this.scene, 32, 20, (o ? objectiveLabel(o) : '') + prog, { size: 12, color: tracked ? '#cfe6b8' : COLORS.textDim, wrap: W - 44, stroke: true });
+    // B14: süreli (pano) görevde kalan süre; son gün başlık turuncu-kırmızı
+    const left = Q.daysLeft(id);
+    const last = left !== null && left <= 1;
+    const t1 = txt(this.scene, 32, 2, def.title + (left !== null ? `  · ${deadlineLabel(left)}` : ''), { size: 14, bold: true, color: last ? '#ff8a50' : tracked ? '#ffe9a0' : COLORS.text, stroke: true, wrap: W - 50 });
+    const t2 = txt(this.scene, 32, 4 + t1.height, (o ? objectiveLabel(o) : '') + prog, { size: 12, color: tracked ? '#cfe6b8' : COLORS.textDim, wrap: W - 44, stroke: true });
     // bekleme (0.6.0): "Haldor 14:00'te tarlada olur — o saate kadar bekle"
     const wait = Q.wait(id);
-    const t3 = wait ? txt(this.scene, 32, 20 + t2.height + 1, '⏳ ' + wait, { size: 11, italic: true, color: '#a9c8ff', wrap: W - 44, stroke: true }) : null;
+    const t3 = wait ? txt(this.scene, 32, t2.y + t2.height + 1, '⏳ ' + wait, { size: 11, italic: true, color: '#a9c8ff', wrap: W - 44, stroke: true }) : null;
     // alt amaçlar (B1/B3): "↳ Yukarı çık ve uyu…", "↳ Lonca panosundan ilan al… (isteğe bağlı)"
-    let gy = 20 + t2.height + (t3 ? t3.height + 2 : 0) + 1;
+    let gy = t2.y + t2.height + (t3 ? t3.height + 2 : 0) + 1;
     const gts: Phaser.GameObjects.Text[] = [];
     for (const gd of Q.guides(id)) {
       const gt = txt(this.scene, 32, gy, '↳ ' + objectiveLabel(gd), { size: 11, color: gd.optional ? '#c9e3a8' : '#ffe9a0', wrap: W - 44, stroke: true });
