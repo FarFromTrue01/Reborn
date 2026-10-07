@@ -42,6 +42,7 @@ import { fogOf } from './WorldScene';
 import { TERRAIN, TILE } from '../world/types';
 import type { Expression } from '../data/manifest';
 import { LIGHT_MAX } from '../core/divine';
+import { errorCount } from '../game/errorLog';
 
 interface SayOpts {
   expr?: Expression;
@@ -125,6 +126,9 @@ export class UIScene extends Phaser.Scene {
   zoneBanner: Phaser.GameObjects.Container | null = null;
   ghostHp = 1;
   fpsText: Phaser.GameObjects.Text | null = null;
+  /** E: geliştirici modunda kırmızı hata sayacı (dokununca Geliştirici sekmesi). */
+  errBadge: Phaser.GameObjects.Text | null = null;
+  errShown = -1;
   menuIsOpen = false;
   overlay: Phaser.GameObjects.Container | null = null;
   hideHud = false;
@@ -196,6 +200,8 @@ export class UIScene extends Phaser.Scene {
     this.zoneBanner = null;
     this.ghostHp = 1;
     this.fpsText = null;
+    this.errBadge = null;
+    this.errShown = -1;
     this.menuIsOpen = false;
     this.overlay = null;
     this.hideHud = false;
@@ -264,6 +270,9 @@ export class UIScene extends Phaser.Scene {
     this.edgeFlash?.destroy();
     this.lowVignette?.destroy();
     this.fpsText?.destroy();
+    this.errBadge?.destroy();
+    this.errBadge = null;
+    this.errShown = -1;
     this.build();
     if (keep) this.children.bringToTop(keep);
   }
@@ -357,6 +366,11 @@ export class UIScene extends Phaser.Scene {
     this.edgeFlash = this.add.image(Display.uiW / 2, Display.uiH / 2, 'vignette_red').setDisplaySize(Display.uiW, Display.uiH).setDepth(50).setAlpha(0);
     this.lowVignette = this.add.image(Display.uiW / 2, Display.uiH / 2, 'vignette_red').setDisplaySize(Display.uiW, Display.uiH).setDepth(49).setAlpha(0);
     if (G.settings.showFps) this.fpsText = txt(this, W / 2, 8, '', { size: 13, stroke: true }).setOrigin(0.5, 0).setDepth(60);
+    if (G.settings.devMode) {
+      this.errBadge = txt(this, W / 2, 26, '', { size: 14, bold: true, color: '#ffffff', stroke: true })
+        .setOrigin(0.5, 0).setDepth(60).setBackgroundColor('#b3261e').setPadding(8, 3, 8, 3).setVisible(false);
+      this.errBadge.setInteractive({ useHandCursor: true }).on('pointerup', () => this.openMenu('dev'));
+    }
     this.refreshButtons();
     this.drawMinimap(true);
   }
@@ -490,6 +504,13 @@ export class UIScene extends Phaser.Scene {
     this.drawMinimapMarks();
     this.tickDialogue(dt);
     if (this.fpsText) this.fpsText.setText(`${Math.round(this.game.loop.actualFps)} FPS`);
+    if (this.errBadge) {
+      const n = errorCount();
+      if (n !== this.errShown) {
+        this.errShown = n;
+        this.errBadge.setText(`⚠ ${n} hata`).setVisible(n > 0);
+      }
+    }
     const hide = this.hideHud || this.menuIsOpen;
     this.hud.setVisible(!hide);
     this.touch.setVisible(!hide && !this.dialogueOpen() && !(this.world?.cutscene));

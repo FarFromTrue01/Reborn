@@ -18,6 +18,7 @@ import { qualityDprCap } from './game/display';
 import { createMonster } from './core/monster';
 import { NPC_BY_ID } from './data/npcs';
 import { installGlobalErrorLog } from './game/errorLog';
+import { installQaApi } from './game/qaApi';
 
 declare const __APP_VERSION__: string;
 export const APP_VERSION = __APP_VERSION__;
@@ -84,6 +85,11 @@ async function start() {
     physics: { default: 'arcade', arcade: { gravity: { x: 0, y: 0 }, debug: false } },
   });
   (window as any).__game = game;
+  // 0.11.0 (E): betik API'si (?qa=1 ya da geliştirici modu)
+  if (QA || G.settings.devMode) installQaApi(game);
+  G.events.on('settings', () => {
+    if (G.settings.devMode && !(window as any).__qa) installQaApi(game);
+  });
   const world = () => {
     const w = game.scene.getScene('World') as WorldScene | null;
     return w && w.sys.isActive() ? w : null;

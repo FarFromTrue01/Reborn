@@ -15,8 +15,24 @@ import { activeQuests, currentObjective } from '../core/quests';
 import { MAIN_QUESTS } from '../data/quests';
 import { RANK_THRESHOLDS } from '../core/guild';
 import { fmtExp, fmtHp } from './format';
+import { Dev } from '../game/dev';
+import { CHECKPOINTS } from '../story/checkpoints';
+import { MONSTERS } from '../data/monsters';
+import { ITEMS } from '../data/items';
+import { newSkill } from '../core/skills';
+import { codexUnlockAll, newCodex } from '../core/codex';
+import { errors, errorsText, clearErrors } from '../game/errorLog';
+import { importToSlot } from '../core/slots';
+import { pickSlot } from './slotPicker';
+import { leaveGame } from '../game/sceneFlow';
 
 type Scn = Phaser.Scene & { render(): void; world: any; ui: any; close(): void };
+
+/** Durum görüntüleyicinin araması (oturum boyunca). */
+const DEV_FILTER = { q: '' };
+
+/** window.__qa (geliştirici modunda kurulur). */
+const qa = () => (window as any).__qa as { checkpoint(id: string): Promise<boolean> } | undefined;
 
 export function renderDevPanel(scene: Scn, c: Phaser.GameObjects.Container, w: number, h: number) {
   c.add(uiIcon(scene, 16, 16, 'dev', 30));
@@ -26,6 +42,7 @@ export function renderDevPanel(scene: Scn, c: Phaser.GameObjects.Container, w: n
   list.updateMask();
   const I = list.inner;
   let y = 0;
+  let x = 0;
   const p = G.p;
   const refresh = () => {
     G.invalidate();
@@ -46,10 +63,41 @@ export function renderDevPanel(scene: Scn, c: Phaser.GameObjects.Container, w: n
   };
   const rowLabel = (t: string) => I.add(txt(scene, 0, y + 9, t, { size: 15, bold: true, color: COLORS.text }));
 
+  // ------------------------------------------------------------ 0.11.0 (E): hikâye noktasına atla
+  head('Hikâye noktasına atla');
+  I.add(txt(scene, 0, y, 'Bayraklar, görevler, envanter, para ve konum tutarlı kurulur (yeni oyundan).', { size: 13, italic: true, color: COLORS.textDim, wrap: w - 20 }));
+  y += 24;
+  x = 0;
+  for (const cp of CHECKPOINTS) {
+    if (x > w - 210) { x = 0; y += 44; }
+    x = btn(x, cp.name, () => {
+      scene.close();
+      void qa()?.checkpoint(cp.id);
+    }, 200);
+  }
+  y += 52;
+  // ------------------------------------------------------------ dövüş araçları
+  head('Dövüş');
+  x = 0;
+  x = btn(x, `Ölümsüz: ${Dev.god ? 'AÇIK' : 'kapalı'}`, () => (Dev.god = !Dev.god), 150);
+  x = btn(x, `Tek vuruş: ${Dev.oneHit ? 'AÇIK' : 'kapalı'}`, () => (Dev.oneHit = !Dev.oneHit), 150);
+  x = btn(x, `Katman: ${Dev.debug ? 'AÇIK' : 'kapalı'}`, () => (Dev.debug = !Dev.debug), 140);
+  x = btn(x, 'Yaratıkları yeniden doğur', () => scene.world?.respawnAll?.(), 220);
+  y += 44;
+  I.add(txt(scene, 0, y + 6, 'Yanına doğur:', { size: 14, color: COLORS.textDim }));
+  x = 120;
+  for (const m of Object.values(MONSTERS)) {
+    if (x > w - 130) { x = 120; y += 44; }
+    x = btn(x, m.name.slice(0, 12), () => {
+      const a = scene.world?.player?.actor;
+      if (a) scene.world.spawnAt(m.id, Math.round(a.x / 32) + 3, Math.round(a.y / 32), 1, 1, 'dev');
+    }, 120);
+  }
+  y += 52;
   // ------------------------------------------------------------ Joseph
   head('Joseph');
   rowLabel(`Level ${p.level} · EXP ${fmtExp(p.exp)}`);
-  let x = 260;
+  x = 260;
   x = btn(x, '−1', () => (p.level = Math.max(0, p.level - 1)));
   x = btn(x, '+1', () => { p.level++; p.unspent += STAT_POINTS_PER_LEVEL; p.sp += SP_PER_LEVEL; });
   x = btn(x, '+50 EXP', () => R.gainExp(50), 100);
@@ -61,6 +109,14 @@ export function renderDevPanel(scene: Scn, c: Phaser.GameObjects.Container, w: n
     xx = btn(xx, '+1', () => p.alloc[k]++);
     y += 44;
   }
+  // E: ilerleme — Divine level ±, SP +1, haftalık kuraldan bağımsız Sistem Teklifi
+  rowLabel(`Divine Level ${G.state.divine.level} · SP ${p.sp}`);
+  x = 260;
+  x = btn(x, 'D −1', () => (G.state.divine.level = Math.max(0, G.state.divine.level - 1)), 60);
+  x = btn(x, 'D +1', () => { G.state.divine.level++; G.events.emit('divineLevel', G.state.divine.level); }, 60);
+  x = btn(x, 'SP +1', () => p.sp++, 64);
+  x = btn(x, 'Teklif (haftasız)', () => { G.state.lastSkillLearnWeek = null; if (p.sp < 1) p.sp = 1; (scene as any).tab = 'status'; void (scene as any).systemOffer?.(); }, 150);
+  y += 44;
   rowLabel(`HP ${fmtHp(p.hp)}/${fmtHp(G.d.maxHp)} · MP ${Math.floor(p.mp)}/${G.d.maxMp}`);
   x = 260;
   x = btn(x, 'HP 1', () => (p.hp = 1));
@@ -82,8 +138,35 @@ export function renderDevPanel(scene: Scn, c: Phaser.GameObjects.Container, w: n
     xx = btn(xx, '+5 EXP', () => R.gainSkillExp(s.id, 5 / G.d.divLearning), 90);
     y += 44;
   }
+  // E: skill ekle
+  I.add(txt(scene, 0, y + 6, 'Skill ekle:', { size: 14, color: COLORS.textDim }));
+  x = 100;
+  for (const def of Object.values(SKILLS)) {
+    if (p.skills.some((s) => s.id === def.id)) continue;
+    if (x > w - 140) { x = 100; y += 44; }
+    x = btn(x, def.name.slice(0, 13), () => { p.skills.push(newSkill(def.id)); G.events.emit('skills'); }, 130);
+  }
+  y += 52;
+  // E: listeden eşya ekle
+  I.add(txt(scene, 0, y + 6, 'Eşya ekle:', { size: 14, color: COLORS.textDim }));
+  x = 100;
+  for (const it of Object.values(ITEMS)) {
+    if (x > w - 130) { x = 100; y += 44; }
+    x = btn(x, it.name.slice(0, 12), () => R.giveItems([{ id: it.id, qty: 1 }], 'Geliştirici', true), 120);
+  }
+  y += 52;
+  // E: Ansiklopedi
+  rowLabel('Ansiklopedi');
+  x = 260;
+  x = btn(x, 'Tamamen aç', () => codexUnlockAll(G.state.codex, G.state.time.day), 130);
+  x = btn(x, 'Sıfırla', () => (G.state.codex = newCodex()), 90);
+  y += 52;
   // ------------------------------------------------------------ zaman ve ışınlanma
   head('Zaman');
+  x = 0;
+  x = btn(x, `Saat ×${Dev.clockScale === 4 ? '4 (açık)' : '1'}`, () => (Dev.clockScale = Dev.clockScale === 4 ? 1 : 4), 130);
+  x = btn(x, Dev.clockPaused ? 'Saati sürdür' : 'Saati durdur', () => (Dev.clockPaused = !Dev.clockPaused), 140);
+  y += 44;
   rowLabel(`${G.state.time.day}. gün · ${String(Math.floor(G.state.time.minute / 60)).padStart(2, '0')}:${String(G.state.time.minute % 60).padStart(2, '0')}`);
   x = 260;
   x = btn(x, '+1 sa', () => (G.state.time = advTime(G.state.time, 60)));
@@ -111,6 +194,11 @@ export function renderDevPanel(scene: Scn, c: Phaser.GameObjects.Container, w: n
     }, 100);
     void i;
   });
+  y += 50;
+  btn(0, 'Görev hedefine ışınlan', () => {
+    scene.close();
+    void scene.world?.teleportToQuestTarget?.();
+  }, 220);
   y += 50;
   // ------------------------------------------------------------ görevler ve lonca
   head('Görevler ve Lonca');
@@ -144,6 +232,55 @@ export function renderDevPanel(scene: Scn, c: Phaser.GameObjects.Container, w: n
     x = btn(x, q.title.slice(0, 16), () => Q.start(q.id), 150);
   }
   y += 56;
+  // ------------------------------------------------------------ E: durum (bayrak ve sayaçlar, aranabilir)
+  head('Durum');
+  rowLabel(`Bayrak ${Object.keys(G.state.flags).length} · Sayaç ${Object.keys(G.state.counters).length}${DEV_FILTER.q ? ` · arama: "${DEV_FILTER.q}"` : ''}`);
+  x = 420;
+  x = btn(x, 'Ara', () => { DEV_FILTER.q = (window.prompt('Bayrak / sayaç ara', DEV_FILTER.q) ?? '').trim(); }, 70);
+  x = btn(x, 'Temizle', () => (DEV_FILTER.q = ''), 90);
+  y += 44;
+  const rows = [...Object.entries(G.state.flags).map(([k, v]) => `⚑ ${k} = ${v}`), ...Object.entries(G.state.counters).map(([k, v]) => `# ${k} = ${v}`)]
+    .filter((r) => !DEV_FILTER.q || r.toLowerCase().includes(DEV_FILTER.q.toLowerCase()))
+    .sort();
+  const shown = rows.slice(0, 80);
+  const t = txt(scene, 0, y, shown.join('\n') || '—', { size: 12, color: '#cfe6b8', wrap: w - 20 });
+  I.add(t);
+  y += t.height + (rows.length > shown.length ? 20 : 8);
+  if (rows.length > shown.length) I.add(txt(scene, 0, y - 18, `… ${rows.length - shown.length} satır daha (aramayı daralt)`, { size: 12, italic: true, color: COLORS.textDim }));
+  // ------------------------------------------------------------ E: kayıt dışa/içe aktarma
+  head('Kayıt dışa / içe aktar');
+  x = 0;
+  x = btn(x, 'JSON\'u kopyala', () => {
+    const json = JSON.stringify(G.state);
+    void navigator.clipboard?.writeText(json).then(() => R.toast('Kayıt panoya kopyalandı.', 'info')).catch(() => window.prompt('Kopyala:', json));
+  }, 160);
+  x = btn(x, 'Yapıştır → yuvaya yükle', async () => {
+    const json = window.prompt('Kayıt JSON\'unu yapıştır');
+    if (!json) return;
+    const slot = await pickSlot(scene, 'store', G.slot);
+    if (!slot || slot === 'legacy') return;
+    if (!importToSlot(localStorage, slot, json)) {
+      R.toast('Geçersiz kayıt.', 'warn');
+      return;
+    }
+    if (G.load(slot)) {
+      scene.close();
+      leaveGame(scene.scene, scene.ui, 'World');
+    }
+  }, 230);
+  y += 52;
+  // ------------------------------------------------------------ E: hata kaydı
+  head(`Hata kaydı (${errors().length})`);
+  x = 0;
+  x = btn(x, 'Kopyala', () => void navigator.clipboard?.writeText(errorsText()).catch(() => window.prompt('Kopyala:', errorsText())), 100);
+  x = btn(x, 'Temizle', () => clearErrors(), 100);
+  y += 44;
+  for (const e of errors().slice(-12).reverse()) {
+    const et = txt(scene, 0, y, `${new Date(e.at).toLocaleTimeString('tr-TR')} · ${e.source}: ${e.message}\n${e.stack.split('\n').slice(0, 3).join('\n')}`, { size: 11, color: '#ffb0a0', wrap: w - 20 });
+    I.add(et);
+    y += et.height + 6;
+  }
+  y += 10;
   // ------------------------------------------------------------ kapat
   head('Mod');
   I.add(txt(scene, 0, y, 'NPC\'lerin Saygınlık değerleri geliştirici modunda başlarının üstünde görünür.', { size: 13, italic: true, color: COLORS.textDim, wrap: w - 20 }));

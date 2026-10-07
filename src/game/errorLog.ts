@@ -33,6 +33,10 @@ export function errors(): ErrorEntry[] {
   return [...list];
 }
 
+export function errorCount(): number {
+  return list.length;
+}
+
 export function clearErrors() {
   list.length = 0;
   for (const l of listeners) l();

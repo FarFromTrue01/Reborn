@@ -266,6 +266,21 @@ export function codexSorted(c: CodexState, kind: CodexKind, ids: string[]): stri
   return [...known, ...unknown];
 }
 
+/** Geliştirici: Ansiklopediyi tamamen aç (her kayıt bilinir, Appraisal kaydı en yüksek rütbeyle). */
+export function codexUnlockAll(c: CodexState, day: number) {
+  for (const id of codexIds('monsters')) {
+    const e = (c.monsters[id] ??= { firstDay: day, levels: null, kills: 0, drops: [], places: [] });
+    e.firstDay ||= day;
+    e.snap = { by: 26, day };
+  }
+  for (const id of codexIds('people')) {
+    const e = (c.people[id] ??= { met: day, appraised: day, places: [] });
+    e.appraised ||= day;
+    e.snap = personSnapshot(id, 26, day) ?? undefined;
+  }
+  for (const p of PLANTS) c.plants[p.id] ??= { first: day, count: 1, places: [] };
+}
+
 /** Göç (v10): Appraisal geçmişi olup anlık kaydı olmayan kişiler için kayıt o anki rütbeyle bir kez oluşturulur. */
 export function codexSnapshotMigrate(c: CodexState, by: number, day: number) {
   for (const [id, e] of Object.entries(c.people)) if (e.appraised && !e.snap) e.snap = personSnapshot(id, by, e.appraised || day) ?? undefined;

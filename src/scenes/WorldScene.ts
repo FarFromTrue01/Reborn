@@ -40,7 +40,8 @@ import { refundEvade } from '../core/combat';
 import { BubbleQueue } from '../world/bubbleQueue';
 import { LOOT_COLOR, LOOT_LIFE_SEC, LootFxPool, lootVisible, type LootKind } from '../world/lootFx';
 import { newQueue, queueLimit as zoneQueueLimit, clearBoss, type AttackQueue } from '../core/attackQueue';
-import { STAGGER_FILL, skillStagger, stunDamageMult } from '../core/stagger';
+import { STAGGER_FILL, skillStagger, staggerCap, stunDamageMult } from '../core/stagger';
+import { Dev } from '../game/dev';
 import { COUNTER_DMG_SKILLED, counterWindow, HEAVY_DMG_MULT, RHYTHM_STEPS } from '../core/rhythm';
 import { fmtHp } from '../ui/format';
 import { loseMoneyPercent, forfeitLoot, emptyLoot, lootEmpty, type BattleLoot } from '../core/transactions';
@@ -240,6 +241,8 @@ export class WorldScene extends Phaser.Scene {
     this.projectiles = [];
     this.companions = [];
     this.incoming = [];
+    this.debugG = null;
+    this.debugTexts = [];
     this.bubbles = new BubbleQueue();
     this.bubbleViews = new Map();
     this.joQueue = newQueue();
@@ -961,6 +964,27 @@ export class WorldScene extends Phaser.Scene {
     return this.targetPx(t);
   }
 
+  /**
+   * E: görev hedefine ışınlan (geliştirici modu). Hedef başka haritadaysa ok bir geçişi gösterir: o geçişten geçilir
+   * ve yeni haritada yeniden denenir (en çok 3 adım).
+   */
+  async teleportToQuestTarget(): Promise<boolean> {
+    for (let step = 0; step < 3; step++) {
+      const tp = this.questTargetPx();
+      if (!tp) return false;
+      const tx = Math.floor(tp.x / TILE), ty = Math.floor(tp.y / TILE);
+      const wp = this.mapData.warps.find((w) => w.to && tx >= w.x - 1 && tx <= w.x + w.w && ty >= w.y - 1 && ty <= w.y + w.h);
+      if (!wp) {
+        const [fx, fy] = nearestFree(this.mapData.solid, this.mapData.w, this.mapData.h, tx, ty + 1);
+        this.loadMap(this.mapData.id, fx, fy, 'up');
+        return true;
+      }
+      this.loadMap(wp.to, wp.tx, wp.ty, wp.facing);
+      await new Promise((r) => setTimeout(r, 120));
+    }
+    return true;
+  }
+
   /** Haritalar (geçiş grafiği için). */
   navMaps(): Record<string, MapData> {
     getMap(this, 'world');
@@ -1156,6 +1180,66 @@ export class WorldScene extends Phaser.Scene {
     }
   }
 
+  /** E: bölgedeki bütün yaratıkları yeniden doğur (geliştirici modu). */
+  respawnAll() {
+    for (const e of this.enemies) e.destroy();
+    this.enemies = [];
+    this.joQueue = newQueue();
+    this.companionQueues.clear();
+    for (const s of this.mapData.spawns) for (let i = 0; i < s.count; i++) delete G.state.respawns[s.id + '#' + i];
+    this.spawnEnemies();
+  }
+
+  /** E: hata ayıklama katmanı — saldırı alanları, sendeleme barları (sayı) ve saldırı sırası hakları. */
+  private debugG: Phaser.GameObjects.Graphics | null = null;
+  private debugTexts: Phaser.GameObjects.Text[] = [];
+  drawDebug() {
+    if (!Dev.debug) {
+      if (this.debugG) {
+        this.debugG.destroy();
+        this.debugG = null;
+        for (const t of this.debugTexts) t.destroy();
+        this.debugTexts = [];
+      }
+      return;
+    }
+    const g = (this.debugG ??= this.add.graphics().setDepth(965000));
+    g.clear();
+    let ti = 0;
+    const label = (x: number, y: number, s: string, col = '#ffffff') => {
+      let t = this.debugTexts[ti];
+      if (!t) {
+        t = this.add.text(0, 0, '', { fontFamily: 'monospace', fontSize: '9px', color: '#fff', stroke: '#000', strokeThickness: 2 }).setDepth(965001).setOrigin(0.5, 0);
+        this.debugTexts.push(t);
+      }
+      t.setVisible(true).setPosition(x, y).setText(s).setColor(col);
+      ti++;
+    };
+    const pa = this.player.actor;
+    g.lineStyle(1, 0x7cc8ff, 0.8);
+    g.strokeCircle(pa.x, pa.y, 3);
+    label(pa.x, pa.y + 4, `N=${this.queueLimit()} hak:${[...this.joQueue.holders].join(',') || '-'}`, '#9fd6ff');
+    for (const e of this.enemies) {
+      if (!e.alive) continue;
+      const sh = e.shape;
+      if (sh) {
+        g.lineStyle(1.5, 0xffff00, 0.9);
+        if (sh.kind === 'circle') g.strokeCircle(sh.x, sh.y, sh.r);
+        else if (sh.kind === 'cone') {
+          g.beginPath();
+          g.moveTo(sh.x, sh.y);
+          g.arc(sh.x, sh.y, sh.r, sh.angle - sh.half, sh.angle + sh.half);
+          g.closePath();
+          g.strokePath();
+        } else g.lineBetween(sh.x, sh.y, sh.x + Math.cos(sh.angle) * sh.len, sh.y + Math.sin(sh.angle) * sh.len);
+      }
+      const q = this.attackQueue(e.foe);
+      const tok = q.holders.has(e.uid) ? 'HAK' : q.waiting.has(e.uid) ? 'sıra' : '';
+      label(e.x, e.y + 4, `#${e.uid} ${e.state} ${e.stagger.fill.toFixed(1)}/${staggerCap(e.def.id)}${e.stunned ? ' SERSEM' : ''} ${tok}`, e.stunned ? '#ffe066' : tok === 'HAK' ? '#ff8060' : '#ffffff');
+    }
+    for (let i = ti; i < this.debugTexts.length; i++) this.debugTexts[i].setVisible(false);
+  }
+
   /** Belirli bir yerde düşman doğur (senaryolar ve geliştirici modu). */
   spawnAt(monster: string, tx: number, ty: number, count = 1, radius = 2, key = 'script'): Enemy[] {
     const out: Enemy[] = [];
@@ -1297,7 +1381,8 @@ export class WorldScene extends Phaser.Scene {
     this.readKeyboard();
     // zaman
     if (!this.cutscene && !this.ui.dialogueOpen()) {
-      this.timeAcc += dt;
+      // E: geliştirici saati (×4 hız, durdur)
+      this.timeAcc += Dev.clockPaused ? 0 : dt * Dev.clockScale;
       while (this.timeAcc >= 1) {
         this.timeAcc -= 1;
         this.tickMinute();
@@ -1305,6 +1390,7 @@ export class WorldScene extends Phaser.Scene {
     }
     this.player.update(dt);
     this.updateBubbles(dt);
+    this.drawDebug();
     this.sinceKill += dt;
     if (G.state.divine.streak > 0 && streakExpired(this.sinceKill)) R.resetStreak();
     for (const e of this.enemies) {
@@ -2427,6 +2513,8 @@ export class WorldScene extends Phaser.Scene {
       Sound.sfx('miss');
       return;
     }
+    // E: geliştirici — tek vuruşta öldürme
+    if (Dev.oneHit) res.damage = Math.max(res.damage, e.c.hp);
     e.c.hp = applyDamage(e.c.hp, res.damage);
     e.damageBy.joseph = (e.damageBy.joseph ?? 0) + res.damage;
     e.josephHitAt = this.time.now / 1000;
@@ -2704,6 +2792,12 @@ export class WorldScene extends Phaser.Scene {
   hurtPlayer(dmg: number, dir: Phaser.Math.Vector2, crit: boolean, e: Enemy | null) {
     const pl = this.player;
     const p = G.p;
+    // E: geliştirici ölümsüzlüğü
+    if (Dev.god) {
+      this.fx.number(pl.actor.x, pl.actor.y - 50, `(${fmtHp(dmg)})`, 'miss');
+      G.count('qaHits');
+      return;
+    }
     let d = dmg;
     if (G.state.divine.skills.includes('guardian_aura')) d = roundDamage(d * 0.9);
     const ironSkin = pl.buffs.find((b) => b.id === 'iron_skin');

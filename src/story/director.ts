@@ -35,6 +35,7 @@ import { divineStat, DIVINE_STATS, DIVINE_STAT_NAMES } from '../core/divine';
 import { ensureCG } from '../ui/portraits';
 import { Display } from '../game/display';
 import { Chapter2 } from './chapter2';
+import { QUEST_EFFECTS } from './checkpoints';
 
 const wait = (scene: Phaser.Scene, ms: number) => new Promise<void>((r) => scene.time.delayedCall(ms, r));
 
@@ -605,6 +606,14 @@ export class Director {
       await this.think('Şefi devirdim... Ellerim titriyor. Ama ayaktayım.');
       if (G.p.inventory.map_forest_deep) await this.think('Üstünden kaba bir harita çıktı. Ormanın derinliklerini gösteriyor.');
     });
+  }
+
+  /** E: geliştirici "Tamamla" — sahnesi oynanmadan biten görevin bayrak/eşya/para yan etkileri ve sıradaki ana görev. */
+  onQuestDevComplete(id: string) {
+    QUEST_EFFECTS[id]?.(G.state, G.state.time.day);
+    G.invalidate();
+    G.events.emit('quests');
+    this.ch2.ensureMain();
   }
 
   onAppraise(id: string) {
