@@ -174,26 +174,29 @@ describe('Zaman', () => {
 import { appraisalReady, claimAppraisalExp, APPRAISAL_COOLDOWN_MS, APPRAISAL_EXP_COOLDOWN_MS, dropsVisible } from '../src/core/appraisal';
 
 describe('Appraisal spam koruması', () => {
-  it('Aynı hedef için skill EXP günde bir kez', () => {
+  it('Önceden incelenmiş hedef için skill EXP günde bir kez (0.11.0: 1/5)', () => {
     const rec: Record<string, number> = {};
-    expect(claimAppraisalExp(rec, 'vera', 3)).toBe(true);
-    for (let i = 0; i < 20; i++) expect(claimAppraisalExp(rec, 'vera', 3)).toBe(false);
-    expect(claimAppraisalExp(rec, 'lina', 3)).toBe(true);
-    expect(claimAppraisalExp(rec, 'vera', 4)).toBe(true);
-    expect(claimAppraisalExp(rec, 'vera', 4)).toBe(false);
+    expect(claimAppraisalExp(rec, 'vera', 3)).toBe(1);
+    for (let i = 0; i < 20; i++) expect(claimAppraisalExp(rec, 'vera', 3)).toBe(0);
+    expect(claimAppraisalExp(rec, 'lina', 3)).toBe(1);
+    expect(claimAppraisalExp(rec, 'vera', 4)).toBe(0.2);
+    expect(claimAppraisalExp(rec, 'vera', 4)).toBe(0);
   });
-  it('Appraisal EXP: son kazanımdan 10 sn geçmeden hedef farklı olsa bile EXP yok', () => {
-    const rec: Record<string, number> = {};
+  it('10 sn bekleme yalnızca önceden incelenmiş hedeflerde; yeni hedef saati tetiklemez', () => {
+    const rec: Record<string, number> = { vera: 1, lina: 1, bertram: 1 };
     const clock = { lastAt: null as number | null };
     expect(APPRAISAL_EXP_COOLDOWN_MS).toBe(10_000);
-    expect(claimAppraisalExp(rec, 'vera', 3, clock, 0)).toBe(true);
-    expect(claimAppraisalExp(rec, 'lina', 3, clock, 2000)).toBe(false);
-    expect(claimAppraisalExp(rec, 'bertram', 3, clock, 9999)).toBe(false);
+    expect(claimAppraisalExp(rec, 'vera', 3, clock, 0)).toBe(0.2);
+    expect(claimAppraisalExp(rec, 'lina', 3, clock, 2000)).toBe(0);
+    // yeni hedef beklemede bile tam EXP ve saati değiştirmez
+    expect(claimAppraisalExp(rec, 'celeste', 3, clock, 3000)).toBe(1);
+    expect(clock.lastAt).toBe(0);
+    expect(claimAppraisalExp(rec, 'bertram', 3, clock, 9999)).toBe(0);
     // beklemedeyken günlük hak harcanmadı
-    expect(rec.lina).toBeUndefined();
-    expect(claimAppraisalExp(rec, 'lina', 3, clock, 10_000)).toBe(true);
-    expect(claimAppraisalExp(rec, 'vera', 3, clock, 60_000)).toBe(false); // aynı hedef aynı gün
-    expect(claimAppraisalExp(rec, 'bertram', 3, clock, 60_000)).toBe(true);
+    expect(rec.lina).toBe(1);
+    expect(claimAppraisalExp(rec, 'lina', 3, clock, 10_000)).toBe(0.2);
+    expect(claimAppraisalExp(rec, 'vera', 3, clock, 60_000)).toBe(0); // aynı hedef aynı gün
+    expect(claimAppraisalExp(rec, 'bertram', 3, clock, 60_000)).toBe(0.2);
     // panel beklemesi (1,5 sn) ayrı ve değişmedi
     expect(appraisalReady(2000, 0, false)).toBe(true);
   });

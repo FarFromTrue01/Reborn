@@ -57,7 +57,17 @@ export function noticesAppraisal(mine: SubRank, appraiser: SubRank): boolean {
 export function appraisalBaseExp(mine: SubRank, target: SubRank, targetLevel: number, myLevel: number): number {
   const diff = appraisalDiff(mine, target);
   const lv = Math.max(0, targetLevel - myLevel);
-  return Math.max(0.5, 1.5 + diff * 1.5 + lv * 0.5);
+  return APPRAISAL_BASE_SCALE * Math.max(0.5, 1.5 + diff * 1.5 + lv * 0.5);
+}
+
+/** 0.11.0 (C9): taban EXP ×0,5 (köyde 55 kişi varken G harfi bir günde geçiliyordu). */
+export const APPRAISAL_BASE_SCALE = 0.5;
+/** Önceden incelenmiş hedef: EXP'nin 1/5'i. */
+export const APPRAISAL_REPEAT_MULT = 0.2;
+
+/** Appraisal anahtarı (B5): kişide NPC kimliği, yaratıkta TÜR kimliği (her fare ayrı hedef sayılmaz). */
+export function appraisalKey(npcId: string | null | undefined, monsterId: string): string {
+  return npcId ?? 'm_' + monsterId;
 }
 
 /** Appraisal'ı art arda kullanmayı engelleyen bekleme (ms). */
@@ -80,10 +90,11 @@ export interface AppraisalExpClock {
 }
 
 /**
- * Skill EXP aynı hedef için günde bir kez verilir; ayrıca son EXP'den 10 sn geçmeden hiçbir hedef EXP vermez
- * (peş peşe farklı NPC'lere tıklayarak EXP biriktirilemez). Panelin açılmasını etkilemez.
- * EXP verilecekse kaydı ve saati günceller, true döner. Beklemedeyken günlük hak harcanmaz.
- * appraised: hedef kimliği → son EXP verilen gün.
+ * 0.11.0 (C9): Appraisal skill EXP'si. Dönen değer EXP çarpanıdır (0: EXP yok).
+ * - Yeni hedef (hiç incelenmemiş kişi ya da yaratık türü): tam EXP (1), beklemesiz; 10 sn'lik saati de tetiklemez.
+ * - Önceden incelenmiş hedef: 1/5 (0,2); günde bir kez ve son kazanımdan 10 sn geçmişse. Beklemedeyken günlük hak
+ *   harcanmaz. Panelin açılmasını etkilemez.
+ * appraised: hedef anahtarı → son EXP verilen gün (ilk inceleme günü de sayılır).
  */
 export function claimAppraisalExp(
   appraised: Record<string, number>,
@@ -92,12 +103,16 @@ export function claimAppraisalExp(
   clock?: AppraisalExpClock,
   now = 0,
   cooldownMs = APPRAISAL_EXP_COOLDOWN_MS,
-): boolean {
-  if (appraised[key] === day) return false;
-  if (clock && clock.lastAt !== null && now - clock.lastAt < cooldownMs) return false;
+): number {
+  if (!(key in appraised)) {
+    appraised[key] = day;
+    return 1;
+  }
+  if (appraised[key] === day) return 0;
+  if (clock && clock.lastAt !== null && now - clock.lastAt < cooldownMs) return 0;
   appraised[key] = day;
   if (clock) clock.lastAt = now;
-  return true;
+  return APPRAISAL_REPEAT_MULT;
 }
 
 /**

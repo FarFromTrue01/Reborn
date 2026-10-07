@@ -10,6 +10,9 @@ import { COLORS, FONT, txt, drawFrame, drawBlue, drawBar, Button, uiIcon, rankBa
 import { QuestBox, PartyBars } from '../ui/hudQuests';
 import { playQuestComplete, playRankUp, type QuestDoneInfo, type PromotionInfo } from '../ui/celebrations';
 import { buildAppraisalPanel } from '../ui/appraisalPanel';
+import { ToastStack } from '../ui/toastStack';
+import { buildSysBox } from '../ui/sysBox';
+import { sysDuration, sysPlacement } from '../ui/sysLayout';
 import { SysFlow } from '../ui/sysFlow';
 import { clockLabel, dateLabel } from '../core/time';
 import { formatPrice } from '../core/money';
@@ -81,7 +84,8 @@ export class UIScene extends Phaser.Scene {
   divBtns: Button[] = [];
   cdOverlay!: Phaser.GameObjects.Graphics;
   joy: { id: number; bx: number; by: number; base: Phaser.GameObjects.Graphics; knob: Phaser.GameObjects.Graphics } | null = null;
-  toasts: Phaser.GameObjects.Container[] = [];
+  /** B1 (0.11.0): sol üst bildirimlerin düzeni ve ömrü (ui/toastStack). */
+  toastStack = new ToastStack<Phaser.GameObjects.Container>();
   /** Sistem bildirimleri: tek kuyruk (kapanış sürerken yenisi başlamaz; 0.8.0). */
   sysFlow: SysFlow<SysItem, Phaser.GameObjects.Container> = this.makeSysFlow();
   /** Kuyrukta sırası gelmiş kutlama sahnesi (görev bitişi / terfi); kendi dokunuşlarını yönetir. */
@@ -101,6 +105,8 @@ export class UIScene extends Phaser.Scene {
   hudPanelH = 166;
   /** HUD'un alt kenarı (görev kutusu ve yoldaş çubukları dahil): bildirimler bunun altına dizilir. */
   hudBottom = 170;
+  /** B2: sağ üst saat/bölge kutusunun sol kenarı (sistem bildirimi bu ikisinin arasına yerleşir). */
+  hudClockX = 9999;
   questBox: QuestBox | null = null;
   partyBars: PartyBars | null = null;
   private rankKey = '';
@@ -150,7 +156,7 @@ export class UIScene extends Phaser.Scene {
     this.divBtns = [];
     this.cdOverlay = undefined!;
     this.joy = null;
-    this.toasts = [];
+    this.toastStack = new ToastStack();
     this.sysFlow = this.makeSysFlow();
     this.sysOverlay = null;
     this.dlg = null;
@@ -168,6 +174,7 @@ export class UIScene extends Phaser.Scene {
     this.hudPanelH = 166;
     this.satIcon = null;
     this.hudBottom = 170;
+    this.hudClockX = 9999;
     this.questBox = null;
     this.partyBars = null;
     this.rankKey = '';
@@ -441,6 +448,7 @@ export class UIScene extends Phaser.Scene {
   }
 
   update(_t: number, dms: number) {
+    this.tickToasts();
     const dt = dms / 1000;
     if (!this.hud) return;
     this.drawHud(dt);
@@ -560,11 +568,9 @@ export class UIScene extends Phaser.Scene {
       }
       if (Math.abs(yb - this.hudBottom) > 0.5) {
         this.hudBottom = yb;
-        // A7.8c: görev kutusu büyüyünce/küçülünce bildirimler altına kayar (üst üste binmez)
-        this.toasts.forEach((tc, i) => {
-          this.tweens.killTweensOf(tc);
-          this.tweens.add({ targets: tc, y: this.hudBottom + 10 + i * 40, x: 16, alpha: 1, duration: 150 });
-        });
+        // A7.8c: görev kutusu büyüyünce/küçülünce bildirimler altına kayar (üst üste binmez).
+        // B1: yalnızca konum — kaybolma animasyonuna ve alpha'ya dokunulmaz.
+        this.relayoutToasts();
       }
     }
     // sağ üst: okunur saat, tarih ve bölge (arkasında koyu zemin)
@@ -574,6 +580,7 @@ export class UIScene extends Phaser.Scene {
     const tw = Math.max(this.hudTexts.date.width, this.hudTexts.zone.width, this.hudTexts.clock.width) + 24;
     g.fillStyle(0x0c0a12, 0.62);
     g.fillRoundedRect(W - 196 - tw + 8, 8, tw + 4, 88, 8);
+    this.hudClockX = W - 196 - tw + 8;
     // bekleme süreleri
     const c = this.cdOverlay;
     c.clear();
@@ -930,16 +937,35 @@ export class UIScene extends Phaser.Scene {
     c.add(t);
     c.setAlpha(0);
     c.x = -40;
-    this.tweens.add({ targets: c, alpha: 1, x: 16, duration: 180, ease: 'Quad.Out' });
-    this.toasts.unshift(c);
-    this.toasts.forEach((tc, i) => this.tweens.add({ targets: tc, y: y0 + i * 40, duration: 150 }));
-    if (this.toasts.length > 6) {
-      const old = this.toasts.pop()!;
-      old.destroy();
+    this.tweens.add({ targets: c, alpha: 1, duration: 180, ease: 'Quad.Out' });
+    for (const old of this.toastStack.add(c, performance.now())) old.destroy();
+    this.relayoutToasts(c);
+  }
+
+  /** B1: bildirimleri HUD'un altına dizer — yalnızca x/y tween'i (önceki konum tween'i durur, kaybolma sürer). */
+  private relayoutToasts(fresh?: Phaser.GameObjects.Container) {
+    for (const { item, y } of this.toastStack.layout(this.hudBottom)) {
+      const prev = item.getData('moveTween') as Phaser.Tweens.Tween | undefined;
+      prev?.stop();
+      const tw = this.tweens.add({ targets: item, y, x: 16, duration: item === fresh ? 180 : 150, ease: 'Quad.Out' });
+      item.setData('moveTween', tw);
     }
-    this.time.delayedCall(2600, () => {
-      this.tweens.add({ targets: c, alpha: 0, duration: 400, onComplete: () => { c.destroy(); this.toasts = this.toasts.filter((x) => x !== c); } });
-    });
+  }
+
+  /** B1: her bildirimin kendi ömrü — ömrü dolan kaybolur, kaybolması biten (ya da kesin sınırı aşan) yok edilir. */
+  private tickToasts() {
+    for (const a of this.toastStack.tick(performance.now())) {
+      const c = a.item;
+      if (a.kind === 'fade') this.tweens.add({ targets: c, alpha: 0, duration: 400 });
+      else {
+        (c.getData('moveTween') as Phaser.Tweens.Tween | undefined)?.stop();
+        c.destroy();
+      }
+    }
+  }
+
+  get toasts(): Phaser.GameObjects.Container[] {
+    return this.toastStack.items;
   }
 
   /** Kısa iç ses (ör. "Bu paraya şimdi dokunamam."): Joseph'in başının üstünde. */
@@ -1013,24 +1039,18 @@ export class UIScene extends Phaser.Scene {
       return ov.root;
     }
     Sound.sfx(m.sound ?? 'system', 0.8);
+    // B2 (0.11.0): ölçülen satırlarla büyüyen kutu; sol üst panel ile sağ üst saat kutusunun arasında
     const W = Display.uiW;
-    const w = m.big ? 520 : 440;
-    const lineH = 22;
-    const h = 56 + m.lines.length * lineH;
-    const c = this.add.container(W / 2, m.big ? 150 : 120).setDepth(45);
-    const g = this.add.graphics();
-    drawBlue(g, -w / 2, 0, w, h, 0.82);
-    c.add(g);
-    c.add(txt(this, 0, 12, `【 ${m.title} 】`, { size: 18, font: FONT.title, color: '#e6f6ff', bold: true, align: 'center' }).setOrigin(0.5, 0));
-    m.lines.forEach((l, i) => {
-      if (/\{[mw]:/.test(l)) c.add(richLine(this, 0, 44 + i * lineH + 10, l, { size: 15, color: COLORS.textBlue, originX: 0.5 }));
-      else c.add(txt(this, 0, 44 + i * lineH, l, { size: 15, color: COLORS.textBlue, align: 'center', wrap: w - 40 }).setOrigin(0.5, 0));
+    const w = Math.min(m.big ? 520 : 460, W - 40);
+    const c = buildSysBox(this, { title: m.title, lines: m.lines, width: w });
+    const pos = sysPlacement({
+      W, boxW: w, leftEdge: 8 + 300 + 8, rightEdge: Math.min(this.hudClockX, W - 196), leftBottom: this.hudPanelH + 12, rightBottom: 100,
     });
+    c.setPosition(pos.x, pos.y).setDepth(45);
     c.setAlpha(0).setScale(0.96, 0.6);
     this.tweens.add({ targets: c, alpha: 1, scaleY: 1, scaleX: 1, duration: 220, ease: 'Back.Out' });
-    const dur = 2400 + m.lines.length * 700;
     // gerçek zamanlı: oyun dünyası donsa da (menü) bildirim kapanır; yalnızca hâlâ ekrandaysa
-    this.time.delayedCall(dur, () => this.sysFlow.dismiss(c));
+    this.time.delayedCall(sysDuration(m.lines), () => this.sysFlow.dismiss(c));
     return c;
   }
 

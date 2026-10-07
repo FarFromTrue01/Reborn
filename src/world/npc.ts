@@ -233,7 +233,7 @@ export class Npc {
       return;
     }
     const e = scheduleAt(this.def, hour, day);
-    if (e !== this.entry) {
+    if (e !== this.entry && !(e.map !== this.w.mapData.id && this.w.director?.isBusy)) {
       this.entry = e;
       this.onEntry(e);
     }
@@ -324,9 +324,9 @@ export class Npc {
       a.setDepth(a.y);
       return;
     }
-    // program
+    // program — 0.11.0 (B4): ara sahne sürerken kimse program yüzünden haritadan ayrılmaz (sahne bitince gider)
     const e = scheduleAt(this.def, hour, day);
-    if (e !== this.entry) {
+    if (e !== this.entry && !(e.map !== this.w.mapData.id && this.w.director?.isBusy)) {
       this.entry = e;
       this.onEntry(e);
     }
@@ -405,6 +405,8 @@ export class Npc {
       body.setVelocity(0, 0);
       if (!far) a.play('idle');
       if (this.state === 'leaving') {
+        // B4: ara sahnede yok edilmez (sahnenin kullandığı aktör kaybolmasın); sahne bitince gider
+        if (this.w.director?.isBusy) return;
         this.w.removeNpc(this);
         return;
       }

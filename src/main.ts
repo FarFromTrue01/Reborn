@@ -17,6 +17,7 @@ import { fpsLoopConfig } from './game/settings';
 import { qualityDprCap } from './game/display';
 import { createMonster } from './core/monster';
 import { NPC_BY_ID } from './data/npcs';
+import { installGlobalErrorLog } from './game/errorLog';
 
 declare const __APP_VERSION__: string;
 export const APP_VERSION = __APP_VERSION__;
@@ -49,6 +50,8 @@ async function loadFonts() {
 const QA = new URLSearchParams(location.search).has('qa');
 
 async function start() {
+  // 0.11.0 (E): yakalanmamış hatalar geliştirici hata kaydına
+  installGlobalErrorLog();
   cssFonts();
   setupPWA(() => G.inGame);
   // Bağlam kaybı sonrası yenileme ya da atılmış sekme: başlık ekranı son kayıttan otomatik devam eder

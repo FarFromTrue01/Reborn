@@ -1,4 +1,5 @@
 // Hikâye yönetmeni: tetikleyiciler, sahneler ve NPC konuşmaları.
+import { logError } from '../game/errorLog';
 import { Q } from '../game/questrt';
 import { fullScreenRect, uiIcon, txt, FONT } from '../ui/kit';
 import Phaser from 'phaser';
@@ -70,6 +71,11 @@ function arriveR(scene: Phaser.Scene, pxPerSec: number, min: number): number {
   return Math.min(TILE, Math.max(min, pxPerSec * (scene.game.loop.delta / 1000) * 1.2));
 }
 
+/** B4: aktör hâlâ sahnede mi (yok edilmiş aktöre dokunulmaz)? */
+function alive(actor: any): boolean {
+  return !!actor && actor.active !== false && !!actor.scene && Number.isFinite(actor.x);
+}
+
 export class Director {
   musicOverride = false;
   /** Bölüm II akışı. */
@@ -129,6 +135,10 @@ export class Director {
     Input.clear();
   }
 
+  /**
+   * Ara sahne sarmalayıcısı. 0.11.0 (B4): hata olursa sahne güvenli biçimde kapanır (diyalog kapanır, cutscene bayrağı
+   * iner, kamera Joseph'e döner), hata geliştirici hata kaydına yazılır; görev zinciri ensureMainQuest ile sürer.
+   */
   async scene(fn: () => Promise<void>) {
     if (this.busy) return;
     this.busy = true;
@@ -136,15 +146,26 @@ export class Director {
     try {
       await fn();
     } catch (e) {
-      console.error(e);
+      console.warn('Sahne hatası (güvenli kapatıldı):', e);
+      logError('Director.scene', e, `${G.state.time.day}. gün ${clockLabel(G.state.time)}`);
+      try {
+        this.ui.closeDialogue();
+        this.follow();
+      } catch {
+        /* sahne zaten kapanıyor */
+      }
     }
-    this.releaseAutoCast();
-    this.unlock();
-    this.busy = false;
+    try {
+      this.releaseAutoCast();
+    } finally {
+      this.unlock();
+      this.busy = false;
+    }
   }
 
   /** Bir aktörü karoya yürüt. */
   walk(actor: any, tx: number, ty: number, speed = 2.4): Promise<void> {
+    if (!alive(actor)) return Promise.resolve();
     const release = drive(actor);
     return new Promise<void>((resolve) => {
       const gx = tx * TILE + 16, gy = ty * TILE + 22;
@@ -295,11 +316,14 @@ export class Director {
     });
   }
 
+  /** B4: yok edilmiş aktöre karşı korumalı (sessizce atlar). */
   face(actor: any, target: any) {
+    if (!alive(actor) || !target || !Number.isFinite(target.x)) return;
     actor.face(dirFromVec(target.x - actor.x, target.y - actor.y));
   }
 
   pan(x: number, y: number, ms: number): Promise<void> {
+    if (!Number.isFinite(x) || !Number.isFinite(y)) return Promise.resolve();
     return new Promise((resolve) => {
       const cam = this.w.cameras.main;
       this.w.camFollow = false;
@@ -314,7 +338,11 @@ export class Director {
   }
 
   say(id: string, text: string, expr?: any) {
-    this.ensureSpeaker(id);
+    try {
+      this.ensureSpeaker(id);
+    } catch (e) {
+      logError('Director.say', e);
+    }
     return this.ui.say(id, text, { expr });
   }
 

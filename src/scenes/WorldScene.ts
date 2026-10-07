@@ -37,13 +37,14 @@ import { ITEMS } from '../data/items';
 import { DIVINE_BY_ID } from '../data/divine';
 import { LIGHT_MAX, LIGHT_ON_HIT, LIGHT_ON_PERFECT_DODGE, LIGHT_ON_STUN, streakExpired } from '../core/divine';
 import { refundEvade } from '../core/combat';
+import { BubbleQueue } from '../world/bubbleQueue';
 import { newQueue, queueLimit as zoneQueueLimit, clearBoss, type AttackQueue } from '../core/attackQueue';
 import { STAGGER_FILL, skillStagger, stunDamageMult } from '../core/stagger';
 import { COUNTER_DMG_SKILLED, counterWindow, HEAVY_DMG_MULT, RHYTHM_STEPS } from '../core/rhythm';
 import { fmtHp } from '../ui/format';
 import { loseMoneyPercent, forfeitLoot, emptyLoot, lootEmpty, type BattleLoot } from '../core/transactions';
 import { walletTotal } from '../core/money';
-import { appraisalBaseExp, noticesAppraisal, appraisalReady, claimAppraisalExp, type AppraisalExpClock } from '../core/appraisal';
+import { appraisalBaseExp, appraisalKey, noticesAppraisal, appraisalReady, claimAppraisalExp, type AppraisalExpClock } from '../core/appraisal';
 import { newEatState, type EatState } from '../core/eating';
 import { spellPowerMult, applyDamage, roundDamage } from '../core/formulas';
 import { dirFromVec, dirVec, type Dir } from '../world/actor';
@@ -151,6 +152,9 @@ export class WorldScene extends Phaser.Scene {
   /** C4: haritadaki yoldaşlar (G.state.party'den kurulur). */
   companions: Companion[] = [];
   incoming: { e: Enemy; at: number }[] = [];
+  /** B3: balon sırası (karakter başına) ve ekrandaki balonlar. */
+  bubbles = new BubbleQueue<any>();
+  bubbleViews = new Map<any, Phaser.GameObjects.Container>();
   /** 0.11.0 (A4): Joseph'in saldırı sırası; yoldaşlarınki companionQueues'da. */
   joQueue: AttackQueue = newQueue();
   companionQueues = new Map<Companion, AttackQueue>();
@@ -230,6 +234,8 @@ export class WorldScene extends Phaser.Scene {
     this.projectiles = [];
     this.companions = [];
     this.incoming = [];
+    this.bubbles = new BubbleQueue();
+    this.bubbleViews = new Map();
     this.joQueue = newQueue();
     this.companionQueues = new Map();
     this.bubbleGlobalCd = 0;
@@ -410,6 +416,11 @@ export class WorldScene extends Phaser.Scene {
     for (const p of this.projectiles) p.img.destroy();
     for (const r of this.rays) r.destroy();
     for (const t of this.buildingMarks.values()) t.destroy();
+    for (const v of this.bubbleViews.values()) v.destroy();
+    this.bubbleViews.clear();
+    this.bubbles.clear();
+    this.joQueue = newQueue();
+    this.companionQueues.clear();
     this.buildingMarks.clear();
     for (const gl of this.gatherGlows.values()) gl.destroy();
     this.gatherGlows.clear();
@@ -1274,6 +1285,7 @@ export class WorldScene extends Phaser.Scene {
       }
     }
     this.player.update(dt);
+    this.updateBubbles(dt);
     this.sinceKill += dt;
     if (G.state.divine.streak > 0 && streakExpired(this.sinceKill)) R.resetStreak();
     for (const e of this.enemies) {
@@ -2014,11 +2026,11 @@ export class WorldScene extends Phaser.Scene {
     Sound.sfx('appraise');
     const mine = G.p.skills.find((s) => s.id === 'appraisal')!.rank;
     const theirs = (c.skills.find((s: any) => s.id === 'appraisal')?.rank ?? 0) as number;
-    const key = (npcDef?.id ?? 'm_' + (ref as Enemy).uid) as string;
-    // EXP: hedef başına günde bir; ayrıca son EXP'den 10 sn geçmeden hiçbir hedef EXP vermez (panel yine açılır)
-    if (claimAppraisalExp(G.state.appraised, key, G.state.time.day, this.appraisalExpClock, this.time.now)) {
-      R.gainSkillExp('appraisal', appraisalBaseExp(mine, theirs, c.level, G.p.level));
-    }
+    // B5 (0.11.0): yaratıkta anahtar TÜR kimliği (her fare ayrı "yeni hedef" sayılmaz); kişide NPC kimliği.
+    // C9: yeni hedef tam EXP ve beklemesiz; önceden incelenmiş hedef 1/5, günde bir, 10 sn bekleme (panel yine açılır)
+    const key = appraisalKey(npcDef?.id, c.id);
+    const mult = claimAppraisalExp(G.state.appraised, key, G.state.time.day, this.appraisalExpClock, this.time.now);
+    if (mult > 0) R.gainSkillExp('appraisal', appraisalBaseExp(mine, theirs, c.level, G.p.level) * mult);
     const actor = ref.actor;
     if (actor) this.fx.glow(actor.x, actor.y - 24, 0x7cc8ff, 30, 400);
     this.ui.showAppraisal(c, npcDef);
@@ -2114,13 +2126,68 @@ export class WorldScene extends Phaser.Scene {
     return pool[Math.floor(Math.random() * pool.length)];
   }
 
+  /**
+   * Karakterin başının üstünde balon. 0.11.0 (B3): aynı karakterin balonları sıraya girer (biri bitince sonraki),
+   * balon karakteri takip eder; hafif koyu, yarı saydam zemin; düşünce italik ve "…" balonu, konuşma normal.
+   */
   bubbleAt(actor: any, text: string, dur = 2, think = false) {
-    const t = this.add.text(actor.x, actor.y - 60, text, {
-      fontFamily: 'AlegreyaSans, sans-serif', fontSize: '12px', color: think ? '#cfe2ff' : '#fff6e0', stroke: '#1a0e06', strokeThickness: 3,
+    if (!actor) return;
+    this.bubbles.push(actor, { text, dur, think });
+  }
+
+  private updateBubbles(dt: number) {
+    for (const a of this.bubbles.tick(dt)) {
+      const old = this.bubbleViews.get(a.key);
+      if (old) {
+        this.bubbleViews.delete(a.key);
+        this.tweens.add({ targets: old, alpha: 0, y: old.y - 6, duration: 160, onComplete: () => old.destroy() });
+      }
+      if (a.kind === 'show') {
+        const v = this.makeBubble(a.item.text, a.item.think);
+        this.bubbleViews.set(a.key, v);
+        v.setAlpha(0);
+        this.tweens.add({ targets: v, alpha: 1, duration: 140 });
+      }
+    }
+    for (const [actor, v] of this.bubbleViews) {
+      if (!actor.active || !actor.scene) {
+        v.destroy();
+        this.bubbleViews.delete(actor);
+        this.bubbles.drop(actor);
+        continue;
+      }
+      v.setPosition(Math.round(actor.x), Math.round(actor.y - (actor.kind === 'monster' ? 38 : 58)));
+    }
+  }
+
+  private makeBubble(text: string, think: boolean): Phaser.GameObjects.Container {
+    const c = this.add.container(0, 0).setDepth(970000);
+    const t = this.add.text(0, -10, think ? text : text, {
+      fontFamily: 'AlegreyaSans, sans-serif', fontSize: '12px', color: think ? '#d8e6ff' : '#fff6e0', stroke: '#120a04', strokeThickness: 2,
       fontStyle: think ? 'italic bold' : 'bold', wordWrap: { width: 180, useAdvancedWrap: true }, align: 'center',
-    }).setOrigin(0.5, 1).setDepth(970000);
+    }).setOrigin(0.5, 1);
     t.setResolution(this.cameras.main.zoom * 1.5);
-    this.tweens.add({ targets: t, y: t.y - 10, alpha: 0, delay: dur * 700, duration: dur * 300, onComplete: () => t.destroy() });
+    const g = this.add.graphics();
+    const w = t.width + 14, h = t.height + 8;
+    const x = -w / 2, y = -10 - t.height - 4;
+    g.fillStyle(0x0c0a12, 0.58);
+    g.fillRoundedRect(x, y, w, h, think ? 9 : 5);
+    g.lineStyle(1, think ? 0x9fb8e8 : 0xd9b45a, 0.55);
+    g.strokeRoundedRect(x, y, w, h, think ? 9 : 5);
+    if (think) {
+      // "…" düşünce balonu: başa doğru küçülen kabarcıklar
+      g.fillStyle(0x0c0a12, 0.58);
+      g.fillCircle(-3, y + h + 3, 3);
+      g.fillCircle(-7, y + h + 8, 2);
+      g.lineStyle(1, 0x9fb8e8, 0.5);
+      g.strokeCircle(-3, y + h + 3, 3);
+      g.strokeCircle(-7, y + h + 8, 2);
+    } else {
+      g.fillStyle(0x0c0a12, 0.58);
+      g.fillTriangle(-5, y + h, 5, y + h, 0, y + h + 6);
+    }
+    c.add([g, t]);
+    return c;
   }
 
   /** HUD'daki yoldaş çubukları için. */

@@ -60,12 +60,16 @@ export function gainExp(amount: number): number {
     G.invalidate();
     p.hp = round2(p.hp + G.d.maxHp - before);
     p.mp = round2(p.mp + G.d.maxMp - beforeMp);
-    sysmsg('LEVEL ATLADIN', [
-      `Level ${p.level - r.levelsGained} → Level ${p.level}`,
-      `+${STAT_POINTS_PER_LEVEL * r.levelsGained} stat puanı · +${SP_PER_LEVEL * r.levelsGained} SP`,
-      `Max HP ${fmtHp(before)} → ${fmtHp(G.d.maxHp)} · Max MP ${beforeMp} → ${G.d.maxMp}`,
-      'Stat puanlarını Status ekranından dağıtabilirsin.',
-    ], { sound: 'levelup', big: true });
+    // B2 (0.11.0): "etiket: değer" satırları (kutuda simgeli ve hizalı)
+    const lines = [
+      `Level: ${p.level - r.levelsGained} → ${p.level}`,
+      `Stat puanı: +${STAT_POINTS_PER_LEVEL * r.levelsGained}`,
+      `SP: +${SP_PER_LEVEL * r.levelsGained}`,
+      `Max HP: ${fmtHp(before)} → ${fmtHp(G.d.maxHp)}`,
+    ];
+    if (G.d.maxMp !== beforeMp) lines.push(`Max MP: ${beforeMp} → ${G.d.maxMp}`);
+    lines.push('Stat puanlarını Status ekranından dağıtabilirsin.');
+    sysmsg('LEVEL ATLADIN', lines, { sound: 'levelup', big: true });
     G.events.emit('levelup', p.level);
   }
   G.events.emit('stats');

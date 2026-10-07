@@ -1,4 +1,6 @@
 import Phaser from 'phaser';
+import { buildSysBox } from '../ui/sysBox';
+import { sysDuration } from '../ui/sysLayout';
 import { G } from '../game/G';
 import { Display } from '../game/display';
 import { Sound } from '../audio/audio';
@@ -809,19 +811,13 @@ export class MenuScene extends Phaser.Scene {
   notices: Phaser.GameObjects.Container[] = [];
 
   showNotice(m: { title: string; lines?: string[]; sound?: string }) {
+    // B2 (0.11.0): oyun içi sistem bildirimiyle aynı tasarım (ui/sysBox); menünün üstünde, üst ortada alt alta
     const W = Display.uiW;
-    const w = Math.min(560, W - 60);
-    const lines = (m.lines ?? []).map((l) => plainMoney(l));
-    const h = 58 + lines.length * 22;
+    const w = Math.min(520, W - 60);
+    const c = buildSysBox(this, { title: m.title, lines: m.lines ?? [], width: w });
     const y0 = 30 + this.notices.reduce((a, n) => a + (n as any).h + 10, 0);
-    const c = this.add.container(W / 2, y0).setDepth(300);
-    (c as any).h = h;
-    const g = this.add.graphics();
-    drawBlue(g, -w / 2, 0, w, h, 0.95);
-    c.add(g);
-    c.add(txt(this, 0, 10, `【 ${m.title} 】`, { size: 16, bold: true, font: FONT.title, color: '#e6f6ff' }).setOrigin(0.5, 0));
-    lines.forEach((l, i) => c.add(fitText(txt(this, 0, 38 + i * 22, l, { size: 15, color: COLORS.textBlue }).setOrigin(0.5, 0), w - 30)));
-    const z = this.add.zone(-w / 2, 0, w, h).setOrigin(0, 0).setInteractive();
+    c.setPosition(W / 2, y0).setDepth(300);
+    const z = this.add.zone(-w / 2, 0, w, c.h).setOrigin(0, 0).setInteractive();
     c.add(z);
     const close = () => {
       if (!c.active) return;
@@ -831,7 +827,7 @@ export class MenuScene extends Phaser.Scene {
     z.on('pointerup', close);
     c.setAlpha(0);
     this.tweens.add({ targets: c, alpha: 1, duration: 180 });
-    this.time.delayedCall(3800, close);
+    this.time.delayedCall(Math.max(3800, sysDuration(m.lines ?? [])), close);
     this.notices.push(c);
     Sound.sfx(m.sound ?? 'system', 0.7);
   }

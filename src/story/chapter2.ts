@@ -64,6 +64,17 @@ const FRIEND_LINES: Record<string, { bubbles: string[]; talk: string[] }> = {
   },
 };
 
+/**
+ * Vera'nın dövüş dersi (0.11.0, A12): [konuşan, dünya içi replik, İPUCU]. Repliklerde "tuş", "buton" yok
+ * (tests/g7.test.ts); arayüz bilgisi yalnızca İPUCU bildiriminde.
+ */
+export const VERA_LESSON: [string, string, string][] = [
+  ['vera', 'Dinle köksüz. Dört şey. Bir: gözünü yaratıktan ayırma. Saldırmadan önce bir an geri çekilir, vuracağı yer ayaklarının dibinde kızarır. O kızıllığın içinde durma; yürü, çık. Isırık hep ilk baktığı yere iner, sen oradan çıktıysan boşa kapanır.', 'İPUCU: Düşman hazırlanırken (başında "!") yerdeki kırmızı alan vuracağı yerdir ve dönmez. Alandan çıkan vurulmaz.'],
+  ['vera', 'İki: en iyisi son anda sıçramak. Dişler tam üstündeyken yana atıl; dünya bir anlığına yavaşlar. O an hemen vur. Açığını yakaladığın darbe en sert darbedir.', 'İPUCU: Tam zamanında Kaçış (kusursuz kaçış) → 0,6 sn içindeki ilk vuruşun kesin kritik ve düşmanı çok sendeletir.'],
+  ['lina', 'Üç: kolunu durmadan sallarsan yorulursun, hızlanmazsın! Bir, iki... ve üç! Üçüncüsü ağır gelir. Vera da dans eder gibi vurur, hihi.', 'İPUCU: Saldırı üç vuruşluk bir ritimdir; bir sonraki vuruş, savuruşun ortasından sonra basılınca gelir. Durmadan basmak hızlandırmaz. 3. vuruş güçlüdür.'],
+  ['vera', 'Dört: bazen beklemek gerek. Kolunu ger, gücünü topla, sonra bir kerede indir. Sağlam bir darbe yaratığı sersemletir; başı döner, bir süre ne saldırır ne kaçar. İşte o zaman hepimiz üstüne gideriz.', 'İPUCU: Ağır saldırıyı basılı tut, halka dolunca bırak. Vuruşlar sendeleme barını doldurur; dolunca düşman sersemler ve %50 fazla hasar alır.'],
+];
+
 export class Chapter2 {
   /** Bu harita yüklemesinde doğurulan görev düşmanları. */
   private spawned = new Set<string>();
@@ -782,12 +793,9 @@ export class Chapter2 {
   async veraLesson() {
     // B5 (0.10.0): Vera ve Lina yalnızca dünyanın içinden konuşur (buton, ayar, arayüz adı yok); arayüz bilgisi ayrı
     // "İPUCU" bildiriminde. "Yardımlı savaş" ipucu kalktı (varsayılan açık).
-    const hints: [string, string, string][] = [
-      ['vera', 'Dinle köksüz. Dört şey. Bir: bir yaratık saldırmadan önce bir an geri çekilir, sanki nefes alır. O an yana sıçra. Tam zamanında sıçrarsan dünya bir anlığına yavaşlar, sana bir boşluk kalır.', 'İPUCU: Düşman saldırıya hazırlanırken (başında "!", yerde kırmızı alan) Kaçış — tam zamanında kaçış zamanı yavaşlatır.'],
-      ['vera', 'İki: sürünün önünde durma. Ben önünü tutarım, sen yanına geç. Yandan ve arkadan vurmak kolaydır.', 'İPUCU: Kuşat — yoldaşın önü tutarken yandan ya da arkadan vur.'],
-      ['lina', 'Üç: koşmak bacak ister, sıçramak nefes! Art arda sıçrarsan nefesin kesilir, sonra kaçacak gücün kalmaz. Hihi, Vera\'ya olmuştu.', 'İPUCU: Kaçış ve ağır saldırı dayanıklılık harcar, koşmak harcamaz. Dayanıklılık bekledikçe dolar.'],
-      ['vera', 'Dört: gözünü düşmandan ayırma ve ilk darbeyi sen vur. Seni görmeden vurduğun darbe iki darbeye bedeldir. Bekleyen ısırılır.', 'İPUCU: Seni fark etmemiş bir düşmana vurulan ilk darbe güçlüdür (gizli saldırı).'],
-    ];
+    // 0.11.0 (A12): hamle ve karşı hamle — saldırıyı izleyip kırmızı alandan çık, son anda kaçıp hemen vur, ritimle
+    // vur (sürekli basmak işe yaramaz), ağır saldırıyı doldurup sendelet. Replikler dünya içi; İPUCU ayrı (VERA_LESSON).
+    const hints = VERA_LESSON;
     for (const [who, line, hint] of hints) {
       await this.say(who, line, 'normal');
       this.ui.toastInfo(hint);
