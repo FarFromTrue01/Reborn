@@ -18,7 +18,7 @@ export default async ({ page, wait, shot, evalG }) => {
 
   const W = () => 'window.__game.scene.getScene("World")';
   const log = (...a) => console.log(...a);
-  await evalG(() => { window.__G.newGame(); window.__G.setFlag('woke'); for (const k of ['stealth','evasion','athletics','archery','first_aid','iron_body','sword_mastery','spear_mastery','gathering']) window.__G.state.flags['declined_' + k] = true; window.__game.scene.getScene('Title').scene.start('World', { map: 'world', x: 34, y: 64, facing: 'right' }); });
+  await evalG(() => { window.__G.newGame(); window.__G.setFlag('woke'); window.__game.scene.getScene('Title').scene.start('World', { map: 'world', x: 34, y: 64, facing: 'right' }); });
   await wait(3500);
   log('HUD', await evalG(() => window.__game.scene.getScene('UI').hudTexts.hp.text));
 

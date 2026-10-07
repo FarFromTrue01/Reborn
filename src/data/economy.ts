@@ -14,13 +14,6 @@ export const FEES = {
   gatePass: 500,
 };
 
-/** Skill öğretmenleri (0.2.0'da 5 katına çıktı). */
-export const LESSONS = {
-  archery: { price: 200, minutes: 120, teacher: 'hunter' },
-  first_aid: { price: 150, minutes: 60, teacher: 'healer' },
-  sword_mastery: { price: 750, minutes: 180, teacher: 'bertram' },
-} as const;
-
 /** Hikâye işleri: tek seferlik, kolay para kaynağı değildir. */
 export const JOBS = {
   /** Bertram'ın hanında çalışılacak vardiya (gün) sayısı. */

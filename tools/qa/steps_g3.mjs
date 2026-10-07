@@ -26,7 +26,7 @@ export default async ({ page, wait, shot, evalG }) => {
     const G = window.__G;
     G.newGame();
     G.setFlag('woke');
-    for (const k of ['stealth', 'evasion', 'athletics', 'archery', 'first_aid', 'iron_body', 'sword_mastery', 'spear_mastery', 'gathering']) G.state.flags['declined_' + k] = true;
+
     window.__game.scene.getScene('Title').scene.start('World', { map: 'world', x: 84, y: 62, facing: 'down' });
   });
   await wait(3500);

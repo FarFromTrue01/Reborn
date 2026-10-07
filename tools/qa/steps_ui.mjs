@@ -2,7 +2,7 @@ import { helpers } from './helpers.mjs';
 export default async ({ page, wait, shot, evalG }) => {
   const h = helpers(page, wait, evalG);
   await evalG(() => { const G = window.__G; G.newGame(); G.setFlag('woke'); G.setFlag('inn_met'); G.setFlag('bertram_deal'); G.setFlag('village_entered');
-    G.p.equipment = { pants: 'linen_pants', chest: 'linen_shirt', boots: 'cloth_shoes' }; G.p.inventory = { torn_shorts: 1, rat_tail: 4, bread: 2, hp_potion_s: 1, rusty_shortsword: 1, book_firstaid: 1 }; G.p.wallet.bronze = 87; G.p.wallet.silver = 2;
+    G.p.equipment = { pants: 'linen_pants', chest: 'linen_shirt', boots: 'cloth_shoes' }; G.p.inventory = { torn_shorts: 1, rat_tail: 4, bread: 2, hp_potion_s: 1, rusty_shortsword: 1 }; G.p.wallet.bronze = 87; G.p.wallet.silver = 2;
     G.p.level = 1; G.p.unspent = 4; G.p.sp = 1; G.invalidate();
     window.__game.scene.getScene('Title').scene.start('World', { map: 'world', x: 96, y: 62, facing: 'up' }); });
   await wait(3000);

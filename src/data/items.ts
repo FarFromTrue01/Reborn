@@ -196,7 +196,7 @@ const list: ItemDef[] = [
     effects: [{ type: 'heal', amount: 10 }], desc: 'Kırmızı, acı bir sıvı. 10 HP iyileştirir.',
   },
   {
-    id: 'mp_potion_s', name: 'Küçük MP İksiri', kind: 'consumable', price: 90, stack: true, icon: 'potion_blue',
+    id: 'mp_potion_s', name: 'Küçük MP İksiri', kind: 'consumable', price: 90, sell: 30, stack: true, icon: 'potion_blue',
     effects: [{ type: 'mana', amount: 25 }], desc: 'Mavi ve soğuk. 25 MP yeniler.',
   },
   {
@@ -224,28 +224,6 @@ const list: ItemDef[] = [
   { id: 'silver_herb', name: 'Gümüş Yapraklı Ot', kind: 'material', rank: 'F', price: 30, sell: 10, stack: true, icon: 'herb', desc: 'Yapraklarının altı gümüşi. Şifalı otların arasında nadiren biter; usta toplayıcılar tanır.' },
   { id: 'firewood', name: 'Odun', kind: 'material', rank: 'G', price: 2, sell: 1, stack: true, icon: 'wood', desc: 'Kuru odun parçası.' },
   { id: 'chief_tusk', name: 'Şef Dişi', kind: 'material', rank: 'F', price: 120, sell: 40, stack: true, icon: 'tusk', desc: 'Goblin şefinin kırık dişi. Bir kahramanlık kanıtı.' },
-
-  // ------------------------------------------------------------------ Kitap / parşömen
-  {
-    id: 'book_fire', name: 'Ateş Büyüsü: İlk Kıvılcım', kind: 'book', price: 900, stack: true, icon: 'book_red',
-    effects: [{ type: 'learnSkill', skill: 'fire_magic' }],
-    desc: 'Okununca Ateş Büyüsü (Nadir) öğrenilir. Haftalık skill sınırına tabidir.',
-  },
-  {
-    id: 'scroll_spark', name: 'Kıvılcım Parşömeni', kind: 'book', price: 600, sell: 100, stack: true, icon: 'scroll',
-    effects: [{ type: 'learnSkill', skill: 'fire_magic' }],
-    desc: 'Goblin şamanının sakladığı yanık kenarlı parşömen. Okununca Ateş Büyüsü öğrenilir.',
-  },
-  {
-    id: 'book_archery', name: 'Okçunun El Kitabı', kind: 'book', price: 180, stack: true, icon: 'book_green',
-    effects: [{ type: 'learnSkill', skill: 'archery' }],
-    desc: 'Okununca Okçuluk (Sıradan) öğrenilir.',
-  },
-  {
-    id: 'book_firstaid', name: 'Sargı ve Merhem', kind: 'book', price: 120, stack: true, icon: 'book_white',
-    effects: [{ type: 'learnSkill', skill: 'first_aid' }],
-    desc: 'Okununca İlk Yardım (Sıradan) öğrenilir.',
-  },
 
   // ------------------------------------------------------------------ Görev / özel
   { id: 'guild_card', name: 'Lonca Kartı', kind: 'quest', price: 0, bound: true, icon: 'card', desc: 'Brindlewood şubesinin mühürlü maceracı kartı.' },

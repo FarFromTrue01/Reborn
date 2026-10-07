@@ -5,7 +5,7 @@ export default async ({ page, wait, shot, evalG }) => {
     G.newGame();
     G.setFlag('woke'); G.setFlag('inn_met'); G.setFlag('village_entered'); G.setFlag('bertram_deal');
     G.p.wallet.bronze = 45; G.p.wallet.silver = 1;
-    G.p.inventory = { bread: 3, apple: 2, hot_stew: 1, rat_tail: 4, linen_shirt: 1, hp_potion_s: 1, book_archery: 1, wolf_pelt: 2 };
+    G.p.inventory = { bread: 3, apple: 2, hot_stew: 1, rat_tail: 4, linen_shirt: 1, hp_potion_s: 1, wolf_pelt: 2 };
     G.p.equipment = { chest: 'linen_shirt', pants: 'linen_pants', boots: 'cloth_shoes' };
     G.p.exp = 40; G.p.level = 1; G.p.unspent = 4; G.p.sp = 1;
     G.state.time.minute = 12 * 60;

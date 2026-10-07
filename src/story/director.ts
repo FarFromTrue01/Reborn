@@ -11,7 +11,7 @@ import type { PropPlacement, Warp } from '../world/types';
 import { TILE } from '../world/types';
 import { NPC_BY_ID, TONE_LINES } from '../data/npcs';
 import { SHOPS, shopOpen, GUILD_HOURS } from '../data/shops';
-import { FEES, LESSONS, JOBS } from '../data/economy';
+import { FEES, JOBS } from '../data/economy';
 import { TRAINING_SPOTS, type TrainingSpot } from '../data/props';
 import * as R from '../game/rules';
 import { transact, equip } from '../core/transactions';
@@ -25,9 +25,6 @@ import { dirFromVec } from '../world/actor';
 import { nearestFree, findPath, pathBudget } from '../world/path';
 import { openShop } from '../ui/shop';
 import { DIVINE_BY_ID, divineOffer } from '../data/divine';
-import { SKILLS, RARITY_NAMES } from '../data/skills';
-import { HIDDEN_DISCOVERIES } from '../data/skills';
-import { weekOfDay } from '../core/skills';
 import { panelChoice } from '../ui/panels';
 import { fmtHp } from '../ui/format';
 import { STAT_KEYS } from '../core/formulas';
@@ -85,13 +82,11 @@ export class Director {
 
   constructor(public w: WorldScene) {
     G.events.on('awakening', () => this.tryPending());
-    G.events.on('discovery', () => this.tryPending());
     // Terfinin Level şartı sonradan sağlanabilir: level atlayınca Terfi görevi açılır mı bak
     const onLevel = () => Q.checkPromotion();
     G.events.on('levelup', onLevel);
     w.events.once('shutdown', () => {
       G.events.off('awakening');
-      G.events.off('discovery');
       G.events.off('levelup', onLevel);
     });
     w.time.addEvent({ delay: 1500, loop: true, callback: () => this.tryPending() });
@@ -443,6 +438,12 @@ export class Director {
     this.ch2.applyEscort();
     // A7.9: han sahnesinin Appraisal adımında kaydedilip yeniden yüklendiyse "Hana Git" kapanır (sahne tekrar oynamaz)
     if (G.flag('inn_met') && Q.active('m_inn')) Q.complete('m_inn', { quiet: true });
+    // B17: skill kitapları kalktı — iade (bir kez)
+    if (G.flag('books_refund')) {
+      const n = Number(G.flag('books_refund'));
+      delete G.state.flags.books_refund;
+      this.w.time.delayedCall(2500, () => R.sysmsg('KİTAPLAR', [`Skill kitapları artık öğretmiyor (yeni skill yalnızca Sistem Teklifi ile). Envanterindekiler için {m:${n}} iade edildi.`], { sound: 'coin' }));
+    }
     // B9: 0.9.0 kaydından gelindi — statlar sıfırlandı (bir kez)
     if (G.flag('stat_reset_notice')) {
       delete G.state.flags.stat_reset_notice;
@@ -1023,27 +1024,6 @@ export class Director {
       this.ui.closeDialogue();
       await openShop(this.ui, 'inn');
     });
-    if (G.flag('guild_registered') && !R.hasSkill('sword_mastery')) {
-      const L = LESSONS.sword_mastery;
-      opts.push(`Bana kılıç öğretir misin? ({m:${L.price}})`);
-      acts.push(async () => {
-        await this.say('bertram', 'Kılıç mı? Hmm. Eski alışkanlıklar... Yedi gümüş elli bronz. Ve üç saat terlersin. Pazarlık yok, ders benim emekliliğim.');
-        const c = await this.ui.choice([`Öde ({m:${L.price}})`, 'Vazgeç']);
-        if (c !== 0) return;
-        const can = R.canLearnSkill();
-        if (!can.ok) {
-          await this.say('bertram', 'Kafan dolu gibi. Bu hafta başka bir şey öğrenmişsin. Haftaya gel.');
-          return;
-        }
-        const r = R.pay(L.price, 'Kılıç dersi');
-        if (!r.ok) {
-          await this.say('bertram', 'Para yoksa ders de yok. Yedi buçuk gümüş, evlat. Avlan, biriktir, gel.');
-          return;
-        }
-        await this.trainingTime(L.minutes, 'Bertram seni arka bahçede bir sopayla saatlerce koşturuyor.');
-        R.learnSkill('sword_mastery', 'Öğretmen: Bertram');
-      });
-    }
     opts.push('Kendin hakkında anlat.');
     acts.push(async () => {
       const lines = [
@@ -1060,15 +1040,6 @@ export class Director {
     await this.say('bertram', st === 'naked' ? 'Hâlâ o şortla mısın?' : deal ? 'Ne var, evlat?' : 'Ne istiyorsun?');
     const c = await this.ui.choice(opts);
     await acts[c]();
-  }
-
-  async trainingTime(minutes: number, text: string) {
-    await this.ui.curtain(1, 500);
-    const t = this.ui.overlayText(text, { size: 24 });
-    await wait(this.w, 2400);
-    t.destroy();
-    this.advanceClock(minutes);
-    await this.ui.curtain(0, 500);
   }
 
   async workMontage() {
@@ -1454,25 +1425,6 @@ export class Director {
       opts.push(o.label);
       acts.push(o.run);
     }
-    if (!R.hasSkill('archery')) {
-      const L = LESSONS.archery;
-      opts.push(`Okçuluk öğret ({m:${L.price}}, 2 saat)`);
-      acts.push(async () => {
-        const can = R.canLearnSkill();
-        if (!can.ok) {
-          await this.say('hunter', 'Bu hafta kafan başka şeylerle dolu gibi. Haftaya.');
-          return;
-        }
-        const r = R.pay(L.price, 'Okçuluk dersi');
-        if (!r.ok) {
-          await this.say('hunter', '...İki gümüş. Ok ucu bedava değil, benim vaktim hiç değil.');
-          return;
-        }
-        await this.trainingTime(L.minutes, 'Garrick sana yayı nasıl gereceğini, nefesini nasıl tutacağını gösteriyor. Parmakların kanıyor.');
-        R.learnSkill('archery', 'Öğretmen: Garrick');
-        await this.say('hunter', 'Yayın yok ama. Burada kısa yay var. Ya da kendi yolunu bul.');
-      });
-    }
     opts.push('Teşekkürler.');
     acts.push(async () => {});
     const c = await this.ui.choice(opts);
@@ -1564,24 +1516,6 @@ export class Director {
     for (const o of side) {
       opts.push(o.label);
       acts.push(o.run);
-    }
-    if (kind === 'healer' && !R.hasSkill('first_aid')) {
-      const L = LESSONS.first_aid;
-      opts.push(`İlk yardım öğret ({m:${L.price}}, 1 saat)`);
-      acts.push(async () => {
-        const can = R.canLearnSkill();
-        if (!can.ok) {
-          await this.say('healer', 'Bir haftada bir şey öğrenmek yeter, yavrum. Haftaya gel.');
-          return;
-        }
-        const r = R.pay(L.price, 'İlk yardım dersi');
-        if (!r.ok) {
-          await this.say('healer', 'Bir gümüş elli bronz, yavrum. Otlar kendiliğinden yetişmiyor, ben de kendiliğimden yaşlanmadım.');
-          return;
-        }
-        await this.trainingTime(L.minutes, 'Ilse Nine sana sargı sarmayı, yarayı temizlemeyi ve merhem yapmayı gösteriyor.');
-        R.learnSkill('first_aid', 'Öğretmen: Ilse Nine');
-      });
     }
     if (kind === 'healer' && G.p.hp < G.d.maxHp) {
       opts.push(`Yaralarımı sar ({m:${FEES.healerWrap}})`);
@@ -1735,18 +1669,13 @@ export class Director {
     });
   }
 
-  // ============================================================ awakening ve keşif teklifleri
+  // ============================================================ awakening (0.10.0: gizli keşif teklifleri kalktı — B17)
   tryPending() {
     if (this.busy || this.w.cutscene || this.w.inBattle || this.ui.dialogueOpen() || this.ui.menuOpen() || this.w.paused) return;
     const dv = G.state.divine;
     if (dv.pendingAwakenings.length) {
       const lv = dv.pendingAwakenings.shift()!;
       this.scene(async () => this.awakening(lv));
-      return;
-    }
-    if (G.state.pendingDiscoveries.length) {
-      const sk = G.state.pendingDiscoveries.shift()!;
-      this.scene(async () => this.discovery(sk));
     }
   }
 
@@ -1778,18 +1707,5 @@ export class Director {
     this.musicOverride = false;
     this.w.updateMusic();
     G.save('auto');
-  }
-
-  async discovery(skillId: string) {
-    const def = SKILLS[skillId];
-    const hint = HIDDEN_DISCOVERIES.find((h) => h.skill === skillId)?.hint ?? '';
-    await this.ui.system(`${hint} Sistem bir skill öneriyor: ${def.name} (${RARITY_NAMES[def.rarity]}). ${def.desc}`);
-    // 0.9.0: gizli keşifler haftalık sınırın dışında
-    const c = await this.ui.choice([`Kabul et: ${def.name}`, 'Reddet']);
-    if (c === 0) R.learnSkill(skillId, 'Gizli keşif', { weekly: false });
-    else {
-      G.setFlag('declined_' + skillId);
-      R.toast('Teklif reddedildi.', 'info');
-    }
   }
 }

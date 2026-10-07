@@ -952,7 +952,6 @@ export class MenuScene extends Phaser.Scene {
         c.add(txt(this, dx + 56, by - 12, 'Hızlı yemek yuvasında (F)', { size: 14, color: '#ffe080', bold: true }));
       }
     } else if (it.effects && it.kind === 'consumable') act('Kullan', () => this.useItem(id));
-    if (it.kind === 'book') act('Oku', () => this.useItem(id));
     if (id === 'map_village' || id === 'map_forest_deep') act('Haritaya işle', () => this.useItem(id), 'map');
   }
 
@@ -992,23 +991,6 @@ export class MenuScene extends Phaser.Scene {
       if (id === 'map_village') this.world.revealArea('world', VILLAGE_X0 - 2, 24, BARRIER_X, WORLD_H - 4);
       else this.world.revealArea('world', 0, 0, 56, 24);
       R.sysmsg('HARİTA', [id === 'map_village' ? 'Brindlewood haritaya işlendi.' : 'Ormanın derinlikleri haritaya işlendi.']);
-      this.render();
-      return;
-    }
-    if (it.kind === 'book') {
-      const sk = it.effects?.find((e) => e.type === 'learnSkill')?.skill;
-      if (!sk) return;
-      if (R.hasSkill(sk)) {
-        R.toast('Bu skill\'e zaten sahipsin.', 'warn');
-        return;
-      }
-      const can = R.canLearnSkill();
-      if (!can.ok) {
-        R.sysmsg('OKUNAMADI', [can.reason!]);
-        return;
-      }
-      const r = transact(G.p as any, { label: 'Kitap okuma', take: [{ id, qty: 1 }] });
-      if (r.ok) R.learnSkill(sk, `Kitap: ${it.name}`);
       this.render();
       return;
     }

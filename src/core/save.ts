@@ -98,6 +98,9 @@ const MIGRATIONS: ((d: any) => any)[] = [
   (d) => migrateV8toV9(d),
 ];
 
+/** 0.10.0 (B17): kaldırılan skill kitapları → iade (bronz): satış değeri, yoksa alış fiyatının yarısı. */
+export const REMOVED_BOOKS: Record<string, number> = { book_fire: 450, scroll_spark: 100, book_archery: 90, book_firstaid: 60 };
+
 /** 0.10.0'da çıkarılan statlar (kayıttan temizlenir). */
 const REMOVED_STATS = ['DEX', 'MNA'];
 
@@ -110,6 +113,8 @@ const REMOVED_STATS = ['DEX', 'MNA'];
  *   Bertram konuşmasında oynar (`bertram_pay_pending`; ödeme bir kez).
  * - Görev ilerleme dizileri tanımla eşitlenir (0.10.0: "Hana Git"e Appraisal amacı eklendi).
  * - B13: Tokluk alanı yoksa 80.
+ * - B17: skill kitapları envanterden silinir, değeri iade edilir (`books_refund` bildirimi); gizli keşif kuyruğu ve
+ *   declined_ ve postponed_ bayrakları silinir.
  */
 export function migrateV8toV9(d: any): any {
   d.flags ??= {};
@@ -135,6 +140,17 @@ export function migrateV8toV9(d: any): any {
     if (st && st.status === 'active' && Array.isArray(st.progress)) st.progress[0] = Math.min(2, st.progress[0] ?? 0);
   }
   padQuestProgress(d.quests);
+  // B17: skill kitapları/parşömenleri kalktı — eşya silinir, satış değeri (yoksa alış fiyatının yarısı) bronz iade
+  const refund = Object.entries(REMOVED_BOOKS).reduce((a, [id, v]) => a + v * (p?.inventory?.[id] ?? 0), 0);
+  if (p?.inventory) for (const id of Object.keys(REMOVED_BOOKS)) delete p.inventory[id];
+  if (refund > 0 && p) {
+    p.wallet = normalizeWallet({ ...emptyWallet(), ...(p.wallet ?? {}), bronze: (p.wallet?.bronze ?? 0) + refund });
+    d.flags.books_refund = refund;
+  }
+  if (d.quickFood && REMOVED_BOOKS[d.quickFood] !== undefined) d.quickFood = null;
+  // B17: gizli keşifler kalktı
+  delete d.pendingDiscoveries;
+  for (const k of Object.keys(d.flags)) if (/^(declined|postponed)_/.test(k)) delete d.flags[k];
   // B13: Tokluk (alan yoksa 80)
   if (typeof d.satiety !== 'number') d.satiety = SATIETY_MIGRATE;
   d.saveVersion = 9;

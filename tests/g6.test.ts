@@ -384,3 +384,40 @@ describe('Kayıt göçü v8 → v9 (B9/B12)', () => {
     expect(m.satiety).toBe(80);
   });
 });
+
+import { REMOVED_BOOKS } from '../src/core/save';
+import { MONSTERS as MON6 } from '../src/data/monsters';
+const SRC6 = import.meta.glob(['/src/**/*.ts'], { query: '?raw', import: 'default', eager: true }) as Record<string, string>;
+describe('Skill öğrenmenin tek yolu SP (B17)', () => {
+  it('kaynakta Sistem Teklifi dışında learnSkill çağrısı yok', () => {
+    const calls: string[] = [];
+    for (const [f, src] of Object.entries(SRC6)) {
+      for (const m of src.matchAll(/learnSkill\(([^)]*)\)/g)) {
+        if (/export function learnSkill/.test(src.slice(Math.max(0, m.index! - 20), m.index! + 12))) continue;
+        calls.push(`${f}: ${m[1]}`);
+      }
+    }
+    expect(calls.length).toBeGreaterThan(0);
+    for (const c of calls) expect(c, c).toMatch(/'Sistem Teklifi'/);
+  });
+  it('öğretmen, kitap, gizli keşif ve skill veren ganimet kalmadı', () => {
+    const all = Object.entries(SRC6).filter(([f]) => !f.endsWith('/core/save.ts')).map(([, v]) => v).join('\n');
+    expect(all).not.toMatch(/HIDDEN_DISCOVERIES|pendingDiscoveries|checkDiscoveries|LESSONS\./);
+    for (const id of Object.keys(REMOVED_BOOKS)) expect(IT6[id], id).toBeUndefined();
+    for (const m of Object.values(MON6)) for (const d of [...m.drops, m.special]) expect(IT6[d.id], `${m.id}: ${d.id}`).toBeDefined();
+  });
+  it('eski kayıttaki kitaplar silinir, değeri bronz olarak iade edilir (bir kez bildirilir)', () => {
+    const s: any = ngs6();
+    s.saveVersion = 8;
+    s.player.inventory = { book_fire: 1, book_firstaid: 2, bread: 1 };
+    s.pendingDiscoveries = ['stealth'];
+    s.flags = { declined_stealth: true, postponed_archery: 3, woke: true };
+    const m: any = mig6(s, 8);
+    expect(m.player.inventory).toEqual({ bread: 1 });
+    expect(m.player.wallet.bronze + m.player.wallet.silver * 100).toBe(450 + 120);
+    expect(m.flags.books_refund).toBe(570);
+    expect(m.pendingDiscoveries).toBeUndefined();
+    expect(m.flags.declined_stealth).toBeUndefined();
+    expect(m.flags.postponed_archery).toBeUndefined();
+  });
+});

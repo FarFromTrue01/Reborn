@@ -127,7 +127,7 @@ describe('İşlemler', () => {
 import { ITEMS } from '../src/data/items';
 import { SHOPS } from '../src/data/shops';
 import { sellOffer, sellRange, AFFINITY_MAX } from '../src/core/selling';
-import { FEES, LESSONS, JOBS } from '../src/data/economy';
+import { FEES, JOBS } from '../src/data/economy';
 import { MONSTERS } from '../src/data/monsters';
 
 describe('0.2.0 köy fiyatları', () => {
@@ -137,19 +137,15 @@ describe('0.2.0 köy fiyatları', () => {
     };
     for (const [id, p] of Object.entries(want)) expect(ITEMS[id].price, id).toBe(p);
   });
-  it('Silah ve zırhlar yaklaşık ×2.5, kitaplar ×2', () => {
+  it('Silah ve zırhlar yaklaşık ×2.5 (0.10.0: skill kitapları kalktı)', () => {
     const old: Record<string, number> = { rusty_shortsword: 60, iron_shortsword: 220, leather_vest: 70, padded_armor: 230, linen_shirt: 30, hobnail_boots: 105 };
     for (const [id, p] of Object.entries(old)) expect(ITEMS[id].price / p, id).toBeCloseTo(2.5, 1);
-    const books: Record<string, number> = { book_fire: 450, book_archery: 90, book_firstaid: 60 };
-    for (const [id, p] of Object.entries(books)) expect(ITEMS[id].price / p, id).toBeCloseTo(2, 5);
+    for (const id of ['book_fire', 'book_archery', 'book_firstaid', 'scroll_spark']) expect(ITEMS[id], id).toBeUndefined();
   });
-  it('Hizmetler ve skill öğretmenleri (×5)', () => {
+  it('Hizmetler (×5); skill öğretmenleri 0.10.0\'da kalktı', () => {
     expect(FEES.innBed).toBe(40);
     expect(FEES.healerWrap).toBe(15);
-    expect(LESSONS.archery.price).toBe(200);
-    expect(LESSONS.first_aid.price).toBe(150);
-    expect(LESSONS.sword_mastery.price).toBe(750);
-    expect(formatPrice(LESSONS.sword_mastery.price)).toBe('7 Gümüş 50 Bronz');
+    expect(formatPrice(750)).toBe('7 Gümüş 50 Bronz');
   });
   it('Bertram (2 gün, 0.10.0) + Haldor\'un hasadı = tam 1 gümüş = lonca kaydı', () => {
     expect(JOBS.bertramShifts).toBe(2);
@@ -161,7 +157,7 @@ describe('0.2.0 köy fiyatları', () => {
   it('Drop satış değerleri artmadı (0.1.0 ile aynı)', () => {
     const sell: Record<string, number> = {
       rat_tail: 1, slime_jelly: 2, color_core: 8, rabbit_meat: 3, rabbit_pelt: 5, wolf_pelt: 9, wolf_fang: 5, goblin_ear: 4, goblin_trinket: 3, herb: 2,
-      goblin_cleaver: 63, gnawed_ring: 10, slime_gloves: 15, rabbit_charm: 20, wolf_fang_necklace: 55, scroll_spark: 100, chief_tusk: 40,
+      goblin_cleaver: 63, gnawed_ring: 10, slime_gloves: 15, rabbit_charm: 20, wolf_fang_necklace: 55, chief_tusk: 40,
     };
     for (const [id, v] of Object.entries(sell)) expect(ITEMS[id].sell, id).toBe(v);
     // Her drop sabit bir satış değerine sahip (fiyat artışı satış değerini etkilemesin)

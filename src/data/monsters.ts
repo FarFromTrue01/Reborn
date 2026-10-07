@@ -172,7 +172,8 @@ const list: MonsterDef[] = [
     hpByLevel: { 2: 6 }, natural: { name: 'Ateş Kıvılcımı', dmg: [2, 3] }, naturalDef: 0,
     exp: [25, 32],
     drops: [{ id: 'goblin_ear', chance: 0.7 }, { id: 'herb', chance: 0.4, qty: [1, 2] }],
-    special: { id: 'scroll_spark', chance: 0.06 },
+    // 0.10.0 (B17): Kıvılcım Parşömeni kalktı (skill yalnızca Sistem Teklifi ile); yerine nadir mana iksiri
+    special: { id: 'mp_potion_s', chance: 0.06 },
     money: [2, 8, 0.6],
     behavior: 'caster', speed: 2.4, sight: 6.5, fov: 170, attackRange: 5, windup: 0.8, cooldown: 2.6,
     rank: 'F-', sprite: 'm_goblin_shaman', attack: 'bolt', radius: 0.38, gender: 'Kadın',

@@ -5,7 +5,7 @@ import { addExp, round2, STAT_POINTS_PER_LEVEL, SP_PER_LEVEL, type StatKey } fro
 import { addDivineExp, victoryDivineExp, isMeaningfulVictory, trainingExp, streakMultiplier, TRAINING_SESSIONS_PER_DAY, divineExpToNext } from '../core/divine';
 import { fmtMult, fmtHp } from '../ui/format';
 import { addSkillExp, canLearnThisWeek, weekOfDay, newSkill, ownedTechniques, sanitizeSlots } from '../core/skills';
-import { SKILLS, TECHNIQUES, HIDDEN_DISCOVERIES, RARITY_NAMES } from '../data/skills';
+import { SKILLS, TECHNIQUES, RARITY_NAMES } from '../data/skills';
 import { subRankToString } from '../core/ranks';
 import { transact, type ItemQty } from '../core/transactions';
 import { ITEMS } from '../data/items';
@@ -192,12 +192,19 @@ export function canLearnSkill(): { ok: boolean; reason?: string } {
   return { ok: true };
 }
 
+/** B17 (0.10.0): yeni skill'in tek kaynağı — SP harcanan Sistem Teklifi. */
+export const SKILL_SOURCE = 'Sistem Teklifi';
+
 /**
- * Yeni skill. weekly: Sistem Teklifi, öğretmenler ve kitaplar haftalık sınıra tabi; hikâyedeki gizli keşifler
- * (HIDDEN_DISCOVERIES, director.discovery) sınırın dışında (weekly: false) ve haftanın hakkını kullanmaz.
- * Teklifin hakkı teklif açılınca kullanılır (useWeeklyLearn), seçim ayrıca hakkı düşürmez.
+ * Yeni skill. 0.10.0 (B17): **yalnızca Sistem Teklifi** (SP) — öğretmenler, kitaplar, gizli keşifler, ganimet ve görev
+ * ödülleri skill vermez; başka bir kaynak reddedilir. Haftada 1 yeni skill sınırı aynı: teklifin hakkı teklif
+ * açılınca kullanılır (useWeeklyLearn), seçim ayrıca hakkı düşürmez (weekly: false). Divine skill'leri ayrı sistem.
  */
 export function learnSkill(id: string, via: string, opts: { weekly?: boolean } = {}): boolean {
+  if (via !== SKILL_SOURCE) {
+    console.warn('Skill yalnızca Sistem Teklifi ile öğrenilir:', id, via);
+    return false;
+  }
   const weekly = opts.weekly ?? true;
   if (hasSkill(id)) {
     toast('Bu skill\'e zaten sahipsin.', 'warn');
@@ -243,16 +250,6 @@ export function setSkillSlot(i: number, tech: string | null) {
   G.state.skillSlots = sanitizeSlots(slots, owned);
   G.events.emit('skills');
   G.scheduleSave();
-}
-
-/** Gizli keşif sayaçlarını kontrol et. */
-export function checkDiscoveries() {
-  for (const h of HIDDEN_DISCOVERIES) {
-    if ((G.state.counters[h.counter] ?? 0) >= h.need && !hasSkill(h.skill) && !G.state.pendingDiscoveries.includes(h.skill) && !G.state.flags['declined_' + h.skill] && G.state.flags['postponed_' + h.skill] !== weekOfDay(G.state.time.day)) {
-      G.state.pendingDiscoveries.push(h.skill);
-      G.events.emit('discovery', h.skill, h.hint);
-    }
-  }
 }
 
 // ------------------------------------------------------------------ title
@@ -396,7 +393,6 @@ export function consumeItem(id: string, eat: { state: EatState; now: number } | 
       G.events.emit('healed', e.amount! * G.d.healMult);
       G.count('bandagesUsed');
       gainSkillExp('first_aid', 1.5);
-      checkDiscoveries();
     }
   }
   G.events.emit('stats');

@@ -50,8 +50,6 @@ export interface GameState {
   lastSkillLearnWeek: number | null;
   expToday: number;
   expDay: number;
-  /** Teklif edilip bekleyen hidden discovery skill'leri. */
-  pendingDiscoveries: string[];
   appraised: Record<string, number>; // hedef id → son appraise edilen gün (boşa kullanım engeli)
   killed: Record<string, number>; // canavar türü → sayı
   respawns: Record<string, number>; // spawn noktası id → yeniden doğacağı oyun dakikası (mutlak)
@@ -134,7 +132,6 @@ export function newGameState(): GameState {
     lastSkillLearnWeek: null,
     expToday: 0,
     expDay: 1,
-    pendingDiscoveries: [],
     appraised: {},
     killed: {},
     respawns: {},

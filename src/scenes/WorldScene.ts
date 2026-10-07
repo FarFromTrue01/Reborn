@@ -1800,7 +1800,6 @@ export class WorldScene extends Phaser.Scene {
     if (g.kind === 'herb') {
       R.gainSkillExp('gathering', usageExp(1.5, 0, 0));
       G.count('gathered');
-      R.checkDiscoveries();
     }
     this.applyGatherVisuals();
   }
@@ -2007,7 +2006,6 @@ export class WorldScene extends Phaser.Scene {
   onSneakApproach() {
     G.count('sneakApproach');
     R.gainSkillExp('stealth', 0.6);
-    R.checkDiscoveries();
   }
 
   // ================================================================= kast: eğilme ve yol verme
@@ -2298,7 +2296,6 @@ export class WorldScene extends Phaser.Scene {
     if (res.sneak) R.gainSkillExp('stealth', usageExp(1.5, e.level, G.p.level));
     if (wt === 'bow' && o.physical) {
       G.count('bowHits');
-      R.checkDiscoveries();
     }
     if (e.c.hp <= 0) {
       this.killEnemy(e, o.skill ?? weaponSkill);
@@ -2496,7 +2493,6 @@ export class WorldScene extends Phaser.Scene {
     if (G.state.divine.skills.length) G.state.divine.light = Math.min(LIGHT_MAX, G.state.divine.light + LIGHT_ON_PERFECT_DODGE * (G.state.divine.skills.includes('swift_grace') ? 2 : 1));
     G.count('perfectDodge');
     R.gainSkillExp('evasion', usageExp(2, e?.level ?? 0, G.p.level));
-    R.checkDiscoveries();
   }
 
   hurtPlayer(dmg: number, dir: Phaser.Math.Vector2, crit: boolean, e: Enemy | null) {

@@ -32,10 +32,10 @@ export const SHOPS: Record<string, ShopDef> = {
   },
   shop: {
     id: 'shop', name: 'Marta\'nın Genel Dükkânı', keeper: 'shopkeeper', map: 'shop', hours: [8, 19], rate: 0.32,
-    stock: ['bread', 'apple', 'bandage', 'rope_belt', 'traveler_cape', 'copper_ring', 'map_village'], // 0.8.0: skill kitapları satılmaz (ödül/ganimet)
-    buys: ['material', 'food', 'junk', 'armor', 'weapon', 'book'],
+    stock: ['bread', 'apple', 'bandage', 'rope_belt', 'traveler_cape', 'copper_ring', 'map_village'], // 0.10.0 (B17): skill kitapları kalktı
+    buys: ['material', 'food', 'junk', 'armor', 'weapon'],
     // genel: gündelik mallar, kitap ve ıvır zıvır
-    expertise: ['food', 'junk', 'book', 'consumable', 'rope_belt', 'traveler_cape', 'copper_ring', 'gnawed_ring', 'firewood'],
+    expertise: ['food', 'junk', 'consumable', 'rope_belt', 'traveler_cape', 'copper_ring', 'gnawed_ring', 'firewood'],
   },
   healer: {
     id: 'healer', name: 'Ilse Nine\'nin Şifa Evi', keeper: 'healer', map: 'healer', hours: [9, 17], rate: 0.38,

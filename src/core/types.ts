@@ -34,7 +34,7 @@ export type ItemKind = 'weapon' | 'armor' | 'material' | 'consumable' | 'quest' 
 export type WeaponType = 'sword' | 'dagger' | 'spear' | 'bow' | 'club' | 'staff';
 
 export interface ItemEffect {
-  type: 'heal' | 'mana' | 'stamina' | 'learnSkill' | 'cure' | 'regen';
+  type: 'heal' | 'mana' | 'stamina' | 'cure' | 'regen';
   amount?: number;
   skill?: string;
   duration?: number;

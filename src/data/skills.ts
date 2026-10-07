@@ -310,12 +310,3 @@ export const TECHNIQUES: Record<string, TechniqueDef> = Object.fromEntries(techn
 /** 0.9.0'da kaldırılan teknikler (kayıt göçü: takılıysa slot boşalır). */
 export const REMOVED_TECHNIQUES = ['double_shot', 'flame_spray', 'flame_wall'];
 
-/** Hidden discovery: davranış sayaçları → önerilen skill. Haftalık sınırın dışında. */
-export const HIDDEN_DISCOVERIES: { counter: string; need: number; skill: string; hint: string }[] = [
-  { counter: 'sneakApproach', need: 20, skill: 'stealth', hint: 'Fark edilmeden düşmanlara yaklaşmayı alışkanlık hâline getirdin.' },
-  { counter: 'perfectDodge', need: 15, skill: 'evasion', hint: 'Darbeleri son anda savuşturmayı öğreniyorsun.' },
-  { counter: 'bowHits', need: 20, skill: 'archery', hint: 'Yayın gerginliğini artık parmaklarında hissediyorsun.' },
-  { counter: 'runDistance', need: 4000, skill: 'athletics', hint: 'Koştukça bedenin buna alışıyor.' },
-  { counter: 'gathered', need: 15, skill: 'gathering', hint: 'Ormanın otlarını tanımaya başladın.' },
-  { counter: 'bandagesUsed', need: 8, skill: 'first_aid', hint: 'Yaralarını sarmakta ustalaşıyorsun.' },
-];
