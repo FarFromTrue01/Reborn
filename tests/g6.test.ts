@@ -550,3 +550,21 @@ describe('Ansiklopedi (B15)', () => {
     expect(mig6(s, 8).codex.monsters.slime.kills).toBe(1);
   });
 });
+
+import { runStaminaCost, RUN_STAMINA_PER_SEC } from '../src/core/stamina';
+import { SKILLS as SK_6 } from '../src/data/skills';
+describe('Koşmak dayanıklılık harcamaz (B22)', () => {
+  it('koşu bedeli 0; oyuncu kodunda koşu bedeli, kilit ve koşu maliyeti çarpanı yok', () => {
+    expect(RUN_STAMINA_PER_SEC).toBe(0);
+    expect(runStaminaCost(60)).toBe(0);
+    const player = SRC6['/src/world/player.ts'];
+    expect(player).not.toMatch(/runStep|runLock|runCostMult|Nefes nefese/);
+    const all = Object.values(SRC6).join('\n');
+    expect(all).not.toMatch(/runCostPct|freeRun/);
+  });
+  it('Atletizm koşu maliyeti yerine koşu hızı ve yenilenme verir', () => {
+    const at = SK_6.athletics;
+    expect(at.tiers.some((t: any) => t.passive?.runSpeedPct > 0)).toBe(true);
+    for (const t of at.tiers) expect(t.note).not.toMatch(/koşu maliyeti|koşu -%|harcamaz/);
+  });
+});

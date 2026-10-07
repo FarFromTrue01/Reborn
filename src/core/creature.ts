@@ -41,7 +41,6 @@ export interface Derived {
   dodgeWindowMult: number;
   slowmoMult: number;
   dodgeCostMult: number;
-  runCostMult: number;
   detectionMult: number;
   sneakMult: number;
   healMult: number;
@@ -73,7 +72,7 @@ export function derive(c: CreatureData, divine?: DivineContext | null): Derived 
   let hpPct = 0;
   let staminaFlat = 0;
   const dmgPct: Record<string, number> = {};
-  let dodgeWin = 0, dodgeCost = 0, runCost = 0, detect = 0, sneak = 1.5, heal = 0, regen = 0, gather = 0, area = 0, reach = 0, expPct = 0;
+  let dodgeWin = 0, dodgeCost = 0, detect = 0, sneak = 1.5, heal = 0, regen = 0, gather = 0, area = 0, reach = 0, expPct = 0;
 
   // Ekipman
   const eqStats = zeroStats();
@@ -98,7 +97,6 @@ export function derive(c: CreatureData, divine?: DivineContext | null): Derived 
   hpPct += fx.hpPct ?? 0;
   dodgeWin += fx.dodgeWindowPct ?? 0;
   dodgeCost += fx.dodgeCostPct ?? 0;
-  runCost += fx.runCostPct ?? 0;
   detect += fx.detectionPct ?? 0;
   if (fx.sneakMult) sneak = Math.max(sneak, fx.sneakMult);
   heal += fx.healPct ?? 0;
@@ -165,7 +163,6 @@ export function derive(c: CreatureData, divine?: DivineContext | null): Derived 
     dodgeWindowMult: (1 + dodgeWin) * agiDodgeWindowMult(stats.AGI) * ov.windowMult,
     slowmoMult: ov.slowmoMult,
     dodgeCostMult: (1 + dodgeCost) * agiDodgeCostMult(stats.AGI),
-    runCostMult: 1 + runCost,
     detectionMult: 1 + detect,
     sneakMult: sneak,
     healMult: 1 + heal,

@@ -1,7 +1,6 @@
 // 0.3.0 çekirdek kuralları: dayanıklılık kilidi, EXP gösterimi, Lonca Puanı, ceza/borç/kart kaybı,
 // terfi eşikleri, grup puanı, Saygınlık, uyku kuralı, giriş kartı süresi, görev durumları, kayıt göçü, ayarlar.
 import { describe, it, expect } from 'vitest';
-import { runStep } from '../src/core/stamina';
 import { fmtExp } from '../src/ui/format';
 import {
   QUEST_POINTS, RANK_THRESHOLDS, applyPenalty, applyReward, canTakeQuest, earnedRank, examRequired, groupPoints,
@@ -20,33 +19,6 @@ import { ITEMS } from '../src/data/items';
 import { SHOPS } from '../src/data/shops';
 import { JOBS } from '../src/data/economy';
 
-describe('A1: dayanıklılık kilidi', () => {
-  it('Dayanıklılık 0 olunca kilitlenir; istek sürdükçe koşmaz', () => {
-    const lock = { exhausted: false };
-    expect(runStep(lock, true, 5)).toBe(true);
-    expect(runStep(lock, true, 0)).toBe(false);
-    expect(lock.exhausted).toBe(true);
-    // dayanıklılık dolsa bile joystick sonda kaldıkça koşmaz
-    expect(runStep(lock, true, 30)).toBe(false);
-    expect(runStep(lock, true, 50)).toBe(false);
-  });
-  it('Koşu isteği bırakılınca (eşiğin altı / joystick bırakıldı / Shift bırakıldı) kilit kalkar', () => {
-    const lock = { exhausted: true };
-    expect(runStep(lock, false, 10)).toBe(false);
-    expect(lock.exhausted).toBe(false);
-    expect(runStep(lock, true, 10)).toBe(true);
-  });
-  it('0–1 arasında takılma yok: kilitliyken dolum bitene kadar hiç koşmaz', () => {
-    const lock = { exhausted: false };
-    let st = 0.5, ran = 0;
-    for (let i = 0; i < 100; i++) {
-      const r = runStep(lock, true, st);
-      if (r) { ran++; st = Math.max(0, st - 0.2); } else st += 0.5;
-      if (st <= 0) runStep(lock, true, 0);
-    }
-    expect(ran).toBeLessThanOrEqual(3);
-  });
-});
 
 describe('B1: EXP gösterimi', () => {
   it('En fazla bir ondalık, virgül, kısaltma', () => {

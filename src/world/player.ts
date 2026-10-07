@@ -17,7 +17,7 @@ import { Sound } from '../audio/audio';
 import { hpRegenPerSec, mpRegenPerSec, staminaRegenPerSec, regenStep, round2 } from '../core/formulas';
 import { hungerMods } from '../core/hunger';
 import { LIGHT_MAX, LIGHT_DECAY_PER_SEC } from '../core/divine';
-import { runStep, RUN_THRESHOLD, type RunLock } from '../core/stamina';
+import { RUN_THRESHOLD } from '../core/stamina';
 import type { EvadeCost } from '../core/combat';
 import { applyStatus, statusMods, tickStatuses, scaledDuration, type Status } from '../core/status';
 
@@ -88,8 +88,6 @@ export class Player {
   running = false;
   /** E3: yük (yaralı taşırken yavaşlar, koşamaz). 1 = yok. */
   burden = 1;
-  /** Dayanıklılık bitince koşu kilidi (A1). */
-  runLock: RunLock = { exhausted: false };
   sneaking = false;
   combatT = 99; // son savaş olayından beri geçen süre
   secondWindUsed = false;
@@ -506,21 +504,14 @@ export class Player {
         if (Input.consume('eat')) this.w.eatQuick();
         // hareket
         const wantRun = (Input.run || (Input.touchMove && mlen > RUN_THRESHOLD)) && mlen > 0.2 && this.burden >= 1;
-        // Kilit, istek bırakılınca ya da dayanıklılık tamamen dolunca kalkar (joystick sonda kalırsa yeniden koşar).
-        this.running = runStep(this.runLock, wantRun, p.stamina, d.maxStamina);
+        // B22: koşu ücretsiz — dayanıklılık kilidi yok
+        this.running = wantRun;
         // 0.8.0: yalnızca Joseph'e ⅔ yürüme çarpanı; Ayarlar → Hareket hızı yalnızca yavaşlatabilir (çarpan ≤ 1)
         const walk = walkSetting(naturalWalk(d.moveSpeed), G.settings.walkSpeed);
         let sp = MV_BASE * TILE * d.moveSpeed * JOSEPH_WALK_MULT * mlen * walk.mult * this.burden * statusMods(this.statuses).speed;
         if (this.running) {
-          sp *= RUN_MULT;
-          // Atletizm S- (Sonsuz Adım): savaş dışında koşmak dayanıklılık harcamaz
-          if (!(d.fx.freeRun && !this.inCombat)) p.stamina = Math.max(0, p.stamina - 11 * d.runCostMult * dt);
-          if (p.stamina <= 0) {
-            this.runLock.exhausted = true;
-            this.running = false;
-            this.w.fx.number(a.x, a.y - 50, 'Nefes nefese', 'miss');
-          }
-          this.staminaDelay = 0.5;
+          // B22: koşu dayanıklılık harcamaz; Atletizm koşu hızını artırır
+          sp *= RUN_MULT * (1 + (d.fx.runSpeedPct ?? 0));
           this.distAcc += sp * dt;
           if (this.distAcc > TILE * 10) {
             this.distAcc = 0;

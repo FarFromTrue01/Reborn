@@ -1,7 +1,6 @@
 // Dövüş kuralları (0.4.0): saldırı iptali, mükemmel kaçış iadesi, köşeye sıkışan tavşan, koşu döngüsü.
 import { describe, it, expect } from 'vitest';
 import { canInterrupt, INTERRUPT_LOCKOUT_SEC, refundEvade, corneredStep, newCorneredState } from '../src/core/combat';
-import { runStep, type RunLock } from '../src/core/stamina';
 import { MONSTERS } from '../src/data/monsters';
 
 describe('Vuruşla saldırı iptali', () => {
@@ -84,36 +83,3 @@ describe('Köşeye sıkışan tavşan', () => {
   });
 });
 
-describe('Koşu döngüsü (runStep)', () => {
-  it('Dayanıklılık bitince kilit; istek bırakılınca kalkar (eski yol)', () => {
-    const lock: RunLock = { exhausted: false };
-    expect(runStep(lock, true, 5, 50)).toBe(true);
-    expect(runStep(lock, true, 0, 50)).toBe(false);
-    expect(lock.exhausted).toBe(true);
-    expect(runStep(lock, true, 30, 50)).toBe(false);
-    expect(runStep(lock, false, 30, 50)).toBe(false);
-    expect(lock.exhausted).toBe(false);
-    expect(runStep(lock, true, 30, 50)).toBe(true);
-  });
-  it('Joystick sonda kalırsa: dolana kadar yürür, %100 olunca kendiliğinden koşar (yeni yol)', () => {
-    const lock: RunLock = { exhausted: true };
-    expect(runStep(lock, true, 49.9, 50)).toBe(false);
-    expect(runStep(lock, true, 50, 50)).toBe(true);
-    expect(lock.exhausted).toBe(false);
-  });
-  it('Döngü tekrar eder', () => {
-    const lock: RunLock = { exhausted: false };
-    const max = 50;
-    let st = max;
-    const runs: boolean[] = [];
-    for (let i = 0; i < 400; i++) {
-      const r = runStep(lock, true, st, max);
-      runs.push(r);
-      st = r ? Math.max(0, st - 11 * 0.1) : Math.min(max, st + 18 * 0.1);
-    }
-    // koşu → yürüyüş → koşu → yürüyüş: en az iki kez yeniden koşmaya başlar
-    let starts = 0;
-    for (let i = 1; i < runs.length; i++) if (runs[i] && !runs[i - 1]) starts++;
-    expect(starts).toBeGreaterThanOrEqual(2);
-  });
-});

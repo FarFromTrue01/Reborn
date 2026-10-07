@@ -105,7 +105,6 @@ export interface SkillPassive {
   regenPct?: number;
   gatherBonus?: number;
   areaPct?: number;
-  runCostPct?: number;
   // ---- Gizlilik
   noticeDelay?: number;
   shadow?: boolean;
@@ -125,7 +124,8 @@ export interface SkillPassive {
   secondWind?: boolean;
   // ---- Atletizm
   staminaRegenPct?: number;
-  freeRun?: boolean;
+  /** B22: koşu hızı (+0.05 = +%5). Koşu artık dayanıklılık harcamaz. */
+  runSpeedPct?: number;
   // ---- Toplayıcılık
   rareGatherPct?: number;
   gatherTimePct?: number;
