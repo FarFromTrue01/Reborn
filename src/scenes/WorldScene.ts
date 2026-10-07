@@ -77,6 +77,8 @@ const GATHER_GLOW_R = 3.5;
 const QUEST_SLEEP_MAX = 36 * 60;
 /** A7.7: sol üst görev panelinin genişliği (UI birimi, kenar payıyla). */
 const HUD_PANEL_W = 316;
+/** Sağ üst HUD sütununun genişliği (mini harita ve yuvarlak düğmeler; arayüz birimi). */
+const HUD_RIGHT_W = 196;
 /** B7: sağ üst HUD'un (saat/bölge kutusu + mini harita) yüksekliği (UI pikseli). */
 const HUD_TOP_RIGHT_H = 182;
 
@@ -1127,12 +1129,14 @@ export class WorldScene extends Phaser.Scene {
     // kamera sola panel genişliği kadar fazla kayabilir; harita ekrandan küçükse panelin sağında ortalanır
     if (m.indoor) {
       const padL = (HUD_PANEL_W * Display.uiZoom) / cam.zoom;
-      if (W + padL <= vw) {
-        bx = -(padL + (vw - padL - W) / 2);
+      // B7 (0.11.0): sağdaki HUD sütunu (mini harita, Appraisal/menü düğmeleri) da sağ duvarı örtmesin
+      const padR = (HUD_RIGHT_W * Display.uiZoom) / cam.zoom;
+      if (W + padL + padR <= vw) {
+        bx = -(padL + (vw - padL - padR - W) / 2);
         bw = vw;
       } else {
         bx = -padL;
-        bw = W + padL;
+        bw = W + padL + padR;
       }
       // B7 (0.11.0): sağ üstteki saat/bölge kutusu ve mini harita üst duvarı (lonca panosu, rütbe tahtası) örtmesin —
       // kamera yukarı HUD yüksekliği kadar fazla kayabilir; oyuncu üst duvarın önündeyken tahtalar HUD'un altında kalır
@@ -1218,7 +1222,7 @@ export class WorldScene extends Phaser.Scene {
     const pa = this.player.actor;
     g.lineStyle(1, 0x7cc8ff, 0.8);
     g.strokeCircle(pa.x, pa.y, 3);
-    label(pa.x, pa.y + 4, `N=${this.queueLimit()} hak:${[...this.joQueue.holders].join(',') || '-'}`, '#9fd6ff');
+    label(pa.x, pa.y - 66, `N=${this.queueLimit()} hak:${[...this.joQueue.holders].join(',') || '-'}`, '#9fd6ff');
     for (const e of this.enemies) {
       if (!e.alive) continue;
       const sh = e.shape;

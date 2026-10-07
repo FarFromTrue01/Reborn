@@ -137,7 +137,6 @@ export function buildCheckpoint(id: string, points: Pts): GameState {
   s.flags.dp_awaken = true;
   s.flags.village_entered = true;
   s.flags.thought_run = true;
-  s.flags.offer_intro = true;
   s.satiety = 80;
   let day = 1;
   const steps = plan.done.length || 1;

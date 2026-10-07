@@ -143,7 +143,8 @@ export function installQaApi(game: Phaser.Game) {
 /** World sahnesini (UI ile) baştan başlat: başlık ekranından ya da oyun içinden. */
 function startWorld(game: Phaser.Game) {
   const sm = game.scene;
-  for (const k of ['Menu', 'Minigame', 'Prologue', 'Title', 'Credits']) if (sm.isActive(k)) sm.stop(k);
+  // UI de durur: World açılırken temiz kurulur (önceki durumdan kalan seçim panelleri, bildirimler taşınmaz)
+  for (const k of ['Menu', 'Minigame', 'Prologue', 'Title', 'Credits', 'UI']) if (sm.isActive(k) || sm.isPaused(k)) sm.stop(k);
   if (sm.isActive('World')) sm.getScene('World').scene.restart({});
   else sm.start('World', {});
 }

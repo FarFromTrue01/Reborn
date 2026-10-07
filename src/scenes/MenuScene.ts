@@ -796,7 +796,7 @@ export class MenuScene extends Phaser.Scene {
         'Sistem, harcadığın SP kadar skill kartı açar: 1, 2 ya da 3 kart.',
         'Her kartın nadirliği ayrı çekilir; çok SP harcamak nadir kart şansını artırır.',
         'Kartlardan birini seçersin. Seçmezsen SP geri gelmez.',
-        'Haftada bir yeni skill: teklif açmak bu haftanın hakkını kullanır.',
+        'Haftada bir yeni skill öğrenilir; teklif açmak bu haftanın hakkını kullanır.',
       ]);
     }
     const pct = (x: number) => `%${Math.round(x * 100)}`;

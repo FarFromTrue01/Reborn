@@ -156,7 +156,7 @@ export const MAIN_QUESTS: QuestDef[] = [
   },
   {
     // Bekleme adımı (0.6.0): kesenin çalınması ilk kadehin ertesi günü, gündüz meydanda.
-    id: 'm_next_day', kind: 'main', chapter: 2, title: 'Ertesi Gün',
+    id: 'm_next_day', kind: 'main', chapter: 2, title: 'Dışarıdaki Gürültü',
     desc: 'İlk kez bir masada oturdum ve kimse "dolu" demedi. Dışarıda bir gürültü var; handan çıkıp bakayım.',
     objectives: [{ type: 'custom', label: 'Handan çık', target: 'theft_day', where: W('door_inn', 3) }],
     reward: {},
