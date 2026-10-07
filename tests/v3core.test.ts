@@ -269,7 +269,7 @@ describe('Kayıt göçü v3 (0.2.0) → v4 (0.3.0)', () => {
     s.pos = { map: 'world', x: 172, y: 74, facing: 'down' };
     return Object.assign(s, extra);
   };
-  it('Sürüm 9 (0.10.0)', () => expect(CURRENT_SAVE_VERSION).toBe(9));
+  it('Sürüm 10 (0.11.0)', () => expect(CURRENT_SAVE_VERSION).toBe(10));
   it('Bertram\'ın işinin ortasında: 3/4 vardiya → 2/3 (v4) → 0.10.0\'da iş bitmiş, ücret sahnesi bekliyor', () => {
     const d = migrate(v3({ woke: true, inn_met: true, bertram_deal: true }, 3), 3);
     expect(d.counters.workDays).toBe(2);

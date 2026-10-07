@@ -7,7 +7,7 @@ import { questDef, rankupQuest } from '../data/quests';
 import { BOARD_TEMPLATES } from '../data/sidequests';
 import { STAT_POINTS_PER_LEVEL, zeroStats } from './formulas';
 import { SATIETY_MIGRATE } from './hunger';
-import { codexFromSave } from './codex';
+import { codexFromSave, codexSnapshotMigrate } from './codex';
 import { normalizeWallet, emptyWallet } from './money';
 import { normalizeSkillExp, ownedTechniques, sanitizeSlots } from './skills';
 import { SKILLS, REMOVED_TECHNIQUES } from '../data/skills';
@@ -97,7 +97,31 @@ const MIGRATIONS: ((d: any) => any)[] = [
   (d) => migrateV7toV8(d),
   // v8 → v9 (0.10.0): 5 stat (puanlar yeniden dağıtılır), Bertram'ın işi 2 gün, Tokluk, Ansiklopedi, kitaplar…
   (d) => migrateV8toV9(d),
+  // v9 → v10 (0.11.0): Grup 7'nin bütün kayıt değişiklikleri tek göçte.
+  (d) => migrateV9toV10(d),
 ];
+
+/**
+ * 0.10.0 kaydını 0.11.0'a taşır (tek göç, tests/g7.test.ts):
+ * - B5/C9: Appraisal anahtarı yaratıkta tür kimliği: örnek kimlikli eski anahtarlar ('m_12') silinir; Ansiklopedide
+ *   incelenmiş yaratık türleri "önceden incelenmiş" sayılır ('m_rat').
+ * - C1: lonca kaydına kadar harcama kilidi — kayıtlı olmayan eski kayıtlarda kilit açık (spend_free).
+ * - C13: Appraisal geçmişi olan kişiler için anlık kayıt o anki Appraisal rütbesiyle bir kez oluşturulur; bilinen
+ *   kayıtlar "görülmüş" sayılır.
+ * - C15: rütbe düşürülmez, puan aynı kalır (yeni eşikler yalnızca bir sonraki kademede).
+ */
+export function migrateV9toV10(d: any): any {
+  d.flags ??= {};
+  d.appraised ??= {};
+  for (const k of Object.keys(d.appraised)) if (/^m_\d+$/.test(k)) delete d.appraised[k];
+  d.codex ??= { monsters: {}, people: {}, plants: {} };
+  for (const [id, e] of Object.entries<any>(d.codex.monsters ?? {})) if (e?.firstDay) d.appraised['m_' + id] ??= e.firstDay;
+  if (!d.guild?.member) d.flags.spend_free = true;
+  const mine = d.player?.skills?.find((s: any) => s.id === 'appraisal')?.rank ?? 0;
+  codexSnapshotMigrate(d.codex, mine, d.time?.day ?? 1);
+  d.saveVersion = 10;
+  return d;
+}
 
 /** 0.10.0 (B17): kaldırılan skill kitapları → iade (bronz): satış değeri, yoksa alış fiyatının yarısı. */
 export const REMOVED_BOOKS: Record<string, number> = { book_fire: 450, scroll_spark: 100, book_archery: 90, book_firstaid: 60 };

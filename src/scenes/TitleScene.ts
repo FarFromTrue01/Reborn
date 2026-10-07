@@ -8,7 +8,8 @@ import { buildSettings } from '../ui/settingsPanel';
 import { confirmBox } from '../ui/panels';
 import { goFullscreen, applyPendingUpdate } from '../game/pwa';
 import { clearFogCache } from './WorldScene';
-import { slotInfo, SLOT_KEYS } from '../core/save';
+import { deleteSlot, lastSlot, metaLabel, newGameNeedsConfirm, slotMeta } from '../core/slots';
+import { pickSlot } from '../ui/slotPicker';
 import { Lifecycle } from '../game/lifecycle';
 
 declare const __APP_VERSION__: string;
@@ -91,13 +92,15 @@ export class TitleScene extends Phaser.Scene {
     this.tweens.add({ targets: title, alpha: 1, duration: 1800 });
     // menü
     const hasSave = G.hasSave();
+    // D (0.11.0): Devam = son oynanan yuva; Yeni Oyun = yuva seç; Yükle = istenen yuva
     const items: [string, () => void, boolean][] = [
       ['Devam', () => this.continueGame(), hasSave],
-      ['Yeni Oyun', () => this.newGame(hasSave), true],
+      ['Yeni Oyun', () => this.newGame(), true],
+      ['Yükle', () => this.loadGame(), hasSave || !!slotMeta(localStorage, 'legacy')],
       ['Ayarlar', () => this.openSettings(), true],
       ['Emeği Geçenler', () => this.scene.start('Credits'), true],
     ];
-    let y = H * 0.5;
+    let y = H * 0.46;
     for (const [label, fn, enabled] of items) {
       const b = new Button(this, W / 2, y, label, () => {
         Sound.unlock();
@@ -106,11 +109,12 @@ export class TitleScene extends Phaser.Scene {
       this.root.add(b);
       b.setAlpha(0);
       this.tweens.add({ targets: b, alpha: 1, duration: 600, delay: 600 + y / 4 });
-      y += 74;
+      y += 70;
     }
     if (hasSave) {
-      const info = slotInfo(localStorage, SLOT_KEYS.find((k) => slotInfo(localStorage, k)) ?? 'auto');
-      if (info) this.root.add(txt(this, W / 2, H * 0.5 - 44, `Son kayıt: ${info.summary}`, { size: 14, color: COLORS.textDim, italic: true }).setOrigin(0.5));
+      const last = lastSlot(localStorage);
+      const m = last ? slotMeta(localStorage, last) : null;
+      if (m) this.root.add(txt(this, W / 2, H * 0.46 - 44, `Son oynanan: Yuva ${last} · ${metaLabel(m)}`, { size: 14, color: COLORS.textDim, italic: true }).setOrigin(0.5));
     }
     // C6: sürüm numarasına 7 kez dokununca geliştirici modu açılır
     const ver = txt(this, W - 16, H - 12, `v${__APP_VERSION__}`, { size: 14, color: COLORS.textDim }).setOrigin(1, 1);
@@ -211,6 +215,34 @@ export class TitleScene extends Phaser.Scene {
     }
   }
 
+  /** D: istenen yuvayı aç (eski kayıt yüklenince bir yuvaya kaydedilmesi istenir). */
+  async loadGame() {
+    if (this.leaving) return;
+    const slot = await pickSlot(this, 'load');
+    if (slot === null) return;
+    if (!G.load(slot)) {
+      Sound.sfx('error');
+      return;
+    }
+    if (slot === 'legacy') {
+      const to = await pickSlot(this, 'store');
+      if (to === null || to === 'legacy') return;
+      const ask = slotMeta(localStorage, to) ? `Yuva ${to}'${to === 3 ? 'teki' : 'deki'} kaydın üzerine yazılsın mı?` : null;
+      if (ask && !(await confirmBox(this, ask, 'Evet', 'Vazgeç'))) return;
+      G.save('manual', to);
+      deleteSlot(localStorage, 'legacy');
+    }
+    this.startLoaded();
+  }
+
+  private startLoaded() {
+    clearFogCache();
+    this.leaving = true;
+    goFullscreen();
+    this.cameras.main.fadeOut(600, 0, 0, 0);
+    this.cameras.main.once('camerafadeoutcomplete', () => this.scene.start('World', {}));
+  }
+
   continueGame() {
     if (!G.load()) {
       Sound.sfx('error');
@@ -223,12 +255,14 @@ export class TitleScene extends Phaser.Scene {
     this.cameras.main.once('camerafadeoutcomplete', () => this.scene.start('World', {}));
   }
 
-  async newGame(hasSave: boolean) {
-    if (hasSave) {
-      const ok = await confirmBox(this, 'Yeni oyun başlatılsın mı? Otomatik kayıt üzerine yazılacak. (Elle kaydedilen yuvalar korunur.)', 'Başlat', 'Vazgeç');
-      if (!ok) return;
-    }
-    G.newGame();
+  /** D: yuva seç — boş yuva doğrudan başlar, dolu yuvada onay sorulur. */
+  async newGame() {
+    if (this.leaving) return;
+    const slot = await pickSlot(this, 'new');
+    if (slot === null || slot === 'legacy') return;
+    const ask = newGameNeedsConfirm(localStorage, slot);
+    if (ask && !(await confirmBox(this, ask, 'Evet', 'Vazgeç'))) return;
+    G.newGameIn(slot);
     clearFogCache();
     this.leaving = true;
     goFullscreen();

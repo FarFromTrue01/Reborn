@@ -2,7 +2,7 @@
 import Phaser from 'phaser';
 import { newGameState, type GameState } from '../core/state';
 import { loadSettings, saveSettings, type Settings } from './settings';
-import { readSave, writeSave, latestSlot, type SlotKey } from '../core/save';
+import { lastSlot, migrateSlots, readSlot, setLastSlot, writeSlot, type SlotId } from '../core/slots';
 import { derive, type Derived } from '../core/creature';
 import { setCommitHook } from '../core/transactions';
 import { round2 } from '../core/formulas';
@@ -20,6 +20,8 @@ class GameContext {
   /** assets/audio altındaki dosyalar (kullanıcının eklediği sesler). */
   audioFiles = new Set<string>();
   credits: any = null;
+  /** D (0.11.0): oynanan kayıt yuvası (otomatik kayıt ve "Kaydet" buraya yazar). */
+  slot: SlotId = 1;
 
   constructor() {
     setCommitHook(() => {
@@ -78,15 +80,19 @@ class GameContext {
     this.saveTimer = setTimeout(() => this.save('auto'), 400);
   }
 
-  save(slot: SlotKey = 'auto') {
+  /**
+   * D (0.11.0): kayıt oynanan yuvaya yazılır ('auto' = otomatik, 'manual' = Kaydet; ikisi de aynı yuva).
+   * `to` verilirse o yuvaya yazılır ve oynanan yuva o olur (Eski kaydı bir yuvaya kaydetmek için).
+   */
+  save(_kind: 'auto' | 'manual' = 'auto', to?: SlotId) {
     try {
       // A7.11: kayda iki ondalık
       const p = this.state.player;
       p.hp = round2(p.hp);
       p.mp = round2(p.mp);
       p.stamina = round2(p.stamina);
-      writeSave(localStorage, slot, this.state);
-      if (slot !== 'auto') writeSave(localStorage, 'auto', this.state);
+      if (to) this.slot = to;
+      writeSlot(localStorage, this.slot, this.state);
       return true;
     } catch (e) {
       console.warn('Kayıt başarısız', e);
@@ -94,18 +100,40 @@ class GameContext {
     }
   }
 
-  load(slot?: SlotKey | null): boolean {
-    const s = slot ?? latestSlot(localStorage);
+  /** Bir yuvayı yükle (verilmezse son oynanan). 'legacy': eski kayıt (yüklenince bir yuvaya kaydedilmesi istenir). */
+  load(slot?: SlotId | 'legacy' | null): boolean {
+    this.migrateSlots();
+    const s = slot ?? lastSlot(localStorage);
     if (!s) return false;
-    const st = readSave(localStorage, s);
+    const st = readSlot(localStorage, s);
     if (!st) return false;
     this.state = st;
+    if (s !== 'legacy') {
+      this.slot = s;
+      setLastSlot(localStorage, s);
+    }
     this.invalidate();
     return true;
   }
 
   hasSave() {
-    return latestSlot(localStorage) !== null;
+    this.migrateSlots();
+    return lastSlot(localStorage) !== null;
+  }
+
+  /** Eski kayıt sisteminden bir kez taşı (açılışta). */
+  migrateSlots() {
+    try {
+      migrateSlots(localStorage);
+    } catch {
+      /* depolama yok */
+    }
+  }
+
+  /** Yeni oyun belirli bir yuvada. */
+  newGameIn(slot: SlotId) {
+    this.newGame();
+    this.slot = slot;
   }
 
   saveSettings() {

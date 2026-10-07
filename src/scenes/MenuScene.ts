@@ -36,7 +36,8 @@ import { divineExpToNext, divineStat, DIVINE_STATS, DIVINE_STAT_NAMES } from '..
 import { DIVINE_BY_ID } from '../data/divine';
 import { nextTier, rollOfferCards, OFFER_ODDS, OFFER_NAMES, OFFER_RARITIES, techniquesOf, ownedTechniques, sanitizeSlots, techniqueSource, techniqueCost, techniqueCooldown, techniquePower, SKILL_SLOTS_OPEN, SKILL_SLOTS_TOTAL, type OfferSp } from '../core/skills';
 import * as R from '../game/rules';
-import { SLOT_KEYS, slotInfo, type SlotKey } from '../core/save';
+import { SLOT_IDS, deleteSlot, slotLine, slotMeta, type SlotId } from '../core/slots';
+import { pickSlot } from '../ui/slotPicker';
 import type { UIScene } from './UIScene';
 import { leaveGame } from '../game/sceneFlow';
 import type { WorldScene } from './WorldScene';
@@ -1325,37 +1326,46 @@ export class MenuScene extends Phaser.Scene {
 
   // ================================================================ KAYIT
   renderSave() {
+    // D (0.11.0): üç yuva; "Kaydet" oynanan yuvaya yazar, herhangi bir yuva (ya da eski kayıt) yüklenebilir
     const c = this.content;
     const w = this.cw;
     c.add(txt(this, 0, 0, 'Kaydet / Yükle', { size: 24, font: FONT.title, color: COLORS.textGold }));
-    c.add(txt(this, 0, 36, 'Oyun uyurken ve bölge değiştirirken otomatik kaydedilir.', { size: 14, italic: true, color: COLORS.textDim }));
-    SLOT_KEYS.forEach((k: SlotKey, i) => {
-      const y = 80 + i * 110;
-      const info = slotInfo(localStorage, k);
+    c.add(txt(this, 0, 36, `Oynanan: Yuva ${G.slot}. Oyun uyurken ve bölge değiştirirken bu yuvaya otomatik kaydedilir.`, { size: 14, italic: true, color: COLORS.textDim, wrap: w }));
+    const rows: (SlotId | 'legacy')[] = [...SLOT_IDS, ...(slotMeta(localStorage, 'legacy') ? ['legacy' as const] : [])];
+    rows.forEach((k, i) => {
+      const y = 76 + i * 100;
+      const info = slotMeta(localStorage, k);
+      const on = k === G.slot;
       const g = this.add.graphics();
-      g.fillStyle(0x1a1622, 0.9);
-      g.fillRoundedRect(0, y, w, 96, 8);
-      g.lineStyle(1, COLORS.goldDark, 1);
-      g.strokeRoundedRect(0, y, w, 96, 8);
+      g.fillStyle(on ? 0x2a2214 : 0x1a1622, 0.9);
+      g.fillRoundedRect(0, y, w, 88, 8);
+      g.lineStyle(on ? 2 : 1, on ? COLORS.gold : COLORS.goldDark, 1);
+      g.strokeRoundedRect(0, y, w, 88, 8);
       c.add(g);
-      c.add(txt(this, 20, y + 14, k === 'auto' ? 'Otomatik Kayıt' : `Yuva ${i}`, { size: 18, bold: true, color: COLORS.textGold }));
-      c.add(txt(this, 20, y + 48, info ? `${info.summary} · ${new Date(info.savedAt).toLocaleString('tr-TR')}` : 'Boş', { size: 14, color: info ? COLORS.text : COLORS.textDim }));
-      if (k !== 'auto') c.add(new Button(this, w - 260, y + 48, 'Kaydet', async () => {
-        if (info && !(await confirmBox(this, 'Bu yuvanın üzerine yazılsın mı?'))) return;
-        G.save(k);
+      c.add(txt(this, 20, y + 12, k === 'legacy' ? 'Eski kayıt' : `Yuva ${k}${on ? ' (oynanan)' : ''}`, { size: 18, bold: true, color: COLORS.textGold }));
+      c.add(txt(this, 20, y + 46, slotLine(info), { size: 14, color: info ? COLORS.text : COLORS.textDim, wrap: w - 360 }));
+      if (on) c.add(new Button(this, w - 260, y + 44, 'Kaydet', () => {
+        G.save('manual');
         Sound.sfx('coin');
         R.toast('Kaydedildi.', 'info');
         this.render();
-      }, { w: 150, h: 52 }));
-      if (info) c.add(new Button(this, w - 90, y + 48, 'Yükle', async () => {
+      }, { w: 150, h: 50 }).setName('save_now'));
+      if (info && !on) c.add(new Button(this, w - 90, y + 44, 'Yükle', async () => {
         if (!(await confirmBox(this, 'Bu kayıt yüklensin mi? Kaydedilmemiş ilerleme kaybolur.'))) return;
-        if (G.load(k)) {
-          clearFogCache();
-          leaveGame(this.scene, this.ui, 'World');
+        if (!G.load(k)) return;
+        if (k === 'legacy') {
+          // eski kayıt: bir yuvaya kaydedilmesi istenir
+          const to = await pickSlot(this, 'store', null);
+          if (to && to !== 'legacy') {
+            G.save('manual', to);
+            deleteSlot(localStorage, 'legacy');
+          }
         }
-      }, { w: 150, h: 52 }));
+        clearFogCache();
+        leaveGame(this.scene, this.ui, 'World');
+      }, { w: 150, h: 50 }).setName('load_' + k));
     });
-    c.add(new Button(this, w / 2, 80 + 4 * 110 + 40, 'Ana Menüye Dön', async () => {
+    c.add(new Button(this, w / 2, 76 + rows.length * 100 + 40, 'Ana Menüye Dön', async () => {
       if (!(await confirmBox(this, 'Ana menüye dönülsün mü? Oyun otomatik kaydedilecek.'))) return;
       G.save('auto');
       leaveGame(this.scene, this.ui, 'Title');
