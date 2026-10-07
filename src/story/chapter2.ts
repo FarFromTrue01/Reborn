@@ -15,6 +15,7 @@ import type { Director } from './director';
 import { NPC_BY_ID } from '../data/npcs';
 import { SIDE_QUESTS, SIDE_SCRIPTS, boardForDay, MAX_BOARD_QUESTS, boardRewardRanges } from '../data/sidequests';
 import { deadlineNotice, penaltyOf } from '../core/guild';
+import { storyGate, celebrateOpen } from './gates';
 import { currentObjective, activeQuests, type QuestDef, type QuestTarget } from '../core/quests';
 import { questDef } from '../data/quests';
 import { canTakeQuest, riskText, QUEST_POINTS, reRegister, REREGISTER_FEE, pointsToNext } from '../core/guild';
@@ -150,7 +151,10 @@ export class Chapter2 {
     }
     R.sysmsg('EKİPMAN', ['Çatlak Sopa (G) [Hasar 1–1]', 'Dükkândaki en kötü silahtan bile zayıf.', 'Saygınlık −2: insanlar sopana bakıp gülümseyecek.'], { sound: 'system' });
     Q.complete('m_weapon', { silent: true });
-    await this.say('bertram', 'Şimdi loncaya git. Celeste sopanı görünce burun kıvırır ama ilanını verir. Gün daha bitmedi, evlat.');
+    // A3.3: saate göre (lonca 05–24 açık)
+    const h = G.state.time.minute / 60;
+    const tail = h < 5 ? 'Lonca beşte açılır; biraz dinlen, sonra git.' : h >= 21 ? 'Lonca gece yarısına kadar açık, acele et.' : h >= 17 ? 'Akşam oldu ama lonca gece yarısına kadar açık.' : 'Gün daha bitmedi, evlat.';
+    await this.say('bertram', `Şimdi loncaya git. Celeste sopanı görünce burun kıvırır ama ilanını verir. ${tail}`);
     await this.think('Bir sopa ve bir kart. Loncaya dönüp panodan bir iş alacağım.');
     if (!Q.status('m_grank')) Q.start('m_board');
     G.save('auto');
@@ -176,7 +180,7 @@ export class Chapter2 {
       await this.say('joseph', 'Henüz değil. Ölmek için buraya gelmedim.');
       await this.say('vera', 'Hıh. Akıllı köksüz. Nadir bulunur.', 'saskin');
     } else await this.say('vera', 'Fareler seni bekliyor, bulaşıkçı. Selam söyle.', 'alayci');
-    await this.say('lina', 'Hihi, yarın görüşürüz! Belki!', 'gulen');
+    await this.say('lina', 'Hihi, sonra görüşürüz! Belki!', 'gulen');
     this.d.releaseActors(cast);
     Q.start('m_grank');
     if (Q.active('m_board')) Q.complete('m_board', { quiet: true });
@@ -274,7 +278,7 @@ export class Chapter2 {
     // eski kayıtlarda (0.4.x) açık kalan "Kayıtlar Yarın İşlenir" görevi: hikâye ilk kadehle sürer
     if (Q.active('m_promotion')) {
       Q.complete('m_promotion', { quiet: true });
-      if (!Q.status('m_celebrate')) Q.start('m_celebrate');
+      if (!Q.status('m_celebrate')) this.startCelebrate();
     }
   }
 
@@ -312,7 +316,7 @@ export class Chapter2 {
         }
         if (G.p.guildRank !== null && G.p.guildRank >= 1) {
           await this.say('vera', 'G oldun, köksüz. Akşam handa ol. Kutlarız. Geç kalma.', 'normal');
-          if (!Q.status('m_celebrate')) Q.start('m_celebrate');
+          if (!Q.status('m_celebrate')) this.startCelebrate();
         } else await this.say('vera', 'G eşiğine az kaldı, köksüz. Akşam handa ol yine de. Geç kalma.', 'normal');
         break;
       case 'f_cellar':
@@ -328,7 +332,7 @@ export class Chapter2 {
         // eski kayıtlar (0.4.x): terfi zaten işlendiyse yalnızca hikâye sürer
         await this.say('celeste', 'Kartın damgalı. Tebrikler. Sanırım.', 'normal');
         Q.complete(id, { quiet: true });
-        if (!Q.status('m_celebrate')) Q.start('m_celebrate');
+        if (!Q.status('m_celebrate')) this.startCelebrate();
         break;
       default:
         if (def.kind === 'board') {
@@ -1082,7 +1086,7 @@ export class Chapter2 {
       this.placeAtTable('vera', 'table_vera');
       this.placeAtTable('lina', 'table_lina');
     }
-    if (id === 'inn' && Q.active('m_celebrate') && this.objIdx('m_celebrate') === 0 && hourOf(G.state.time) >= 18) {
+    if (id === 'inn' && Q.active('m_celebrate') && this.objIdx('m_celebrate') === 0 && !this.objectiveWait('m_celebrate', 0) && celebrateOpen(hourOf(G.state.time))) {
       this.d.scene(async () => this.celebrateArrive());
       return;
     }
@@ -1476,7 +1480,14 @@ export class Chapter2 {
   }
 
   /** Güvencenin açtığı görev için gereken hikâye hazırlığı (geliştirici araçlarıyla atlanan sahneler dahil). */
+  /** İlk Kadeh daveti: davet günü bayrakta (A3.2). */
+  startCelebrate() {
+    G.setFlag('celebrate_day', this.day);
+    Q.start('m_celebrate');
+  }
+
   onAutoStart(id: string) {
+    if (id === 'm_celebrate' && !G.flag('celebrate_day')) G.setFlag('celebrate_day', this.day);
     if ((id === 'f_wolves' || id === 'f_cellar') && G.flag('friends_vl')) {
       for (const c of ['vera', 'lina']) if (!this.w.companion(c)) this.w.addCompanion(c);
     }
@@ -1488,47 +1499,7 @@ export class Chapter2 {
    * NPC programı ve kapalı binalar WorldScene.questWait'te genel olarak hesaplanır.
    */
   objectiveWait(id: string, idx: number): { text: string; until: number } | null {
-    const now = absMinute(this.day, G.state.time.minute);
-    const at = (day: number, hour: number) => absMinute(day, hour * 60);
-    const gate = (until: number, text: (when: string) => string) => (now < until ? { until, text: text(whenLabel(now, until)) } : null);
-    switch (id) {
-      case 'm_vl_rest': {
-        const healed = Number(G.flag('vl_healed_day') || this.day);
-        return gate(at(healed + 1, 8), (w) => `Vera ve Lina şifa evinde dinleniyor — ${w} onları bul`);
-      }
-      case 'm_vl_cellar': {
-        const d = Number(G.flag('cellar_offer_day') || this.day);
-        return gate(at(d, 8), (w) => `Vera ve Lina ${w} ortalıkta olur — o saate kadar bekle`);
-      }
-      case 'm_next_day': {
-        const d = Number(G.flag('theft_day') || this.day);
-        const h = G.state.time.minute / 60;
-        let until = at(d, 8);
-        if (now >= until && h >= 18) until = at(this.day + 1, 8);
-        else if (now >= until && h < 8) until = at(this.day, 8);
-        return gate(until, (w) => `Köy ${w} uyanır — o saate kadar bekle`);
-      }
-      case 'm_bertram': {
-        // A3.1: günde bir vardiya, 06:00–15:00 arası başlar
-        if (!G.flag('bertram_deal') || G.flag('bertram_done') || G.flag('bertram_pay_pending')) return null;
-        const h = G.state.time.minute / 60;
-        const worked = G.flag('worked_today') === this.day;
-        if (!worked && h >= 6 && h < 15) return null;
-        const until = !worked && h < 6 ? at(this.day, 6) : at(this.day + 1, 6);
-        return gate(until, (w) => `Bertram ${w} iş verir`);
-      }
-      case 'm_harvest': {
-        // A7.3: Haldor tarlada 06:00–16:00; ücret gecesi açılan görev ilk amaçta da bekler
-        const h = G.state.time.minute / 60;
-        if (h >= 6 && h < 16) return null;
-        const until = at(h >= 16 ? this.day + 1 : this.day, 6);
-        return gate(until, (w) => (idx === 0 ? `Haldor ${w} tarlada olur` : `Hasat ${w} başlar`));
-      }
-      case 'm_celebrate':
-        if (idx === 0) return gate(at(this.day, 18), (w) => `Vera akşamı bekliyor — ${w} hana git`);
-        return null;
-    }
-    return null;
+    return storyGate(id, idx, { day: this.day, minute: G.state.time.minute, flag: (k) => G.flag(k) });
   }
 
   /** Amacın hedefini hikâye belirliyorsa (ör. sıradaki şüpheli). */

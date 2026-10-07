@@ -37,13 +37,13 @@ import { Chapter2 } from './chapter2';
 
 const wait = (scene: Phaser.Scene, ms: number) => new Promise<void>((r) => scene.time.delayedCall(ms, r));
 
+// A3.4 (0.10.0): eski "pano yarın açılıyor" bahaneleri kalktı (0.6.0'dan beri pano kayıt + silahla aynı gün açılır).
+// Kaydı olmayana Celeste'nin söyledikleri:
 const BOARD_EXCUSES = [
-  'Pano yarın açılıyor. Yeni görevler sabah asılacak.',
-  'Görev kuryesinin arabası yolda kırılmış. Pano yarın açılıyor.',
-  'Şube müdürü ilanları henüz onaylamadı. Yarın gel.',
-  'Kuzeydeki şehirden ilan torbası gelmedi. Pano yarın açılıyor.',
-  'Pano mu? Yarın. Bugün kâğıt bile kalmadı.',
-];
+  'Pano kayıtlı maceracılar için. Kayıt bir gümüş.',
+  'İlanları lonca kartı olanlara veririm. Kartın yok.',
+  'Önce kaydol, sonra panoya bakarsın. Bir gümüş, pazarlık yok.',
+]
 
 /** ensureActors sonucu: karakterler (yoldaşsa null) ve sahneye sonradan getirilenler. */
 export interface Cast {
@@ -1397,7 +1397,7 @@ export class Director {
     }
     const lines = [
       BOARD_EXCUSES[(G.state.time.day - 1) % BOARD_EXCUSES.length],
-      'G- rütbe görevler panoya asılınca haberin olur. Şimdilik... yarın.',
+      'Kaydolunca G- ilanlarını ben dağıtırım. Kartsız ilan yok.',
       'Kartını kaybetme. Yenisi beş gümüş.',
     ];
     await this.say('celeste', lines[Math.floor(Math.random() * lines.length)], 'normal');
@@ -1591,7 +1591,11 @@ export class Director {
     // Hizmet sadece kendi dükkânında ve çalışma saatinde
     if (!shopOpen(shop, this.w.mapData.id, hour)) {
       await this.say(n.def.id, pool[Math.floor(Math.random() * pool.length)] ?? 'Hm?');
-      if (this.w.mapData.id === shop.map) await this.say(n.def.id, `Dükkân kapandı. Yarın gel; ${shop.hours[0]}:00 ile ${shop.hours[1]}:00 arası açığım.`);
+      if (this.w.mapData.id === shop.map) {
+        // A3.3: sabah açılmadan önce "yarın" değil
+        const early = G.state.time.minute / 60 < shop.hours[0];
+        await this.say(n.def.id, `Dükkân kapalı. ${early ? `Biraz sonra gel; ${shop.hours[0]}:00'de açarım.` : `Yarın gel; ${shop.hours[0]}:00 ile ${shop.hours[1]}:00 arası açığım.`}`);
+      }
       else await this.say(n.def.id, shopId === 'healer' ? 'Yara sarmak, ilaç satmak... Bunlar şifa evinde olur, yavrum. Dükkânımdayken gel.' : 'Alışveriş mi? Burada değil. Dükkânımdayken gel.');
       if (shopId === 'healer' && st === 'naked' && G.p.hp < G.d.maxHp && !G.flag('healer_free')) {
         G.setFlag('healer_free');
@@ -1665,7 +1669,7 @@ export class Director {
       case 'quest_board':
         return this.scene(async () => {
           if (await this.ch2.board()) return;
-          await this.think('Pano... boş. Kenarlarda eski raptiye delikleri. Altta bir not: "Yeni ilanlar yarın."');
+          await this.think('Pano dolu ama ilanları Celeste dağıtıyor. Kartı olmayana bakmıyor bile.');
           if (this.w.npc('celeste')) await this.say('celeste', BOARD_EXCUSES[(G.state.time.day - 1) % BOARD_EXCUSES.length]);
         });
       case 'rank_table':
