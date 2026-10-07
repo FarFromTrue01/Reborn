@@ -4,6 +4,7 @@ import { Display } from '../game/display';
 import { COLORS, FONT, txt, drawFrame, drawBlue, Button, fullScreenRect } from './kit';
 import { Sound } from '../audio/audio';
 import { DragGesture } from './dragGesture';
+import { cardLayout, cardSections } from './cardLayout';
 
 export class ScrollList extends Phaser.GameObjects.Container {
   inner: Phaser.GameObjects.Container;
@@ -203,64 +204,151 @@ export interface CardOpt {
   button?: string;
   /** Başlığın altında küçük renkli etiket (nadirlik adı). */
   tag?: { text: string; color: string };
+  /** Açıklamanın altında küçük tablo (rütbe → not). */
+  table?: string[];
+  /** Renkli çubuklar (Sistem Teklifi: nadirlik şansları). */
+  bars?: { label: string; color: number; value: number }[];
 }
 
-/** Ortada kartlarla seçim (Divine skill, Sistem Teklifi). İptal yoksa mutlaka biri seçilir. */
-export function panelChoice(scene: Phaser.Scene, title: string, opts: CardOpt[], blue = true, cancellable: boolean | string = false): Promise<number> {
+export interface ChoiceOpts {
+  /** "Vazgeç" düğmesinin yazısı (true: "Vazgeç"). */
+  cancel?: boolean | string;
+  /** Vazgeçmeden önce onay sorusu. */
+  cancelConfirm?: string;
+}
+
+/**
+ * Ortada kartlarla seçim (Divine skill, Sistem Teklifi). İptal yoksa mutlaka biri seçilir.
+ * 0.11.0 (B8/C12): tam ekran koyu karartma (arkadaki sayfa okunmaz), dikey uzun opak kartlar (2:3), nadirlik renginde
+ * çerçeve ve hafif parlama; kartın içi simge → ad → etiket → açıklama (uzunsa kayar) → tablo → düğme; başlık kartların
+ * üstünde, "Vazgeç" altında. Düzen ui/cardLayout (testli).
+ */
+export function panelChoice(scene: Phaser.Scene, title: string, opts: CardOpt[], blue = true, cancellable: boolean | string = false, extra: ChoiceOpts = {}): Promise<number> {
   return new Promise((resolve) => {
     const W = Display.uiW, H = Display.uiH;
     const c = scene.add.container(0, 0).setDepth(150);
-    const dim = fullScreenRect(scene, 0x000000, 0.6).setInteractive();
+    const dim = fullScreenRect(scene, 0x05040a, 0.93).setInteractive();
     c.add(dim);
-    const cw = Math.min(300, (W - 80) / opts.length - 20);
-    const ch = 330;
-    const total = opts.length * cw + (opts.length - 1) * 20;
-    const x0 = (W - total) / 2;
-    const y0 = (H - ch) / 2 + 20;
-    c.add(txt(scene, W / 2, y0 - 50, `【 ${title} 】`, { size: 24, font: FONT.title, color: blue ? '#e6f6ff' : COLORS.textGold, bold: true, stroke: true }).setOrigin(0.5));
+    const L = cardLayout(W, H, opts.length, !!cancellable);
+    const { cw, ch } = L;
+    const head = txt(scene, W / 2, L.titleY, `【 ${title} 】`, { size: 24, font: FONT.title, color: blue ? '#e6f6ff' : COLORS.textGold, bold: true, stroke: true, align: 'center', wrap: W - 60 }).setOrigin(0.5);
+    c.add(head);
+    const lists: ScrollList[] = [];
     opts.forEach((o, i) => {
-      const x = x0 + i * (cw + 20);
-      const card = scene.add.container(x, y0);
+      const x = L.x0 + i * (cw + L.gap);
+      const card = scene.add.container(x, L.cardsY);
       const g = scene.add.graphics();
-      if (blue) drawBlue(g, 0, 0, cw, ch, 0.9);
-      else drawFrame(g, 0, 0, cw, ch);
-      if (o.frame !== undefined) {
-        g.lineStyle(4, o.frame, o.disabled ? 0.45 : 1);
-        g.strokeRoundedRect(3, 3, cw - 6, ch - 6, 8);
-        g.fillStyle(o.frame, 0.12);
-        g.fillRoundedRect(3, 3, cw - 6, 86, { tl: 8, tr: 8, bl: 0, br: 0 });
-      }
+      const frame = o.frame ?? (blue ? COLORS.blueEdge : COLORS.gold);
+      // hafif parlama + opak gövde
+      g.fillStyle(frame, o.disabled ? 0.06 : 0.16);
+      g.fillRoundedRect(-6, -6, cw + 12, ch + 12, 14);
+      g.fillStyle(0x000000, 0.5);
+      g.fillRoundedRect(4, 6, cw, ch, 10);
+      g.fillStyle(blue ? 0x0a1a3a : COLORS.panel, 1);
+      g.fillRoundedRect(0, 0, cw, ch, 10);
+      g.fillStyle(frame, o.disabled ? 0.05 : 0.14);
+      g.fillRoundedRect(0, 0, cw, Math.round(ch * 0.3), { tl: 10, tr: 10, bl: 0, br: 0 });
+      g.lineStyle(4, frame, o.disabled ? 0.4 : 1);
+      g.strokeRoundedRect(2, 2, cw - 4, ch - 4, 9);
+      g.lineStyle(1, 0xffffff, o.disabled ? 0.06 : 0.18);
+      g.strokeRoundedRect(8, 8, cw - 16, ch - 16, 6);
       card.add(g);
-      if (o.icon && scene.textures.get('icons').has(o.icon)) card.add(scene.add.image(cw / 2, 52, 'icons', o.icon).setScale(1.6));
-      const tt = txt(scene, cw / 2, 96, o.title, { size: 18, bold: true, color: o.disabled ? '#9aa6b8' : '#ffffff', align: 'center', wrap: cw - 30, font: FONT.title }).setOrigin(0.5, 0);
-      card.add(tt);
-      let dy = 160;
-      if (o.tag) {
-        card.add(txt(scene, cw / 2, 100 + tt.height + 2, o.tag.text, { size: 13, bold: true, color: o.tag.color, align: 'center' }).setOrigin(0.5, 0));
-        dy = Math.max(dy, 100 + tt.height + 26);
+      const inner = cw - 28;
+      const tt = txt(scene, cw / 2, 0, o.title, { size: 17, bold: true, color: o.disabled ? '#9aa6b8' : '#ffffff', align: 'center', wrap: inner, font: FONT.title }).setOrigin(0.5, 0);
+      const footer = o.footer ? txt(scene, cw / 2, 0, o.footer, { size: 12, italic: true, color: COLORS.textDim, align: 'center', wrap: inner }).setOrigin(0.5, 0) : null;
+      // tablo (rütbe notları) ya da renkli çubuklar
+      const tableObjs: Phaser.GameObjects.GameObject[] = [];
+      let tableH = 0;
+      if (o.bars?.length) {
+        const bg = scene.add.graphics();
+        tableObjs.push(bg);
+        o.bars.forEach((b, k) => {
+          const yy = k * 22;
+          const lab = txt(scene, 14, yy, b.label, { size: 12, bold: true, color: '#dfe8f6' });
+          const val = txt(scene, cw - 14, yy, `%${Math.round(b.value * 100)}`, { size: 12, bold: true, color: '#ffffff' }).setOrigin(1, 0);
+          tableObjs.push(lab, val);
+          (bg as any).__rows = [...((bg as any).__rows ?? []), { yy, b }];
+        });
+        tableH = o.bars.length * 22;
+      } else if (o.table?.length) {
+        // tablo kartın en çok %28'i; sığmayan satırlar alınmaz (kart dışına taşmaz)
+        const maxH = Math.round(ch * 0.28);
+        for (const line of o.table) {
+          const t = txt(scene, 14, tableH, line, { size: 11, color: '#c8d4e8', wrap: inner });
+          if (tableH + t.height > maxH) {
+            t.destroy();
+            break;
+          }
+          tableObjs.push(t);
+          tableH += t.height + 2;
+        }
       }
-      card.add(txt(scene, 18, dy, o.desc, { size: 14, color: blue ? COLORS.textBlue : COLORS.text, wrap: cw - 36, lineSpacing: 3 }));
-      if (o.footer) card.add(txt(scene, cw / 2, ch - 70, o.footer, { size: 13, italic: true, color: COLORS.textDim, align: 'center', wrap: cw - 30 }).setOrigin(0.5, 0));
-      const b = new Button(scene, cw / 2, ch - 34, o.button ?? 'Seç', () => {
+      const S = cardSections(ch, { icon: !!o.icon, titleH: tt.height, tag: !!o.tag, tableH, footerH: footer ? footer.height : 0 });
+      if (o.icon && scene.textures.get('icons').has(o.icon)) card.add(scene.add.image(cw / 2, S.iconY, 'icons', o.icon).setScale(Math.min(1.5, cw / 160)));
+      tt.y = S.titleY;
+      card.add(tt);
+      if (o.tag) card.add(txt(scene, cw / 2, S.tagY, o.tag.text, { size: 13, bold: true, color: o.tag.color, align: 'center' }).setOrigin(0.5, 0));
+      // açıklama: alanına sığmazsa kart içinde kayar
+      const desc = txt(scene, 0, 0, o.desc, { size: 13, color: blue ? COLORS.textBlue : COLORS.text, wrap: inner - 8, lineSpacing: 2 });
+      if (desc.height <= S.descH) {
+        desc.setPosition(14, S.descY);
+        card.add(desc);
+      } else {
+        const list = new ScrollList(scene, 14, S.descY, inner, S.descH);
+        list.inner.add(desc);
+        list.setContentHeight(desc.height + 4);
+        card.add(list);
+        lists.push(list);
+      }
+      // tablo / çubuklar
+      if (tableObjs.length) {
+        const tc = scene.add.container(0, S.tableY);
+        const sep = scene.add.graphics();
+        sep.lineStyle(1, frame, 0.5);
+        sep.lineBetween(14, -5, cw - 14, -5);
+        tc.add(sep);
+        for (const ob of tableObjs) {
+          const rows = (ob as any).__rows as { yy: number; b: { color: number; value: number } }[] | undefined;
+          if (rows) {
+            const bg = ob as Phaser.GameObjects.Graphics;
+            for (const r of rows) {
+              bg.fillStyle(0x000000, 0.45);
+              bg.fillRoundedRect(14, r.yy + 15, cw - 28, 4, 2);
+              bg.fillStyle(r.b.color, 1);
+              bg.fillRoundedRect(14, r.yy + 15, Math.max(2, (cw - 28) * r.b.value), 4, 2);
+            }
+          }
+          tc.add(ob);
+        }
+        card.add(tc);
+      }
+      if (footer) {
+        footer.y = S.footerY;
+        card.add(footer);
+      }
+      const b = new Button(scene, cw / 2, S.buttonY, o.button ?? 'Seç', () => {
         Sound.sfx('skillup');
         c.destroy();
         resolve(i);
-      }, { w: cw - 40, h: 50, style: blue ? 'blue' : 'gold', disabled: o.disabled });
+      }, { w: cw - 36, h: S.buttonH, style: blue ? 'blue' : 'gold', disabled: o.disabled, size: 15 });
       b.setName('card_' + i);
       card.add(b);
       card.setAlpha(0);
       card.y += 20;
-      scene.tweens.add({ targets: card, alpha: 1, y: y0, duration: 300, delay: 120 * i, ease: 'Back.Out' });
+      scene.tweens.add({ targets: card, alpha: 1, y: L.cardsY, duration: 300, delay: 120 * i, ease: 'Back.Out' });
       c.add(card);
     });
     if (cancellable) {
-      const b = new Button(scene, W / 2, y0 + ch + 50, typeof cancellable === 'string' ? cancellable : 'Vazgeç', () => {
+      const label = typeof cancellable === 'string' ? cancellable : 'Vazgeç';
+      const b = new Button(scene, W / 2, L.cancelY, label, async () => {
+        if (extra.cancelConfirm && !(await confirmBox(scene, extra.cancelConfirm, 'Evet', 'Hayır'))) return;
         c.destroy();
         resolve(-1);
-      }, { w: 240, h: 52 });
+      }, { w: Math.max(220, label.length * 11 + 60), h: 50 });
       b.setName('card_cancel');
       c.add(b);
     }
+    c.once('destroy', () => lists.forEach((l) => l.destroy()));
   });
 }
 

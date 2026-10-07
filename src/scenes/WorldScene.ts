@@ -75,6 +75,8 @@ const GATHER_GLOW_R = 3.5;
 const QUEST_SLEEP_MAX = 36 * 60;
 /** A7.7: sol üst görev panelinin genişliği (UI birimi, kenar payıyla). */
 const HUD_PANEL_W = 316;
+/** B7: sağ üst HUD'un (saat/bölge kutusu + mini harita) yüksekliği (UI pikseli). */
+const HUD_TOP_RIGHT_H = 182;
 
 
 let WORLD_CACHE: MapData | null = null;
@@ -1088,8 +1090,9 @@ export class WorldScene extends Phaser.Scene {
     const vw = cam.width / cam.zoom, vh = cam.height / cam.zoom;
     const W = m.w * TILE, H = m.h * TILE;
     let bx = W < vw ? (W - vw) / 2 : 0;
-    const by = H < vh ? (H - vh) / 2 : 0;
+    let by = H < vh ? (H - vh) / 2 : 0;
     let bw = Math.max(W, vw);
+    let bh = Math.max(H, vh);
     // A7.7: iç mekânda sol üstteki görev paneli haritanın köşesini (ör. handa Bertram'ın tezgâhı) örtmesin —
     // kamera sola panel genişliği kadar fazla kayabilir; harita ekrandan küçükse panelin sağında ortalanır
     if (m.indoor) {
@@ -1101,8 +1104,18 @@ export class WorldScene extends Phaser.Scene {
         bx = -padL;
         bw = W + padL;
       }
+      // B7 (0.11.0): sağ üstteki saat/bölge kutusu ve mini harita üst duvarı (lonca panosu, rütbe tahtası) örtmesin —
+      // kamera yukarı HUD yüksekliği kadar fazla kayabilir; oyuncu üst duvarın önündeyken tahtalar HUD'un altında kalır
+      const padT = (HUD_TOP_RIGHT_H * Display.uiZoom) / cam.zoom;
+      if (H + padT <= vh) {
+        by = -(padT + (vh - padT - H) / 2);
+        bh = vh;
+      } else {
+        by = -padT;
+        bh = H + padT;
+      }
     }
-    cam.setBounds(bx, by, bw, Math.max(H, vh));
+    cam.setBounds(bx, by, bw, bh);
   }
 
   /** Kararıp başka haritaya geç. */

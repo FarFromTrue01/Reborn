@@ -9,6 +9,7 @@ Arayüz simge atlası (0.3.0): renkli, emoji tarzı simgeler + lonca rütbe roze
 
 Çıktı: assets/gfx/uiicons.png + uiicons.json (Phaser atlası, 72x72 kareler).
 Kullanım: python3 tools/build_uiicons.py   (Twemoji PNG'lerini tools/.cache/twemoji altına indirir)
+          python3 tools/build_uiicons.py --ranks-only   (yalnızca rütbe rozetleri, mevcut atlasın üstüne)
 """
 import os, json, math, urllib.request
 from PIL import Image, ImageDraw, ImageFont, ImageFilter
@@ -86,15 +87,17 @@ def font(size):
 
 
 TIERS = {
+    # 0.11.0 (C4): her rütbe ayrı renk ailesi — G kahverengi, F demir grisi, E bronz, D gümüş, C yeşim yeşili,
+    # B safir mavisi, A altın, S kızıl yakut, X mor (eskiden S≈A, E≈D, C≈B aynı tondaydı).
     #       gövde (açık, koyu), kenar, yazı, taş, süs seviyesi
     'G': ((150, 108, 64), (92, 62, 34), (60, 40, 22), (246, 230, 200), None, 0),
-    'F': ((150, 152, 160), (84, 86, 96), (52, 54, 62), (250, 250, 255), None, 0),
+    'F': ((126, 130, 140), (66, 70, 80), (40, 42, 50), (240, 242, 248), None, 0),
     'E': ((205, 127, 60), (120, 66, 28), (80, 44, 18), (255, 236, 210), None, 1),
-    'D': ((214, 140, 70), (128, 72, 30), (232, 196, 120), (255, 242, 220), (60, 160, 90), 1),
-    'C': ((214, 220, 230), (120, 128, 144), (80, 86, 100), (40, 48, 64), None, 2),
-    'B': ((226, 232, 242), (126, 136, 156), (200, 210, 230), (34, 42, 60), (70, 120, 230), 2),
+    'D': ((214, 220, 230), (120, 128, 144), (80, 86, 100), (40, 48, 64), None, 1),
+    'C': ((86, 196, 142), (24, 108, 72), (14, 66, 44), (240, 255, 246), (210, 255, 230), 2),
+    'B': ((82, 136, 240), (26, 54, 150), (16, 32, 96), (238, 246, 255), (160, 220, 255), 2),
     'A': ((250, 214, 96), (176, 120, 28), (120, 78, 10), (90, 50, 0), (220, 40, 60), 3),
-    'S': ((255, 226, 120), (190, 130, 30), (255, 250, 210), (100, 50, 0), (60, 200, 220), 4),
+    'S': ((232, 66, 86), (132, 18, 40), (82, 8, 22), (255, 240, 236), (255, 214, 96), 4),
     'X': ((176, 120, 255), (70, 30, 150), (255, 220, 120), (255, 255, 255), (255, 80, 200), 5),
 }
 
@@ -249,5 +252,21 @@ def main():
     print('uiicons:', len(names), 'kare,', sheet.size)
 
 
+def ranks_only():
+    """Yalnızca rütbe rozetlerini mevcut atlasa yeniden çizer (Twemoji indirmeden; diğer kareler aynı kalır)."""
+    meta = json.load(open(os.path.join(OUT, 'uiicons.json')))
+    sheet = Image.open(os.path.join(OUT, 'uiicons.png')).convert('RGBA')
+    for L in LETTERS:
+        f = meta['frames']['rank_' + L]['frame']
+        sheet.paste(Image.new('RGBA', (f['w'], f['h']), (0, 0, 0, 0)), (f['x'], f['y']))
+        sheet.alpha_composite(badge(L), (f['x'], f['y']))
+    sheet.save(os.path.join(OUT, 'uiicons.png'), optimize=True)
+    print('rütbe rozetleri yeniden çizildi')
+
+
 if __name__ == '__main__':
-    main()
+    import sys
+    if '--ranks-only' in sys.argv:
+        ranks_only()
+    else:
+        main()

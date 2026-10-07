@@ -144,6 +144,8 @@ export interface DoorDef {
 export interface MapData {
   id: string;
   name: string;
+  /** İç mekânın kısa adı (HUD bölge kutusu). */
+  short?: string;
   w: number;
   h: number;
   indoor: boolean;

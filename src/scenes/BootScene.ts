@@ -187,36 +187,97 @@ export class BootScene extends Phaser.Scene {
     wall('wall_wood', '#4a2e18', '#2e1c0e', 'wood');
     wall('wall_stone', '#4a4854', '#2e2c36', 'stone');
     wall('wall_plaster', '#c8b890', '#8a7a58', 'plaster');
-    // Görev panosu
+    // Görev panosu — 0.11.0 (B6/C4): "YARIN" kâğıdı kalktı; ahşap çerçeve, mantar zemin, iğnelenmiş farklı boy ve
+    // renkte ilanlar, mühürler, bir-iki ilanda küçük rütbe rozeti (piksel sanat)
     mk('board', 96, 64, (c) => {
-      c.fillStyle = '#4a2e18';
-      c.fillRect(0, 0, 96, 64);
-      c.fillStyle = '#7a5530';
-      c.fillRect(4, 4, 88, 56);
-      c.fillStyle = 'rgba(0,0,0,0.25)';
-      for (let i = 0; i < 12; i++) c.fillRect(8 + ((i * 29) % 80), 8 + ((i * 13) % 48), 2, 2);
-      // eski kâğıt kalıntıları
-      c.fillStyle = '#d8cba6';
-      c.fillRect(12, 10, 14, 5);
-      c.fillRect(64, 40, 10, 6);
-      c.fillStyle = '#e8dcc0';
-      c.fillRect(36, 22, 24, 18);
-      c.fillStyle = '#5a4a3a';
-      c.font = 'bold 7px serif';
-      c.fillText('YARIN', 38, 34);
-      c.fillStyle = '#c0392b';
-      c.fillRect(47, 22, 2, 2);
+      const R = (x: number, y: number, w: number, h: number, col: string) => {
+        c.fillStyle = col;
+        c.fillRect(x, y, w, h);
+      };
+      // çerçeve: koyu ahşap, damarlı, köşe çivileri
+      R(0, 0, 96, 64, '#3a2312');
+      R(1, 1, 94, 62, '#5c3a1e');
+      R(1, 1, 94, 2, '#7a5230');
+      R(1, 61, 94, 2, '#2a190c');
+      for (const [x, y] of [[3, 3], [91, 3], [3, 59], [91, 59]]) {
+        R(x, y, 2, 2, '#c9a35a');
+        R(x, y, 1, 1, '#f0d890');
+      }
+      // mantar zemin
+      R(5, 5, 86, 54, '#9a6a3a');
+      c.fillStyle = 'rgba(60,32,12,0.35)';
+      for (let i = 0; i < 70; i++) c.fillRect(5 + ((i * 37) % 85), 5 + ((i * 23) % 53), 1, 1);
+      c.fillStyle = 'rgba(255,220,170,0.12)';
+      for (let i = 0; i < 40; i++) c.fillRect(6 + ((i * 53) % 84), 6 + ((i * 31) % 52), 1, 1);
+      // ilan: kâğıt + gölge + yazı satırları + iğne
+      const paper = (x: number, y: number, w: number, h: number, col: string, pin: string, lines: number, tilt = 0) => {
+        R(x + 1, y + 1, w, h, 'rgba(0,0,0,0.28)');
+        R(x, y, w, h, col);
+        R(x, y + h - 1, w, 1, 'rgba(0,0,0,0.12)');
+        if (tilt) R(x + w - 3, y, 3, 2, 'rgba(255,255,255,0.25)');
+        c.fillStyle = 'rgba(70,48,28,0.65)';
+        for (let k = 0; k < lines; k++) c.fillRect(x + 2, y + 5 + k * 3, Math.max(3, w - 4 - ((k * 5) % 6)), 1);
+        R(x + Math.floor(w / 2) - 1, y - 1, 3, 3, pin);
+        R(x + Math.floor(w / 2) - 1, y - 1, 1, 1, '#ffffff');
+      };
+      // küçük rütbe rozeti (rozet atlasıyla aynı renk)
+      const badge = (x: number, y: number, body: string, edge: string) => {
+        R(x, y, 6, 5, edge);
+        R(x + 1, y + 1, 4, 4, body);
+        R(x + 2, y + 5, 2, 1, edge);
+        R(x + 2, y + 2, 2, 2, 'rgba(255,255,255,0.55)');
+      };
+      // mühür (kırmızı balmumu)
+      const seal = (x: number, y: number, col: string) => {
+        R(x, y + 1, 5, 3, col);
+        R(x + 1, y, 3, 5, col);
+        R(x + 2, y + 2, 1, 1, 'rgba(255,255,255,0.4)');
+      };
+      paper(9, 9, 20, 24, '#efe4c8', '#c0392b', 5);
+      badge(21, 25, '#966c40', '#4a3420'); // G
+      seal(11, 26, '#a02020');
+      paper(33, 7, 14, 16, '#e2d4a8', '#2a6ab8', 3, 1);
+      paper(51, 10, 22, 18, '#f3ecd8', '#3a9a4a', 4);
+      badge(65, 21, '#7e828c', '#33363e'); // F
+      paper(77, 8, 10, 20, '#d8c8a0', '#c0392b', 5);
+      paper(12, 38, 16, 16, '#e8dcbc', '#d9a530', 3, 1);
+      seal(22, 47, '#7a1a8a');
+      paper(32, 30, 26, 22, '#f6f0de', '#c0392b', 5);
+      R(34, 32, 22, 2, '#8a2a1a'); // başlık şeridi
+      seal(51, 45, '#a02020');
+      paper(62, 34, 13, 14, '#dccc9c', '#2a6ab8', 3);
+      paper(78, 33, 11, 21, '#efe4c8', '#3a9a4a', 5, 1);
+      // asılı kâğıt kalıntısı ve iğne izi
+      R(46, 54, 6, 3, '#cdbf98');
+      R(60, 54, 1, 1, '#3a2312');
     });
+    // Rütbe tahtası — her harfin yanında rütbe rozeti, yeni paletle (C4)
     mk('ranks', 64, 56, (c) => {
-      c.fillStyle = '#3a2414';
-      c.fillRect(0, 0, 64, 56);
-      c.fillStyle = '#e8dcc0';
-      c.fillRect(3, 3, 58, 50);
-      c.fillStyle = '#5a3a1a';
-      c.font = 'bold 6px serif';
-      'GFEDCBASX'.split('').forEach((l, i) => c.fillText(l, 6 + (i % 3) * 20, 14 + Math.floor(i / 3) * 14));
-      c.fillStyle = '#b08a2a';
-      c.fillRect(3, 3, 58, 2);
+      const R = (x: number, y: number, w: number, h: number, col: string) => {
+        c.fillStyle = col;
+        c.fillRect(x, y, w, h);
+      };
+      R(0, 0, 64, 56, '#3a2414');
+      R(1, 1, 62, 54, '#5c3a1e');
+      R(3, 3, 58, 50, '#e8dcc0');
+      R(3, 3, 58, 2, '#b08a2a');
+      const pal: [string, string, string][] = [
+        ['G', '#966c40', '#4a3420'], ['F', '#7e828c', '#33363e'], ['E', '#cd7f3c', '#5c3418'],
+        ['D', '#d6dce6', '#4c5262'], ['C', '#56c48e', '#14563a'], ['B', '#5288f0', '#1a3274'],
+        ['A', '#fad660', '#6e5210'], ['S', '#e84256', '#701226'], ['X', '#b078ff', '#48207a'],
+      ];
+      c.font = 'bold 7px serif';
+      pal.forEach(([l, body, edge], i) => {
+        const x = 6 + (i % 3) * 19, y = 8 + Math.floor(i / 3) * 15;
+        // kalkan rozet
+        R(x, y, 8, 8, edge);
+        R(x + 1, y + 1, 6, 6, body);
+        R(x + 2, y + 8, 4, 1, edge);
+        R(x + 3, y + 9, 2, 1, edge);
+        R(x + 2, y + 2, 2, 1, 'rgba(255,255,255,0.6)');
+        c.fillStyle = '#3a2412';
+        c.fillText(l, x + 10, y + 7);
+      });
     });
     mk('stone', 40, 56, (c) => {
       c.fillStyle = '#4a4854';

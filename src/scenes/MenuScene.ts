@@ -769,7 +769,9 @@ export class MenuScene extends Phaser.Scene {
       title: `${sp} SP · ${OFFER_NAMES[sp]}`,
       frame: COL[sp],
       tag: { text: `${sp} kart`, color: sp === 1 ? '#c8c8d0' : sp === 2 ? '#8fd0ff' : '#ffe08a' },
-      desc: 'Kart başına:\n' + OFFER_RARITIES.map((r, k) => `${RARITY_NAMES[r]}: ${pct(OFFER_ODDS[sp][k])}`).join('\n'),
+      icon: sp === 1 ? 'scroll' : sp === 2 ? 'book_white' : 'book_red',
+      desc: `${sp} kart açılır; her kartın nadirliği ayrı çekilir. Kart başına şans:`,
+      bars: OFFER_RARITIES.map((r, k) => ({ label: RARITY_NAMES[r], color: RARITY_FRAME[r], value: OFFER_ODDS[sp][k] })),
       footer: p.sp >= sp ? 'Bu haftanın skill hakkını kullanır.' : 'SP yetersiz.',
       disabled: p.sp < sp,
     })), true, true);
@@ -794,14 +796,15 @@ export class MenuScene extends Phaser.Scene {
       icon: s.icon,
       frame: RARITY_FRAME[s.rarity],
       tag: { text: RARITY_NAMES[s.rarity], color: '#' + RARITY_FRAME[s.rarity].toString(16).padStart(6, '0') },
-      desc: s.desc + '\n\n' + s.tiers.slice(0, 3).map((t) => `${t.at}: ${t.note}`).join('\n'),
+      desc: s.desc,
+      table: s.tiers.slice(0, 3).map((t) => `${t.at} · ${t.note}`),
     } : {
       title: 'Boş',
       frame: 0x50586a,
       disabled: true,
       button: '—',
       desc: 'Sistem uygun skill bulamadı.\n\nBu kartın SP\'si iade edildi.',
-    }), true, 'Hiçbirini seçme');
+    }), true, 'Hiçbirini seçme', { cancelConfirm: 'Seçmezsen harcadığın SP ve bu haftanın hakkı geri gelmez. Emin misin?' });
     if (j >= 0 && res.cards[j]) R.learnSkill(res.cards[j]!.id, 'Sistem Teklifi', { weekly: false });
     if (res.refund) this.showNotice({ title: 'SİSTEM TEKLİFİ', lines: [`${res.refund} boş kart: ${res.refund} SP iade edildi.`] });
     this.render();

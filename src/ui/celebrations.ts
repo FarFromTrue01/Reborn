@@ -5,7 +5,8 @@ import Phaser from 'phaser';
 import { Display } from '../game/display';
 import { Sound } from '../audio/audio';
 import { RealClock } from '../core/clock';
-import { COLORS, FONT, txt, drawFrame, uiIcon, rankBadge, iconImage, itemRankBadge, fitText, fullScreenRect } from './kit';
+import { COLORS, FONT, txt, drawFrame, uiIcon, rankBadge, iconImage, itemRankBadge, fitText, fullScreenRect, RANK_TEXT } from './kit';
+import { QUEST_OVERLAY, RANK_OVERLAY, overlayAutoDone, overlayTap, type OverlayMode } from './overlayRules';
 import { coinRow, richLine } from './coins';
 import { expToNext } from '../core/formulas';
 import { subRankToString, subRankLetter, type SubRank } from '../core/ranks';
@@ -52,7 +53,7 @@ interface Part {
 /** Ortak iskelet: tam ekran perde + zaman çizelgesi + dokununca atla/kapat. */
 const nowMs = () => (typeof performance !== 'undefined' ? performance.now() : Date.now());
 
-function overlay(scene: Phaser.Scene, depth: number, shadeAlpha: number, holdMs: number, onDone: () => void) {
+function overlay(scene: Phaser.Scene, depth: number, shadeAlpha: number, holdMs: number, onDone: () => void, mode: OverlayMode = QUEST_OVERLAY) {
   const W = Display.uiW, H = Display.uiH;
   const root = scene.add.container(0, 0).setDepth(depth);
   const shade = fullScreenRect(scene, 0x000000, shadeAlpha).setInteractive();
@@ -62,7 +63,7 @@ function overlay(scene: Phaser.Scene, depth: number, shadeAlpha: number, holdMs:
   let total = 0;
   let closing = false;
   const clock = new RealClock(nowMs());
-  const hint = txt(scene, W / 2, H - 34, 'Devam etmek için dokun', { size: 14, italic: true, color: '#cfc3a6', stroke: true }).setOrigin(0.5).setAlpha(0).setDepth(depth + 1);
+  const hint = txt(scene, W / 2, H - 34, mode.hint, { size: 14, italic: true, color: '#cfc3a6', stroke: true }).setOrigin(0.5).setAlpha(0).setDepth(depth + 1);
   const finish = () => {
     if (closing) return;
     closing = true;
@@ -84,16 +85,17 @@ function overlay(scene: Phaser.Scene, depth: number, shadeAlpha: number, holdMs:
     if (closing) return;
     t += clock.step(nowMs());
     render();
-    if (t >= total + holdMs) finish();
+    if (overlayAutoDone(mode, t, total, holdMs)) finish();
   };
   shade.on('pointerdown', (_p: any, _x: number, _y: number, ev: any) => {
     ev?.stopPropagation?.();
-    if (t < total) {
+    const r = overlayTap(mode, t, total);
+    if (r === 'skip') {
       // sona atla: sesleri çalmadan son kareyi çiz
       t = total;
       for (const p of parts) p.started = true;
       render();
-    } else finish();
+    } else if (r === 'close') finish();
   });
   scene.events.on('update', tick);
   root.once('destroy', () => scene.events.off('update', tick));
@@ -328,7 +330,8 @@ export function playQuestComplete(scene: Phaser.Scene, q: QuestDoneInfo, onDone:
  */
 export function playRankUp(scene: Phaser.Scene, info: PromotionInfo, onDone: () => void) {
   const W = Display.uiW, H = Display.uiH;
-  const ov = overlay(scene, 125, 0.8, 2600, onDone);
+  // C5: terfi atlanamaz; bitince "Kapatmak için dokun", kendiliğinden kapanmaz
+  const ov = overlay(scene, 125, 0.8, 2600, onDone, RANK_OVERLAY);
   const cx = W / 2, cy = H / 2 - 40;
   // dönen ışınlar
   const rays = scene.add.graphics().setPosition(cx, cy);
@@ -357,7 +360,7 @@ export function playRankUp(scene: Phaser.Scene, info: PromotionInfo, onDone: () 
   ov.root.add(ring);
   const flash = fullScreenRect(scene, 0xffffff, 0);
   ov.root.add(flash);
-  const letter = txt(scene, cx, cy + 128, subRankLetter(info.to), { size: 96, bold: true, font: FONT.title, color: '#ffe46a', stroke: true, shadow: true }).setOrigin(0.5).setAlpha(0);
+  const letter = txt(scene, cx, cy + 128, subRankLetter(info.to), { size: 96, bold: true, font: FONT.title, color: RANK_TEXT[subRankLetter(info.to)] ?? '#ffe46a', stroke: true, shadow: true }).setOrigin(0.5).setAlpha(0);
   ov.root.add(letter);
   const change = txt(scene, cx, cy + 196, `${subRankToString(info.from).replace('-', '−')}  →  ${subRankToString(info.to).replace('-', '−')}`, { size: 22, bold: true, color: '#ffffff', stroke: true }).setOrigin(0.5).setAlpha(0);
   ov.root.add(change);

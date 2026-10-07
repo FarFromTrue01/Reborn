@@ -27,15 +27,20 @@ export const COLORS = {
 };
 
 /**
- * Rütbe arka planları (G → X), eşya rütbe rozetleriyle aynı renk ailesi (tools/build_uiicons.py TIERS'in koyu tonları):
- * G tahta, F demir, E bronz, D bakır, C gümüş, B parlak gümüş, A altın, S parlak altın, X mor.
+ * Rütbe arka planları (G → X), rozetlerle aynı renk ailesi (tools/build_uiicons.py TIERS'in koyu tonları).
+ * 0.11.0 (C4): her harf ayrı renk — G kahverengi, F demir grisi, E bronz, D gümüş, C yeşim yeşili, B safir mavisi,
+ * A altın, S kızıl yakut, X mor.
  */
 export const RANK_BG: Record<string, number> = {
-  G: 0x4a3420, F: 0x3a3d48, E: 0x5c3418, D: 0x6a3c18, C: 0x4c5466, B: 0x3a4a6e, A: 0x6e5210, S: 0x7a5e14, X: 0x48207a,
+  G: 0x4a3420, F: 0x33363e, E: 0x5c3418, D: 0x4c5262, C: 0x14563a, B: 0x1a3274, A: 0x6e5210, S: 0x701226, X: 0x48207a,
 };
-/** Rütbe arka planlarının açık kenar tonu. */
+/** Rütbe arka planlarının açık kenar tonu (rozet gövdesinin açık tonu). */
 export const RANK_EDGE: Record<string, number> = {
-  G: 0x966c40, F: 0x9698a0, E: 0xcd7f3c, D: 0xd68c46, C: 0xd6dce6, B: 0xe2e8f2, A: 0xfad660, S: 0xffe278, X: 0xb078ff,
+  G: 0x966c40, F: 0x7e828c, E: 0xcd7f3c, D: 0xd6dce6, C: 0x56c48e, B: 0x5288f0, A: 0xfad660, S: 0xe84256, X: 0xb078ff,
+};
+/** Rütbe yazı tonu (CSS). */
+export const RANK_TEXT: Record<string, string> = {
+  G: '#d8b088', F: '#c4c8d2', E: '#f0a868', D: '#eef2f8', C: '#8ff0be', B: '#9cc0ff', A: '#ffe08a', S: '#ff8a98', X: '#d4b0ff',
 };
 
 /** Skill nadirlik çerçeveleri (Kısım 2, S1): sıradan gri, nadir mavi, epik mor, efsanevi altın; Appraisal (doğuştan) gri. */

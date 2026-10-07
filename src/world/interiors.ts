@@ -5,6 +5,8 @@ import { propBox, rectTiles } from '../data/props';
 interface RoomSpec {
   id: string;
   name: string;
+  /** B7 (0.11.0): sağ üst bölge kutusunda görünen kısa ad (tam ad haritada ve girişteki yazıda). */
+  short?: string;
   w: number;
   h: number;
   floor: string; // terrain.json floors anahtarı
@@ -168,7 +170,7 @@ const ROOMS: RoomSpec[] = [
     },
   },
   {
-    id: 'guild', name: 'Maceracılar Loncası — Brindlewood Şubesi', w: 15, h: 13, floor: 'floor_flag', wall: 'wall_stone', music: 'guild', dark: 0.3,
+    id: 'guild', name: 'Maceracılar Loncası — Brindlewood Şubesi', short: 'Maceracılar Loncası', w: 15, h: 13, floor: 'floor_flag', wall: 'wall_stone', music: 'guild', dark: 0.3,
     exit: { x: 7, to: 'world', tx: 109, ty: 57, facing: 'down' },
     build: (b) => {
       for (let x = 3; x <= 8; x++) b.prop('counter', x, 5);
@@ -385,7 +387,7 @@ export function buildInteriors(floors: Record<string, number>): Record<string, M
     const fi = floors[r.floor] ?? 0;
     for (let i = 0; i < floorTiles.length; i++) floorTiles[i] = fi;
     out[r.id] = {
-      id: r.id, name: r.name, w: r.w, h: r.h, indoor: true, terrain, solid: b.solid, hard: b.hard, colliders: b.colliders, floorTiles,
+      id: r.id, name: r.name, short: r.short, w: r.w, h: r.h, indoor: true, terrain, solid: b.solid, hard: b.hard, colliders: b.colliders, floorTiles,
       wallTiles: [{ x: 0, y: 0, h: 2, style: r.wall }, ...b.walls],
       props: b.props, buildings: [], zones: [{ id: r.id, x: 0, y: 0, w: r.w, h: r.h, name: r.name, safe: true }],
       spawns: [], warps: b.warps, doors: b.doors, triggers: b.triggers, gathers: [], music: r.music, ambientDark: r.dark, points: b.points,

@@ -576,7 +576,9 @@ export class UIScene extends Phaser.Scene {
     // sağ üst: okunur saat, tarih ve bölge (arkasında koyu zemin)
     this.hudTexts.clock.setText(clockLabel(G.state.time));
     this.hudTexts.date.setText(dateLabel(G.state.time));
-    this.hudTexts.zone.setText(this.world?.zone?.name ?? this.world?.mapData?.name ?? '');
+    // B7: iç mekânda kısa ad ("Maceracılar Loncası"); tam ad haritada ve girişteki bölge yazısında
+    const md = this.world?.mapData;
+    this.hudTexts.zone.setText(md?.indoor ? md.short ?? md.name : this.world?.zone?.name ?? md?.name ?? '');
     const tw = Math.max(this.hudTexts.date.width, this.hudTexts.zone.width, this.hudTexts.clock.width) + 24;
     g.fillStyle(0x0c0a12, 0.62);
     g.fillRoundedRect(W - 196 - tw + 8, 8, tw + 4, 88, 8);
