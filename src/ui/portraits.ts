@@ -1,5 +1,6 @@
 // Portreler: kullanıcının kendi görseli varsa onu, yoksa LPC sprite'ından üretilmiş piksel portreyi kullanır.
 import Phaser from 'phaser';
+import { MONSTERS, monsterPortraitFrame } from '../data/monsters';
 import { G } from '../game/G';
 import type { Expression } from '../data/manifest';
 
@@ -204,4 +205,20 @@ export function monsterPortraitKey(scene: Phaser.Scene, sheet: string, frame = 0
   ctx.fillRect(0, 0, S, S);
   tex.refresh();
   return key;
+}
+
+/** B15/B16: yaratığın portre dokusu (harita işareti, ansiklopedi kartı). Goblinler LPC sayfasından. */
+export function monsterIconKey(scene: Phaser.Scene, id: string): string | null {
+  const md = MONSTERS[id];
+  if (!md) return null;
+  try {
+    if (md.sprite.startsWith('m_goblin')) {
+      const sheet = md.sprite.slice(2);
+      return scene.textures.exists(sheet) ? lpcPortraitKey(scene, sheet) : null;
+    }
+    const meta = scene.cache.json.get('monstersMeta')?.[md.sprite];
+    return monsterPortraitKey(scene, md.sprite, meta ? monsterPortraitFrame(meta, md.portraitFrame) : md.portraitFrame ?? 0);
+  } catch {
+    return null;
+  }
 }

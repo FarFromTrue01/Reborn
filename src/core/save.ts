@@ -7,6 +7,7 @@ import { questDef, rankupQuest } from '../data/quests';
 import { BOARD_TEMPLATES } from '../data/sidequests';
 import { STAT_POINTS_PER_LEVEL, zeroStats } from './formulas';
 import { SATIETY_MIGRATE } from './hunger';
+import { codexFromSave } from './codex';
 import { normalizeWallet, emptyWallet } from './money';
 import { normalizeSkillExp, ownedTechniques, sanitizeSlots } from './skills';
 import { SKILLS, REMOVED_TECHNIQUES } from '../data/skills';
@@ -151,6 +152,8 @@ export function migrateV8toV9(d: any): any {
   // B17: gizli keşifler kalktı
   delete d.pendingDiscoveries;
   for (const k of Object.keys(d.flags)) if (/^(declined|postponed)_/.test(k)) delete d.flags[k];
+  // B15: Ansiklopedi — Appraisal geçmişi, öldürme/toplama sayaçları ve tanışma bayraklarından
+  if (!d.codex) d.codex = codexFromSave(d);
   // B13: Tokluk (alan yoksa 80)
   if (typeof d.satiety !== 'number') d.satiety = SATIETY_MIGRATE;
   d.saveVersion = 9;

@@ -1,5 +1,6 @@
 import { zeroStats } from './formulas';
 import { SATIETY_START } from './hunger';
+import { newCodex, type CodexState } from './codex';
 import { emptyWallet, type Wallet } from './money';
 import type { CreatureData } from './types';
 import type { GameTime } from './time';
@@ -58,6 +59,8 @@ export interface GameState {
   quickFood: string | null;
   /** B13 (0.10.0): Joseph'in Tokluğu (0–100, core/hunger). */
   satiety: number;
+  /** B15 (0.10.0): Ansiklopedi (core/codex). */
+  codex: CodexState;
   // ---------------------------------------------------------------- 0.3.0
   /** Maceracılar Loncası: puan, borç, bekleyen terfi (C3). */
   guild: GuildState;
@@ -138,6 +141,7 @@ export function newGameState(): GameState {
     gathered: {},
     quickFood: null,
     satiety: SATIETY_START,
+    codex: newCodex(),
     guild: newGuildState(),
     quests: newQuestLog(),
     cards: [],

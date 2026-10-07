@@ -23,6 +23,8 @@ import { subRankToString, subRankLetter, skillThreshold, SUBRANK_MAX } from '../
 import { SKILLS, RARITY_NAMES, TECHNIQUES } from '../data/skills';
 import { TITLES, TRAIT_NAMES } from '../data/titles';
 import { ITEMS } from '../data/items';
+import { monsterIconKey } from '../ui/portraits';
+import type { MapMarker, MarkerKind } from '../world/mapMarkers';
 import { EQUIP_SLOTS, EQUIP_SLOT_NAMES, type EquipSlot } from '../core/types';
 import { equip, unequip, transact } from '../core/transactions';
 import { coinRow, plainMoney } from '../ui/coins';
@@ -40,6 +42,11 @@ import { VILLAGE_X0, BARRIER_X, WORLD_H } from '../world/worldgen';
 
 /** Konuşmalar sekmesinin sayfa büyüklüğü (satır). */
 const HISTORY_PAGE = 40;
+
+/** B16: harita işaret filtreleri (oturum boyunca). */
+const MAP_FILTERS: Record<MarkerKind, boolean> = { gather: true, spawn: true, quest: true };
+/** Bitki kimliği → simgesinin eşyası. */
+const PLANT_ITEM: Record<string, string> = { herb: 'herb', apple: 'apple', silver_herb: 'silver_herb' };
 
 type Tab = 'status' | 'inventory' | 'equipment' | 'quests' | 'map' | 'history' | 'settings' | 'save' | 'dev';
 const TABS: [Tab, string, string][] = [
@@ -1141,12 +1148,76 @@ export class MenuScene extends Phaser.Scene {
       c.add(this.add.circle(sx, sy, 3.5, 0xe6f6ff, 1));
       c.add(uiIcon(this, sx, sy - 16, s.kind === 'turnin' ? 'side_turnin' : 'side_quest', 24));
     }
-    // takip edilen görevin hedefi
-    const qt = world.questTargetPx?.() as { x: number; y: number } | null;
-    if (qt && !world.mapData.indoor) {
-      const mk = uiIcon(this, ox + (qt.x / TILE) * scale, oy + (qt.y / TILE) * scale - 10, 'm_quest', 30);
-      c.add(mk);
-      this.tweens.add({ targets: mk, y: mk.y - 4, yoyo: true, repeat: -1, duration: 500 });
+    // B16: toplama noktaları, yaratık bölgeleri ve görev hedefi (yalnızca keşfedilmiş alanlar); filtreler ve lejant
+    let bubble: Phaser.GameObjects.Container | null = null;
+    const showInfo = (mx: number, my: number, lines: string[]) => {
+      bubble?.destroy();
+      const b = this.add.container(mx, my - 18);
+      const t = txt(this, 0, 0, lines.join('\n'), { size: 13, bold: true, color: '#ffffff', align: 'center', stroke: true }).setOrigin(0.5, 1);
+      const g = this.add.graphics();
+      g.fillStyle(0x0c0a12, 0.9);
+      g.fillRoundedRect(-t.width / 2 - 8, -t.height - 6, t.width + 16, t.height + 10, 6);
+      g.lineStyle(1, COLORS.gold, 0.9);
+      g.strokeRoundedRect(-t.width / 2 - 8, -t.height - 6, t.width + 16, t.height + 10, 6);
+      b.add([g, t]);
+      c.add(b);
+      bubble = b;
+      this.time.delayedCall(2600, () => { if (bubble === b) { b.destroy(); bubble = null; } });
+    };
+    const markers = (world.mapMarkerList?.() ?? []) as MapMarker[];
+    for (const mk of markers) {
+      if (!MAP_FILTERS[mk.kind]) continue;
+      const mx = ox + mk.x * scale, my = oy + mk.y * scale;
+      const alpha = mk.faded ? 0.4 : 1;
+      let icon: Phaser.GameObjects.GameObject & { setAlpha(a: number): any };
+      if (mk.kind === 'quest') {
+        const q = uiIcon(this, mx, my - 10, 'm_quest', 30);
+        this.tweens.add({ targets: q, y: q.y - 4, yoyo: true, repeat: -1, duration: 500 });
+        const ring = this.add.circle(mx, my, 9, 0xffd75e, 0).setStrokeStyle(2, 0xffd75e, 0.9);
+        this.tweens.add({ targets: ring, scale: 2.4, alpha: 0, repeat: -1, duration: 1200 });
+        c.add(ring);
+        icon = q;
+      } else if (!mk.known) {
+        const q = this.add.container(mx, my);
+        q.add(this.add.circle(0, 0, 8, mk.kind === 'spawn' ? 0x5a1a1a : 0x1a3a1a, 0.9).setStrokeStyle(1.5, 0xd9b45a, 0.9));
+        q.add(txt(this, 0, 0, '?', { size: 12, bold: true, color: '#ffe9a0' }).setOrigin(0.5));
+        icon = q;
+      } else if (mk.kind === 'spawn') {
+        const key = monsterIconKey(this, mk.ref);
+        c.add(this.add.circle(mx, my, 11, 0x3a0a0a, 0.6).setStrokeStyle(1.5, 0xff8a6a, 0.8 * alpha));
+        icon = key ? this.add.image(mx, my, key).setDisplaySize(20, 20) : this.add.circle(mx, my, 6, 0xd04040, 1);
+      } else icon = iconImage(this, mx, my, ITEMS[PLANT_ITEM[mk.ref] ?? mk.ref]?.icon ?? 'herb', 20);
+      icon.setAlpha(alpha);
+      c.add(icon);
+      if (mk.kind !== 'quest') {
+        const lbl = mk.label + (mk.count > 1 ? ` ×${mk.count}` : '') + (mk.note ? ` · ${mk.note}` : '');
+        c.add(txt(this, mx, my + 11, lbl, { size: 10, stroke: true, color: mk.faded ? '#8a8270' : mk.kind === 'spawn' ? '#ffb0a0' : '#cfe6b8' }).setOrigin(0.5, 0));
+      }
+      const z = this.add.zone(mx, my, 30, 30).setInteractive({ useHandCursor: true });
+      z.on('pointerup', () => {
+        const kindName = mk.kind === 'spawn' ? 'Yaratık bölgesi' : mk.kind === 'gather' ? 'Toplama noktası' : 'Görev hedefi';
+        const lines = [mk.label === '?' ? `${kindName} (bilinmiyor)` : mk.label, mk.kind === 'quest' ? 'Takip edilen görev' : `${kindName}${mk.count > 1 ? ` · ${mk.count}` : ''}`];
+        if (mk.note) lines.push(mk.kind === 'gather' ? 'Bugün toplandı — yarın yeniden' : `Bölge boş — ${mk.note}`);
+        else if (!mk.known && mk.kind !== 'quest') lines.push(mk.kind === 'spawn' ? 'Appraisal ile incele, ansiklopediye girsin' : 'Topla, ansiklopediye girsin');
+        showInfo(mx, my, lines);
+      });
+      c.add(z);
+    }
+    // lejant ve filtreler (oturum boyunca)
+    const legend: [MarkerKind, string, string][] = [['gather', 'Toplama', 'm_healer'], ['spawn', 'Yaratık', 'appraisal'], ['quest', 'Görev', 'm_quest']];
+    let lx = w;
+    for (let i = legend.length - 1; i >= 0; i--) {
+      const [k, name, ic] = legend[i];
+      const on = MAP_FILTERS[k];
+      const b = new Button(this, 0, 14, `      ${name}`, () => {
+        MAP_FILTERS[k] = !MAP_FILTERS[k];
+        this.render();
+      }, { w: 118, h: 32, size: 13, style: on ? 'gold' : 'ghost' });
+      b.add(uiIcon(this, -40, 0, ic, 18));
+      b.setAlpha(on ? 1 : 0.55);
+      lx -= 124;
+      b.x = lx + 59;
+      c.add(b);
     }
     // oyuncu
     const pp = world.mapData.indoor ? (() => {

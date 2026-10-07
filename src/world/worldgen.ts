@@ -28,6 +28,8 @@ export const VILLAGE_X0 = 62;
 export const HERBS_AT_FOREST_EDGE = 9;
 /** Ormanda ağaçlar arasına fazladan bir karo boşluk bırakılma olasılığı (0.3.0: ~%30 seyrek orman). */
 const GAP_P = 0.3;
+/** B16: yaratıkların yeniden doğma süresi (oyun dakikası) — hepsi için 12 saat. */
+export const RESPAWN_MINUTES = 720;
 /**
  * 0.10.0 (B8): ormanın içinde (köprünün batısı, harita kenarındaki sık orman hariç) düşük frekanslı bir gürültü
  * açıklıklar açar: ağaçlar tek tek seyrelmez, kümeler halinde kalır. Ormandaki ağaç sayısı ~%40–45 azalır
@@ -515,8 +517,9 @@ export function buildWorld(bmeta: Record<string, BuildingMeta>): MapData {
   zones.push({ id: 'north_woods', x: VILLAGE_X0, y: 0, w: BARRIER_X - VILLAGE_X0, h: 26, name: 'Kuzey Korusu', music: 'forest' });
 
   // ============================================================ canavarlar
-  const sp = (id: string, monster: string, x: number, y: number, radius: number, count: number, respawn = 360) =>
-    spawns.push({ id, monster, x, y, radius, count, respawn });
+  // B16 (0.10.0): bütün yaratıklar 12 saatte (720 oyun dakikası) yeniden doğar
+  const sp = (id: string, monster: string, x: number, y: number, radius: number, count: number) =>
+    spawns.push({ id, monster, x, y, radius, count, respawn: RESPAWN_MINUTES });
   // Dış orman
   sp('rat1', 'rat', 34, 66, 4, 2);
   sp('rat2', 'rat', 44, 70, 4, 2);
@@ -527,23 +530,23 @@ export function buildWorld(bmeta: Record<string, BuildingMeta>): MapData {
   sp('slime2', 'slime', 14, 90, 3, 2);
   sp('slime3', 'slime', 22, 78, 3, 1);
   sp('slime4', 'slime', 46, 100, 3, 2);
-  sp('rabbit1', 'rabbit', 18, 58, 5, 2, 240);
-  sp('rabbit2', 'rabbit', 36, 96, 5, 2, 240);
-  sp('rabbit3', 'rabbit', 92, 14, 8, 3, 240);
-  sp('rabbit4', 'rabbit', 46, 48, 4, 1, 240);
-  sp('rabbit5', 'rabbit', 116, 112, 6, 2, 240); // güney tarlalarının kenarı
-  sp('rabbit6', 'rabbit', 132, 12, 8, 2, 240);
+  sp('rabbit1', 'rabbit', 18, 58, 5, 2);
+  sp('rabbit2', 'rabbit', 36, 96, 5, 2);
+  sp('rabbit3', 'rabbit', 92, 14, 8, 3);
+  sp('rabbit4', 'rabbit', 46, 48, 4, 1);
+  sp('rabbit5', 'rabbit', 116, 112, 6, 2); // güney tarlalarının kenarı
+  sp('rabbit6', 'rabbit', 132, 12, 8, 2);
   // Orta orman: kurt sürüleri
-  sp('wolves1', 'wolf', 31, 31, 5, 3, 600);
-  sp('wolves2', 'wolf', 12, 36, 4, 2, 600);
-  sp('wolf3', 'wolf', 46, 30, 4, 2, 600);
+  sp('wolves1', 'wolf', 31, 31, 5, 3);
+  sp('wolves2', 'wolf', 12, 36, 4, 2);
+  sp('wolf3', 'wolf', 46, 30, 4, 2);
   // Derin orman: goblinler
-  sp('gob1', 'goblin', 36, 14, 4, 2, 600);
-  sp('gob2', 'goblin', 44, 6, 4, 2, 600);
-  sp('gob3', 'goblin', 6, 26, 3, 1, 600);
-  sp('camp_gob', 'goblin', 18, 12, 5, 3, 900);
-  sp('camp_shaman', 'goblin_shaman', 20, 10, 3, 1, 900);
-  sp('camp_chief', 'goblin_chief', 15, 13, 2, 1, 1440 * 3);
+  sp('gob1', 'goblin', 36, 14, 4, 2);
+  sp('gob2', 'goblin', 44, 6, 4, 2);
+  sp('gob3', 'goblin', 6, 26, 3, 1);
+  sp('camp_gob', 'goblin', 18, 12, 5, 3);
+  sp('camp_shaman', 'goblin_shaman', 20, 10, 3, 1);
+  sp('camp_chief', 'goblin_chief', 15, 13, 2, 1);
 
   // Toplama noktaları: şifalı ot. Her toplama noktasının tam bir görseli var (prop.gather); üstüne ağaç/çalı konmaz.
   let hid = 0;

@@ -612,6 +612,25 @@ export class UIScene extends Phaser.Scene {
       ctx.fillStyle = '#ff4030';
       ctx.fillRect(ox + (e.x / TILE) * scale - 1, oy + (e.y / TILE) * scale - 1, 2.5, 2.5);
     }
+    // B16: toplama noktaları ve yaratık bölgeleri (keşfedilmiş; bilinmiyorsa soluk sarı, tükenmişse gri)
+    if (!m.indoor) {
+      for (const mk of w.mapMarkerList?.() ?? []) {
+        if (mk.kind === 'quest') continue;
+        const x = ox + mk.x * scale, y = oy + mk.y * scale;
+        if (x < 3 || y < 3 || x > S - 3 || y > S - 3) continue;
+        ctx.fillStyle = mk.faded ? '#6a6658' : !mk.known ? '#d9c070' : mk.kind === 'spawn' ? '#ff7a5a' : '#7ad870';
+        ctx.beginPath();
+        ctx.arc(x, y, mk.kind === 'spawn' ? 2.6 : 2.1, 0, Math.PI * 2);
+        ctx.fill();
+        if (mk.kind === 'spawn' && !mk.faded) {
+          ctx.strokeStyle = 'rgba(255,120,90,0.6)';
+          ctx.lineWidth = 1;
+          ctx.beginPath();
+          ctx.arc(x, y, 5, 0, Math.PI * 2);
+          ctx.stroke();
+        }
+      }
+    }
     // yan görev işaretleri (0.6.0): konumlar burada, ışık ve dalgalar her kare drawMinimapMarks'ta
     this.mmMarks = [];
     if (!m.indoor) {

@@ -444,3 +444,39 @@ describe('Pano süre uyarısı (B14)', () => {
     expect(penaltyOf(30, 75)).toEqual({ points: 30, fine: 150 });
   });
 });
+
+import { mapMarkers } from '../src/world/mapMarkers';
+import { RESPAWN_MINUTES } from '../src/world/worldgen';
+describe('Harita işaretleri + 12 saat yeniden doğma (B16)', () => {
+  it('bütün doğma grupları 720 dakika', () => {
+    expect(RESPAWN_MINUTES).toBe(720);
+    for (const s of MAPS.world.spawns) expect(s.respawn, s.id).toBe(720);
+  });
+  const base = (o: Partial<Parameters<typeof mapMarkers>[0]> = {}) => mapMarkers({
+    spawns: [{ id: 'a', monster: 'rat', x: 10, y: 10, radius: 2, count: 2, respawn: 720 }, { id: 'b', monster: 'slime', x: 50, y: 50, radius: 2, count: 1, respawn: 720 }],
+    gathers: [{ id: 'h1', x: 5, y: 5, item: 'herb', kind: 'herb' }, { id: 'h2', x: 7, y: 5, item: 'herb', kind: 'herb' }, { id: 'ap', x: 30, y: 30, item: 'apple', kind: 'apple' }],
+    seen: (x) => x < 40, gathered: () => false, respawns: {}, now: 600,
+    monsterKnown: (id) => id === 'rat', monsterName: (id) => (id === 'rat' ? 'Fare' : 'Sümüksü'),
+    plantKnown: (id) => id === 'herb', plantName: (id) => (id === 'herb' ? 'Şifalı Ot' : 'Elma Ağacı'), plantOf: (g) => g.item,
+    quest: null, ...o,
+  });
+  it('yalnızca keşfedilmiş alanlar; yakın otlar tek işaret; bilinmeyen "?"', () => {
+    const m = base();
+    expect(m.some((x) => x.ref === 'slime')).toBe(false);
+    const herb = m.find((x) => x.ref === 'herb')!;
+    expect(herb.count).toBe(2);
+    expect(herb.label).toBe('Şifalı Ot');
+    expect(m.find((x) => x.ref === 'apple')!.label).toBe('?');
+    expect(m.find((x) => x.ref === 'rat')!.label).toBe('Fare');
+  });
+  it('tükenmişlik: toplanmış küme soluk "yarın"; boş yaratık bölgesi soluk + dönüş saati; görev hedefi', () => {
+    const m = base({ gathered: (id) => id !== 'ap', respawns: { 'a#0': 700, 'a#1': 900 }, quest: { x: 3, y: 4, label: 'G- Rütbe' } });
+    const herb = m.find((x) => x.ref === 'herb')!;
+    expect(herb.faded).toBe(true);
+    expect(herb.note).toBe('yarın');
+    const rat = m.find((x) => x.ref === 'rat')!;
+    expect(rat.faded).toBe(true);
+    expect(rat.note).toBe('dönüş 11:40');
+    expect(m.find((x) => x.kind === 'quest')).toMatchObject({ x: 3, y: 4, label: 'G- Rütbe' });
+  });
+});

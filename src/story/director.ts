@@ -19,6 +19,7 @@ import { walletTotal, emptyWallet, formatPrice } from '../core/money';
 import { nextMorning, hourOf, clockLabel, fromAbsMinute, advanceWithDays } from '../core/time';
 import { canSleep, absMinute } from '../core/sleep';
 import { SHIFT_MEAL } from '../core/hunger';
+import { codexMeet } from '../core/codex';
 import { activeQuests, type QuestGuide, type QuestTarget } from '../core/quests';
 import { boardRewardRanges, MAX_BOARD_QUESTS } from '../data/sidequests';
 import { dirFromVec } from '../world/actor';
@@ -897,6 +898,8 @@ export class Director {
   talk(n: Npc) {
     const id = n.def.id;
     if (this.busy) return;
+    // B15: ilk konuşmada ad ve portre ansiklopediye
+    if (codexMeet(G.state.codex, id, this.w.placeName(true), G.state.time.day)) this.w.codexAdded('people', id);
     n.talking = true;
     n.actor.body2?.setVelocity(0, 0);
     this.scene(async () => {

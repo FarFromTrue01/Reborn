@@ -3,6 +3,8 @@ import { G } from '../game/G';
 import { Display } from '../game/display';
 import { firstHop, warpCenterPx, distToRect, BED_REACH } from '../world/nav';
 import { bestFood } from '../core/hunger';
+import { codexAppraiseMonster, codexAppraisePerson, codexDrop, codexGather, codexKill, codexName, codexKnown, type CodexKind } from '../core/codex';
+import { mapMarkers, type MapMarker } from '../world/mapMarkers';
 import { questSources, sourceWait, type SourceCtx } from '../world/sources';
 import { interactBox } from '../data/props';
 import { Input } from '../game/input';
@@ -114,7 +116,7 @@ function encodeFog(arr: Uint8Array) {
   return btoa(s);
 }
 
-interface Pickup { img: Phaser.GameObjects.Image; id: string; qty: number; money: number; x: number; y: number; t: number }
+interface Pickup { img: Phaser.GameObjects.Image; id: string; qty: number; money: number; x: number; y: number; t: number; from?: string }
 interface Projectile { img: Phaser.GameObjects.Image; vx: number; vy: number; life: number; fromPlayer: boolean; comp?: Companion; enemy?: Enemy; tech?: string; power: number; radius: number; hits: Set<Enemy>; ignite?: boolean; element?: string; physical?: boolean; pierce?: boolean; skill?: string; arrow?: boolean }
 
 export class WorldScene extends Phaser.Scene {
@@ -868,6 +870,26 @@ export class WorldScene extends Phaser.Scene {
         return G.d.fx.regrowHalf && at !== undefined ? Math.min(tomorrow, at + 12 * 60) : tomorrow;
       },
     };
+  }
+
+  /** B16: harita işaretleri (yalnızca keşfedilmiş alanlar; ansiklopedi bilgisi ve tükenmişlik). */
+  mapMarkerList(): MapMarker[] {
+    const wm = getMap(this, 'world');
+    const fog = fogOf(wm);
+    const src = this.sourceCtx();
+    const qt = this.mapData.indoor ? null : this.questTargetPx();
+    const tg = Q.target();
+    return mapMarkers({
+      spawns: wm.spawns, gathers: wm.gathers, respawns: src.respawns, now: src.now,
+      seen: (x, y) => !!fog[Math.floor(y) * wm.w + Math.floor(x)],
+      gathered: (id) => this.gatheredNow(id),
+      monsterKnown: (id) => codexKnown(G.state.codex, 'monsters', id),
+      monsterName: (id) => MONSTERS[id]?.name ?? id,
+      plantKnown: (id) => codexKnown(G.state.codex, 'plants', id),
+      plantName: (id) => codexName('plants', id),
+      plantOf: (g) => (g.kind === 'apple' ? 'apple' : g.item),
+      quest: qt && tg ? { x: qt.x / TILE, y: qt.y / TILE, label: tg.def.title } : null,
+    });
   }
 
   /**
@@ -1784,6 +1806,7 @@ export class WorldScene extends Phaser.Scene {
     }
     if (g.kind === 'herb' && Math.random() < (fx.rareGatherPct ?? 0)) {
       R.giveItems([{ id: 'silver_herb', qty: 1 }], 'Toplama');
+      if (codexGather(G.state.codex, 'silver_herb', this.placeName(), G.state.time.day)) this.codexAdded('plants', 'silver_herb');
       this.ui.toastInfo('Nadir bir ot buldun!');
     }
     // toplarken durur ve otu koparır (kısa 'cast' durumu: hareket yok, bitince idle)
@@ -1795,6 +1818,7 @@ export class WorldScene extends Phaser.Scene {
     }
     pl.actor.play('thrust', { loop: false, restart: true, speed: 1.2 });
     R.giveItems([{ id: g.item, qty }], 'Toplama');
+    if (codexGather(G.state.codex, g.kind === 'apple' ? 'apple' : g.item, this.placeName(), G.state.time.day)) this.codexAdded('plants', g.kind === 'apple' ? 'apple' : g.item);
     Sound.sfx('pickup');
     this.fx.pickupSparkle(g.x * TILE + 16, g.y * TILE + 20);
     if (g.kind === 'herb') {
@@ -1985,6 +2009,9 @@ export class WorldScene extends Phaser.Scene {
     const actor = ref.actor;
     if (actor) this.fx.glow(actor.x, actor.y - 24, 0x7cc8ff, 30, 400);
     this.ui.showAppraisal(c, npcDef);
+    // B15: ansiklopedi (yaratık kartı Appraisal ile açılır; karakterde Appraisal bilgileri eklenir)
+    const fresh = npcDef ? codexAppraisePerson(G.state.codex, npcDef.id, this.placeName(true), G.state.time.day) : codexAppraiseMonster(G.state.codex, c.id, c.level, this.placeName(), G.state.time.day);
+    if (fresh) this.codexAdded(npcDef ? 'people' : 'monsters', npcDef?.id ?? c.id);
     this.director.onAppraise(npcDef?.id ?? c.id);
   }
 
@@ -2311,6 +2338,21 @@ export class WorldScene extends Phaser.Scene {
     }
   }
 
+  /** B15: bulunulan yerin adı (bölge ya da iç mekân); withTime: "Han · akşam". */
+  placeName(withTime = false): string | null {
+    const name = this.mapData.indoor ? this.mapData.name : this.zone?.name ?? null;
+    if (!name || !withTime) return name;
+    const h = G.state.time.minute / 60;
+    const part = h < 6 ? 'gece' : h < 12 ? 'sabah' : h < 17 ? 'öğle' : h < 21 ? 'akşam' : 'gece';
+    return `${name} · ${part}`;
+  }
+
+  /** B15: "Ansiklopediye eklendi: <ad>" */
+  codexAdded(kind: CodexKind, id: string) {
+    this.ui.toastInfo(`Ansiklopediye eklendi: ${codexName(kind, id)}`);
+    G.scheduleSave();
+  }
+
   killEnemy(e: Enemy, skill: string | null) {
     e.setState('dead');
     e.c.hp = 0;
@@ -2335,6 +2377,7 @@ export class WorldScene extends Phaser.Scene {
     }
     R.divineVictory(e.level, !!e.def.boss);
     G.state.killed[e.def.id] = (G.state.killed[e.def.id] ?? 0) + 1;
+    codexKill(G.state.codex, e.def.id, e.level, this.placeName());
     Q.notify('kill', e.def.id);
     this.director.onKill(e);
     // başarı EXP'si
@@ -2354,7 +2397,7 @@ export class WorldScene extends Phaser.Scene {
     // drop
     const drops = rollDrops(e.def, G.d.dropMult);
     let i = 0;
-    for (const it of drops.items) this.dropPickup(e.x, e.y, it.id, it.qty, 0, i++, it.special, it.luck);
+    for (const it of drops.items) this.dropPickup(e.x, e.y, it.id, it.qty, 0, i++, it.special, it.luck, e.def.id);
     if (drops.money) this.dropPickup(e.x, e.y, '', 0, drops.money, i++);
     // yeniden doğma zamanı
     const spawn = this.mapData.spawns.find((s) => e.spawnId.startsWith(s.id + '#'));
@@ -2362,7 +2405,7 @@ export class WorldScene extends Phaser.Scene {
     G.scheduleSave();
   }
 
-  dropPickup(x: number, y: number, id: string, qty: number, money: number, i: number, special = false, luck = false) {
+  dropPickup(x: number, y: number, id: string, qty: number, money: number, i: number, special = false, luck = false, from?: string) {
     const icon = id ? ITEMS[id].icon : 'coin_bronze';
     const img = this.add.image(x, y - 10, 'icons', this.textures.get('icons').has(icon) ? icon : 'stone').setScale(0.42).setDepth(y + 1);
     const ang = (i / 4) * Math.PI * 2 + Math.random();
@@ -2380,7 +2423,7 @@ export class WorldScene extends Phaser.Scene {
         this.fx.luck(tx, ty - 26);
       });
     }
-    this.pickups.push({ img, id, qty, money, x: tx, y: ty, t: 0 });
+    this.pickups.push({ img, id, qty, money, x: tx, y: ty, t: 0, from });
   }
 
   updatePickups(dt: number) {
@@ -2399,7 +2442,11 @@ export class WorldScene extends Phaser.Scene {
         // savaş modundayken toplanan ganimet ayrıca tutulur (ölünce kaybolur)
         if (p.money) {
           if (R.giveMoney(p.money, 'Ganimet') && this.inBattle) this.battleLoot.money += p.money;
-        } else if (R.giveItems([{ id: p.id, qty: p.qty }], 'Ganimet') && this.inBattle) this.battleLoot.items[p.id] = (this.battleLoot.items[p.id] ?? 0) + p.qty;
+        } else {
+          if (R.giveItems([{ id: p.id, qty: p.qty }], 'Ganimet') && this.inBattle) this.battleLoot.items[p.id] = (this.battleLoot.items[p.id] ?? 0) + p.qty;
+          // B15: ansiklopedide gerçekten alınan ganimet
+          if (p.from) codexDrop(G.state.codex, p.from, p.id);
+        }
         Sound.sfx(p.money ? 'coin' : 'pickup');
         p.img.destroy();
         this.pickups = this.pickups.filter((x) => x !== p);
