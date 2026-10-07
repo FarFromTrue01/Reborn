@@ -9,9 +9,9 @@ export interface GateCtx {
   flag: (k: string) => unknown;
 }
 
-/** İlk Kadeh: akşam penceresi (18:00–02:00). Davetin akşamı kaçarsa sonraki akşamlar da olur. */
-export function celebrateOpen(hour: number): boolean {
-  return hour >= 18 || hour < 2;
+/** İlk Kadeh (0.11.0, C6): saat kapısı kalktı; han her saatte açık. (Eski akşam penceresi 18:00–02:00 idi.) */
+export function celebrateOpen(_hour: number): boolean {
+  return true;
 }
 
 export function storyGate(id: string, idx: number, c: GateCtx): { text: string; until: number } | null {
@@ -28,13 +28,9 @@ export function storyGate(id: string, idx: number, c: GateCtx): { text: string; 
       const d = Number(c.flag('cellar_offer_day') || c.day);
       return gate(at(d, 8), (w) => `Vera ve Lina ${w} ortalıkta olur — o saate kadar bekle`);
     }
-    case 'm_next_day': {
-      const d = Number(c.flag('theft_day') || c.day);
-      let until = at(d, 8);
-      if (now >= until && h >= 18) until = at(c.day + 1, 8);
-      else if (now >= until && h < 8) until = at(c.day, 8);
-      return gate(until, (w) => `Köy ${w} uyanır — o saate kadar bekle`);
-    }
+    case 'm_next_day':
+      // 0.11.0 (C6): "ertesi gün, gündüz" kapısı kalktı — İlk Kadeh bitip handan çıkıldığı anda kâhyanın sahnesi
+      return null;
     case 'm_bertram': {
       // A3.1: günde bir vardiya, 06:00–15:00 arası başlar
       if (!c.flag('bertram_deal') || c.flag('bertram_done') || c.flag('bertram_pay_pending')) return null;
@@ -49,15 +45,9 @@ export function storyGate(id: string, idx: number, c: GateCtx): { text: string; 
       const until = at(h >= 16 ? c.day + 1 : c.day, 6);
       return gate(until, (w) => (idx === 0 ? `Haldor ${w} tarlada olur` : `Hasat ${w} başlar`));
     }
-    case 'm_celebrate': {
-      // A3.2: davet günü bayrakta (celebrate_day); akşam penceresi 18:00–02:00, kaçarsa ertesi akşam
-      if (idx !== 0) return null;
-      const invite = Number(c.flag('celebrate_day') || c.day);
-      if (c.day > invite && celebrateOpen(h)) return null;
-      if (c.day === invite && h >= 18) return null;
-      const day = c.day < invite ? invite : c.day;
-      return gate(at(day, 18), (w) => `Vera akşamı bekliyor — ${w} hana git`);
-    }
+    case 'm_celebrate':
+      // 0.11.0 (C6): 18:00 beklemesi kalktı — f_wolves bitince hana herhangi bir saatte girilince sahne başlar
+      return null;
   }
   return null;
 }

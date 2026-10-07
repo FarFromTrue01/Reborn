@@ -326,9 +326,9 @@ export class Chapter2 {
           await this.promotionTalk(true);
         }
         if (G.p.guildRank !== null && G.p.guildRank >= 1) {
-          await this.say('vera', 'G oldun, köksüz. Akşam handa ol. Kutlarız. Geç kalma.', 'normal');
+          await this.say('vera', 'G oldun, köksüz. Hana gel, kutlarız. Biz önden gidiyoruz; geç kalma.', 'normal');
           if (!Q.status('m_celebrate')) this.startCelebrate();
-        } else await this.say('vera', 'G eşiğine az kaldı, köksüz. Akşam handa ol yine de. Geç kalma.', 'normal');
+        } else await this.say('vera', 'G eşiğine az kaldı, köksüz. Yine de hana gel, bir kadeh içeriz. Geç kalma.', 'normal');
         break;
       case 'f_cellar':
         await this.say('celeste', 'Değirmen bodrumu. Dört dev fare. Otuz bronz kişi başı, on beş puan.', 'normal');
@@ -819,9 +819,9 @@ export class Chapter2 {
     const wil = take('guard_wil', ax + 1, ay + 3);
     for (const n of [st, hob, wil]) this.d.face(n.actor, a);
     await this.say('steward', 'Kesem! İşlemeli kesem! Kemerimden kesip almışlar!', 'kizgin');
-    await this.say('guard_hob', 'Köksüz. Sen. Dün gece neredeydin?', 'kizgin');
-    await this.say('joseph', 'Handa. Tavan arasında.');
-    await this.say('guard_wil', 'Tavan arası. Hah. Kim gördü?', 'alayci');
+    await this.say('guard_hob', 'Köksüz. Sen. Az önce neredeydin?', 'kizgin');
+    await this.say('joseph', 'Handa. Vera ve Lina\'yla aynı masada.');
+    await this.say('guard_wil', 'Aynı masada. Hah. Masadan kalkıp çıkman ne kadar sürer ki?', 'alayci');
     // köylüler fısıldaşır
     const whispers = ['Köksüzdür, kim olacak?', 'Ormandan çıplak gelmişti...', 'Bunlar hep böyle başlar.', 'Bertram\'ın yanında çalıştı, ama yine de...'];
     let i = 0;
@@ -1094,7 +1094,8 @@ export class Chapter2 {
       this.placeAtTable('vera', 'table_vera');
       this.placeAtTable('lina', 'table_lina');
     }
-    if (id === 'inn' && Q.active('m_celebrate') && this.objIdx('m_celebrate') === 0 && !this.objectiveWait('m_celebrate', 0) && celebrateOpen(hourOf(G.state.time))) {
+    // C6 (0.11.0): İlk Kadeh herhangi bir saatte — Vera ve Lina sahnede zorla yerleştirilir (placeAtTable)
+    if (id === 'inn' && Q.active('m_celebrate') && this.objIdx('m_celebrate') === 0) {
       this.d.scene(async () => this.celebrateArrive());
       return;
     }
@@ -1188,7 +1189,7 @@ export class Chapter2 {
     Q.advance('m_celebrate', 1);
     Q.complete('m_celebrate', { silent: true });
     G.setFlag('side_unlocked', this.day);
-    G.setFlag('theft_day', this.day + 1);
+    G.setFlag('theft_day', this.day);
     const rr = boardRewardRanges();
     R.sysmsg('YAN GÖREVLER AÇILDI', ['Köylülerin işleri artık seni bekliyor (yan görevler).', `Lonca panosunda her sabah yeni ilanlar: G ${rr.G[0]}–${rr.G[1]}, F ${rr.F[0]}–${rr.F[1]} bronz.`, 'F ilanları risklidir: başarısızlıkta −30 puan ve ödülün iki katı ceza.'], { big: true, sound: 'title' });
     for (const n of [vera, lina]) if (n) n.scripted = false;
@@ -1352,14 +1353,15 @@ export class Chapter2 {
         return;
       }
     }
-    // E5: hırsızlık — ilk kadehten sonraki gün, gündüz (eski kayıtta gün bayrağı yoksa bugün)
+    // E5: hırsızlık — 0.11.0 (C6): İlk Kadeh bitip handan çıkıldığı anda, saat ne olursa olsun (kâhya ve şüpheliler
+    // zorla yerleştirilir; şüpheliler görev bitene kadar programları yüzünden kaybolmaz: npcPlacement)
     if (Q.done('m_celebrate') && !Q.status('m_theft') && !G.flag('theft_day')) G.setFlag('theft_day', this.day);
-    if (w.mapData.id === 'world' && Q.done('m_celebrate') && !Q.status('m_theft') && this.day >= Number(G.flag('theft_day') || 999) && h >= 8 && h < 18) {
+    if (w.mapData.id === 'world' && Q.done('m_celebrate') && !Q.status('m_theft')) {
       this.d.scene(async () => this.theftScene());
       return;
     }
-    // ilk kadeh: Joseph akşam zaten handaysa
-    if (w.mapData.id === 'inn' && Q.active('m_celebrate') && this.objIdx('m_celebrate') === 0 && h >= 18) {
+    // ilk kadeh: Joseph zaten handaysa (herhangi bir saatte)
+    if (w.mapData.id === 'inn' && Q.active('m_celebrate') && this.objIdx('m_celebrate') === 0) {
       this.d.scene(async () => this.celebrateArrive());
       return;
     }

@@ -140,9 +140,9 @@ export const MAIN_QUESTS: QuestDef[] = [
   },
   {
     id: 'm_celebrate', kind: 'main', chapter: 2, title: 'İlk Kadeh', giver: 'vera',
-    desc: 'Vera akşam handa beklediğini söyledi. "Geç kalma, köksüz."',
+    desc: 'Vera handa beklediğini söyledi. "Geç kalma, köksüz."',
     objectives: [
-      { type: 'go', label: 'Akşam (18:00 sonrası) hana git', target: 'inn_evening', where: W('door_inn', 1.5) },
+      { type: 'go', label: 'Hana git', target: 'inn_evening', where: W('door_inn', 1.5) },
       { type: 'custom', label: 'Vera\'yla masaya otur', target: 'sit_table', where: { map: 'inn', point: 'table_joseph', radius: 1.5 }, sequential: true },
     ],
     reward: {},
@@ -157,8 +157,8 @@ export const MAIN_QUESTS: QuestDef[] = [
   {
     // Bekleme adımı (0.6.0): kesenin çalınması ilk kadehin ertesi günü, gündüz meydanda.
     id: 'm_next_day', kind: 'main', chapter: 2, title: 'Ertesi Gün',
-    desc: 'Dün gece ilk kez bir masada oturdum ve kimse "dolu" demedi. Bugün köyde bir şey dönüyor; meydana bir bakayım.',
-    objectives: [{ type: 'custom', label: 'Gündüz köy meydanına uğra', target: 'theft_day', where: W('plaza', 4) }],
+    desc: 'İlk kez bir masada oturdum ve kimse "dolu" demedi. Dışarıda bir gürültü var; handan çıkıp bakayım.',
+    objectives: [{ type: 'custom', label: 'Handan çık', target: 'theft_day', where: W('door_inn', 3) }],
     reward: {},
   },
   {

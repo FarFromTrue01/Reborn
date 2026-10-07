@@ -99,7 +99,9 @@ export class Director {
         this.w.time.delayedCall(2500, () => this.w.bubbleAt(this.w.player.actor, 'Daha güçlü hissediyorum. Ama bu... sadece bedenim. Trait\'im ayrı büyüyor.', 4, true));
       }
     };
-    const onDivine = () => {
+    const onDivine = (level: number) => {
+      // C7 (0.11.0): her Divine level atlamada altın ışık sütunu, parçacıklar ve 2 sn aura (oyunu durdurmaz)
+      this.divineLevelFx(level);
       if (!G.flag('thought_divine')) {
         G.setFlag('thought_divine');
         this.w.time.delayedCall(2500, () => this.w.bubbleAt(this.w.player.actor, 'İçimdeki ışık büyüdü. Divine Paladin... beni değiştiriyor.', 4, true));
@@ -710,6 +712,55 @@ export class Director {
   }
 
   /**
+   * Altın ışık: yükselen parçacıklar, ışık sütunu ve `auraMs` boyunca titreşen altın aura (uyanış ve Divine level).
+   * Oyunu durdurmaz; dönen söz aura bitince çözülür.
+   */
+  goldenLight(auraMs = 2000): Promise<void> {
+    const w = this.w;
+    const a = w.player.actor;
+    Sound.sfx('awaken');
+    const col = w.add.image(a.x, a.y - 60, 'soft').setTint(0xffd56a).setBlendMode(Phaser.BlendModes.ADD).setDepth(a.y + 2).setScale(0.6, 0.1).setAlpha(0);
+    w.tweens.add({ targets: col, alpha: 0.85, scaleY: 3.2, duration: 500, ease: 'Cubic.Out' });
+    const rise = w.time.addEvent({
+      delay: 45, repeat: 60, callback: () => {
+        const p = w.add.image(a.x + (Math.random() - 0.5) * 34, a.y - Math.random() * 10, 'spark').setTint(Math.random() < 0.5 ? 0xffe9a0 : 0xffc040).setBlendMode(Phaser.BlendModes.ADD).setDepth(a.y + 3).setScale(0.8 + Math.random());
+        w.tweens.add({ targets: p, y: p.y - 60 - Math.random() * 50, alpha: 0, duration: 900 + Math.random() * 500, onComplete: () => p.destroy() });
+      },
+    });
+    const auraT0 = w.time.now;
+    const aura = w.time.addEvent({
+      delay: 70, loop: true, callback: () => {
+        const k = (w.time.now - auraT0) / auraMs;
+        if (k >= 1) return;
+        col.setPosition(a.x, a.y - 60);
+        w.fx.ghost(a as any, 0xffd56a);
+        const f = w.add.image(a.x + (Math.random() - 0.5) * 26, a.y - 8 - Math.random() * 30, 'soft').setTint(0xffb030).setBlendMode(Phaser.BlendModes.ADD).setDepth(a.y + 1).setScale(0.18).setAlpha(0.8);
+        w.tweens.add({ targets: f, y: f.y - 28, scaleX: 0.08, alpha: 0, duration: 420, onComplete: () => f.destroy() });
+      },
+    });
+    return new Promise((resolve) => {
+      w.time.delayedCall(auraMs, () => {
+        aura.remove();
+        rise.remove();
+        w.tweens.add({ targets: col, alpha: 0, duration: 600, onComplete: () => col.destroy() });
+        resolve();
+      });
+    });
+  }
+
+  /** C7: Divine level atlayınca — altın ışık ve üstte küçük "DIVINE LEVEL N" (tökezleme ve büyük kart yok). */
+  divineLevelFx(level: number) {
+    if (!this.w.player) return;
+    void this.goldenLight(2000);
+    const ui = this.ui;
+    const t = txt(ui, Display.uiW / 2, 112, `DIVINE LEVEL ${level}`, { size: 22, bold: true, font: FONT.title, color: '#ffe9a0', stroke: true }).setOrigin(0.5).setDepth(46).setAlpha(0);
+    const line = ui.add.graphics().setDepth(46).setAlpha(0);
+    line.lineStyle(1.5, 0xffd56a, 0.9);
+    line.lineBetween(Display.uiW / 2 - t.width / 2 - 40, 128, Display.uiW / 2 + t.width / 2 + 40, 128);
+    ui.tweens.add({ targets: [t, line], alpha: 1, y: '-=6', duration: 300, hold: 2000, yoyo: true, onComplete: () => { t.destroy(); line.destroy(); } });
+  }
+
+  /**
    * B20 (0.10.0): ilk adımda tökezleme — Joseph bir adım atar, tek dizinin üstüne çöker (eğilme + aşağı kayma + hafif
    * dönme), acı sesi, sarsıntı, kırmızımsı kenar; ardından altın ışık: yükselen parçacıklar, ışık sütunu, altın
    * vinyet, küçük trait kartı (2–3 sn) ve 2 sn titreşen altın aura. Sonra doğrulur, oyun "Hana Git" ile sürer.
@@ -732,16 +783,8 @@ export class Director {
     await new Promise<void>((r) => w.tweens.add({ targets: a, angle: lean, scaleY: a.scaleY * 0.86, y: a.y + 5, duration: 220, ease: 'Quad.In', onComplete: () => r() }));
     await this.think('Ah—! Bacaklarım... Bu beden kendi ağırlığını bile taşıyamıyor.');
     ui.closeDialogue();
-    // altın ışık
-    Sound.sfx('awaken');
-    const col = w.add.image(a.x, a.y - 60, 'soft').setTint(0xffd56a).setBlendMode(Phaser.BlendModes.ADD).setDepth(a.y + 2).setScale(0.6, 0.1).setAlpha(0);
-    w.tweens.add({ targets: col, alpha: 0.85, scaleY: 3.2, duration: 500, ease: 'Cubic.Out' });
-    const rise = w.time.addEvent({
-      delay: 45, repeat: 60, callback: () => {
-        const p = w.add.image(a.x + (Math.random() - 0.5) * 34, a.y - Math.random() * 10, 'spark').setTint(Math.random() < 0.5 ? 0xffe9a0 : 0xffc040).setBlendMode(Phaser.BlendModes.ADD).setDepth(a.y + 3).setScale(0.8 + Math.random());
-        w.tweens.add({ targets: p, y: p.y - 60 - Math.random() * 50, alpha: 0, duration: 900 + Math.random() * 500, onComplete: () => p.destroy() });
-      },
-    });
+    // altın ışık (C7 ile ortak: goldenLight)
+    const light = this.goldenLight(2000);
     const gv = ui.add.rectangle(Display.uiW / 2, Display.uiH / 2, Display.uiW, Display.uiH, 0xffc040, 0).setDepth(48).setBlendMode(Phaser.BlendModes.ADD);
     ui.tweens.add({ targets: gv, fillAlpha: 0.22, duration: 400, yoyo: true, hold: 1600 });
     // küçük trait kartı (prologdaki kartın hızlı hali)
@@ -756,22 +799,8 @@ export class Director {
     card.add(txt(ui, 18, -14, 'DIVINE PALADIN — X', { size: 21, bold: true, font: FONT.title, color: '#ffe9a0', stroke: true }).setOrigin(0.5));
     card.add(txt(ui, 18, 16, 'Trait', { size: 13, italic: true, color: '#d8c890' }).setOrigin(0.5));
     ui.tweens.add({ targets: card, alpha: 1, scale: 1, duration: 300, ease: 'Back.Out' });
-    // 2 sn aura: titreşen altın dış hat ve alev gibi parçacıklar
-    const auraT0 = w.time.now;
-    const aura = w.time.addEvent({
-      delay: 70, loop: true, callback: () => {
-        const k = (w.time.now - auraT0) / 2000;
-        if (k >= 1) return;
-        w.fx.ghost(a as any, 0xffd56a);
-        const f = w.add.image(a.x + (Math.random() - 0.5) * 26, a.y - 8 - Math.random() * 30, 'soft').setTint(0xffb030).setBlendMode(Phaser.BlendModes.ADD).setDepth(a.y + 1).setScale(0.18).setAlpha(0.8);
-        w.tweens.add({ targets: f, y: f.y - 28, scaleX: 0.08, alpha: 0, duration: 420, onComplete: () => f.destroy() });
-      },
-    });
-    await wait(w, 2000);
-    aura.remove();
-    rise.remove();
+    await light;
     ui.tweens.add({ targets: card, alpha: 0, scale: 0.8, duration: 400, onComplete: () => card.destroy() });
-    w.tweens.add({ targets: col, alpha: 0, duration: 600, onComplete: () => col.destroy() });
     w.time.delayedCall(2400, () => gv.destroy());
     // doğrulur
     await new Promise<void>((r) => w.tweens.add({ targets: a, angle: 0, scaleY: a.scaleY / 0.86, y: a.y - 5, duration: 380, ease: 'Quad.Out', onComplete: () => r() }));

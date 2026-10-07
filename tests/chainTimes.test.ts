@@ -29,7 +29,7 @@ const TRANSITIONS: [string, string, Record<string, unknown>][] = [
   ['m_wounded', 'm_vl_rest', { bertram_deal: true, vl_healed_day: D }],
   ['m_vl_rest', 'f_wolves', { bertram_deal: true, friends_vl: D }],
   ['f_wolves', 'm_celebrate', { bertram_deal: true, celebrate_day: D }],
-  ['m_celebrate', 'm_next_day', { bertram_deal: true, theft_day: D + 1 }],
+  ['m_celebrate', 'm_next_day', { bertram_deal: true, theft_day: D }],
   ['m_next_day', 'm_theft', { bertram_deal: true }],
   ['m_theft', 'm_vl_cellar', { bertram_deal: true, cellar_offer_day: D + 1 }],
   ['m_vl_cellar', 'f_cellar', { bertram_deal: true }],
@@ -117,12 +117,12 @@ describe('Zincir saat denetimi (A3/B2)', () => {
   });
 });
 
-describe('İlk Kadeh daveti (A3.2)', () => {
-  const f = (k: string) => ({ celebrate_day: D } as Record<string, unknown>)[k];
-  it('davet günü 18:00 öncesi bekler; akşam açık; ertesi gün yine 18:00 (uyuyunca kaymaz, kaçırılırsa ertesi akşam)', () => {
-    expect(storyGate('m_celebrate', 0, { day: D, minute: 10 * 60, flag: f })!.until).toBe(absMinute(D, 18 * 60));
-    expect(storyGate('m_celebrate', 0, { day: D, minute: 19 * 60, flag: f })).toBeNull();
-    expect(storyGate('m_celebrate', 0, { day: D + 1, minute: 60, flag: f })).toBeNull();
-    expect(storyGate('m_celebrate', 0, { day: D + 1, minute: 9 * 60, flag: f })!.until).toBe(absMinute(D + 1, 18 * 60));
+describe('İlk Kadeh ve hırsızlık saat beklemesi kalktı (0.11.0, C6)', () => {
+  const f = (k: string) => ({ celebrate_day: D, theft_day: D } as Record<string, unknown>)[k];
+  it('İlk Kadeh herhangi bir saatte; hırsızlık handan çıkılınca (kapı yok)', () => {
+    for (let h = 0; h < 24; h++) {
+      expect(storyGate('m_celebrate', 0, { day: D, minute: h * 60, flag: f }), `celebrate ${h}`).toBeNull();
+      expect(storyGate('m_next_day', 0, { day: D, minute: h * 60, flag: f }), `next_day ${h}`).toBeNull();
+    }
   });
 });
