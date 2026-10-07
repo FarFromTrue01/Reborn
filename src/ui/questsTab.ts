@@ -2,7 +2,7 @@
 import Phaser from 'phaser';
 import { G } from '../game/G';
 import { Q, KIND_NAMES, questExp } from '../game/questrt';
-import { visibleObjectives, objectiveDone } from '../core/quests';
+import { visibleObjectives, objectiveDone, objectiveLabel } from '../core/quests';
 import { QUEST_POINTS, groupPoints } from '../core/guild';
 import { COLORS, FONT, txt, uiIcon, Button } from './kit';
 import { ScrollList, confirmBox } from './panels';
@@ -128,7 +128,7 @@ export function renderQuestsTab(scene: Phaser.Scene & { render(): void }, c: Pha
     const ok = objectiveDone(def, st, i) || st.status === 'done';
     c.add(uiIcon(scene, dx + 28, yy + 10, ok ? 'check' : 'target', 18));
     const n = (o.count ?? 1) > 1 ? `  ${Math.min(st.progress[i], o.count!)}/${o.count}` : '';
-    const ot = txt(scene, dx + 44, yy, o.label + n, { size: 15, color: ok ? COLORS.textDim : COLORS.text, wrap: dw - 70 });
+    const ot = txt(scene, dx + 44, yy, objectiveLabel(o) + n, { size: 15, color: ok ? COLORS.textDim : COLORS.text, wrap: dw - 70 });
     c.add(ot);
     yy += Math.max(24, ot.height + 4);
     const wait = !ok && st.status === 'active' && i === visibleObjectives(def, st).filter((j) => !objectiveDone(def, st, j))[0] ? Q.wait(id0) : null;
@@ -136,6 +136,15 @@ export function renderQuestsTab(scene: Phaser.Scene & { render(): void }, c: Pha
       const wt = txt(scene, dx + 44, yy - 2, '⏳ ' + wait, { size: 13, italic: true, color: '#a9c8ff', wrap: dw - 70 });
       c.add(wt);
       yy += wt.height + 6;
+    }
+  }
+  // alt amaçlar (B1/B3)
+  if (st.status === 'active') {
+    for (const gd of Q.guides(id0)) {
+      c.add(uiIcon(scene, dx + 28, yy + 10, 'target', 18));
+      const gt = txt(scene, dx + 44, yy, '↳ ' + objectiveLabel(gd), { size: 14, color: gd.optional ? '#c9e3a8' : '#ffe9a0', wrap: dw - 70 });
+      c.add(gt);
+      yy += Math.max(24, gt.height + 4);
     }
   }
   yy += 6;

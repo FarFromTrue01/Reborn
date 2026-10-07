@@ -251,3 +251,22 @@ export function staminaRegenPerSec(agi: number, adaptation: number, inCombat: bo
   const base = 18 * (1 + 0.01 * agi);
   return base * adaptation * (inCombat ? 0.5 : 1);
 }
+
+// ---------------------------------------------------------------- A7.11: iki ondalık
+/** İki ondalığa yuvarla (kayan nokta birikmesini keser: 3.7375000000000016 → 3.74). */
+export function round2(x: number): number {
+  return Math.round(x * 100) / 100;
+}
+
+/**
+ * Yenilenme adımı (A7.11): her karedeki küçük artışlar biriktirilir, değere yalnızca 0,01'lik adımlarla eklenir —
+ * HP/MP/dayanıklılık hep en çok iki ondalıklı kalır. Tavandayken birikim sıfırlanır.
+ */
+export function regenStep(cur: number, max: number, gain: number, acc: number): { value: number; acc: number } {
+  if (cur >= max) return { value: Math.min(cur, max), acc: 0 };
+  let a = acc + Math.max(0, gain);
+  const step = Math.floor(a * 100 + 1e-9) / 100;
+  a -= step;
+  const value = Math.min(max, round2(cur + step));
+  return { value, acc: value >= max ? 0 : a };
+}

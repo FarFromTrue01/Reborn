@@ -5,7 +5,7 @@
 import Phaser from 'phaser';
 import { G } from '../game/G';
 import { Q } from '../game/questrt';
-import { activeQuests, currentObjective, visibleObjectives, hudQuestGroups, type QuestHudPrefs } from '../core/quests';
+import { activeQuests, currentObjective, visibleObjectives, hudQuestGroups, objectiveLabel, type QuestHudPrefs } from '../core/quests';
 import { COLORS, FONT, txt, uiIcon } from './kit';
 import { Sound } from '../audio/audio';
 
@@ -57,7 +57,7 @@ export class QuestBox extends Phaser.GameObjects.Container {
     const log = G.state.quests;
     const ids = activeQuests(log);
     const prefs = loadQuestHudPrefs();
-    const key = JSON.stringify([this.collapsed, prefs, log.tracked, ids.map((id) => [id, log.quests[id].progress, Q.wait(id)])]);
+    const key = JSON.stringify([this.collapsed, prefs, log.tracked, ids.map((id) => [id, log.quests[id].progress, Q.wait(id), Q.guides(id).map((g) => g.label)])]);
     if (key === this.key && !force) return;
     this.key = key;
     this.removeAll(true);
@@ -139,11 +139,19 @@ export class QuestBox extends Phaser.GameObjects.Container {
     const o = def.objectives[ci >= 0 && vis.includes(ci) ? ci : vis[vis.length - 1]];
     const prog = o && (o.count ?? 1) > 1 ? ` ${st.progress[def.objectives.indexOf(o)]}/${o.count}` : '';
     const t1 = txt(this.scene, 32, 2, def.title, { size: 14, bold: true, color: tracked ? '#ffe9a0' : COLORS.text, stroke: true });
-    const t2 = txt(this.scene, 32, 20, (o?.label ?? '') + prog, { size: 12, color: tracked ? '#cfe6b8' : COLORS.textDim, wrap: W - 44, stroke: true });
+    const t2 = txt(this.scene, 32, 20, (o ? objectiveLabel(o) : '') + prog, { size: 12, color: tracked ? '#cfe6b8' : COLORS.textDim, wrap: W - 44, stroke: true });
     // bekleme (0.6.0): "Haldor 14:00'te tarlada olur — o saate kadar bekle"
     const wait = Q.wait(id);
     const t3 = wait ? txt(this.scene, 32, 20 + t2.height + 1, '⏳ ' + wait, { size: 11, italic: true, color: '#a9c8ff', wrap: W - 44, stroke: true }) : null;
-    const rh = Math.max(40, 22 + t2.height + (t3 ? t3.height + 2 : 0) + 4);
+    // alt amaçlar (B1/B3): "↳ Yukarı çık ve uyu…", "↳ Lonca panosundan ilan al… (isteğe bağlı)"
+    let gy = 20 + t2.height + (t3 ? t3.height + 2 : 0) + 1;
+    const gts: Phaser.GameObjects.Text[] = [];
+    for (const gd of Q.guides(id)) {
+      const gt = txt(this.scene, 32, gy, '↳ ' + objectiveLabel(gd), { size: 11, color: gd.optional ? '#c9e3a8' : '#ffe9a0', wrap: W - 44, stroke: true });
+      gts.push(gt);
+      gy += gt.height + 2;
+    }
+    const rh = Math.max(40, gy + 5);
     const bg = this.scene.add.graphics();
     if (tracked) {
       bg.fillStyle(0xd9b45a, 0.14);
@@ -156,6 +164,7 @@ export class QuestBox extends Phaser.GameObjects.Container {
     if (tracked) row.add(uiIcon(this.scene, W - 18, 14, 'target', 18));
     row.add([t1, t2]);
     if (t3) row.add(t3);
+    if (gts.length) row.add(gts);
     const z = this.scene.add.zone(0, 0, W, rh).setOrigin(0, 0).setInteractive({ useHandCursor: true });
     z.on('pointerdown', (_p: any, _x: number, _y: number, ev: any) => {
       ev?.stopPropagation?.();

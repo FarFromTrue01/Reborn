@@ -508,7 +508,14 @@ export class UIScene extends Phaser.Scene {
         this.partyBars.draw(members);
         if (members.length) yb = this.partyBars.y + this.partyBars.h;
       }
-      this.hudBottom = yb;
+      if (Math.abs(yb - this.hudBottom) > 0.5) {
+        this.hudBottom = yb;
+        // A7.8c: görev kutusu büyüyünce/küçülünce bildirimler altına kayar (üst üste binmez)
+        this.toasts.forEach((tc, i) => {
+          this.tweens.killTweensOf(tc);
+          this.tweens.add({ targets: tc, y: this.hudBottom + 10 + i * 40, x: 16, alpha: 1, duration: 150 });
+        });
+      }
     }
     // sağ üst: okunur saat, tarih ve bölge (arkasında koyu zemin)
     this.hudTexts.clock.setText(clockLabel(G.state.time));
@@ -885,6 +892,21 @@ export class UIScene extends Phaser.Scene {
 
   toastInfo(text: string) {
     this.toast(text, 'info');
+  }
+
+  /** A7.8a: kontrol ipucu ekranın alt ortasında (görev panelinin üstüne binmez). */
+  hintBottom(text: string, ms = 4500) {
+    const W = Display.uiW, H = Display.uiH;
+    const c = this.add.container(W / 2, H - 130).setDepth(40);
+    const t = txt(this, 0, 0, text, { size: 16, bold: true, stroke: true, color: COLORS.text, align: 'center', wrap: Math.min(620, W - 60) }).setOrigin(0.5);
+    const g = this.add.graphics();
+    g.fillStyle(0x0c0a12, 0.8);
+    g.fillRoundedRect(-t.width / 2 - 14, -t.height / 2 - 8, t.width + 28, t.height + 16, 8);
+    g.lineStyle(1, COLORS.goldDark, 0.9);
+    g.strokeRoundedRect(-t.width / 2 - 14, -t.height / 2 - 8, t.width + 28, t.height + 16, 8);
+    c.add([g, t]);
+    c.setAlpha(0);
+    this.tweens.add({ targets: c, alpha: 1, duration: 250, hold: ms, yoyo: true, onComplete: () => c.destroy() });
   }
 
   queueSys(m: SysItem) {

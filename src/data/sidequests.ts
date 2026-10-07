@@ -273,3 +273,13 @@ export function boardForDay(day: number): QuestDef[] {
     } as QuestDef;
   });
 }
+
+/** Pano ilanlarının rütbe başına ödül aralığı (öğretici metinler gerçek veriden): { G: [15, 40], F: [60, 90] }. */
+export function boardRewardRanges(): Record<string, [number, number]> {
+  const out: Record<string, [number, number]> = {};
+  for (const t of BOARD_TEMPLATES) {
+    const r = out[t.rank!];
+    out[t.rank!] = r ? [Math.min(r[0], t.reward[0]), Math.max(r[1], t.reward[1])] : [t.reward[0], t.reward[1]];
+  }
+  return out;
+}

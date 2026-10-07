@@ -3,6 +3,7 @@ import Phaser from 'phaser';
 import { Display } from '../game/display';
 import { COLORS, FONT, txt, drawFrame, drawBlue, Button, fullScreenRect } from './kit';
 import { Sound } from '../audio/audio';
+import { DragGesture } from './dragGesture';
 
 export class ScrollList extends Phaser.GameObjects.Container {
   inner: Phaser.GameObjects.Container;
@@ -13,7 +14,8 @@ export class ScrollList extends Phaser.GameObjects.Container {
   private dragY: number | null = null;
   private dragId = -1;
   private startScroll = 0;
-  private moved = 0;
+  /** Sürükleme bilgisi jeste (basış zamanı) bağlı — bkz. dragGesture.ts. */
+  private gesture = new DragGesture();
   private vel = 0;
   private lastMoveT = 0;
   private handlers: [string, (...a: any[]) => void][] = [];
@@ -42,14 +44,20 @@ export class ScrollList extends Phaser.GameObjects.Container {
       this.dragY = p.y;
       this.dragId = p.id;
       this.startScroll = this.scrollY;
-      this.moved = 0;
+      this.gesture.begin(p.downTime);
       this.vel = 0;
     };
     const move = (p: Phaser.Input.Pointer) => {
-      if (this.dragY === null || p.id !== this.dragId || !p.isDown) return;
+      if (this.dragY === null || p.id !== this.dragId) return;
+      if (!p.isDown) {
+        // pointerup bir düğmede stopPropagation ile yutulduysa sürükleme burada biter
+        this.dragY = null;
+        this.dragId = -1;
+        this.gesture.end();
+        return;
+      }
       const dy = (p.y - this.dragY) / Display.uiZoom;
-      this.moved = Math.max(this.moved, Math.abs(dy));
-      if (this.moved > 6) {
+      if (this.gesture.move(dy, p.downTime)) {
         const before = this.scrollY;
         this.setScroll(this.startScroll - dy);
         const now = scene.time.now;
@@ -61,6 +69,7 @@ export class ScrollList extends Phaser.GameObjects.Container {
       if (p.id !== this.dragId) return;
       this.dragY = null;
       this.dragId = -1;
+      this.gesture.end();
     };
     const wheel = (p: Phaser.Input.Pointer, _o: any, _dx: number, dy: number) => {
       if (this.active && this.visible && this.inside(p)) this.setScroll(this.scrollY + dy * 0.6);
@@ -69,6 +78,11 @@ export class ScrollList extends Phaser.GameObjects.Container {
     for (const [ev, fn] of this.handlers) scene.input.on(ev, fn);
     // sürükleme sonrası kayma (momentum)
     const tick = () => {
+      if (this.dragY !== null && !scene.input.activePointer.isDown) {
+        this.dragY = null;
+        this.dragId = -1;
+        this.gesture.end();
+      }
       if (this.dragY !== null || Math.abs(this.vel) < 0.01) return;
       this.setScroll(this.scrollY + this.vel * 16);
       this.vel *= 0.9;
@@ -116,8 +130,10 @@ export class ScrollList extends Phaser.GameObjects.Container {
     return y;
   }
 
-  wasDrag() {
-    return this.moved > 8;
+  /** Şu anki (son) basış bir sürükleme miydi? Önceki kaydırmanın bayrağı yeni dokunuşu etkilemez. */
+  wasDrag(p?: Phaser.Input.Pointer) {
+    const ptr = p ?? this.scene?.input?.activePointer;
+    return !!ptr && this.gesture.wasDrag(ptr.downTime);
   }
 
   updateMask() {

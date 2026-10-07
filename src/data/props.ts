@@ -169,6 +169,15 @@ export function propBox(key: string, ax: number, ay: number, scale = 1): Rect | 
   return { x: ax - hw * scale, y: ay - up * scale, w: hw * 2 * scale, h: (up + down) * scale };
 }
 
+/**
+ * A7.10: etkileşimli dekorun dokunulabilir alanı — çarpışma kutusu varsa o (çok karelik yatak gibi), yoksa null
+ * (eski davranış: görselin taban ortasına uzaklık).
+ */
+export function interactBox(p: { key: string; x: number; y: number; scale?: number; flat?: boolean }): Rect | null {
+  if (p.flat) return null;
+  return propBox(p.key, p.x, p.y, p.scale ?? 1);
+}
+
 /** Bir kutunun anlamlı ölçüde (≥ 4 px) kapladığı karolar: NPC yol bulma ızgarası için. */
 export function rectTiles(r: Rect, tile = 32): [number, number][] {
   const out: [number, number][] = [];

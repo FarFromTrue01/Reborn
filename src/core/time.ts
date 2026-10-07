@@ -20,6 +20,12 @@ export function advance(t: GameTime, minutes: number): GameTime {
   return { day: d, minute: m };
 }
 
+/** Saati `minutes` ilerlet: yeni saat ve geçilen gün sayısı (gün değişimi kancaları kaç kez çağrılmalı). */
+export function advanceWithDays(t: GameTime, minutes: number): { time: GameTime; days: number } {
+  const time = advance(t, minutes);
+  return { time, days: time.day - t.day };
+}
+
 /** Bir sonraki sabah (varsayılan 06:00). */
 export function nextMorning(t: GameTime, hour = 6): GameTime {
   const target = hour * 60;
@@ -88,6 +94,16 @@ export function whenLabel(nowAbs: number, untilAbs: number): string {
   const u = fromAbsMinute(untilAbs);
   const at = hourAt(Math.floor(u.minute / 60));
   if (u.day === now.day) return at;
+  if (u.day === now.day + 1) return `yarın ${at}`;
+  return `${u.day}. gün ${at}`;
+}
+
+/** B10: "bugün 14:37", "yarın 02:10", "5. gün 08:00" (dakikası dahil; now ve until mutlak dakika). */
+export function whenLabelExact(nowAbs: number, untilAbs: number): string {
+  const now = fromAbsMinute(nowAbs);
+  const u = fromAbsMinute(untilAbs);
+  const at = clockLabel(u);
+  if (u.day === now.day) return `bugün ${at}`;
   if (u.day === now.day + 1) return `yarın ${at}`;
   return `${u.day}. gün ${at}`;
 }

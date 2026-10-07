@@ -14,7 +14,7 @@ import { TILE } from './types';
 import { EQUIP_SLOTS } from '../core/types';
 import type { WorldScene } from '../scenes/WorldScene';
 import { Sound } from '../audio/audio';
-import { hpRegenPerSec, mpRegenPerSec, staminaRegenPerSec } from '../core/formulas';
+import { hpRegenPerSec, mpRegenPerSec, staminaRegenPerSec, regenStep, round2 } from '../core/formulas';
 import { LIGHT_MAX, LIGHT_DECAY_PER_SEC } from '../core/divine';
 import { runStep, RUN_THRESHOLD, type RunLock } from '../core/stamina';
 import type { EvadeCost } from '../core/combat';
@@ -82,6 +82,8 @@ export class Player {
   /** Son kaçışın/atılmanın peşin bedeli; mükemmel kaçışta iade edilir (core/combat refundEvade). */
   evadePaid: EvadeCost = { stamina: 0, light: 0 };
   staminaDelay = 0;
+  /** A7.11: yenilenme birikimleri (0,01'in altındaki artışlar). */
+  regenAcc = { hp: 0, mp: 0, st: 0 };
   running = false;
   /** E3: yük (yaralı taşırken yavaşlar, koşamaz). 1 = yok. */
   burden = 1;
@@ -422,12 +424,22 @@ export class Player {
     if (this.state !== 'dead') {
       const ad = d.divAdaptation * (G.state.divine.skills.includes('guardian_aura') && this.inCombat ? 1.5 : 1);
       const fast = this.afterCombatT > 0 ? 3 : 1;
-      p.hp = Math.min(d.maxHp, p.hp + hpRegenPerSec(d.maxHp, ad, this.inCombat, d.regenBonus) * fast * dt);
-      p.mp = Math.min(d.maxMp, p.mp + mpRegenPerSec(d.maxMp, d.stats.MNA, ad, this.inCombat) * dt);
-      if (this.staminaDelay <= 0) p.stamina = Math.min(d.maxStamina, p.stamina + staminaRegenPerSec(d.stats.AGI, ad, this.inCombat) * (1 + (d.fx.staminaRegenPct ?? 0)) * dt);
+      // A7.11: değerler iki ondalıkta kalır (birikimli adım)
+      let hpGain = hpRegenPerSec(d.maxHp, ad, this.inCombat, d.regenBonus) * fast * dt;
       for (const b of this.buffs) {
         b.t -= dt;
-        if (b.id === 'regen' && b.amount) p.hp = Math.min(d.maxHp, p.hp + b.amount * d.healMult * dt);
+        if (b.id === 'regen' && b.amount) hpGain += b.amount * d.healMult * dt;
+      }
+      const rh = regenStep(p.hp, d.maxHp, hpGain, this.regenAcc.hp);
+      p.hp = rh.value;
+      this.regenAcc.hp = rh.acc;
+      const rm = regenStep(p.mp, d.maxMp, mpRegenPerSec(d.maxMp, d.stats.MNA, ad, this.inCombat) * dt, this.regenAcc.mp);
+      p.mp = rm.value;
+      this.regenAcc.mp = rm.acc;
+      if (this.staminaDelay <= 0) {
+        const rs = regenStep(p.stamina, d.maxStamina, staminaRegenPerSec(d.stats.AGI, ad, this.inCombat) * (1 + (d.fx.staminaRegenPct ?? 0)) * dt, this.regenAcc.st);
+        p.stamina = rs.value;
+        this.regenAcc.st = rs.acc;
       }
       this.buffs = this.buffs.filter((b) => b.t > 0);
     }
@@ -624,7 +636,7 @@ export class Player {
       Sound.sfx('error', 0.4);
       return;
     }
-    p.stamina -= cost;
+    p.stamina = round2(p.stamina - cost);
     this.evadePaid = { stamina: cost, light: 0 };
     this.staminaDelay = 0.7;
     const mx = Input.moveX, my = Input.moveY;
@@ -700,7 +712,7 @@ export class Player {
         this.w.fx.number(this.actor.x, this.actor.y - 50, 'Yorgun!', 'miss');
         return;
       }
-      p.stamina -= cost;
+      p.stamina = round2(p.stamina - cost);
       this.staminaDelay = 0.8;
     }
     if (this.sheathed || this.sheath) this.setSheathed(false);

@@ -127,12 +127,14 @@ describe('Pano ilanları', () => {
 
 describe('D4: Servis Koşturmacası', () => {
   it('Günden güne zorlaşır', () => {
-    const d1 = serveDifficulty(1), d2 = serveDifficulty(2), d3 = serveDifficulty(3);
-    expect(d2.tables).toBeGreaterThan(d1.tables);
-    expect(d3.tables).toBeGreaterThan(d2.tables);
-    expect(d3.patience).toBeLessThan(d1.patience);
-    expect(d3.spawnEvery).toBeLessThan(d1.spawnEvery);
-    expect(JOBS.bertramShifts).toBe(3);
+    // 0.10.0 (B12): iş iki gün; eski 1. gün (4 masa) kalktı
+    const d1 = serveDifficulty(1), d2 = serveDifficulty(2);
+    expect(d1.tables).toBe(5);
+    expect(d2.tables).toBe(6);
+    expect(d2.patience).toBeLessThan(d1.patience);
+    expect(d2.spawnEvery).toBeLessThan(d1.spawnEvery);
+    expect(serveDifficulty(3)).toEqual(d2);
+    expect(JOBS.bertramShifts).toBe(2);
     expect(JOBS.bertramPay).toBe(50);
   });
   it('Performans 0..1; kaçan müşteri ve kirli tabak düşürür', () => {

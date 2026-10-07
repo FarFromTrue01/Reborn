@@ -16,8 +16,10 @@ import { TRAINING_SPOTS, type TrainingSpot } from '../data/props';
 import * as R from '../game/rules';
 import { transact, equip } from '../core/transactions';
 import { walletTotal, emptyWallet, formatPrice } from '../core/money';
-import { nextMorning, hourOf, clockLabel, fromAbsMinute } from '../core/time';
+import { nextMorning, hourOf, clockLabel, fromAbsMinute, advanceWithDays } from '../core/time';
 import { canSleep, absMinute } from '../core/sleep';
+import { activeQuests, type QuestGuide, type QuestTarget } from '../core/quests';
+import { boardRewardRanges, MAX_BOARD_QUESTS } from '../data/sidequests';
 import { dirFromVec } from '../world/actor';
 import { nearestFree, findPath, pathBudget } from '../world/path';
 import { openShop } from '../ui/shop';
@@ -437,6 +439,8 @@ export class Director {
   // ============================================================ olaylar
   onWorldReady() {
     this.ch2.applyEscort();
+    // A7.9: han sahnesinin Appraisal adımında kaydedilip yeniden yüklendiyse "Hana Git" kapanır (sahne tekrar oynamaz)
+    if (G.flag('inn_met') && Q.active('m_inn')) Q.complete('m_inn', { quiet: true });
     if (!G.flag('woke')) this.wakeScene();
     else this.ui.showZone(this.w.zone?.name ?? this.w.mapData.name);
     this.w.updateMusic();
@@ -452,6 +456,55 @@ export class Director {
         if (!G.flag('bertram_deal')) await this.think('Burada iş yok gibi. En azından benim gibi biri için.');
       });
     }
+  }
+
+  /** Joseph'in uyuyabileceği bir yatağı var mı? (Bertram'la anlaşma ya da bugün kiralanan yatak.) */
+  hasBed(): boolean {
+    return !!G.flag('bertram_deal') || G.flag('room_day') === G.state.time.day;
+  }
+
+  /**
+   * Görevin altındaki dinamik alt amaçlar (0.10.0). Yalnızca ilk aktif ana görevin altında (HUD sırası):
+   * - B3 pano öğreticisi: yan görevler açıldıktan sonra pano bir kez açılana kadar;
+   * - B1/B3 uyku: görev bir saati bekliyor (uyunabilir) ve yatak varsa yatağa yönlendirme — m_bertram'da
+   *   "Yukarı çık ve uyu", ilk kez başka bir beklemede uyku öğreticisi, sonra kısa "uyuyarak bekle".
+   */
+  questGuides(id: string): QuestGuide[] {
+    const def = Q.def(id);
+    if (!def || def.kind !== 'main') return [];
+    const host = activeQuests(G.state.quests).find((q) => Q.def(q)?.kind === 'main');
+    if (host !== id) return [];
+    const out: QuestGuide[] = [];
+    if (G.flag('side_unlocked') && !G.flag('tut_board')) {
+      const rr = boardRewardRanges();
+      const ranges = Object.entries(rr).map(([k, [a, b]]) => `${k} ${a}–${b}`).join(' / ');
+      out.push({ key: 'tut_board', label: `Lonca panosundan ilan al — her sabah yeni ilanlar, ${ranges} bronz, aynı anda en fazla ${MAX_BOARD_QUESTS}`, optional: true, target: { map: 'guild', point: 'board', radius: 1.5 } });
+    }
+    const w = this.w.questWait(id);
+    const now = absMinute(G.state.time.day, G.state.time.minute);
+    if (w && w.until !== null && w.until > now && w.until - now <= 36 * 60 && this.hasBed()) {
+      const bed: QuestTarget = { map: 'inn_attic', point: 'bed', radius: 1.2 };
+      const here = this.w.mapData.id;
+      const step = here === 'inn_attic' ? 'yatağa yat' : here === 'inn' ? 'merdivenden tavan arasına çık' : 'hana dön, merdivenden tavan arasına çık';
+      if (id === 'm_bertram') out.push({ key: 'sleep', label: `Yukarı çık ve uyu: ${step}`, target: bed });
+      else if (!G.flag('tut_sleep')) out.push({ key: 'tut_sleep', label: `Beklemeyi uyuyarak atla: yatakta "Görev saatine kadar uyu" (${step})`, optional: true, target: bed });
+      else out.push({ key: 'sleep', label: `Uyuyarak bekle: ${step}`, optional: true, target: bed });
+    }
+    return out;
+  }
+
+  /**
+   * Elle zaman atlaması (hasat, antrenman, ders…): gece yarısı aşılırsa normal saatteki gibi her gün için
+   * R.onNewDay() + director.onNewDay() (terfi, pano süreleri, worked_today…).
+   */
+  advanceClock(minutes: number) {
+    const { time, days } = advanceWithDays(G.state.time, minutes);
+    G.state.time = time;
+    for (let i = 0; i < days; i++) {
+      R.onNewDay();
+      this.onNewDay();
+    }
+    G.events.emit('time');
   }
 
   onNewDay() {
@@ -589,7 +642,7 @@ export class Director {
       this.follow();
       await this.think('Önce bir şeyler giymem lazım. Sonra... yemek. Bir de bu dünyanın ne olduğunu anlamam.');
       const touch = navigator.maxTouchPoints > 0;
-      this.ui.toastInfo(touch ? 'Sol tarafı sürükle: yürü · kenara it: koş' : 'WASD: yürü · Shift: koş · Esc: menü');
+      this.ui.hintBottom(touch ? 'Sol tarafı sürükle: yürü · kenara it: koş' : 'WASD: yürü · Shift: koş · Esc: menü');
       this.w.time.delayedCall(3000, () => this.ui.toastInfo(touch ? 'Sağdaki butonlar: saldırı, kaçış, etkileşim' : 'J: saldırı · Boşluk: kaçış · E: etkileşim · Q: Appraisal'));
       Q.start('m_inn');
       G.save('auto');
@@ -712,7 +765,8 @@ export class Director {
   innScene() {
     this.scene(async () => {
       G.setFlag('inn_met');
-      Q.complete('m_inn', { silent: true });
+      // A7.9: "Hana Git" görevi açık kalır, Appraisal öğreticisinde amacı "Vera'yı Appraisal ile incele"
+      if (Q.active('m_inn') && !Q.objDone('m_inn', 0)) Q.advance('m_inn', 0);
       const vera = this.w.npc('vera');
       const lina = this.w.npc('lina');
       const bert = this.w.npc('bertram');
@@ -744,6 +798,7 @@ export class Director {
       });
       this.appraiseWaiter = null;
       if (got === 'timeout' && vera) this.w.appraise(vera.def.creature, vera.def, vera, true);
+      Q.complete('m_inn', { silent: true });
       this.w.cutscene = true;
       await wait(this.w, 2600);
       this.ui.closeAppraisal();
@@ -907,7 +962,7 @@ export class Director {
     if (deal && !done) {
       const worked = G.flag('worked_today') === G.state.time.day;
       const n = this.shiftsDone();
-      opts.push(worked ? 'Yarın da çalışabilir miyim?' : `Çalışmaya hazırım. (Gün ${n + 1}/${JOBS.bertramShifts})${h >= 15 ? ' — geç oldu' : ''}`);
+      opts.push(worked ? 'Yarın da çalışabilir miyim?' : `Çalışmaya hazırım. (Gün ${n + 1}/${JOBS.bertramShifts})${h >= 15 ? ' — geç oldu' : h < 6 ? ' — çok erken' : ''}`);
       acts.push(async () => {
         if (worked) {
           await this.say('bertram', 'Günde bir vardiya, evlat. Yarın sabah gel. Şimdi ye ve uyu.');
@@ -915,6 +970,10 @@ export class Director {
         }
         if (h >= 15) {
           await this.say('bertram', 'Bu saatte mi? Gün bitti sayılır. Yarın sabah gel.');
+          return;
+        }
+        if (h < 6) {
+          await this.say('bertram', 'Gecenin bu saatinde mi? Ocak bile uyuyor. Altıda gel.');
           return;
         }
         await this.workMontage();
@@ -993,11 +1052,7 @@ export class Director {
     const t = this.ui.overlayText(text, { size: 24 });
     await wait(this.w, 2400);
     t.destroy();
-    G.state.time.minute += minutes;
-    while (G.state.time.minute >= 1440) {
-      G.state.time.minute -= 1440;
-      G.state.time.day++;
-    }
+    this.advanceClock(minutes);
     await this.ui.curtain(0, 500);
   }
 
@@ -1058,6 +1113,8 @@ export class Director {
       await wait(this.w, 350);
     }
     prog.setVisible(false);
+    // A7.8b: mini oyun açılırken eski diyalog satırı kutuda kalmasın (dönüşte bir an görünüyordu)
+    this.ui.closeDialogue();
     // D4: akşam servisi — Servis Koşturmacası
     const perf = await new Promise<number>((resolve) => {
       this.w.scene.launch('Minigame', { kind: 'serve', day: shift, done: resolve });
@@ -1136,7 +1193,9 @@ export class Director {
     if (c3 === 0) await this.say('bertram', 'Çünkü ben de bir zamanlar bir kapının önünde aç durdum. Biri bana da iş verdi. Borcumu ödüyorum, o kadar.');
     else await this.say('bertram', 'Unutma. Ama bana değil, bir gün kapının önünde aç duran birine öde.');
     G.affinity('bertram', 2);
-    await this.say('bertram', 'Hadi. Gün kısa, Haldor sabahları tarlada olur.');
+    // A7.3: saate göre (ücret gecesi vardiya 21:00'de biter; hasat 06:00–16:00)
+    const hh = G.state.time.minute / 60;
+    await this.say('bertram', hh >= 16 || hh < 6 ? 'Bu gece dinlen. Yarın sabah erkenden Haldor\'a git; altıda tarlada olur.' : hh < 12 ? 'Hadi. Gün daha yeni başladı, Haldor tarlada.' : 'Hadi. Gün kısa, Haldor dörde kadar tarlada.');
     Q.start('m_harvest', true);
     R.sysmsg('YENİ İŞ: HALDOR\'UN HASADI', ['Brindlewood\'un kuzeydoğusundaki buğday tarlasında Yaşlı Haldor\'u bul.', `Ödül: {m:${JOBS.harvestPay}} (tek seferlik)`, `Hedef: {m:${FEES.guildRegistration}} → Maceracılar Loncası kaydı`], { big: true });
     G.save('auto');
@@ -1160,13 +1219,14 @@ export class Director {
       await this.say('haldor', 'Bak evlat: buğdayı biçersin, demetleri bağlarsın, arabaya yüklersin. Birkaç saat sürer. Karşılığı elli bronz. Pazarlık yok, ben de köylüyüm, kesem bu kadar.');
     } else await this.say('haldor', 'Geldin mi? Başaklar seni bekliyor.');
     const h = G.state.time.minute / 60;
+    // A7.3: kapalı saatlerde "Hasada başla" hiç sunulmaz
+    if (h < 6 || h >= 16) {
+      await this.say('haldor', h >= 16 ? 'Ama bu saatte olmaz. Karanlıkta orakla ancak kendi ayağını biçersin. Sabah altıda gel, orak hazır olur.' : 'Daha horozlar ötmedi, evlat. Altıda gel, orak hazır olur.');
+      return;
+    }
     const c = await this.ui.choice(['Hasada başla (birkaç saat sürer)', 'Sonra gelirim.']);
     if (c !== 0) {
       await this.say('haldor', 'Çok bekletme. Başak beklemez, dizlerim hiç beklemez.');
-      return;
-    }
-    if (h < 6 || h >= 16) {
-      await this.say('haldor', 'Bu saatte mi? Karanlıkta orakla ancak kendi ayağını biçersin. Sabah gel.');
       return;
     }
     await this.harvest();
@@ -1197,11 +1257,7 @@ export class Director {
       this.ui.tweens.add({ targets: t, alpha: 0, duration: 300, onComplete: () => t.destroy() });
       await wait(this.w, 350);
     }
-    G.state.time.minute += JOBS.harvestMinutes;
-    while (G.state.time.minute >= 1440) {
-      G.state.time.minute -= 1440;
-      G.state.time.day++;
-    }
+    this.advanceClock(JOBS.harvestMinutes);
     G.p.stamina = Math.max(0, G.p.stamina - 30);
     await this.ui.curtain(0, 600);
     this.w.updateMusic();
@@ -1591,6 +1647,7 @@ export class Director {
       const c = await this.ui.choice(['Uyu', `Görev saatine kadar uyu (${when})`, 'Vazgeç']);
       if (c === 2) return;
       questSleep = c === 1;
+      if (questSleep) G.setFlag('tut_sleep');
     }
     if (!questSleep && !canSleep(t.minute, now, G.state.awakeSince)) {
       G.save('auto');
@@ -1652,11 +1709,7 @@ export class Director {
         this.w.paused = true;
       });
       this.w.paused = false;
-      G.state.time.minute += 60;
-      if (G.state.time.minute >= 1440) {
-        G.state.time.minute -= 1440;
-        G.state.time.day++;
-      }
+      this.advanceClock(60);
       const e = R.completeTraining(spot.divineExp, perf);
       G.p.stamina = Math.max(0, G.p.stamina - 30);
       await this.think(perf > 0.75 ? 'Kaslarım yanıyor, ama içimde bir şey parlıyor. Divine...' : perf > 0.4 ? 'Fena değil. Biraz daha güçlendim galiba.' : 'Berbattı. Ama bir şey kazandım yine de.');

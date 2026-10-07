@@ -30,6 +30,27 @@ export interface ObjectiveDef {
   where?: QuestTarget;
   /** Gizli amaç: önceki amaçlar bitmeden listede görünmez. */
   sequential?: boolean;
+  /** İsteğe bağlı amaç (0.10.0): görevin bitmesini engellemez, listede "(isteğe bağlı)" yazar. */
+  optional?: boolean;
+}
+
+/**
+ * Görevin altında görünen dinamik alt amaç (0.10.0, B1/B3): ör. "Yukarı çık ve uyu", "Lonca panosundan ilan al".
+ * Görev tanımının parçası değil; hikâye/dünya durumundan her an yeniden hesaplanır (kayda yazılmaz).
+ */
+export interface QuestGuide {
+  key: string;
+  label: string;
+  optional?: boolean;
+  /** Oku bu hedefe yönelt (görevin kendi amacı beklemedeyken ya da `lead` ise). */
+  target?: QuestTarget | null;
+  /** Görevin amacından önce gelir (ok hep buna yönelir). */
+  lead?: boolean;
+}
+
+/** Amaç etiketi; isteğe bağlıysa sonuna "(isteğe bağlı)". */
+export function objectiveLabel(o: { label: string; optional?: boolean }): string {
+  return o.optional ? `${o.label} (isteğe bağlı)` : o.label;
 }
 
 export interface QuestReward {
@@ -111,17 +132,31 @@ export function isDone(log: QuestLog, id: string): boolean {
 }
 
 export function objectiveDone(def: QuestDef, st: QuestState, i: number): boolean {
-  return st.progress[i] >= (def.objectives[i].count ?? 1);
+  return (st.progress[i] ?? 0) >= (def.objectives[i].count ?? 1);
 }
 
+/** Zorunlu amaçların hepsi bitti mi? (İsteğe bağlı amaçlar görevin bitmesini engellemez.) */
 export function allObjectivesDone(def: QuestDef, st: QuestState): boolean {
-  return def.objectives.every((_, i) => objectiveDone(def, st, i));
+  return def.objectives.every((o, i) => o.optional || objectiveDone(def, st, i));
 }
 
-/** Şu an üzerinde çalışılan ilk tamamlanmamış amaç (indeks) ya da -1. */
+/** Şu an üzerinde çalışılan ilk tamamlanmamış zorunlu amaç (indeks) ya da -1. */
 export function currentObjective(def: QuestDef, st: QuestState): number {
-  for (let i = 0; i < def.objectives.length; i++) if (!objectiveDone(def, st, i)) return i;
+  for (let i = 0; i < def.objectives.length; i++) if (!def.objectives[i].optional && !objectiveDone(def, st, i)) return i;
   return -1;
+}
+
+/** Sıralı amacın önündeki son zorunlu amaç (isteğe bağlılar sıralamayı tutmaz); yoksa -1. */
+function prevRequired(def: QuestDef, i: number): number {
+  for (let j = i - 1; j >= 0; j--) if (!def.objectives[j].optional) return j;
+  return -1;
+}
+
+/** Sıralı amaç açık mı (önceki zorunlu amaç bitti mi)? */
+export function objectiveOpen(def: QuestDef, st: QuestState, i: number): boolean {
+  if (!def.objectives[i].sequential) return true;
+  const j = prevRequired(def, i);
+  return j < 0 || objectiveDone(def, st, j);
 }
 
 /**
@@ -148,7 +183,7 @@ export function questNeededItems(log: QuestLog, lookup: DefLookup): Set<string> 
 export function visibleObjectives(def: QuestDef, st: QuestState): number[] {
   const out: number[] = [];
   for (let i = 0; i < def.objectives.length; i++) {
-    if (def.objectives[i].sequential && i > 0 && !objectiveDone(def, st, i - 1)) break;
+    if (!objectiveOpen(def, st, i)) break;
     out.push(i);
   }
   return out;
@@ -165,9 +200,10 @@ export function advance(log: QuestLog, id: string, idx: number, n = 1, lookup?: 
   if (!def) return false;
   const o = def.objectives[idx];
   if (!o) return false;
-  if (o.sequential && idx > 0 && !objectiveDone(def, st, idx - 1)) return false;
+  if (!objectiveOpen(def, st, idx)) return false;
   const max = o.count ?? 1;
-  const before = st.progress[idx];
+  // eski kayıtta tanıma sonradan eklenen amaç (ör. 0.10.0 m_inn): ilerleme yoksa 0
+  const before = st.progress[idx] ?? 0;
   st.progress[idx] = Math.min(max, before + n);
   return st.progress[idx] !== before;
 }
@@ -262,4 +298,34 @@ export function hudQuestGroups(ids: string[], kindOf: (id: string) => QuestKind 
 export function questExp(def: QuestDef): number {
   if (def.kind === 'main') return 0;
   return Math.max(0, def.reward.exp ?? 0);
+}
+
+/**
+ * A7.5 (0.10.0): görevin şu anki amacının hedefi — amaç bir alt göreve bağlıysa (`custom`, `target` bir görev kimliği;
+ * ör. m_grank → g1_rats) alt görevin **şu anki** amacının hedefi ve dönen `id` alt görevdir. Alt görev henüz
+ * alınmadıysa `notTaken` hedefi (ilanları dağıtan kişi). Aktif alt görevi olan amaç önce gelir.
+ */
+export function questTargetOf(
+  log: QuestLog, id: string, lookup: DefLookup, notTaken: QuestTarget, depth = 0,
+): { id: string; def: QuestDef; t: QuestTarget; idx: number } | null {
+  const def = defOf(log, id, lookup);
+  const st = log.quests[id];
+  if (!def || !st || st.status !== 'active') return null;
+  const subOf = (i: number) => {
+    const o = def.objectives[i];
+    return o?.type === 'custom' && o.target && o.target !== id && lookup(o.target) ? o.target : null;
+  };
+  let i = currentObjective(def, st);
+  const pref = def.objectives.findIndex((o, j) => !o.optional && !objectiveDone(def, st, j) && !!subOf(j) && isActive(log, subOf(j)!));
+  if (pref >= 0) i = pref;
+  const o = def.objectives[i];
+  if (!o) return null;
+  const sub = subOf(i);
+  if (sub && depth < 2) {
+    if (isActive(log, sub)) {
+      const r = questTargetOf(log, sub, lookup, notTaken, depth + 1);
+      if (r) return r;
+    } else if (!log.quests[sub]) return { id, def, idx: i, t: notTaken };
+  }
+  return o.where ? { id, def, idx: i, t: o.where } : null;
 }

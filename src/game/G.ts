@@ -5,6 +5,7 @@ import { loadSettings, saveSettings, type Settings } from './settings';
 import { readSave, writeSave, latestSlot, type SlotKey } from '../core/save';
 import { derive, type Derived } from '../core/creature';
 import { setCommitHook } from '../core/transactions';
+import { round2 } from '../core/formulas';
 
 class GameContext {
   state: GameState = newGameState();
@@ -40,9 +41,9 @@ class GameContext {
     this.derivedCache = null;
     const d = this.d;
     const p = this.state.player;
-    p.hp = Math.min(p.hp, d.maxHp);
-    p.mp = Math.min(p.mp, d.maxMp);
-    p.stamina = Math.min(p.stamina, d.maxStamina);
+    p.hp = round2(Math.min(p.hp, d.maxHp));
+    p.mp = round2(Math.min(p.mp, d.maxMp));
+    p.stamina = round2(Math.min(p.stamina, d.maxStamina));
     this.events.emit('stats');
   }
 
@@ -78,6 +79,11 @@ class GameContext {
 
   save(slot: SlotKey = 'auto') {
     try {
+      // A7.11: kayda iki ondalık
+      const p = this.state.player;
+      p.hp = round2(p.hp);
+      p.mp = round2(p.mp);
+      p.stamina = round2(p.stamina);
       writeSave(localStorage, slot, this.state);
       if (slot !== 'auto') writeSave(localStorage, 'auto', this.state);
       return true;

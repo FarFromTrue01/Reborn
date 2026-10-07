@@ -124,10 +124,10 @@ describe('A2: kapı hedefli "git" amaçları binaya girişte tamamlanır', () =>
 
 import { serveDifficulty, serveOutcome, servePerfTime, serveGoal } from '../src/core/serve';
 describe('B13: Servis Koşturmacası hedefi, kazanma ve kaybetme', () => {
-  it('Hedef müşteri sayısı tempodan türetilir: 1. gün az, 2. gün orta, 3. gün fazla', () => {
-    const g = [1, 2, 3].map((d) => serveDifficulty(d).goal);
-    expect(g).toEqual([5, 6, 8]);
-    for (const d of [1, 2, 3]) {
+  it('Hedef müşteri sayısı tempodan türetilir: 1. gün 6, 2. gün 8 (0.10.0: iş iki gün)', () => {
+    const g = [1, 2].map((d) => serveDifficulty(d).goal);
+    expect(g).toEqual([6, 8]);
+    for (const d of [1, 2]) {
       const c = serveDifficulty(d);
       expect(c.goal).toBe(serveGoal(c.dur, c.spawnEvery));
       // hedef, o tempoda gelen müşterilerden az (ulaşılabilir) ve tabak süresi sabırdan uzun

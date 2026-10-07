@@ -13,7 +13,11 @@ export const MAIN_QUESTS: QuestDef[] = [
   {
     id: 'm_inn', kind: 'main', chapter: 1, title: 'Hana Git',
     desc: 'Ormanda, üstümde yırtık bir şortla uyandım. Ağaçların arasından bir köy görünüyor. Han varsa iş de vardır.',
-    objectives: [{ type: 'go', label: 'Brindlewood\'daki hana git', target: 'inn', where: W('door_inn', 1.5) }],
+    objectives: [
+      { type: 'go', label: 'Brindlewood\'daki hana git', target: 'inn', where: W('door_inn', 1.5) },
+      // A7.9 (0.10.0): handaki Appraisal öğreticisi sırasında da bir amaç görünür
+      { type: 'custom', label: 'Vera\'yı Appraisal ile incele', target: 'appraise_vera', where: NPC('inn', 'vera'), sequential: true },
+    ],
     reward: { text: 'Bir başlangıç' },
   },
   {

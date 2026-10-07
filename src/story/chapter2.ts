@@ -346,6 +346,11 @@ export class Chapter2 {
 
   /** Pano: günün ilanları (3–4). En fazla üç pano görevi aynı anda (MAX_BOARD_QUESTS). */
   async boardMenu() {
+    // B3: pano öğreticisi (alt amaç) panonun menüsü bir kez açılınca biter
+    if (!G.flag('tut_board')) {
+      G.setFlag('tut_board');
+      G.events.emit('quests');
+    }
     const posts = boardForDay(this.day).filter((q) => !Q.status(q.id));
     const activeBoard = activeQuests(G.state.quests).filter((id) => Q.def(id)?.kind === 'board');
     if (!posts.length) {
@@ -1466,12 +1471,21 @@ export class Chapter2 {
         else if (now >= until && h < 8) until = at(this.day, 8);
         return gate(until, (w) => `Köy ${w} uyanır — o saate kadar bekle`);
       }
+      case 'm_bertram': {
+        // A3.1: günde bir vardiya, 06:00–15:00 arası başlar
+        if (!G.flag('bertram_deal') || G.flag('bertram_done')) return null;
+        const h = G.state.time.minute / 60;
+        const worked = G.flag('worked_today') === this.day;
+        if (!worked && h >= 6 && h < 15) return null;
+        const until = !worked && h < 6 ? at(this.day, 6) : at(this.day + 1, 6);
+        return gate(until, (w) => `Bertram ${w} iş verir`);
+      }
       case 'm_harvest': {
-        if (idx !== 1) return null;
+        // A7.3: Haldor tarlada 06:00–16:00; ücret gecesi açılan görev ilk amaçta da bekler
         const h = G.state.time.minute / 60;
         if (h >= 6 && h < 16) return null;
         const until = at(h >= 16 ? this.day + 1 : this.day, 6);
-        return gate(until, (w) => `Hasat ${w} başlar — o saate kadar bekle`);
+        return gate(until, (w) => (idx === 0 ? `Haldor ${w} tarlada olur` : `Hasat ${w} başlar`));
       }
       case 'm_celebrate':
         if (idx === 0) return gate(at(this.day, 18), (w) => `Vera akşamı bekliyor — ${w} hana git`);

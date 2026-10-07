@@ -1,8 +1,13 @@
 // Servis Koşturmacası (D4) için saf kurallar: günlük zorluk, hedef, kazanma/kaybetme ve performans puanı.
 
-/** Güne göre zorluk (1–3). */
+/**
+ * Güne göre zorluk. 0.10.0 (B12): iş 2 gün; eski 1. gün (4 masa) kalktı — yeni 1. gün eski 2. gün, yeni 2. gün eski
+ * 3. gün. Tablolar eski üç günün değerleri; `SERVE_DAY_OFFSET` yeni günü eski satıra kaydırır.
+ */
+export const SERVE_DAYS = 2;
+const SERVE_DAY_OFFSET = 1;
 export function serveDifficulty(day: number) {
-  const d = Math.max(1, Math.min(3, day));
+  const d = Math.max(1, Math.min(SERVE_DAYS, day)) + SERVE_DAY_OFFSET;
   const spawnEvery = [5.2, 4.2, 3.3][d - 1];
   const dur = 42;
   return {
@@ -21,10 +26,20 @@ export function serveDifficulty(day: number) {
     plateTime: [18, 16, 14][d - 1],
     /** Güvenlik sınırı: hedefe bu sürede ulaşılamazsa kaybedilir (han kapanır). */
     limit: 150,
+    /** A7.13: ilk müşteri oyun açıldıktan bu kadar sonra gelir (sn) ve ilk siparişin sabrı biraz uzundur. */
+    firstDelay: 2.8,
+    firstPatienceMult: 1.35,
   };
 }
 
-/** Hedef: mevcut tempoda (süre / müşteri aralığı) gelen müşterilerin %60'ı → 1. gün 5, 2. gün 6, 3. gün 8. */
+/** Çöp kutusu (B12): elindeki yiyecekler atılır, kirli tabaklar atılamaz (bulaşığa). Ceza yok. */
+export function discardFood<T extends string>(carry: T[]): { carry: T[]; discarded: number; plateWarning: boolean } {
+  const plates = carry.filter((c) => c === 'plate');
+  const food = carry.length - plates.length;
+  return { carry: plates, discarded: food, plateWarning: plates.length > 0 };
+}
+
+/** Hedef: mevcut tempoda (süre / müşteri aralığı) gelen müşterilerin %60'ı → 1. gün 6, 2. gün 8 (eski 1. gün 5). */
 export function serveGoal(dur: number, spawnEvery: number) {
   return Math.round((dur / spawnEvery) * 0.6);
 }

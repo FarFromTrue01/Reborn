@@ -1,15 +1,15 @@
 // D4: "Servis Koşturmacası" — Bertram'ın hanında her iş günü oynanan mini oyun.
 // Masalarda sipariş balonları belirir (bira, güveç, ekmek). Tezgâhtan al, süre bitmeden masaya götür.
 // Müşteri yiyip gidince kirli tabak kalır; tabağı toplayıp bulaşığa bırakmadan masaya yeni müşteri oturmaz.
-// Her gün daha çok masa, daha sabırsız müşteri.
-// 0.8.0: günün hedefi var (1. gün 5, 2. gün 6, 3. gün 8 müşteri: yemeği verilip tabağı bulaşığa konan). Bir sipariş
+// Her gün daha çok masa, daha sabırsız müşteri. 0.10.0: tezgâhta çöp kutusu (yanlış alınan yiyecek atılır).
+// 0.8.0: günün hedefi var (0.10.0: iş iki gün — 1. gün 6, 2. gün 8 müşteri: yemeği verilip tabağı bulaşığa konan). Bir sipariş
 // zamanında verilmezse ya da kirli bir tabak kendi süresi içinde bulaşığa konmazsa oyun anında kaybedilir (tekrar dene).
 // Performans (hıza göre) yalnızca Bertram'ın yorumunu değiştirir.
 import Phaser from 'phaser';
 import { Sound } from '../audio/audio';
 import { COLORS, txt, uiIcon } from '../ui/kit';
 import { NPCS } from '../data/npcs';
-import { serveDifficulty, servePerf, serveOutcome, servePerfTime, type ServeLoss } from '../core/serve';
+import { serveDifficulty, servePerf, serveOutcome, servePerfTime, discardFood, type ServeLoss } from '../core/serve';
 export { serveDifficulty, servePerf };
 
 type Food = 'beer' | 'stew' | 'bread';
@@ -52,12 +52,15 @@ export class ServeGame {
   target: { x: number; y: number; act: () => void } | null = null;
   walkT = 0;
   spawnT = 1.2;
+  /** A7.13: ilk müşteri (sabrı biraz uzun). */
+  firstSeat = true;
   served = 0;
   failed = 0;
   platesMade = 0;
   platesCleared = 0;
   counter: { x: number; y: number };
   sink: { x: number; y: number };
+  trash: { x: number; y: number };
   stockPos: Record<Food, { x: number; y: number }> = {} as any;
   hud: Phaser.GameObjects.Text;
   patrons: string[];
@@ -83,8 +86,8 @@ export class ServeGame {
     fl.fillStyle(0x8a5a30, 1);
     fl.fillRoundedRect(px + 40, cy - 10, pw - 80, 14, 6);
     this.counter = { x: px + pw / 2, y: cy - 30 };
-    // tezgâhtaki yiyecekler (dokunulabilir)
-    const gap = (pw - 80) / 5;
+    // tezgâhtaki yiyecekler (dokunulabilir); sağda çöp kutusu ve bulaşık (B12)
+    const gap = (pw - 80) / 6;
     FOODS.forEach((f, i) => {
       const x = px + 40 + gap * (i + 1);
       this.stockPos[f] = { x, y: cy - 34 };
@@ -94,8 +97,19 @@ export class ServeGame {
       z.on('pointerdown', () => this.goTo(x, cy - 34, () => this.pick(f)));
       void ic;
     });
+    // çöp kutusu: elindeki yiyecekleri atar (tabaklar bulaşığa)
+    const kx = px + 40 + gap * 4.1;
+    this.trash = { x: kx, y: cy - 34 };
+    fl.fillStyle(0x3a3f44, 1);
+    fl.fillRoundedRect(kx - 20, cy - 8, 40, 38, 5);
+    fl.fillStyle(0x596068, 1);
+    fl.fillRoundedRect(kx - 24, cy - 14, 48, 9, 3);
+    fl.lineStyle(2, 0x2a2e33, 1);
+    for (const ox of [-9, 0, 9]) fl.lineBetween(kx + ox, cy - 2, kx + ox, cy + 24);
+    txt(s, kx, cy + 34, 'Çöp', { size: 14, bold: true, color: '#d6d9dc' }).setOrigin(0.5, 0);
+    s.add.zone(kx, cy + 12, gap * 0.9, 76).setInteractive({ useHandCursor: true }).on('pointerdown', () => this.goTo(kx, cy - 34, () => this.discard()));
     // bulaşık (sağ)
-    const sx = px + 40 + gap * 4.2;
+    const sx = px + 40 + gap * 5.15;
     this.sink = { x: sx, y: cy - 34 };
     fl.fillStyle(0x4a5a66, 1);
     fl.fillRoundedRect(sx - 40, cy - 6, 80, 34, 8);
@@ -132,6 +146,22 @@ export class ServeGame {
     this.setJoeFrame(2, 0);
     this.hud = txt(s, px + pw / 2, py + 96, '', { size: 16, bold: true, color: COLORS.text }).setOrigin(0.5, 0);
     this.trayRings = s.add.graphics().setDepth(5);
+    this.spawnT = this.cfg.firstDelay;
+  }
+
+  /** Çöp kutusu (B12): yiyecekleri at; tabaklar elde kalır. */
+  discard() {
+    const r = discardFood(this.carry);
+    if (r.plateWarning) {
+      this.pop(this.trash.x, this.trash.y - 60, 'Tabaklar bulaşığa!', '#ffb0a0');
+      Sound.sfx('error', 0.4);
+      return;
+    }
+    if (!r.discarded) return;
+    this.carry = r.carry;
+    Sound.sfx('click', 0.5);
+    this.pop(this.trash.x, this.trash.y - 60, r.discarded > 1 ? `${r.discarded} yiyecek atıldı` : 'Atıldı', '#d6d9dc');
+    this.refreshTray();
   }
 
   setJoeFrame(dirRow: number, col: number) {
@@ -241,7 +271,8 @@ export class ServeGame {
   seat(t: Table) {
     t.state = 'waiting';
     t.order = FOODS[Math.floor(Math.random() * FOODS.length)];
-    t.maxPatience = t.patience = this.cfg.patience * (0.85 + Math.random() * 0.3);
+    t.maxPatience = t.patience = this.cfg.patience * (0.85 + Math.random() * 0.3) * (this.firstSeat ? this.cfg.firstPatienceMult : 1);
+    this.firstSeat = false;
     const key = this.patrons[Math.floor(Math.random() * this.patrons.length)];
     t.patron?.destroy();
     t.patron = this.s.add.sprite(t.x + (Math.random() < 0.5 ? -70 : 70), t.y + 22, key, (8 + 2) * 13).setOrigin(0.5, 61 / 64).setScale(1.3);

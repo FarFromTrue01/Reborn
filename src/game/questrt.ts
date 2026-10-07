@@ -3,7 +3,7 @@ import { G } from './G';
 import * as R from './rules';
 import {
   startQuest, advance, setProgress, notify, finishQuest, isActive, isDone, allObjectivesDone, currentObjective, pickNextTracked,
-  type QuestDef, type ObjectiveType, type QuestTarget,
+  questTargetOf, type QuestDef, type ObjectiveType, type QuestTarget, type QuestGuide,
 } from '../core/quests';
 import { questDef, rankupQuest } from '../data/quests';
 import { QUEST_POINTS, applyReward, applyPenalty, earnedRank, examRequired, riskText, isRankupQuest } from '../core/guild';
@@ -43,6 +43,17 @@ export const Q = {
       return Q.waitOf?.(id) ?? null;
     } catch {
       return null;
+    }
+  },
+  /**
+   * Görevin altındaki dinamik alt amaçlar (0.10.0: "Yukarı çık ve uyu", pano ve uyku öğreticileri). WorldScene kurar.
+   */
+  guidesOf: null as ((id: string) => QuestGuide[]) | null,
+  guides(id: string): QuestGuide[] {
+    try {
+      return Q.guidesOf?.(id) ?? [];
+    } catch {
+      return [];
     }
   },
   def(id: string): QuestDef | undefined {
@@ -235,15 +246,19 @@ export const Q = {
     return { from, to };
   },
   /** Takip edilen görevin şu anki amacının hedefi. */
-  target(): { id: string; def: QuestDef; t: QuestTarget } | null {
+  target(): { id: string; def: QuestDef; t: QuestTarget; idx: number } | null {
     const id = G.state.quests.tracked;
     if (!id || !Q.active(id)) return null;
-    const def = lookup(id);
-    const st = G.state.quests.quests[id];
-    if (!def || !st) return null;
-    const i = currentObjective(def, st);
-    const t = def.objectives[i]?.where;
-    return t ? { id, def, t } : null;
+    return Q.targetOf(id);
+  },
+  /**
+   * Bir görevin şu anki amacının hedefi. A7.5 (0.10.0): amaç bir alt göreve bağlıysa (`custom`, `target` bir görev
+   * kimliği; ör. m_grank → g1_rats) hedef alt görevin **şu anki** amacının hedefidir ve dönen `id` alt görevdir
+   * (bekleme ve hikâye hedefi oradan okunur). Alt görev henüz alınmadıysa ilanları dağıtan Celeste.
+   * Aktif alt görevi olan amaç önce gelir (oyuncu hangi ilanla uğraşıyorsa ok onu gösterir).
+   */
+  targetOf(id: string): { id: string; def: QuestDef; t: QuestTarget; idx: number } | null {
+    return questTargetOf(G.state.quests, id, lookup, { map: 'guild', npc: 'celeste' });
   },
 };
 
