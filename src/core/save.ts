@@ -6,6 +6,7 @@ import { newQuestLog, startQuest, type QuestLog } from './quests';
 import { questDef, rankupQuest } from '../data/quests';
 import { BOARD_TEMPLATES } from '../data/sidequests';
 import { STAT_POINTS_PER_LEVEL, zeroStats } from './formulas';
+import { SATIETY_MIGRATE } from './hunger';
 import { normalizeWallet, emptyWallet } from './money';
 import { normalizeSkillExp, ownedTechniques, sanitizeSlots } from './skills';
 import { SKILLS, REMOVED_TECHNIQUES } from '../data/skills';
@@ -108,6 +109,7 @@ const REMOVED_STATS = ['DEX', 'MNA'];
  * - B12: Bertram'ın işi 3 → 2 vardiya: 1/3 → 1/2; 2/3 ya da üstü → iş bitmiş sayılır, ücret sahnesi bir sonraki
  *   Bertram konuşmasında oynar (`bertram_pay_pending`; ödeme bir kez).
  * - Görev ilerleme dizileri tanımla eşitlenir (0.10.0: "Hana Git"e Appraisal amacı eklendi).
+ * - B13: Tokluk alanı yoksa 80.
  */
 export function migrateV8toV9(d: any): any {
   d.flags ??= {};
@@ -133,6 +135,8 @@ export function migrateV8toV9(d: any): any {
     if (st && st.status === 'active' && Array.isArray(st.progress)) st.progress[0] = Math.min(2, st.progress[0] ?? 0);
   }
   padQuestProgress(d.quests);
+  // B13: Tokluk (alan yoksa 80)
+  if (typeof d.satiety !== 'number') d.satiety = SATIETY_MIGRATE;
   d.saveVersion = 9;
   return d;
 }

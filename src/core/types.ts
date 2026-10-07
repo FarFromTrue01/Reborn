@@ -60,6 +60,8 @@ export interface ItemDef {
   stats?: Partial<Stats>;
   hpFlat?: number;
   effects?: ItemEffect[];
+  /** B13: yiyecek Tokluk verir (0–100). */
+  satiety?: number;
   /** Özel efekt açıklaması (görsel). */
   special?: string;
   desc: string;

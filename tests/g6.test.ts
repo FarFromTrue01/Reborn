@@ -281,3 +281,106 @@ describe('Ormanda daha az ağaç (B8)', () => {
     expect(w.gathers.filter((g: any) => g.item === 'herb').length).toBeGreaterThanOrEqual(HERBS_AT_FOREST_EDGE);
   });
 });
+
+import { sourceWait } from '../src/world/sources';
+describe('kaynak beklemesi uyunamaz (B10.4)', () => {
+  it('yaratık kalmayınca bekleme metni var, until null (yan/pano görevi de olsa)', () => {
+    const spawns = [{ id: 'a', monster: 'slime', x: 0, y: 0, radius: 2, count: 1, respawn: 720 }];
+    const c = { spawns, gathers: [], respawns: { 'a#0': 1600 }, now: 1000, droppersOf: () => [], gathered: () => false };
+    const w = sourceWait({ monster: 'slime' }, c)!;
+    expect(w.until).toBeNull();
+    expect(w.text).toBe('Sümüksü kalmadı. Yeniden doğuş: yarın 02:40');
+    expect(sourceWait({ monster: 'slime' }, { ...c, respawns: {} })).toBeNull();
+    expect(sourceWait({ map: 'world', npc: 'x' } as any, c)).toBeNull();
+  });
+});
+
+import { decaySatiety, eatSatiety, hungerState, hungerMods, bestFood, SATIETY_START, FULL_AT, SHIFT_MEAL } from '../src/core/hunger';
+import { ITEMS as IT6 } from '../src/data/items';
+import { newGameState as ngs6 } from '../src/core/state';
+import { migrateV8toV9 } from '../src/core/save';
+describe('Tokluk (B13)', () => {
+  it('azalma: uyanık saatte −4, uyurken −2', () => {
+    expect(decaySatiety(50, 60, false)).toBe(46);
+    expect(decaySatiety(50, 60, true)).toBe(48);
+    expect(decaySatiety(50, 8 * 60, true)).toBe(34);
+    expect(decaySatiety(2, 120, false)).toBe(0);
+  });
+  it('eşikler: <30 Aç (dayanıklılık yenilenmesi yarı), <10 Çok aç (HP yenilenmez, dayanıklılık −%25); öldürmez', () => {
+    expect(hungerState(30)).toBe('normal');
+    expect(hungerState(29.9)).toBe('hungry');
+    expect(hungerState(9.9)).toBe('starving');
+    expect(hungerMods(50)).toEqual({ staminaRegen: 1, hpRegen: 1, maxStamina: 1 });
+    expect(hungerMods(20)).toEqual({ staminaRegen: 0.5, hpRegen: 1, maxStamina: 1 });
+    expect(hungerMods(0)).toEqual({ staminaRegen: 0.5, hpRegen: 0, maxStamina: 0.75 });
+  });
+  it('yemek etkileri, tavan ve "Tokum"', () => {
+    const want: Record<string, number> = { apple: 10, bread: 20, honey_bun: 25, cheese: 25, dried_meat: 30, hot_stew: 40, meat_pie: 50 };
+    for (const [id, v] of Object.entries(want)) expect(IT6[id].satiety, id).toBe(v);
+    for (const it of Object.values(IT6)) if (it.kind === 'food') expect(it.satiety, it.id).toBeGreaterThan(0);
+    expect(eatSatiety(90, 50)).toEqual({ value: 100, refused: false });
+    expect(eatSatiety(FULL_AT, 10)).toEqual({ value: FULL_AT, refused: true });
+    expect(SHIFT_MEAL).toBe(40);
+  });
+  it('en uygun yiyecek: ihtiyacı aşmayan en büyük, yoksa en küçük', () => {
+    const f = [{ id: 'apple', satiety: 10, price: 3 }, { id: 'stew', satiety: 40, price: 12 }, { id: 'pie', satiety: 50, price: 18 }];
+    expect(bestFood(f, 40)).toBe('pie');
+    expect(bestFood(f, 70)).toBe('apple');
+    expect(bestFood(f, 95)).toBe('apple');
+    expect(bestFood([], 10)).toBeNull();
+  });
+  it('yeni oyun 40 ile başlar; eski kayıtta alan yoksa 80', () => {
+    expect(ngs6().satiety).toBe(SATIETY_START);
+    expect(SATIETY_START).toBe(40);
+    const old: any = ngs6();
+    delete old.satiety;
+    expect(migrateV8toV9(old).satiety).toBe(80);
+  });
+  it('parasız oyuncu elmayla normal Tokluğa çıkabilir (kilitlenme yok)', () => {
+    const appleTrees = MAPS.world.gathers.filter((g: any) => g.item === 'apple').length;
+    // günde her ağaç ≥ 3 elma (0.8.0), elma 10 Tokluk: bir günde ≥ 30 Tokluk (uyanık 16 saatte −64'e karşı ağaç sayısıyla)
+    expect(appleTrees * 3 * 10).toBeGreaterThanOrEqual(64);
+    expect(IT6.apple.price).toBeLessThanOrEqual(3);
+  });
+});
+
+import { startQuest as sq6 } from '../src/core/quests';
+import { migrate as mig6 } from '../src/core/save';
+describe('Kayıt göçü v8 → v9 (B9/B12)', () => {
+  const v8 = (workDays: number, extra: Record<string, any> = {}) => {
+    const s: any = ngs6();
+    s.saveVersion = 8;
+    s.flags = { woke: true, inn_met: true, bertram_deal: true, ...extra };
+    s.counters = { workDays };
+    sq6(s.quests, qdef6('m_inn')!, 1);
+    s.quests.quests.m_inn.status = 'done';
+    s.quests.quests.m_inn.progress = [1];
+    sq6(s.quests, qdef6('m_bertram')!, 1);
+    s.quests.quests.m_bertram.progress = [workDays];
+    s.player.level = 3;
+    s.player.alloc = { STR: 6, VIT: 4, AGI: 2, DEX: 3, MNA: 1, INT: 1, LUK: 1 };
+    s.player.unspent = 0;
+    delete s.satiety;
+    return s;
+  };
+  it('Bertram 1/3 → 1/2; 2/3 → iş bitti, ücret sahnesi bekliyor (ödeme bir kez)', () => {
+    const a = mig6(v8(1), 8);
+    expect(a.quests.quests.m_bertram.progress).toEqual([1]);
+    expect(a.flags.bertram_pay_pending).toBeUndefined();
+    const b = mig6(v8(2), 8);
+    expect(b.quests.quests.m_bertram.progress).toEqual([2]);
+    expect(b.flags.bertram_pay_pending).toBe(true);
+    expect(b.quests.quests.m_bertram.status).toBe('active');
+    const c = mig6(v8(2, { bertram_done: true }), 8);
+    expect(c.flags.bertram_pay_pending).toBeUndefined();
+  });
+  it('statlar sıfırlanır: 4 × level dağıtılmamış puan, DEX/MNA yok, bildirim bayrağı', () => {
+    const m = mig6(v8(0), 8);
+    expect(m.player.alloc).toEqual({ STR: 0, VIT: 0, AGI: 0, INT: 0, LUK: 0 });
+    expect(m.player.unspent).toBe(12);
+    expect(m.flags.stat_reset_notice).toBe(true);
+    // yeni amaç eklenen görevin ilerlemesi tanımla eşit
+    expect(m.quests.quests.m_inn.progress).toEqual([1, 1]);
+    expect(m.satiety).toBe(80);
+  });
+});

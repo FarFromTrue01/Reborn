@@ -6,6 +6,7 @@ import { readSave, writeSave, latestSlot, type SlotKey } from '../core/save';
 import { derive, type Derived } from '../core/creature';
 import { setCommitHook } from '../core/transactions';
 import { round2 } from '../core/formulas';
+import { hungerMods } from '../core/hunger';
 
 class GameContext {
   state: GameState = newGameState();
@@ -33,7 +34,7 @@ class GameContext {
 
   /** Oyuncunun hesaplanmış statları (önbellekli). */
   get d(): Derived {
-    if (!this.derivedCache) this.derivedCache = derive(this.state.player, { level: this.state.divine.level });
+    if (!this.derivedCache) this.derivedCache = derive(this.state.player, { level: this.state.divine.level, staminaMult: hungerMods(this.state.satiety ?? 100).maxStamina });
     return this.derivedCache;
   }
 

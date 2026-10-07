@@ -22,8 +22,8 @@ export const MAIN_QUESTS: QuestDef[] = [
   },
   {
     id: 'm_bertram', kind: 'main', chapter: 1, title: 'Bertram\'ın İşi', giver: 'bertram',
-    desc: 'Bertram üç gün çalışmamı istiyor: bulaşık, odun, masa. Günde bir vardiya. Üçüncü günün akşamı elli bronz ve üstüne kıyafet.',
-    objectives: [{ type: 'custom', label: 'Handa çalış (Bertram\'la konuş)', target: 'shift', count: 3, where: NPC('inn', 'bertram') }],
+    desc: 'Bertram iki gün çalışmamı istiyor: bulaşık, odun, masa. Günde bir vardiya, akşam yemeği ondan. İkinci günün akşamı elli bronz ve üstüne kıyafet.',
+    objectives: [{ type: 'custom', label: 'Handa çalış (Bertram\'la konuş)', target: 'shift', count: 2, where: NPC('inn', 'bertram') }],
     reward: { money: 50, text: 'Keten gömlek, pantolon ve ayakkabı' },
   },
   {

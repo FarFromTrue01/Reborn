@@ -18,6 +18,7 @@ import { transact, equip } from '../core/transactions';
 import { walletTotal, emptyWallet, formatPrice } from '../core/money';
 import { nextMorning, hourOf, clockLabel, fromAbsMinute, advanceWithDays } from '../core/time';
 import { canSleep, absMinute } from '../core/sleep';
+import { SHIFT_MEAL } from '../core/hunger';
 import { activeQuests, type QuestGuide, type QuestTarget } from '../core/quests';
 import { boardRewardRanges, MAX_BOARD_QUESTS } from '../data/sidequests';
 import { dirFromVec } from '../world/actor';
@@ -506,6 +507,7 @@ export class Director {
   advanceClock(minutes: number) {
     const { time, days } = advanceWithDays(G.state.time, minutes);
     G.state.time = time;
+    R.passHunger(minutes);
     for (let i = 0; i < days; i++) {
       R.onNewDay();
       this.onNewDay();
@@ -851,10 +853,10 @@ export class Director {
     await this.say('bertram', 'İş istiyorsun demek. Görünüşe bakılırsa ne paran var ne de adın.');
     await this.say('joseph', 'Adım Joseph. Ama gerisi... doğru.');
     await this.say('bertram', 'Joseph. İyi. Bak, sana açık konuşacağım. Ben lafı dolandırmam.');
-    await this.say('bertram', 'Üç gün çalışırsın. Bulaşık, odun, akşamları da masalar. Günde bir vardiya, sabahtan geceye.');
-    await this.say('bertram', 'Karşılığı üçüncü günün akşamı, hepsi birden: elli bronz. Üstüne seni giydiririm. Bu hâlde ne iş görürsün ne adam yüzü.');
-    await this.say('bertram', 'İlk günün yemeği benden. Tavan arasında bir yatak var, o da senin. Sonraki günlerin yemeğini herkes gibi parayla yersin.');
-    const c = await this.ui.choice(['"Kabul. Elimden geleni yaparım."', '"Üç gün. Söz veriyorum."']);
+    await this.say('bertram', 'İki gün çalışırsın. Bulaşık, odun, akşamları da masalar. Günde bir vardiya, sabahtan geceye.');
+    await this.say('bertram', 'Karşılığı ikinci günün akşamı, hepsi birden: elli bronz. Üstüne seni giydiririm. Bu hâlde ne iş görürsün ne adam yüzü.');
+    await this.say('bertram', 'Çalıştığın günlerin yemeği benden, akşam güveci. Tavan arasında bir yatak var, o da senin. İş bitince yemeğini herkes gibi parayla yersin.');
+    const c = await this.ui.choice(['"Kabul. Elimden geleni yaparım."', '"İki gün. Söz veriyorum."']);
     G.affinity('bertram', 1);
     if (c === 0) await this.say('bertram', 'Elinden geleni değil, işin gerektirdiğini yapacaksın. Ama niyetin iyi.');
     else await this.say('bertram', 'Söz mü? Hah. Bu dünyada söz bronzdan ucuzdur. Seninki öyle olmasın.');
@@ -884,7 +886,7 @@ export class Director {
     await this.say('lina', 'Hihi! Bulaşık prensi!', 'gulen');
     await this.think('...Bir iş, bir yatak, bir gömlek. Bu dünyadaki ilk sahip olduklarım.');
     Q.start('m_bertram', true);
-    R.sysmsg('İŞ: YORGUN YABAN DOMUZU HANI', [`${JOBS.bertramShifts} vardiya (günde en fazla 1)`, `Ödeme: ${JOBS.bertramShifts}. günün sonunda {m:${JOBS.bertramPay}}`, 'İlk günün yemeği Bertram\'dan.', 'Tavan arasındaki yatak artık senin (yeniden doğma noktası).']);
+    R.sysmsg('İŞ: YORGUN YABAN DOMUZU HANI', [`${JOBS.bertramShifts} vardiya (günde en fazla 1, 06:00–15:00 arası başlar)`, `Ödeme: ${JOBS.bertramShifts}. günün sonunda {m:${JOBS.bertramPay}}`, `Vardiya günlerinin yemeği Bertram\'dan (+${SHIFT_MEAL} Tokluk).`, 'Tavan arasındaki yatak artık senin (yeniden doğma noktası).']);
     G.save('auto');
   }
 
@@ -963,6 +965,13 @@ export class Director {
       await this.say('bertram', 'Ne istiyorsun?');
       return;
     }
+    // B12: 0.9.0 kaydından gelen, işi (2/3 → 2/2) bitmiş oyuncu: ücret sahnesi bir kez
+    if (deal && !done && G.flag('bertram_pay_pending')) {
+      delete G.state.flags.bertram_pay_pending;
+      await this.say('bertram', 'Sen! Hesabımız kaldı, evlat. Otur.');
+      await this.bertramSpeech();
+      return;
+    }
     const opts: string[] = [];
     const acts: (() => Promise<void>)[] = [];
     if (deal && !done) {
@@ -987,7 +996,7 @@ export class Director {
     } else if (done) {
       opts.push('İş var mı?');
       acts.push(async () => {
-        await this.say('bertram', 'Sana verecek işim kalmadı, evlat. Söz sözdür: üç gündü, üç gün oldu.');
+        await this.say('bertram', 'Sana verecek işim kalmadı, evlat. Söz sözdür: iki gündü, iki gün oldu.');
         if (!G.flag('farm_done')) await this.say('bertram', 'Haldor\'a gittin mi? Kuzeydoğudaki buğday tarlası. Elli bronz, unutma.');
         else if (!G.flag('guild_registered')) await this.say('bertram', 'Bir gümüşün var. Daha ne bekliyorsun? Lonca seni bekliyor.');
         else await this.say('bertram', 'Artık maceracısın. Para avda, evlat. Fare kuyruğu bile para eder. Az, ama eder.');
@@ -1009,8 +1018,8 @@ export class Director {
     }
     opts.push('Yiyecek ve içecek');
     acts.push(async () => {
-      if (Director.freeMealToday()) await this.say('bertram', 'Bugünün yemeği benden, söz verdim. Güveci al. Yarından sonra parasını ödersin.');
-      else await this.say('bertram', 'Sıcak güveç on iki bronz. Ekmek dört. Elma üç. Bedava yemek ilk gündü, evlat.');
+      if (deal && !done) await this.say('bertram', 'Çalıştığın akşam güvecin benden, vardiyadan sonra. Şimdi bir şey istersen parasıyla: güveç on iki, ekmek dört, elma üç.');
+      else await this.say('bertram', 'Sıcak güveç on iki bronz. Ekmek dört. Elma üç. Aç kalma, evlat; aç adam iş göremez.');
       this.ui.closeDialogue();
       await openShop(this.ui, 'inn');
     });
@@ -1066,10 +1075,10 @@ export class Director {
     const day = G.state.time.day;
     const shift = Math.min(this.shiftsDone() + 1, JOBS.bertramShifts);
     const total = JOBS.bertramShifts;
+    // B12 (0.10.0): iş iki gün
     const intro = [
       'Güzel. Önce bulaşıklar, sonra odun. Akşam han dolar, o zaman masalara koşarsın. Bira, güveç, ekmek. Karıştırma.',
-      'Aynı iş. Bugün daha kalabalık olacak, değirmenciler ücret almış. Ayağına çabuk ol.',
-      'Son gün. Bu akşam Aurelio\'nun adamları da gelecek. Akşama kadar dayan, sonra konuşacağız.',
+      'Son gün. Bu akşam değirmenciler ücret almış, Aurelio\'nun adamları da gelecek. Akşama kadar dayan, sonra konuşacağız.',
     ];
     await this.say('bertram', intro[shift - 1]);
     await this.ui.curtain(1, 700);
@@ -1081,14 +1090,9 @@ export class Director {
         ['Akşam oluyor. Kapı açıldı, han dolmaya başladı.', 'laugh'],
       ],
       [
-        ['Sabah ekmek teknesini taşıdım. Bertram ocağı yakmayı gösterdi: "Önce kuru dal, sonra sabır."', 'chop'],
-        ['Avcı Garrick bir tavşan getirdi. Derisini yüzmeyi seyrettim. Mide bulandırıcı ve... öğretici.', 'click'],
-        ['Değirmenciler geldi. Masalar bir anda doldu.', 'laugh'],
-      ],
-      [
-        ['Son gün. Bulaşık kulesi bile daha kısa görünüyor.', 'click'],
-        ['Garrick\'in kurt postlarını tabakhaneye taşıdım. Gorm burnunu bile kaldırmadı.', 'chop'],
-        ['Tüccar Aurelio\'nun adamları şöminenin önüne oturdu. Köylüler ayakta kaldı. Ben koştum.', 'laugh'],
+        ['Son gün. Sabah ekmek teknesini taşıdım. Bertram ocağı yakmayı gösterdi: "Önce kuru dal, sonra sabır."', 'chop'],
+        ['Garrick\'in kurt postlarını tabakhaneye taşıdım. Gorm burnunu bile kaldırmadı.', 'click'],
+        ['Değirmenciler geldi, ardından Aurelio\'nun adamları şöminenin önüne oturdu. Köylüler ayakta kaldı. Ben koştum.', 'laugh'],
       ],
     ];
     const scenes = SCENES[shift - 1];
@@ -1133,28 +1137,28 @@ export class Director {
     G.setFlag('serve_best', best);
     G.state.counters.workDays = shift;
     G.setFlag('worked_today', day);
-    G.state.time.minute = Math.max(G.state.time.minute, 21 * 60);
+    // vardiya akşama kadar sürer: geçen saatler (uyanık) Tokluğu düşürür, sonra Bertram'ın güveci (B13)
+    const end = Math.max(G.state.time.minute, 21 * 60);
+    R.passHunger(end - G.state.time.minute);
+    G.state.time.minute = end;
+    R.feed(SHIFT_MEAL);
+    R.toast(`Bertram'ın güveci: +${SHIFT_MEAL} Tokluk`, 'info', 'inv_food');
     G.p.hp = G.d.maxHp;
     G.p.stamina = G.d.maxStamina;
-    if (shift === 1) G.setFlag('free_meal_day', day);
     Q.notify('custom', 'shift');
     await this.ui.curtain(0, 700);
     this.w.updateMusic();
     // Bertram'ın yorumu yalnızca performansa göre değişir; ücret ve hikâye aynı
     const COMMENTS: [string, string, string][] = [
-      ['Hiç fena değil. Bir tek bira döktün, onu da kendin sildin. İyi.', 'Yavaşsın ama tabak kırmadın. Yarın daha hızlı olursun.', 'İki müşteri kapıdan söylenerek çıktı. Bira bekleyen adam sabırsızdır, evlat.'],
-      ['Değirmenciler bahşiş bıraktı. Kasaya gitti tabii. Ama bıraktılar.', 'Fena değil. Tabakları unutma, masa kirliyken kimse oturmaz.', 'Ayakların birbirine dolaştı. Yarın son gün, toparlan.'],
+      ['Hiç fena değil. Bir tek bira döktün, onu da kendin sildin. İyi.', 'Yavaşsın ama tabak kırmadın. Yarın daha hızlı olursun.', 'İki müşteri kapıdan söylenerek çıktı. Bira bekleyen adam sabırsızdır, evlat. Yarın son gün, toparlan.'],
       ['Aurelio\'nun adamları bile şikâyet etmedi. Bu hanın tarihinde ilk.', 'İdare eder. Ben de ilk yıl böyleydim.', 'Kötü bir akşamdı. Ama sonuna kadar koştun. Bu da bir şey.'],
     ];
     const ci = perf >= 0.75 ? 0 : perf >= 0.45 ? 1 : 2;
     await this.say('bertram', COMMENTS[shift - 1][ci]);
     if (shift < total) {
-      const after = [
-        'Ödemen üçüncü akşam, sözleştiğimiz gibi. Bugünün yemeği benden, güveci al. Yarından sonra parasını ödersin.',
-        'İki gün oldu. Yarın son gün. Erken gel.',
-      ];
-      await this.say('bertram', after[shift - 1]);
-      await this.say('bertram', 'Yemeğini ye, sonra yukarı çık ve uyu.');
+      await this.say('bertram', 'Ödemen yarın akşam, sözleştiğimiz gibi. Yarın son gün, erken gel.');
+      await this.say('bertram', 'Al, güvecin. Çalıştığın günlerin yemeği benden. Ye, sonra yukarı çık ve uyu. Merdiven arkada.');
+      await this.think('Sıcak güveç. Midem bu dünyada ilk kez doydu.');
       G.save('auto');
       return;
     }
@@ -1163,7 +1167,8 @@ export class Director {
 
   /** Üçüncü günün sonunda: ödeme ve dünyanın düzeni üzerine uzun konuşma. */
   async bertramSpeech() {
-    await this.say('bertram', 'Üç gün. Bir kere bile sızlanmadın. Bir tabak da kırmadın... Fenn\'in kırdığını saymazsak.');
+    await this.say('bertram', 'İki gün. Bir kere bile sızlanmadın. Bir tabak da kırmadın... Fenn\'in kırdığını saymazsak.');
+    await this.say('bertram', 'Önce güvecini al. Bugünün yemeği de benden.');
     await this.say('bertram', 'Al. Elli bronz, sözleştiğimiz gibi. Gömlek, pantolon, ayakkabı da senin.');
     R.giveMoney(JOBS.bertramPay, 'Bertram\'ın ücreti');
     Sound.sfx('coin');
@@ -1194,7 +1199,7 @@ export class Director {
     await this.say('bertram', 'Benim verdiğim elli bronz yetmez, biliyorum. O yüzden bir çare buldum.');
     await this.say('bertram', 'Köyün kuzeydoğusunda bir buğday tarlası var. Sahibi Haldor, eski dostum. Dizleri artık tutmuyor, başaklar biçilmeyi bekliyor.');
     await this.say('bertram', 'Git, Bertram gönderdi de. Hasada yardım edersen o da elli bronz verir. İkisi bir gümüş eder. Sonra loncaya git, kaydol.');
-    await this.say('bertram', 'Tavan arasındaki yatak hâlâ senin. Kira istemem. Ama yemeğini artık kendin ödersin.');
+    await this.say('bertram', 'Tavan arasındaki yatak hâlâ senin. Kira istemem. Ama yemeğini artık kendin ödersin. Para yoksa Haldor\'un yolundaki elma ağaçları bedava, unutma.');
     const c3 = await this.ui.choice(['"Bertram... neden bu kadar yardım ediyorsun?"', '"Teşekkür ederim. Unutmayacağım."']);
     if (c3 === 0) await this.say('bertram', 'Çünkü ben de bir zamanlar bir kapının önünde aç durdum. Biri bana da iş verdi. Borcumu ödüyorum, o kadar.');
     else await this.say('bertram', 'Unutma. Ama bana değil, bir gün kapının önünde aç duran birine öde.');
@@ -1271,6 +1276,9 @@ export class Director {
     await this.say('haldor', 'Al bakalım. Elli bronz. Söz sözdür.');
     R.giveMoney(JOBS.harvestPay, 'Haldor\'un hasadı');
     Sound.sfx('coin');
+    // B13: Haldor hasattan sonra bir ekmek verir
+    await this.say('haldor', 'Bir de şunu al. Elke\'nin ekmeği. Aç maceracı tarlada bile işe yaramaz.');
+    R.giveItems([{ id: 'bread', qty: 1 }], 'Haldor\'un ekmeği');
     G.setFlag('farm_done');
     G.affinity('haldor', 2);
     Q.complete('m_harvest', { money: 0, silent: true });
@@ -1675,6 +1683,8 @@ export class Director {
     })();
     G.state.time = wake;
     G.state.awakeSince = absMinute(wake.day, wake.minute);
+    // B13: uyurken Tokluk yarı hızda azalır
+    R.passHunger(absMinute(wake.day, wake.minute) - now, true);
     // gün değişimi: görev uykusunda geçilen her gün için bir kez (normal uykuda eskisi gibi bir kez)
     const days = questSleep ? Math.max(0, wake.day - t.day) : 1;
     for (let i = 0; i < days; i++) {

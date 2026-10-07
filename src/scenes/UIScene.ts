@@ -1,4 +1,5 @@
 import Phaser from 'phaser';
+import { hungerState, HUNGER_NAMES, SATIETY_MAX } from '../core/hunger';
 import { G } from '../game/G';
 import { Display } from '../game/display';
 import { Input, type Action } from '../game/input';
@@ -61,6 +62,7 @@ export class UIScene extends Phaser.Scene {
   hud!: Phaser.GameObjects.Container;
   hudG!: Phaser.GameObjects.Graphics;
   hudTexts: Record<string, Phaser.GameObjects.Text> = {};
+  satIcon: Phaser.GameObjects.Image | null = null;
   minimap!: Phaser.GameObjects.Image;
   minimapTex!: Phaser.Textures.CanvasTexture;
   minimapT = 0;
@@ -95,7 +97,7 @@ export class UIScene extends Phaser.Scene {
   eatBtn: Button | null = null;
   eatCount: Phaser.GameObjects.Text | null = null;
   joyFixed: { base: Phaser.GameObjects.Graphics; knob: Phaser.GameObjects.Graphics; x: number; y: number } | null = null;
-  hudPanelH = 150;
+  hudPanelH = 166;
   /** HUD'un alt kenarı (görev kutusu ve yoldaş çubukları dahil): bildirimler bunun altına dizilir. */
   hudBottom = 170;
   questBox: QuestBox | null = null;
@@ -160,7 +162,8 @@ export class UIScene extends Phaser.Scene {
     this.eatBtn = null;
     this.eatCount = null;
     this.joyFixed = null;
-    this.hudPanelH = 150;
+    this.hudPanelH = 166;
+    this.satIcon = null;
     this.hudBottom = 170;
     this.questBox = null;
     this.partyBars = null;
@@ -267,8 +270,12 @@ export class UIScene extends Phaser.Scene {
     T('hp', 28, 43, { size: 14, font: FONT.ui, bold: true, stroke: true });
     T('mp', 28, 67, { size: 12, font: FONT.ui, bold: true, stroke: true });
     T('st', 296, 84, { size: 11, font: FONT.ui, bold: true, stroke: true, color: '#cfeac0' }).setOrigin(1, 0);
-    T('exp', 296, 100, { size: 11, font: FONT.ui, bold: true, stroke: true, color: '#d8c8ff' }).setOrigin(1, 0);
-    T('light', 28, 114, { size: 11, font: FONT.ui, bold: true, stroke: true, color: '#ffe9a0' });
+    // B13: Tokluk (dayanıklılığın altında, ikon + bar; Aç/Çok aç renkli)
+    T('sat', 296, 100, { size: 11, font: FONT.ui, bold: true, stroke: true, color: '#f3dc95' }).setOrigin(1, 0);
+    this.satIcon = this.add.image(26, 106, 'uiicons', 'inv_food').setScale(15 / 72);
+    this.hud.add(this.satIcon);
+    T('exp', 296, 116, { size: 11, font: FONT.ui, bold: true, stroke: true, color: '#d8c8ff' }).setOrigin(1, 0);
+    T('light', 28, 130, { size: 11, font: FONT.ui, bold: true, stroke: true, color: '#ffe9a0' });
     // Sağ üst: saat, tarih, bölge (okunur boyutta) ve mini harita
     T('clock', W - 196, 12, { size: 26, font: FONT.title, color: COLORS.textGold, bold: true, stroke: true, align: 'right' }).setOrigin(1, 0);
     T('date', W - 196, 46, { size: 15, color: '#e8dcc0', stroke: true, bold: true }).setOrigin(1, 0);
@@ -430,7 +437,7 @@ export class UIScene extends Phaser.Scene {
     const W = Display.uiW;
     // sol üst panel
     const hasLight = G.state.divine.skills.length > 0;
-    const panelH = hasLight ? 168 : 150;
+    const panelH = hasLight ? 184 : 166;
     this.hudPanelH = panelH;
     drawFrame(g, 8, 6, 300, panelH, { alpha: 0.8, ornate: false });
     this.hudTexts.name.setText('Joseph');
@@ -476,14 +483,25 @@ export class UIScene extends Phaser.Scene {
     this.hudTexts.mp.setText(`MP ${Math.floor(p.mp)} / ${d.maxMp}`);
     drawBar(g, 20, 86, 186, 9, p.stamina / d.maxStamina, COLORS.st, 0x0a160a);
     this.hudTexts.st.setText(`Dayanıklılık ${Math.floor(p.stamina)}`);
+    // B13: Tokluk
+    const sat = G.state.satiety ?? 100;
+    const hs = hungerState(sat);
+    const satCol = hs === 'starving' ? 0xe04030 : hs === 'hungry' ? 0xf09030 : 0xd9b45a;
+    drawBar(g, 36, 102, 170, 9, sat / SATIETY_MAX, satCol, 0x1a1206);
+    if (hs !== 'normal') {
+      const pulse = 0.35 + Math.sin(this.time.now / 220) * 0.25;
+      g.lineStyle(1.5, satCol, pulse);
+      g.strokeRect(35, 101, 172, 11);
+    }
+    this.hudTexts.sat.setText(hs === 'normal' ? `Tokluk ${Math.floor(sat)}` : `${HUNGER_NAMES[hs]}! ${Math.floor(sat)}`).setColor(hs === 'starving' ? '#ff8a7a' : hs === 'hungry' ? '#ffc070' : '#f3dc95');
     const need = expToNext(p.level);
-    drawBar(g, 20, 102, 186, 9, p.exp / need, 0x9a6ae8, 0x140a20);
+    drawBar(g, 20, 118, 186, 9, p.exp / need, 0x9a6ae8, 0x140a20);
     this.hudTexts.exp.setText(`EXP ${fmtExp(p.exp)} / ${need}`);
-    let y = 120;
+    let y = 136;
     if (hasLight) {
-      drawBar(g, 20, 120, 276, 9, G.state.divine.light / LIGHT_MAX, COLORS.light, 0x1a1404);
-      this.hudTexts.light.setText(`Işık ${Math.floor(G.state.divine.light)}`).setPosition(28, 116);
-      y = 138;
+      drawBar(g, 20, 136, 276, 9, G.state.divine.light / LIGHT_MAX, COLORS.light, 0x1a1404);
+      this.hudTexts.light.setText(`Işık ${Math.floor(G.state.divine.light)}`).setPosition(28, 132);
+      y = 154;
     } else this.hudTexts.light.setText('');
     // Para: simgelerle (yalnızca değişince yeniden çizilir)
     const key = JSON.stringify(p.wallet) + y;

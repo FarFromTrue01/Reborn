@@ -47,8 +47,10 @@ export function itemLabel(id: string): string {
 
 export function itemEffectsText(id: string): string {
   const it = ITEMS[id];
-  if (!it?.effects) return '';
-  return it.effects
+  if (!it?.effects && !it?.satiety) return '';
+  // B13: yiyecekler önce Tokluk
+  const head = it.satiety ? [`+${it.satiety} Tokluk`] : [];
+  return [...head, ...(it.effects ?? [])
     .map((e) => {
       switch (e.type) {
         case 'heal': return `+${e.amount} HP`;
@@ -56,9 +58,9 @@ export function itemEffectsText(id: string): string {
         case 'stamina': return `+${e.amount} Dayanıklılık`;
         case 'regen': return `${e.duration} sn'de +${e.amount} HP`;
         case 'cure': return 'Olumsuz etkileri giderir';
-        case 'learnSkill': return 'Okununca skill öğretir';
       }
       return '';
-    })
+    })]
+    .filter(Boolean)
     .join(', ');
 }

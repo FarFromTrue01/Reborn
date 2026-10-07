@@ -18,6 +18,7 @@ import { buildSettings } from '../ui/settingsPanel';
 import { itemLabel, itemEffectsText } from '../ui/format';
 import { STAT_KEYS, expToNext, STAT_POINTS_PER_LEVEL, strDamageMult } from '../core/formulas';
 import { statHintText, statNowText } from '../core/statText';
+import { hungerState, SATIETY_MAX } from '../core/hunger';
 import { subRankToString, subRankLetter, skillThreshold, SUBRANK_MAX } from '../core/ranks';
 import { SKILLS, RARITY_NAMES, TECHNIQUES } from '../data/skills';
 import { TITLES, TRAIT_NAMES } from '../data/titles';
@@ -318,6 +319,11 @@ export class MenuScene extends Phaser.Scene {
       this.progress(inner, x0, by + 94, half, 16, p.stamina / d.maxStamina, COLORS.st, `Dayanıklılık ${Math.floor(p.stamina)} / ${d.maxStamina}`);
       const need = expToNext(p.level);
       this.progress(inner, x0 + half + 12, by + 94, half, 16, p.exp / need, 0x9a6ae8, `EXP ${fmtExp(p.exp)} / ${need}`);
+      // B13: Tokluk ve etkisi
+      const sat = G.state.satiety ?? 100;
+      const hs = hungerState(sat);
+      const satNote = hs === 'starving' ? 'Çok aç: HP yenilenmez, dayanıklılık −%25' : hs === 'hungry' ? 'Aç: dayanıklılık yenilenmesi −%50' : 'Tok';
+      this.progress(inner, x0 + half + 12, by + 122, half, 16, sat / SATIETY_MAX, hs === 'normal' ? COLORS.gold : hs === 'hungry' ? 0xf09030 : 0xe04030, `Tokluk ${Math.floor(sat)} / ${SATIETY_MAX} · ${satNote}`);
       inner.add(uiIcon(this, x0 + 10, by + 131, 'money', 20));
       inner.add(txt(this, x0 + 24, by + 122, 'Para', { size: 14, bold: true, color: '#cfeaff' }));
       inner.add(coinRow(this, x0 + 72, by + 131, p.wallet, { size: 20, font: 17 }));

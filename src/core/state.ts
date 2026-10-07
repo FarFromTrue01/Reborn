@@ -1,4 +1,5 @@
 import { zeroStats } from './formulas';
+import { SATIETY_START } from './hunger';
 import { emptyWallet, type Wallet } from './money';
 import type { CreatureData } from './types';
 import type { GameTime } from './time';
@@ -57,6 +58,8 @@ export interface GameState {
   gathered: Record<string, number>; // toplama noktası → toplandığı gün
   /** Hızlı Yemek yuvasına atanmış yiyecek (yoksa envanterdeki ilk yiyecek). */
   quickFood: string | null;
+  /** B13 (0.10.0): Joseph'in Tokluğu (0–100, core/hunger). */
+  satiety: number;
   // ---------------------------------------------------------------- 0.3.0
   /** Maceracılar Loncası: puan, borç, bekleyen terfi (C3). */
   guild: GuildState;
@@ -137,6 +140,7 @@ export function newGameState(): GameState {
     respawns: {},
     gathered: {},
     quickFood: null,
+    satiety: SATIETY_START,
     guild: newGuildState(),
     quests: newQuestLog(),
     cards: [],

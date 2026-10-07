@@ -2,7 +2,8 @@ import Phaser from 'phaser';
 import { G } from '../game/G';
 import { Display } from '../game/display';
 import { firstHop, warpCenterPx, distToRect, BED_REACH } from '../world/nav';
-import { questSources, sourceWaitText, type SourceCtx } from '../world/sources';
+import { bestFood } from '../core/hunger';
+import { questSources, sourceWait, type SourceCtx } from '../world/sources';
 import { interactBox } from '../data/props';
 import { Input } from '../game/input';
 import { Sound } from '../audio/audio';
@@ -743,10 +744,8 @@ export class WorldScene extends Phaser.Scene {
     const now = this.absMinute();
     // B10: kaynakların hepsi tükendi — toplama noktaları bugün toplandı ve/veya o yaratıktan kimse kalmadı.
     // Bu bekleme uyuyarak atlanmaz (until: null); dönüş saati metinde.
-    if ((t.item || t.monster) && !t.npc) {
-      const src = questSources(t, this.sourceCtx());
-      if (src.any && !src.live.length) return { text: sourceWaitText(t, src, now), until: null };
-    }
+    const sw = sourceWait(t, this.sourceCtx());
+    if (sw) return sw;
     const hour = G.state.time.minute / 60;
     if (t.map !== 'world' && t.map !== this.mapData.id) {
       const w = getMap(this, 'world').warps.find((x) => x.to === t.map);
@@ -1322,6 +1321,7 @@ export class WorldScene extends Phaser.Scene {
   tickMinute() {
     const before = G.state.time;
     G.state.time = advance(before, 1);
+    R.passHunger(1);
     if (G.state.time.day !== before.day) {
       R.onNewDay();
       this.director.onNewDay();
@@ -1917,7 +1917,9 @@ export class WorldScene extends Phaser.Scene {
     const need = R.questNeeded();
     const food = (id: string) => ITEMS[id]?.kind === 'food' && inv[id] > 0;
     if (q && food(q) && !need.has(q)) return q;
-    return Object.keys(inv).find((id) => food(id) && !need.has(id)) ?? (q && food(q) ? q : null) ?? Object.keys(inv).find(food) ?? null;
+    // B13: atanmış yiyecek yoksa Tokluk ihtiyacına en uygun olan
+    const cands = Object.keys(inv).filter((id) => food(id) && !need.has(id)).map((id) => ({ id, satiety: ITEMS[id].satiety ?? 0, price: ITEMS[id].price }));
+    return bestFood(cands, G.state.satiety ?? 0) ?? (q && food(q) ? q : null) ?? Object.keys(inv).find(food) ?? null;
   }
 
   /** Bir eşyayı tüket (yiyecekler bekleme kurallarına uyar). */

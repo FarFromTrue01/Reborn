@@ -13,7 +13,7 @@ import type { Npc, MarkerKind } from '../world/npc';
 import type { Warp } from '../world/types';
 import type { Director } from './director';
 import { NPC_BY_ID } from '../data/npcs';
-import { SIDE_QUESTS, SIDE_SCRIPTS, boardForDay, MAX_BOARD_QUESTS } from '../data/sidequests';
+import { SIDE_QUESTS, SIDE_SCRIPTS, boardForDay, MAX_BOARD_QUESTS, boardRewardRanges } from '../data/sidequests';
 import { currentObjective, activeQuests, type QuestDef, type QuestTarget } from '../core/quests';
 import { questDef } from '../data/quests';
 import { canTakeQuest, riskText, QUEST_POINTS, reRegister, REREGISTER_FEE, pointsToNext } from '../core/guild';
@@ -242,7 +242,13 @@ export class Chapter2 {
     });
     opts.push('Hoşça kal.');
     acts.push(async () => {});
-    await this.say('celeste', this.sideUnlocked() ? 'Pano orada. Okumayı biliyorsun, değil mi?' : 'G görevlerini bitir. Sonra konuşuruz.', 'normal');
+    // B3: yan görevler açılınca pano bir kez daha, açıkça anlatılır
+    if (this.sideUnlocked() && !G.flag('celeste_board_intro')) {
+      G.setFlag('celeste_board_intro');
+      const rr = boardRewardRanges();
+      await this.say('celeste', `Artık panodaki ilanların hepsine bakabilirsin. Şurada, duvarda. Her sabah yenileri asılır: G ilanları ${rr.G[0]}–${rr.G[1]}, F ilanları ${rr.F[0]}–${rr.F[1]} bronz.`, 'normal');
+      await this.say('celeste', `Aynı anda en fazla ${MAX_BOARD_QUESTS} ilan. Üç günde teslim etmezsen puan da para da gider. Pano orada. Okumayı biliyorsun, değil mi?`, 'alayci');
+    } else await this.say('celeste', this.sideUnlocked() ? 'Pano orada. Okumayı biliyorsun, değil mi?' : 'G görevlerini bitir. Sonra konuşuruz.', 'normal');
     const c = await this.ui.choice(opts);
     await acts[c]();
     return true;
@@ -1170,7 +1176,8 @@ export class Chapter2 {
     Q.complete('m_celebrate', { silent: true });
     G.setFlag('side_unlocked', this.day);
     G.setFlag('theft_day', this.day + 1);
-    R.sysmsg('YAN GÖREVLER AÇILDI', ['Köylülerin işleri artık seni bekliyor (yan görevler).', 'Lonca panosunda her sabah yeni ilanlar: G 15–40, F 60–90 bronz.', 'F ilanları risklidir: başarısızlıkta −30 puan ve ödülün iki katı ceza.'], { big: true, sound: 'title' });
+    const rr = boardRewardRanges();
+    R.sysmsg('YAN GÖREVLER AÇILDI', ['Köylülerin işleri artık seni bekliyor (yan görevler).', `Lonca panosunda her sabah yeni ilanlar: G ${rr.G[0]}–${rr.G[1]}, F ${rr.F[0]}–${rr.F[1]} bronz.`, 'F ilanları risklidir: başarısızlıkta −30 puan ve ödülün iki katı ceza.'], { big: true, sound: 'title' });
     for (const n of [vera, lina]) if (n) n.scripted = false;
     G.save('auto');
   }
@@ -1475,7 +1482,7 @@ export class Chapter2 {
       }
       case 'm_bertram': {
         // A3.1: günde bir vardiya, 06:00–15:00 arası başlar
-        if (!G.flag('bertram_deal') || G.flag('bertram_done')) return null;
+        if (!G.flag('bertram_deal') || G.flag('bertram_done') || G.flag('bertram_pay_pending')) return null;
         const h = G.state.time.minute / 60;
         const worked = G.flag('worked_today') === this.day;
         if (!worked && h >= 6 && h < 15) return null;

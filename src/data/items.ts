@@ -163,32 +163,32 @@ const list: ItemDef[] = [
 
   // ------------------------------------------------------------------ Tüketilebilir
   {
-    id: 'bread', name: 'Ekmek', kind: 'food', price: 4, sell: 0, stack: true, icon: 'bread',
+    id: 'bread', name: 'Ekmek', kind: 'food', price: 4, sell: 0, satiety: 20, stack: true, icon: 'bread',
     effects: [{ type: 'heal', amount: 2 }], desc: 'Kepekli köy ekmeği. 2 HP iyileştirir.',
   },
   {
-    id: 'hot_stew', name: 'Sıcak Güveç', kind: 'food', price: 12, sell: 1, stack: true, icon: 'stew',
+    id: 'hot_stew', name: 'Sıcak Güveç', kind: 'food', price: 12, sell: 1, satiety: 40, stack: true, icon: 'stew',
     effects: [{ type: 'heal', amount: 6 }, { type: 'stamina', amount: 30 }],
     desc: 'Bertram\'ın mutfağından. 6 HP ve 30 dayanıklılık verir.',
   },
   {
-    id: 'apple', name: 'Elma', kind: 'food', price: 3, sell: 0, stack: true, icon: 'apple',
+    id: 'apple', name: 'Elma', kind: 'food', price: 3, sell: 0, satiety: 10, stack: true, icon: 'apple',
     effects: [{ type: 'heal', amount: 1 }, { type: 'stamina', amount: 10 }], desc: 'Ekşi bir yabani elma.',
   },
   {
-    id: 'honey_bun', name: 'Ballı Çörek', kind: 'food', price: 9, sell: 0, stack: true, icon: 'bread',
+    id: 'honey_bun', name: 'Ballı Çörek', kind: 'food', price: 9, sell: 0, satiety: 25, stack: true, icon: 'bread',
     effects: [{ type: 'heal', amount: 3 }, { type: 'stamina', amount: 20 }], desc: 'Brunhild\'in fırınından, üstü bal parlak. 3 HP ve 20 dayanıklılık.',
   },
   {
-    id: 'meat_pie', name: 'Etli Börek', kind: 'food', price: 18, sell: 1, stack: true, icon: 'pie',
+    id: 'meat_pie', name: 'Etli Börek', kind: 'food', price: 18, sell: 1, satiety: 50, stack: true, icon: 'pie',
     effects: [{ type: 'heal', amount: 8 }, { type: 'stamina', amount: 25 }], desc: 'Kıyır kıyır hamur, içi baharatlı et. 8 HP ve 25 dayanıklılık.',
   },
   {
-    id: 'cheese', name: 'Köy Peyniri', kind: 'food', price: 10, sell: 0, stack: true, icon: 'cheese',
+    id: 'cheese', name: 'Köy Peyniri', kind: 'food', price: 10, sell: 0, satiety: 25, stack: true, icon: 'cheese',
     effects: [{ type: 'heal', amount: 4 }, { type: 'stamina', amount: 10 }], desc: 'Rosa\'nın sağdığı sütten. 4 HP ve 10 dayanıklılık.',
   },
   {
-    id: 'dried_meat', name: 'Kuru Et', kind: 'food', price: 10, sell: 0, stack: true, icon: 'jerky',
+    id: 'dried_meat', name: 'Kuru Et', kind: 'food', price: 10, sell: 0, satiety: 30, stack: true, icon: 'jerky',
     effects: [{ type: 'heal', amount: 3 }, { type: 'stamina', amount: 15 }], desc: 'Garrick\'in tütsülediği av eti. Sert ama dayanıklı. 3 HP ve 15 dayanıklılık.',
   },
   {

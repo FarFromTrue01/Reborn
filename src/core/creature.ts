@@ -11,6 +11,8 @@ import { divineStat, movementWithDivine, overflowBonuses } from './divine';
 
 export interface DivineContext {
   level: number;
+  /** B13: açlığın en yüksek dayanıklılığa etkisi (Çok aç: 0,75). Yalnızca Joseph. */
+  staminaMult?: number;
 }
 
 export interface Derived {
@@ -146,7 +148,7 @@ export function derive(c: CreatureData, divine?: DivineContext | null): Derived 
     statSources: sources,
     maxHp: c.hpFixed !== undefined ? Math.max(0.1, round1((c.hpFixed + hpFlat) * (1 + hpPct))) : maxHP(c.level, stats.VIT, { hpFlat, hpPct }),
     maxMp: maxMP(c.level, stats.INT),
-    maxStamina: maxStamina(stats.VIT, stats.AGI, { staminaFlat }),
+    maxStamina: Math.round(maxStamina(stats.VIT, stats.AGI, { staminaFlat }) * (divine?.staminaMult ?? 1) * 100) / 100,
     def,
     weaponDmg,
     weaponType: w?.weaponType ?? null,

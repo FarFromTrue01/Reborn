@@ -109,3 +109,14 @@ export function sourceWaitText(t: { monster?: string; item?: string }, r: Source
   }
   return `${item} veren ${lower(MONSTERS[n.what]?.name ?? 'yaratık')} kalmadı. Yeniden doğuş: ${when}`;
 }
+
+/**
+ * Görev amacının kaynak beklemesi (B10): kaynakların hepsi tükendiyse metin ve **until: null** — bu bekleme uyuyarak
+ * atlanmaz ("Görev saatine kadar uyu" yalnızca ana görev saat beklemeleri için; questWaitSoonest null'ları eler).
+ */
+export function sourceWait(t: { monster?: string; item?: string; npc?: string }, c: SourceCtx): { text: string; until: null } | null {
+  if ((!t.item && !t.monster) || t.npc) return null;
+  const r = questSources(t, c);
+  if (!r.any || r.live.length) return null;
+  return { text: sourceWaitText(t, r, c.now), until: null };
+}

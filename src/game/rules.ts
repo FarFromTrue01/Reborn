@@ -1,5 +1,6 @@
 // Oyun kuralları: EXP, level, Divine, skill, eşya — bildirimleriyle birlikte.
 import { G } from './G';
+import { hungerState, decaySatiety, eatSatiety, SATIETY_MAX } from '../core/hunger';
 import { addExp, round2, STAT_POINTS_PER_LEVEL, SP_PER_LEVEL, type StatKey } from '../core/formulas';
 import { addDivineExp, victoryDivineExp, isMeaningfulVictory, trainingExp, streakMultiplier, TRAINING_SESSIONS_PER_DAY, divineExpToNext } from '../core/divine';
 import { fmtMult, fmtHp } from '../ui/format';
@@ -326,6 +327,31 @@ export function pay(amount: number, label: string, allowWhenLocked = false) {
   return transact(G.p as any, { label, pay: amount });
 }
 
+// ------------------------------------------------------------ açlık (B13)
+/** Tokluğu ayarla; Aç/Çok aç eşiği geçilirse türetilmiş değerler yenilenir (en yüksek dayanıklılık). */
+export function setSatiety(v: number) {
+  const before = hungerState(G.state.satiety ?? 100);
+  G.state.satiety = Math.max(0, Math.min(SATIETY_MAX, Math.round(v * 100) / 100));
+  const after = hungerState(G.state.satiety);
+  if (before !== after) {
+    G.invalidate();
+    if (after === 'hungry' && before === 'normal') toast('Acıktın. Dayanıklılığın yavaş doluyor.', 'warn', 'inv_food');
+    if (after === 'starving') toast('Çok açsın! Yaraların iyileşmiyor.', 'warn', 'inv_food');
+  }
+  G.events.emit('stats');
+}
+
+/** Zaman geçti: Tokluk azalır (uyurken yarısı). */
+export function passHunger(minutes: number, asleep = false) {
+  if (minutes <= 0) return;
+  setSatiety(decaySatiety(G.state.satiety ?? 100, minutes, asleep));
+}
+
+/** Yemek (hikâye: Bertram'ın güveci). Tavanı aşmaz; "Tokum" kuralı burada yok (hikâye yemeği). */
+export function feed(gain: number) {
+  setSatiety((G.state.satiety ?? 0) + gain);
+}
+
 // ------------------------------------------------------------ tüketme
 /**
  * Bir eşyayı tüketir (yiyecek, iksir). Yiyecekler bekleme kurallarına tabidir (core/eating).
@@ -343,6 +369,8 @@ export function consumeItem(id: string, eat: { state: EatState; now: number } | 
   if (!it || !G.p.inventory[id]) return { ok: false, reason: 'Elinde yok.' };
   if (questNeeded().has(id)) return { ok: false, reason: QUEST_ITEM_REASON };
   let next: EatState | undefined;
+  // B13: tokken yemek yenmez (eşya harcanmaz)
+  if (it.kind === 'food' && it.satiety && eatSatiety(G.state.satiety ?? 0, it.satiety).refused) return { ok: false, reason: 'Tokum.' };
   if (it.kind === 'food' && eat) {
     const r = eatRule(eat.state, eat.now);
     if (!r.ok) return { ok: false, reason: `Henüz yiyemezsin. (${Math.ceil(r.cooldown)} sn)` };
@@ -351,15 +379,16 @@ export function consumeItem(id: string, eat: { state: EatState; now: number } | 
   const t = transact(G.p as any, { label: 'Kullan: ' + it.name, take: [{ id, qty: 1 }] });
   if (!t.ok) return { ok: false, reason: t.reason };
   const p = G.p;
+  if (it.satiety) setSatiety(eatSatiety(G.state.satiety ?? 0, it.satiety).value);
   for (const e of it.effects ?? []) {
     if (e.type === 'heal') {
       const amt = Math.round(e.amount! * G.d.healMult * 10) / 10;
-      p.hp = Math.min(G.d.maxHp, p.hp + amt);
+      p.hp = round2(Math.min(G.d.maxHp, p.hp + amt));
       // İlk Yardım S- (Saha Hekimi): iyileşmenin yarısı yakındaki yoldaşlara
       G.events.emit('healed', amt);
     }
-    if (e.type === 'mana') p.mp = Math.min(G.d.maxMp, p.mp + e.amount!);
-    if (e.type === 'stamina') p.stamina = Math.min(G.d.maxStamina, p.stamina + e.amount!);
+    if (e.type === 'mana') p.mp = round2(Math.min(G.d.maxMp, p.mp + e.amount!));
+    if (e.type === 'stamina') p.stamina = round2(Math.min(G.d.maxStamina, p.stamina + e.amount!));
     if (e.type === 'regen') {
       // İlk Yardım D-: sargı süresi yarıya iner (toplam iyileşme aynı)
       const dur = Math.max(1, e.duration! * (1 + (G.d.fx.bandageTimePct ?? 0)));

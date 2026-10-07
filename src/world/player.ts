@@ -15,6 +15,7 @@ import { EQUIP_SLOTS } from '../core/types';
 import type { WorldScene } from '../scenes/WorldScene';
 import { Sound } from '../audio/audio';
 import { hpRegenPerSec, mpRegenPerSec, staminaRegenPerSec, regenStep, round2 } from '../core/formulas';
+import { hungerMods } from '../core/hunger';
 import { LIGHT_MAX, LIGHT_DECAY_PER_SEC } from '../core/divine';
 import { runStep, RUN_THRESHOLD, type RunLock } from '../core/stamina';
 import type { EvadeCost } from '../core/combat';
@@ -425,7 +426,9 @@ export class Player {
       const ad = d.divAdaptation * (G.state.divine.skills.includes('guardian_aura') && this.inCombat ? 1.5 : 1);
       const fast = this.afterCombatT > 0 ? 3 : 1;
       // A7.11: değerler iki ondalıkta kalır (birikimli adım)
-      let hpGain = hpRegenPerSec(d.maxHp, ad, this.inCombat, d.regenBonus) * fast * dt;
+      // B13: Aç → dayanıklılık yenilenmesi yarı; Çok aç → HP yenilenmesi durur (sargı/iksir yine iyileştirir)
+      const hm = hungerMods(G.state.satiety ?? 100);
+      let hpGain = hpRegenPerSec(d.maxHp, ad, this.inCombat, d.regenBonus) * fast * dt * hm.hpRegen;
       for (const b of this.buffs) {
         b.t -= dt;
         if (b.id === 'regen' && b.amount) hpGain += b.amount * d.healMult * dt;
@@ -437,7 +440,7 @@ export class Player {
       p.mp = rm.value;
       this.regenAcc.mp = rm.acc;
       if (this.staminaDelay <= 0) {
-        const rs = regenStep(p.stamina, d.maxStamina, staminaRegenPerSec(d.stats.AGI, ad, this.inCombat) * (1 + (d.fx.staminaRegenPct ?? 0)) * dt, this.regenAcc.st);
+        const rs = regenStep(p.stamina, d.maxStamina, staminaRegenPerSec(d.stats.AGI, ad, this.inCombat) * (1 + (d.fx.staminaRegenPct ?? 0)) * hm.staminaRegen * dt, this.regenAcc.st);
         p.stamina = rs.value;
         this.regenAcc.st = rs.acc;
       }
