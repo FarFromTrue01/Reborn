@@ -568,3 +568,39 @@ describe('Koşmak dayanıklılık harcamaz (B22)', () => {
     for (const t of at.tiers) expect(t.note).not.toMatch(/koşu maliyeti|koşu -%|harcamaz/);
   });
 });
+
+import { hitstopFor, hitNumberKind, materialOf, hurtEdgeAlpha, isLowHp, windupOffset, PERFECT_DODGE_SLOWMO, NUMBER_STYLE, NUMBER_POOL, MATERIAL_FX } from '../src/world/combatFx';
+describe('Dövüş geri bildirimi (B23)', () => {
+  it('vuruş donması: isabet 0,05, kritik 0,09; ayar kapalıysa yok', () => {
+    expect(hitstopFor(false, true)).toBe(0.05);
+    expect(hitstopFor(true, true)).toBe(0.09);
+    expect(hitstopFor(true, false)).toBe(0);
+    expect(PERFECT_DODGE_SLOWMO).toBe(0.2);
+  });
+  it('hasar sayısı türleri ve renkleri', () => {
+    expect(hitNumberKind(2, 2, false)).toBe('dmg');
+    expect(hitNumberKind(2, 2, true)).toBe('crit');
+    expect(hitNumberKind(0.4, 2, false)).toBe('low');
+    expect(NUMBER_STYLE.crit.size).toBeGreaterThan(NUMBER_STYLE.dmg.size);
+    expect(NUMBER_STYLE.crit.color).toBe('#ffd23a');
+    expect(NUMBER_STYLE.hurt.color).toBe('#ff5a4a');
+    expect(NUMBER_STYLE.dmg.color).toBe('#ffffff');
+    expect(NUMBER_POOL).toBeGreaterThan(0);
+  });
+  it('malzeme (et, sümük, zırh), kenar kızarması, düşük can, hazırlıkta geri çekilme', () => {
+    expect(materialOf('slime')).toBe('slime');
+    expect(materialOf('rat')).toBe('flesh');
+    expect(materialOf('goblin_chief')).toBe('armor');
+    for (const m of Object.values(MATERIAL_FX)) expect(m.sound).toMatch(/^impact_/);
+    expect(hurtEdgeAlpha(0.1, 10)).toBeCloseTo(0.126);
+    expect(hurtEdgeAlpha(10, 10)).toBe(0.6);
+    expect(isLowHp(2, 10)).toBe(true);
+    expect(isLowHp(2.5, 10)).toBe(false);
+    expect(isLowHp(0, 10)).toBe(false);
+    expect(windupOffset(0)).toBeCloseTo(0);
+    expect(windupOffset(1)).toBe(-4);
+  });
+  it('titreşim (haptik) eklenmedi', () => {
+    expect(Object.values(SRC6).join('\n')).not.toMatch(/navigator\.vibrate/);
+  });
+});

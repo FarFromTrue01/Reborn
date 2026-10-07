@@ -1,5 +1,6 @@
 import Phaser from 'phaser';
 import { hungerState, HUNGER_NAMES, SATIETY_MAX } from '../core/hunger';
+import { isLowHp, HEARTBEAT_EVERY } from '../world/combatFx';
 import { G } from '../game/G';
 import { Display } from '../game/display';
 import { Input, type Action } from '../game/input';
@@ -106,6 +107,8 @@ export class UIScene extends Phaser.Scene {
   private rankBox: Phaser.GameObjects.Container | null = null;
   private questT = 0;
   damageFlash!: Phaser.GameObjects.Rectangle;
+  edgeFlash: Phaser.GameObjects.Image | null = null;
+  lowVignette: Phaser.GameObjects.Image | null = null;
   zoneBanner: Phaser.GameObjects.Container | null = null;
   ghostHp = 1;
   fpsText: Phaser.GameObjects.Text | null = null;
@@ -171,6 +174,9 @@ export class UIScene extends Phaser.Scene {
     this.rankBox = null;
     this.questT = 0;
     this.damageFlash = undefined!;
+    this.edgeFlash = null;
+    this.lowVignette = null;
+    this.heartT = 0;
     this.zoneBanner = null;
     this.ghostHp = 1;
     this.fpsText = null;
@@ -239,6 +245,8 @@ export class UIScene extends Phaser.Scene {
     this.touch?.destroy();
     this.cdOverlay?.destroy();
     this.damageFlash?.destroy();
+    this.edgeFlash?.destroy();
+    this.lowVignette?.destroy();
     this.fpsText?.destroy();
     this.build();
     if (keep) this.children.bringToTop(keep);
@@ -309,6 +317,9 @@ export class UIScene extends Phaser.Scene {
     // Bekleme ve parlama göstergeleri butonların ÜSTÜNDE çizilir
     this.cdOverlay = this.add.graphics().setDepth(21);
     this.damageFlash = fullScreenRect(this, 0xff0000, 0).setDepth(50);
+    this.makeVignette('vignette_red');
+    this.edgeFlash = this.add.image(Display.uiW / 2, Display.uiH / 2, 'vignette_red').setDisplaySize(Display.uiW, Display.uiH).setDepth(50).setAlpha(0);
+    this.lowVignette = this.add.image(Display.uiW / 2, Display.uiH / 2, 'vignette_red').setDisplaySize(Display.uiW, Display.uiH).setDepth(49).setAlpha(0);
     if (G.settings.showFps) this.fpsText = txt(this, W / 2, 8, '', { size: 13, stroke: true }).setOrigin(0.5, 0).setDepth(60);
     this.refreshButtons();
     this.drawMinimap(true);
@@ -413,6 +424,7 @@ export class UIScene extends Phaser.Scene {
     const dt = dms / 1000;
     if (!this.hud) return;
     this.drawHud(dt);
+    this.updateLowHp(dt);
     this.minimapT -= dt;
     if (this.minimapT <= 0) {
       this.minimapT = 0.25;
@@ -1036,9 +1048,49 @@ export class UIScene extends Phaser.Scene {
     this.zoneBanner = c;
   }
 
-  flashDamage() {
-    this.damageFlash.setFillStyle(0xff0000, 0.22);
+  /** B23: ekran kenarının kızarması (alpha: aldığın hasarın can oranıyla). */
+  flashDamage(alpha = 0.22) {
+    this.tweens.killTweensOf(this.edgeFlash ?? this.damageFlash);
+    if (this.edgeFlash) {
+      this.edgeFlash.setAlpha(alpha * 1.6);
+      this.tweens.add({ targets: this.edgeFlash, alpha: 0, duration: 380 });
+    }
+    this.damageFlash.setFillStyle(0xff0000, alpha * 0.35);
     this.tweens.add({ targets: this.damageFlash, fillAlpha: 0, duration: 300 });
+  }
+
+  /** B23: kenarları kırmızı bir vinyet dokusu (ortası saydam). */
+  private makeVignette(key: string) {
+    if (this.textures.exists(key)) return;
+    const S = 256;
+    const tex = this.textures.createCanvas(key, S, S)!;
+    const ctx = tex.getContext();
+    const g = ctx.createRadialGradient(S / 2, S / 2, S * 0.28, S / 2, S / 2, S * 0.72);
+    g.addColorStop(0, 'rgba(200,0,0,0)');
+    g.addColorStop(1, 'rgba(200,0,0,1)');
+    ctx.fillStyle = g;
+    ctx.fillRect(0, 0, S, S);
+    tex.refresh();
+  }
+
+  /** B23: düşük canda (<%25) kalp atışı ve hafif kırmızı vinyet; her kare. */
+  private heartT = 0;
+  updateLowHp(dt: number) {
+    if (!this.lowVignette) return;
+    const p = G.p;
+    const low = !!this.world?.player && isLowHp(p.hp, G.d.maxHp) && !this.world.cutscene;
+    if (!low) {
+      this.lowVignette.setAlpha(Math.max(0, this.lowVignette.alpha - dt * 2));
+      this.heartT = 0;
+      return;
+    }
+    this.heartT -= dt;
+    if (this.heartT <= 0) {
+      this.heartT = HEARTBEAT_EVERY;
+      Sound.sfx('heartbeat', 0.5);
+    }
+    const beat = Math.max(0, 1 - (HEARTBEAT_EVERY - this.heartT) * 3);
+    this.lowVignette.setAlpha(0.22 + 0.18 * beat);
   }
 
   // ================================================================== konuşma

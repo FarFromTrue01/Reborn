@@ -179,6 +179,23 @@ class AudioEngine {
         this.osc('sawtooth', 220, t, 0.12, 0.2 * v, B, { glide: -0.6 });
         this.osc('sine', 1760, t, 0.18, 0.12 * v, this.reverbSend);
         break;
+      // B23: katmanlı isabet sesleri (hedefin malzemesi) ve kritik çınlaması
+      case 'impact_flesh':
+        this.noise(t, 0.07, 0.4 * v, B, { type: 'lowpass', f: 1400, f2: 400 });
+        this.osc('sine', 110, t, 0.09, 0.25 * v, B, { glide: -0.5 });
+        break;
+      case 'impact_slime':
+        this.noise(t, 0.12, 0.3 * v, B, { type: 'bandpass', f: 500, f2: 250, q: 3 });
+        this.osc('sine', 260, t, 0.12, 0.18 * v, B, { glide: -0.7 });
+        break;
+      case 'impact_armor':
+        this.noise(t, 0.06, 0.35 * v, B, { type: 'highpass', f: 2500 });
+        this.osc('triangle', 1250, t, 0.16, 0.12 * v, this.reverbSend, { glide: -0.1 });
+        break;
+      case 'crit_ring':
+        this.osc('sine', 2093, t, 0.35, 0.1 * v, this.reverbSend);
+        this.osc('sine', 3136, t + 0.02, 0.3, 0.06 * v, this.reverbSend);
+        break;
       case 'hurt':
         this.osc('sawtooth', 300, t, 0.18, 0.22 * v, B, { glide: -0.6 });
         this.noise(t, 0.1, 0.3 * v, B, { type: 'lowpass', f: 1500 });

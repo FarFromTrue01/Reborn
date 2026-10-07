@@ -3,6 +3,7 @@ import { G } from '../game/G';
 import { Display } from '../game/display';
 import { firstHop, warpCenterPx, distToRect, BED_REACH } from '../world/nav';
 import { bestFood } from '../core/hunger';
+import { hitstopFor, hitNumberKind, materialOf, hurtEdgeAlpha, PERFECT_DODGE_SLOWMO } from '../world/combatFx';
 import { codexAppraiseMonster, codexAppraisePerson, codexDrop, codexGather, codexKill, codexName, codexKnown, type CodexKind } from '../core/codex';
 import { mapMarkers, type MapMarker } from '../world/mapMarkers';
 import { questSources, sourceWait, type SourceCtx } from '../world/sources';
@@ -2300,18 +2301,19 @@ export class WorldScene extends Phaser.Scene {
     e.josephHitAt = this.time.now / 1000;
     // hissiyat (vuruş donması, flaş, kıvılcım). 0.8.0 (C5): Joseph'in vuruşları (normal, ağır, yetenek) düşmanı geri
     // savurmaz — vur-kaç için düşman yerinde kalır. Joseph'e vurulunca onun savrulması sürer.
+    // B23: vuruş donması (isabet 0,05 / kritik 0,09 sn; saldıran ve vurulan), yerinde tepki, malzemeye göre parçacık ve ses
     e.actor.flash(0xffffff, 0.08);
-    const stop = res.crit ? 0.1 : o.heavy ? 0.08 : 0.05;
+    const stop = hitstopFor(res.crit, G.settings.shake);
     e.actor.frozenT = stop;
-    pl.actor.frozenT = stop * 0.8;
+    pl.actor.frozenT = stop;
+    this.fx.combat.react(e.actor as any);
     if (G.settings.shake) this.cameras.main.shake(res.crit ? 140 : o.heavy ? 110 : 70, (res.crit ? 0.006 : 0.003) * (4 / Display.worldZoom));
-    this.fx.sparks(e.x, e.y - 18, res.crit ? 0xffd040 : 0xfff2c0, res.crit ? 12 : 7);
+    this.fx.combat.impact(e.x, e.y - 18, materialOf(e.def.id), res.crit, (x, y, color, n) => this.fx.sparks(x, y, res.crit ? 0xffd040 : color, n));
     const label = fmtHp(res.damage) + (res.crit ? '!' : '');
-    this.fx.number(e.x, e.y - 40, label, res.crit ? 'crit' : 'dmg');
+    this.fx.number(e.x, e.y - 40, label, hitNumberKind(res.damage, res.raw, res.crit));
     if (res.luck === 'crit') this.fx.luck(e.x, e.y - 64, 'Şans! Kritik');
     if (res.sneak) this.fx.number(e.x, e.y - 58, 'Gizli Saldırı!', 'sneak');
     if (counter) this.fx.number(e.x, e.y - 58, 'Karşı Saldırı!', 'divine');
-    Sound.sfx(res.crit ? 'crit' : 'hit');
     // Işık barı
     if (G.state.divine.skills.length) G.state.divine.light = Math.min(LIGHT_MAX, G.state.divine.light + LIGHT_ON_HIT * (o.heavy ? 1.5 : 1));
     // skill EXP (kullanım)
@@ -2529,7 +2531,8 @@ export class WorldScene extends Phaser.Scene {
     if (back.light > 0) G.state.divine.light = Math.min(LIGHT_MAX, G.state.divine.light + back.light);
     pl.staminaDelay = 0;
     Sound.sfx('perfect');
-    this.slowmoT = 0.45 * G.d.slowmoMult * (G.state.divine.skills.includes('swift_grace') ? 1.5 : 1);
+    // B23: kusursuz kaçışta 0,2 sn ağır çekim ve tını (Divine Hız taşması / Zarif Adım uzatır)
+    this.slowmoT = PERFECT_DODGE_SLOWMO * G.d.slowmoMult * (G.state.divine.skills.includes('swift_grace') ? 1.5 : 1);
     pl.counterT = 1.6;
     pl.invulnT = Math.max(pl.invulnT, 0.3);
     // Kaçınma C-: max dayanıklılığın %5'i geri; A-: sonraki ilk vuruş kesin kritik
@@ -2596,7 +2599,8 @@ export class WorldScene extends Phaser.Scene {
     this.fx.number(pl.actor.x, pl.actor.y - 50, `-${fmtHp(d)}`, 'hurt');
     Sound.sfx('hurt');
     if (G.settings.shake) this.cameras.main.shake(120, 0.008 * (4 / Display.worldZoom));
-    this.ui.flashDamage();
+    // B23: ekran kenarı aldığın hasar oranında kızarır
+    this.ui.flashDamage(hurtEdgeAlpha(d, G.d.maxHp));
     if (p.hp <= 0) {
       this.playerDeath();
       return;

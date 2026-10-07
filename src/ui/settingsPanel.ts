@@ -222,7 +222,7 @@ export function buildSettings(scene: Phaser.Scene, c: Phaser.GameObjects.Contain
   }).setName('set_fpscap');
   y += BR;
   toggle(scene, list, bx0, y + 25, bw, 'FPS göstergesi', () => s.showFps, (v) => (s.showFps = v)).setName('set_fps');
-  toggle(scene, list, bx1, y + 25, bw, 'Ekran sarsıntısı', () => s.shake, (v) => (s.shake = v)).setName('set_shake');
+  toggle(scene, list, bx1, y + 25, bw, 'Ekran sarsıntısı ve vuruş donması', () => s.shake, (v) => (s.shake = v)).setName('set_shake');
   y += BR;
   // Tam ekran: iPhone tarayıcısı desteklemez → ipucu
   if (fullscreenSupported()) {

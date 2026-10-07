@@ -1,6 +1,7 @@
 // Düşman yapay zekâsı.
 import Phaser from 'phaser';
 import { ATTACK_RATE_SCALE } from '../data/companions';
+import { windupOffset } from './combatFx';
 import { Actor, dirFromVec, type Dir } from './actor';
 import { MONSTERS, type MonsterDef, type MonsterBehavior } from '../data/monsters';
 import { corneredStep, newCorneredState } from '../core/combat';
@@ -95,6 +96,7 @@ export class Enemy {
   get behavior(): MonsterBehavior { return this.corner.cornered ? 'aggressive' : this.def.behavior; }
 
   setState(s: EState) {
+    if (this.state === 'windup' && s !== 'windup') this.lean(0);
     this.state = s;
     this.stateT = 0;
   }
@@ -314,8 +316,11 @@ export class Enemy {
         const pulse = Math.sin(this.stateT * 30) > 0;
         a.tint(pulse ? 0xff6050 : null);
         this.drawTelegraph(this.stateT / wt);
+        // B23: geri çekilme pozu (saldırmadan önce yaylanır)
+        this.lean(windupOffset(this.stateT / wt));
         if (this.stateT >= wt) {
           a.tint(null);
+          this.lean(0);
           this.telegraph.clear();
           this.strike();
         }
@@ -469,13 +474,25 @@ export class Enemy {
     this.icon.setText('');
   }
 
+  /** B23: görselleri bakış yönünün tersine kaydır (hazırlıkta geri çekilme); 0: yerine. */
+  lean(px: number) {
+    const [fx, fy] = this.facingVec();
+    for (const l of this.actor.layers) {
+      (l as any).__bx ??= l.x;
+      (l as any).__by ??= l.y;
+      l.x = (l as any).__bx + fx * px;
+      l.y = (l as any).__by + fy * px;
+    }
+  }
+
   drawTelegraph(t: number) {
     const g = this.telegraph;
     g.clear();
     const [fx, fy] = this.facingVec();
     const r = (this.def.attackRange + 0.4) * TILE * (this.heavyAttack ? 1.7 : 1);
     const a = Math.atan2(fy, fx);
-    g.fillStyle(0xff2a1a, 0.12 + 0.2 * t);
+    // B23: vuracağı alan belirgin — dolgu, kenar çizgisi ve dolan çizgi
+    g.fillStyle(0xff2a1a, 0.18 + 0.27 * t);
     if (this.heavyAttack) {
       g.fillCircle(this.x, this.y, r);
       g.lineStyle(2, 0xff5040, 0.8);
@@ -487,7 +504,10 @@ export class Enemy {
     } else {
       g.slice(this.x, this.y, r, a - 0.9, a + 0.9, false);
       g.fillPath();
-      g.lineStyle(1.5, 0xff6050, 0.7);
+      g.lineStyle(1.5, 0xff3020, 0.55 + 0.4 * t);
+      g.slice(this.x, this.y, r, a - 0.9, a + 0.9, false);
+      g.strokePath();
+      g.lineStyle(2.5, 0xff8060, 0.85);
       g.beginPath();
       g.arc(this.x, this.y, r * t, a - 0.9, a + 0.9);
       g.strokePath();

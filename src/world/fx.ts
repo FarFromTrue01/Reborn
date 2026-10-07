@@ -2,50 +2,20 @@
 import Phaser from 'phaser';
 import { Display } from '../game/display';
 import { FONT } from '../ui/kit';
+import { Sound } from '../audio/audio';
+import { CombatFx, type NumberKind } from './combatFx';
 
 export class FX {
-  constructor(public scene: Phaser.Scene) {}
+  constructor(public scene: Phaser.Scene) {
+    this.combat = new CombatFx(scene, (n, v) => Sound.sfx(n, v), FONT, Display.dpr);
+  }
 
-  /** Dünya koordinatında yazı (hasar sayısı vb.). Kamera zoom'una göre keskin çizilir. */
-  number(x: number, y: number, text: string, kind: 'dmg' | 'crit' | 'miss' | 'hurt' | 'heal' | 'exp' | 'info' | 'sneak' | 'divine' = 'dmg') {
-    const z = this.scene.cameras.main.zoom;
-    // 0.8.0 (C4): Pixelify kalın 13 px + 3'lük dış çizgide 5'in boşlukları kapanıyor, 0,5 "0,8" gibi okunuyordu.
-    // Sayılar Alegreya Sans kalın, biraz büyük ve 2'lik dış çizgiyle (0,3 / 0,5 / 0,6 / 0,8 / 0,9 ayrışır).
-    const styles: Record<string, { size: number; color: string; italic?: boolean; stroke: string }> = {
-      dmg: { size: 16, color: '#ffffff', stroke: '#2a1a10' },
-      crit: { size: 21, color: '#ffd23a', stroke: '#5a1a00' },
-      miss: { size: 12, color: '#c8d0e0', italic: true, stroke: '#1a1f2a' },
-      hurt: { size: 17, color: '#ff5a4a', stroke: '#2a0505' },
-      heal: { size: 16, color: '#7dff8a', stroke: '#0a2a10' },
-      exp: { size: 12, color: '#bfe4ff', stroke: '#0a1a2a' },
-      info: { size: 12, color: '#f0e6c8', stroke: '#1a140a' },
-      sneak: { size: 13, color: '#d9a8ff', stroke: '#200a2a' },
-      divine: { size: 13, color: '#ffe9a0', stroke: '#3a2a00' },
-    };
-    const s = styles[kind];
-    const t = this.scene.add.text(x, y, text, {
-      fontFamily: kind === 'miss' ? FONT.body : FONT.ui,
-      fontSize: `${s.size}px`,
-      color: s.color,
-      fontStyle: s.italic ? 'italic bold' : 'bold',
-      stroke: s.stroke,
-      strokeThickness: 2,
-    });
-    t.setResolution(z * (Display.dpr > 1 ? 1 : 1));
-    t.setOrigin(0.5, 1).setDepth(950000);
-    const dx = (Math.random() - 0.5) * 18;
-    if (kind === 'crit') {
-      t.setScale(0.4);
-      this.scene.tweens.add({ targets: t, scale: 1.25, duration: 120, ease: 'Back.Out', yoyo: true, hold: 60, onComplete: () => t.setScale(1) });
-    }
-    this.scene.tweens.add({
-      targets: t,
-      x: x + dx,
-      y: y - (kind === 'crit' ? 34 : 24),
-      duration: kind === 'crit' ? 900 : 700,
-      ease: 'Cubic.Out',
-    });
-    this.scene.tweens.add({ targets: t, alpha: 0, delay: kind === 'crit' ? 650 : 450, duration: 300, onComplete: () => t.destroy() });
+  /** B23: hasar sayıları havuzdan (combatFx). */
+  combat: CombatFx;
+
+  /** Dünya koordinatında yazı (hasar sayısı vb.). Kamera zoom'una göre keskin çizilir; nesne havuzundan. */
+  number(x: number, y: number, text: string, kind: NumberKind = 'dmg') {
+    this.combat.number(x, y, text, kind);
   }
 
   /**
