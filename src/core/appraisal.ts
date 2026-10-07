@@ -7,7 +7,8 @@ import { subRankLetterIndex, type SubRank } from './ranks';
  *   0 : + Statlar, Max HP/MP, Ekipman
  *  -1 : + Skill'ler
  * ≤-2 : her şey, skill EXP ilerlemesine kadar
- * Trait'ler hiçbir rütbede görünmez. Envanter Appraisal ile okunmaz (panelde bölümü yok).
+ * Trait'ler (0.10.0, B21): NPC'lerin küçük trait'leri skill'lerle aynı kademede (≤ -1) görünür, yoksa "???".
+ * Joseph'in Divine Paladin'i hiçbir Appraisal'da (ve lonca taşında) görünmez. Envanter Appraisal ile okunmaz.
  * Saygınlık yalnızca kendi kartında görünür (görünürlük kademesi değil, panel kuralı).
  */
 export interface AppraisalView {
@@ -17,7 +18,7 @@ export interface AppraisalView {
   stats: boolean; // statlar, max HP/MP, ekipman
   skills: boolean; // skill'ler
   skillExp: boolean; // skill EXP ilerlemesi
-  traits: false;
+  traits: boolean; // B21: NPC trait'leri
 }
 
 export function appraisalDiff(mine: SubRank, target: SubRank): number {
@@ -33,7 +34,7 @@ export function appraisalView(mine: SubRank, target: SubRank): AppraisalView {
     stats: diff <= 0,
     skills: diff <= -1,
     skillExp: diff <= -2,
-    traits: false,
+    traits: diff <= -1,
   };
 }
 

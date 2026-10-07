@@ -24,6 +24,7 @@ import { SKILLS, RARITY_NAMES, TECHNIQUES } from '../data/skills';
 import { TITLES, TRAIT_NAMES } from '../data/titles';
 import { ITEMS } from '../data/items';
 import { monsterIconKey } from '../ui/portraits';
+import { renderCodexTab } from '../ui/codexTab';
 import type { MapMarker, MarkerKind } from '../world/mapMarkers';
 import { EQUIP_SLOTS, EQUIP_SLOT_NAMES, type EquipSlot } from '../core/types';
 import { equip, unequip, transact } from '../core/transactions';
@@ -48,13 +49,14 @@ const MAP_FILTERS: Record<MarkerKind, boolean> = { gather: true, spawn: true, qu
 /** Bitki kimliği → simgesinin eşyası. */
 const PLANT_ITEM: Record<string, string> = { herb: 'herb', apple: 'apple', silver_herb: 'silver_herb' };
 
-type Tab = 'status' | 'inventory' | 'equipment' | 'quests' | 'map' | 'history' | 'settings' | 'save' | 'dev';
+type Tab = 'status' | 'inventory' | 'equipment' | 'quests' | 'map' | 'codex' | 'history' | 'settings' | 'save' | 'dev';
 const TABS: [Tab, string, string][] = [
   ['status', 'Status', 'status'],
   ['inventory', 'Envanter', 'inventory'],
   ['equipment', 'Ekipman', 'equipment'],
   ['quests', 'Görevler', 'quests'],
   ['map', 'Harita', 'map'],
+  ['codex', 'Ansiklopedi', 'skills'],
   ['history', 'Konuşmalar', 'history'],
   ['settings', 'Ayarlar', 'settings'],
   ['save', 'Kaydet / Yükle', 'save'],
@@ -206,6 +208,7 @@ export class MenuScene extends Phaser.Scene {
       case 'settings': return void buildSettings(this, this.content, this.cw, this.ph - 48);
       case 'save': return this.renderSave();
       case 'quests': return this.renderQuests();
+      case 'codex': return renderCodexTab(this, this.content, this.cw, this.ph - 48);
       case 'dev': return renderDevPanel(this, this.content, this.cw, this.ph - 48);
     }
   }

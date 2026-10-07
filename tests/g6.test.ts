@@ -480,3 +480,73 @@ describe('Harita işaretleri + 12 saat yeniden doğma (B16)', () => {
     expect(m.find((x) => x.kind === 'quest')).toMatchObject({ x: 3, y: 4, label: 'G- Rütbe' });
   });
 });
+
+import { newCodex, codexPages, codexAppraiseMonster, codexKill, codexDrop, codexMeet, codexAppraisePerson, codexGather, monsterCard, personCard, plantCard, codexFromSave, relationText, CODEX_REGIONS } from '../src/core/codex';
+describe('Ansiklopedi (B15)', () => {
+  it('yaratık: bilinmeyen "???"; Appraisal ile açılır, yalnızca alınan ganimet görünür', () => {
+    const c = newCodex();
+    expect(monsterCard(c, 'rat')).toMatchObject({ known: false, title: '???' });
+    codexKill(c, 'rat', 0, 'Ormanın Kenarı');
+    expect(monsterCard(c, 'rat').known).toBe(false);
+    expect(codexAppraiseMonster(c, 'rat', 0, 'Ormanın Kenarı', 3)).toBe(true);
+    expect(codexAppraiseMonster(c, 'rat', 0, 'Ormanın Kenarı', 4)).toBe(false);
+    codexDrop(c, 'rat', 'rat_tail');
+    const card = monsterCard(c, 'rat');
+    expect(card.title).toBe('Fare');
+    const row = (k: string) => card.rows.find((r) => r[0] === k)![1];
+    expect(row('Ganimet')).toBe('Fare Kuyruğu, ???, ???');
+    expect(row('Öldürülen')).toBe('1');
+    expect(row('Yeniden doğma')).toBe('12 saat');
+    expect(row('İlk inceleme')).toBe('3. gün');
+  });
+  it('karakter: konuşunca ad açılır; Appraisal bilgileri görünürlüğe göre; ilişki sözle', () => {
+    const c = newCodex();
+    expect(personCard(c, 'bertram', { affinity: 0, flags: {} }).known).toBe(false);
+    expect(codexMeet(c, 'bertram', 'Han · sabah', 1)).toBe(true);
+    const a = personCard(c, 'bertram', { affinity: 3, flags: { bertram_deal: true } });
+    expect(a.title).toBe('Bertram');
+    expect(a.rows.find((r) => r[0] === 'Level')![1]).toBe('???');
+    expect(a.rows.find((r) => r[0] === 'İlişki')![1]).toBe('Sana ısınıyor');
+    expect(a.notes).toContain('Sana iş, yatak ve bir gömlek verdi.');
+    expect(a.rows.some((r) => r[0] === 'Satar')).toBe(true);
+    codexAppraisePerson(c, 'bertram', 'Han · akşam', 2);
+    const b = personCard(c, 'bertram', { affinity: 0, flags: {}, appraisalVisible: () => ({ rank: 'E (emekli)', level: '9', title: 'Kurt Sürüsü Avcısı', trait: '???' }) });
+    expect(b.rows.find((r) => r[0] === 'Level')![1]).toBe('9');
+    expect(relationText(-4)).toBe('Senden hoşlanmıyor');
+  });
+  it('bitki: ilk toplamada açılır, sayaç ve yerler', () => {
+    const c = newCodex();
+    expect(plantCard(c, 'herb').known).toBe(false);
+    expect(codexGather(c, 'herb', 'Ormanın Kenarı', 2)).toBe(true);
+    expect(codexGather(c, 'herb', 'Ormanın Kenarı', 2)).toBe(false);
+    const p = plantCard(c, 'herb');
+    expect(p.rows.find((r) => r[0] === 'Topladığın')![1]).toBe('2');
+    expect(codexGather(c, 'rat_tail', 'x', 1)).toBe(false);
+  });
+  it('bölge sayfalaması: Brindlewood dolu, Eros kilitli; "Bilinen x/y"', () => {
+    const c = newCodex();
+    codexAppraiseMonster(c, 'slime', 1, null, 1);
+    const pages = codexPages(c, 'monsters');
+    expect(pages.map((p) => p.region.id)).toEqual(CODEX_REGIONS.map((r) => r.id));
+    expect(pages[0]).toMatchObject({ locked: false, known: 1 });
+    expect(pages[0].total).toBeGreaterThan(5);
+    expect(pages[1].locked).toBe(true);
+    expect(codexPages(c, 'people')[0].total).toBeGreaterThan(40);
+    expect(codexPages(c, 'plants')[0].total).toBe(3);
+  });
+  it('göç: Appraisal geçmişi, öldürme ve toplama sayaçları, tanışma bayrakları', () => {
+    const c = codexFromSave({ appraised: { vera: 2, m_17: 3 }, killed: { rat: 4 }, gathered: { herb3: 2, apple1: 2 }, counters: { gathered: 5 }, flags: { inn_met: true, farm_offered: true }, time: { day: 6 } });
+    expect(c.people.vera.appraised).toBe(2);
+    expect(c.people.bertram).toBeTruthy();
+    expect(c.people.haldor).toBeTruthy();
+    expect(c.monsters.rat.kills).toBe(4);
+    expect(monsterCard(c, 'rat').known).toBe(true);
+    expect(c.plants.herb.count).toBe(5);
+    expect(c.plants.apple).toBeTruthy();
+    const s: any = ngs6();
+    s.saveVersion = 8;
+    delete s.codex;
+    s.killed = { slime: 1 };
+    expect(mig6(s, 8).codex.monsters.slime.kills).toBe(1);
+  });
+});

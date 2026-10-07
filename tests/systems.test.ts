@@ -87,8 +87,10 @@ describe('Appraisal', () => {
     expect(appraisalView(parseSubRank('F-'), G).skillExp).toBe(false);
     expect(appraisalView(parseSubRank('E-'), G).skillExp).toBe(true);
   });
-  it('Trait asla görünmez', () => {
-    expect(appraisalView(parseSubRank('X'), G).traits).toBe(false);
+  it('Trait (0.10.0, B21): NPC trait\'i skill\'lerle aynı kademede görünür; aynı ya da yüksek harfte görünmez', () => {
+    expect(appraisalView(parseSubRank('X'), G).traits).toBe(true);
+    expect(appraisalView(G, G).traits).toBe(false);
+    expect(appraisalView(parseSubRank('F-'), G).traits).toBe(true);
   });
   it('Senin Appraisal\'ın yüksekse fark edersin', () => {
     expect(noticesAppraisal(parseSubRank('E-'), G)).toBe(true);
