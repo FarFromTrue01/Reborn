@@ -604,3 +604,45 @@ describe('Dövüş geri bildirimi (B23)', () => {
     expect(Object.values(SRC6).join('\n')).not.toMatch(/navigator\.vibrate/);
   });
 });
+
+import { TRAIT_ODDS, wheelReel, WHEEL_RESULT, divineDescription, pctLabel, awakenDue } from '../src/core/traitWheel';
+import { TRAIT_NAMES as TN6 } from '../src/data/titles';
+describe('Trait çarkı ve uyanış (B19/B20)', () => {
+  it('olasılık tablosu tam %100; X %0,0001', () => {
+    const sum = TRAIT_ODDS.reduce((a, [, p]) => a + p, 0);
+    expect(Math.abs(sum - 100)).toBeLessThan(1e-9);
+    expect(TRAIT_ODDS.map(([r]) => r)).toEqual(['G', 'F', 'E', 'D', 'C', 'B', 'A', 'S', 'X']);
+    expect(pctLabel(TRAIT_ODDS[8][1])).toBe('%0,0001');
+  });
+  it('sonuç her zaman Divine Paladin; makarada X yalnızca sonuncu, S/A az kalsın kartları önce', () => {
+    for (let seed = 0; seed < 50; seed++) {
+      let x = seed * 9301 + 49297;
+      const rnd = () => ((x = (x * 9301 + 49297) % 233280) / 233280);
+      const r = wheelReel(30, rnd);
+      expect(r.length).toBe(30);
+      expect(r[r.length - 1]).toBe(WHEEL_RESULT);
+      expect(r.slice(0, -1).every((id) => TN6[id].rank !== 'X')).toBe(true);
+      expect(['S', 'A']).toContain(TN6[r[r.length - 2]].rank);
+    }
+    expect(Object.keys(TN6).length).toBeGreaterThanOrEqual(20);
+  });
+  it('açıklama gerçek veriden: beş Divine stat, Işık, uyanış, görünmezlik', () => {
+    const d = divineDescription();
+    expect(d.title).toBe('X — DIVINE PALADIN');
+    const all = d.lines.join(' ');
+    for (const k of ['Güç 0,50x', 'Dayanıklılık 0,75x', 'Öğrenme 0,50x', 'Işık', 'Uyanış', 'görünmez', '×1,20', '×1,32']) expect(all).toContain(k);
+  });
+  it('uyanış: yeni oyunda ilk yürüyüşte bir kez; eski kayıtta oynamaz', () => {
+    expect(awakenDue({ woke: true }, true, true, 0.8)).toBe(true);
+    expect(awakenDue({ woke: true }, true, true, 0.1)).toBe(false);
+    expect(awakenDue({ woke: true, dp_awaken: true }, true, true, 0.8)).toBe(false);
+    expect(awakenDue({ woke: true }, true, false, 0.8)).toBe(false);
+    const s: any = ngs6();
+    s.saveVersion = 8;
+    s.flags = { woke: true, inn_met: true };
+    expect(mig6(s, 8).flags.dp_awaken).toBe(true);
+    const fresh: any = ngs6();
+    fresh.saveVersion = 8;
+    expect(mig6(fresh, 8).flags.dp_awaken).toBeUndefined();
+  });
+});

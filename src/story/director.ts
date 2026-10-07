@@ -1,6 +1,6 @@
 // Hikâye yönetmeni: tetikleyiciler, sahneler ve NPC konuşmaları.
 import { Q } from '../game/questrt';
-import { fullScreenRect } from '../ui/kit';
+import { fullScreenRect, uiIcon, txt, FONT } from '../ui/kit';
 import Phaser from 'phaser';
 import { G } from '../game/G';
 import { Input } from '../game/input';
@@ -20,6 +20,7 @@ import { nextMorning, hourOf, clockLabel, fromAbsMinute, advanceWithDays } from 
 import { canSleep, absMinute } from '../core/sleep';
 import { SHIFT_MEAL } from '../core/hunger';
 import { codexMeet } from '../core/codex';
+import { awakenDue } from '../core/traitWheel';
 import { activeQuests, type QuestGuide, type QuestTarget } from '../core/quests';
 import { boardRewardRanges, MAX_BOARD_QUESTS } from '../data/sidequests';
 import { dirFromVec } from '../world/actor';
@@ -84,11 +85,26 @@ export class Director {
   constructor(public w: WorldScene) {
     G.events.on('awakening', () => this.tryPending());
     // Terfinin Level şartı sonradan sağlanabilir: level atlayınca Terfi görevi açılır mı bak
-    const onLevel = () => Q.checkPromotion();
+    const onLevel = () => {
+      Q.checkPromotion();
+      // B21: ilk level atlamada iç ses
+      if (!G.flag('thought_level')) {
+        G.setFlag('thought_level');
+        this.w.time.delayedCall(2500, () => this.w.bubbleAt(this.w.player.actor, 'Daha güçlü hissediyorum. Ama bu... sadece bedenim. Trait\'im ayrı büyüyor.', 4, true));
+      }
+    };
+    const onDivine = () => {
+      if (!G.flag('thought_divine')) {
+        G.setFlag('thought_divine');
+        this.w.time.delayedCall(2500, () => this.w.bubbleAt(this.w.player.actor, 'İçimdeki ışık büyüdü. Divine Paladin... beni değiştiriyor.', 4, true));
+      }
+    };
     G.events.on('levelup', onLevel);
+    G.events.on('divineLevel', onDivine);
     w.events.once('shutdown', () => {
       G.events.off('awakening');
       G.events.off('levelup', onLevel);
+      G.events.off('divineLevel', onDivine);
     });
     w.time.addEvent({ delay: 1500, loop: true, callback: () => this.tryPending() });
   }
@@ -661,11 +677,87 @@ export class Director {
     });
   }
 
+  /**
+   * B20 (0.10.0): ilk adımda tökezleme — Joseph bir adım atar, tek dizinin üstüne çöker (eğilme + aşağı kayma + hafif
+   * dönme), acı sesi, sarsıntı, kırmızımsı kenar; ardından altın ışık: yükselen parçacıklar, ışık sütunu, altın
+   * vinyet, küçük trait kartı (2–3 sn) ve 2 sn titreşen altın aura. Sonra doğrulur, oyun "Hana Git" ile sürer.
+   */
+  async divineAwaken() {
+    const w = this.w, ui = this.ui;
+    const a = w.player.actor;
+    const [fx, fy] = (() => { const v = { up: [0, -1], down: [0, 1], left: [-1, 0], right: [1, 0] } as Record<string, number[]>; return v[a.dir] ?? [0, 1]; })();
+    // bir adım
+    a.play('walk');
+    await new Promise<void>((r) => w.tweens.add({ targets: a, x: a.x + fx * 10, y: a.y + fy * 10, duration: 260, onComplete: () => r() }));
+    a.body2?.reset(a.x, a.y);
+    // tökezleme: diz çökme pozu
+    a.play('idle');
+    Sound.sfx('hurt', 0.8);
+    Sound.sfx('thud', 0.7);
+    if (G.settings.shake) w.cameras.main.shake(220, 0.006 * (4 / Display.worldZoom));
+    ui.flashDamage(0.35);
+    const lean = fx >= 0 ? 9 : -9;
+    await new Promise<void>((r) => w.tweens.add({ targets: a, angle: lean, scaleY: a.scaleY * 0.86, y: a.y + 5, duration: 220, ease: 'Quad.In', onComplete: () => r() }));
+    await this.think('Ah—! Bacaklarım... Bu beden kendi ağırlığını bile taşıyamıyor.');
+    ui.closeDialogue();
+    // altın ışık
+    Sound.sfx('awaken');
+    const col = w.add.image(a.x, a.y - 60, 'soft').setTint(0xffd56a).setBlendMode(Phaser.BlendModes.ADD).setDepth(a.y + 2).setScale(0.6, 0.1).setAlpha(0);
+    w.tweens.add({ targets: col, alpha: 0.85, scaleY: 3.2, duration: 500, ease: 'Cubic.Out' });
+    const rise = w.time.addEvent({
+      delay: 45, repeat: 60, callback: () => {
+        const p = w.add.image(a.x + (Math.random() - 0.5) * 34, a.y - Math.random() * 10, 'spark').setTint(Math.random() < 0.5 ? 0xffe9a0 : 0xffc040).setBlendMode(Phaser.BlendModes.ADD).setDepth(a.y + 3).setScale(0.8 + Math.random());
+        w.tweens.add({ targets: p, y: p.y - 60 - Math.random() * 50, alpha: 0, duration: 900 + Math.random() * 500, onComplete: () => p.destroy() });
+      },
+    });
+    const gv = ui.add.rectangle(Display.uiW / 2, Display.uiH / 2, Display.uiW, Display.uiH, 0xffc040, 0).setDepth(48).setBlendMode(Phaser.BlendModes.ADD);
+    ui.tweens.add({ targets: gv, fillAlpha: 0.22, duration: 400, yoyo: true, hold: 1600 });
+    // küçük trait kartı (prologdaki kartın hızlı hali)
+    const card = ui.add.container(Display.uiW / 2, Display.uiH * 0.36).setDepth(90).setScale(0.3).setAlpha(0);
+    const cg = ui.add.graphics();
+    cg.fillStyle(0x2a1a46, 0.96);
+    cg.fillRoundedRect(-150, -46, 300, 92, 12);
+    cg.lineStyle(3, 0xffd56a, 1);
+    cg.strokeRoundedRect(-150, -46, 300, 92, 12);
+    card.add(cg);
+    card.add(uiIcon(ui, -112, 0, 'rank_X', 44));
+    card.add(txt(ui, 18, -14, 'DIVINE PALADIN — X', { size: 21, bold: true, font: FONT.title, color: '#ffe9a0', stroke: true }).setOrigin(0.5));
+    card.add(txt(ui, 18, 16, 'Trait', { size: 13, italic: true, color: '#d8c890' }).setOrigin(0.5));
+    ui.tweens.add({ targets: card, alpha: 1, scale: 1, duration: 300, ease: 'Back.Out' });
+    // 2 sn aura: titreşen altın dış hat ve alev gibi parçacıklar
+    const auraT0 = w.time.now;
+    const aura = w.time.addEvent({
+      delay: 70, loop: true, callback: () => {
+        const k = (w.time.now - auraT0) / 2000;
+        if (k >= 1) return;
+        w.fx.ghost(a as any, 0xffd56a);
+        const f = w.add.image(a.x + (Math.random() - 0.5) * 26, a.y - 8 - Math.random() * 30, 'soft').setTint(0xffb030).setBlendMode(Phaser.BlendModes.ADD).setDepth(a.y + 1).setScale(0.18).setAlpha(0.8);
+        w.tweens.add({ targets: f, y: f.y - 28, scaleX: 0.08, alpha: 0, duration: 420, onComplete: () => f.destroy() });
+      },
+    });
+    await wait(w, 2000);
+    aura.remove();
+    rise.remove();
+    ui.tweens.add({ targets: card, alpha: 0, scale: 0.8, duration: 400, onComplete: () => card.destroy() });
+    w.tweens.add({ targets: col, alpha: 0, duration: 600, onComplete: () => col.destroy() });
+    w.time.delayedCall(2400, () => gv.destroy());
+    // doğrulur
+    await new Promise<void>((r) => w.tweens.add({ targets: a, angle: 0, scaleY: a.scaleY / 0.86, y: a.y - 5, duration: 380, ease: 'Quad.Out', onComplete: () => r() }));
+    a.body2?.reset(a.x, a.y);
+    await this.think('Bu ışık... Status\'taki o trait. Divine Paladin.');
+  }
+
   // ============================================================ karşılaşmalar
   private encounterT = 0;
   /** Düzenli kontrol: kâhya geçerken ilk karşılaşma sahnesi. */
   private mainT = 0;
   checkEncounters(dt: number) {
+    // B20: uyandıktan sonra ilk yürüme denemesi → tökezleme ve Divine Paladin'in uyanışı (bir kez)
+    if (awakenDue(G.state.flags, !!Q.status('m_inn'), !this.busy && !this.w.cutscene && !this.ui.dialogueOpen(), Math.hypot(Input.moveX, Input.moveY))) {
+      G.setFlag('dp_awaken');
+      void this.scene(async () => this.divineAwaken());
+      return;
+    }
     if (!this.busy) this.ch2.tick(dt);
     // ana görev güvencesi: sahne dışında yarım saniyede bir
     this.mainT -= dt;
@@ -1165,6 +1257,10 @@ export class Director {
     await this.say('bertram', 'Darılma, gerçek bu. Ama köksüzün de bir kapısı var: Maceracılar Loncası. Lonca kimin oğlu olduğuna bakmaz. Rütbene bakar.');
     await this.say('bertram', 'G\'den başlarsın. Sonra F, E, D, C, B, A, S. Bir de X var, ama X\'i sadece ozanlar söyler. Masal.');
     await this.say('bertram', 'S rütbe mi? Koca dünyada iki, belki üç tane. Ejderha avlarlar, krallarla aynı masaya otururlar. Onların adını çocuklar ezberler.');
+    // B21: dünyada bilinen bir kavram olarak trait
+    await this.say('bertram', 'Bir de trait var. Bazıları doğuştan bir trait taşır. Çoğununki G, F; ufak şeyler. Keskin kulak, sağlam mide.');
+    await this.say('bertram', 'Bir A trait\'i olan krallara yaver olur. S\'yi masallarda duyarsın. Lonca taşı gösterir, çoğu zaman da gösterecek bir şey bulamaz.');
+    await this.think('Trait... Benimki X. Ve taş onu göremeyecek mi?');
     await this.say('bertram', 'Ben E rütbeydim. Emekli E. Bu köyde bu bile bir şey. Kurtlar bacağımı almadan önce bir ayda kazandığımı bu han bir yılda kazandırmaz.');
     await this.say('bertram', 'Para orada döner, evlat. Avda, görevde, lonca panosunda. Bulaşıkta değil.');
     const c2 = await this.ui.choice(['"Ben de bir gün S rütbe olabilir miyim?"', '"Lonca kaydı ne kadar?"']);
@@ -1347,7 +1443,9 @@ export class Director {
     vera.say('Level 0! Fareler bile seni döver!', 3);
     await wait(this.w, 1800);
     await this.think('Kahkahalar. Haklılar. Bir fareyle bile dövüşsem kaybedebilirim.');
-    await this.think('Taş, o mavi pencerede gördüğüm her şeyi göstermedi. Divine Paladin... Onu kimse göremiyor.');
+    // B21: taşın "Trait" satırı "—"; Celeste trait'in ne olduğunu bilir, Joseph'inkini göremez
+    await this.say('celeste', 'Trait\'in yok. Çoğunun yoktur, üzülme. Doğuştan gelir; ya vardır ya yoktur.', 'normal');
+    await this.think('Divine Paladin... Taş göremiyor. O mavi pencerede gördüğümü kimse göremiyor.');
     await this.say('celeste', 'Gördüğün gibi. Brindlewood şubesi. Rütben G-.', 'alayci');
     // kart
     transact(G.p as any, { label: 'Lonca kartı', give: [{ id: 'guild_card', qty: 1 }] });
@@ -1521,6 +1619,17 @@ export class Director {
     for (const o of side) {
       opts.push(o.label);
       acts.push(o.run);
+    }
+    // B21: Ilse Nine'nin eski masalı (bir kez) — ışık taşıyan şövalyeler
+    if (kind === 'healer' && G.flag('guild_registered') && !G.flag('paladin_tale')) {
+      opts.push('Eski masallar bilir misin?');
+      acts.push(async () => {
+        G.setFlag('paladin_tale');
+        await this.say('healer', 'Masal mı? Hıh. Annem anlatırdı, yavrum. Çok eskiden, ışık taşıyan şövalyeler varmış. Paladin derlermiş onlara.');
+        await this.say('healer', 'Ne kılıçları keskinmiş ne zırhları parlak. Ama yaralı birine dokununca yara kapanırmış, karanlık bir yerde dursalar gölge çekilirmiş.');
+        await this.say('healer', 'Lonca taşı onları okuyamazmış, derler. Taş ne bilir ki? Masal işte. Al şu merhemi, otur biraz.');
+        await this.think('Işık taşıyan şövalyeler... Taş onları okuyamazmış.');
+      });
     }
     if (kind === 'healer' && G.p.hp < G.d.maxHp) {
       opts.push(`Yaralarımı sar ({m:${FEES.healerWrap}})`);
@@ -1712,6 +1821,11 @@ export class Director {
     }
     this.musicOverride = false;
     this.w.updateMusic();
+    // B21: ilk Uyanış'ta iç ses
+    if (!G.flag('thought_awakening')) {
+      G.setFlag('thought_awakening');
+      await this.think('Uyanış... Status bunu bekliyormuş. Trait\'in kendisi uyanıyor, ben değil.');
+    }
     G.save('auto');
   }
 }

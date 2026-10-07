@@ -512,6 +512,11 @@ export class Player {
         if (this.running) {
           // B22: koşu dayanıklılık harcamaz; Atletizm koşu hızını artırır
           sp *= RUN_MULT * (1 + (d.fx.runSpeedPct ?? 0));
+          // B21: ilk koşuda iç ses
+          if (!G.flag('thought_run') && G.flag('dp_awaken') && !this.w.cutscene) {
+            G.setFlag('thought_run');
+            this.w.bubbleAt(a, 'Bu yavaşlık... koşarken bile. Trait\'in yüzünden mi?', 3.5, true);
+          }
           this.distAcc += sp * dt;
           if (this.distAcc > TILE * 10) {
             this.distAcc = 0;

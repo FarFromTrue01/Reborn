@@ -39,9 +39,27 @@ const titles: TitleDef[] = [
 export const TITLES: Record<string, TitleDef> = Object.fromEntries(titles.map((t) => [t.id, t]));
 
 // Trait'ler gizlidir. Burada sadece görüntü adları tutulur.
+// 0.10.0 (B19): trait çarkının karartılmış kartları için adlar (yalnızca görüntü; bu grupta etkileri yok).
 export const TRAIT_NAMES: Record<string, { name: string; rank: string }> = {
   divine_paladin: { name: 'Divine Paladin', rank: 'X' },
   keen_ears: { name: 'Keskin Kulaklar', rank: 'G' },
   iron_liver: { name: 'Demir Karaciğer', rank: 'G' },
+  sound_sleep: { name: 'Derin Uyku', rank: 'G' },
+  green_thumb: { name: 'Yeşil Parmak', rank: 'G' },
+  sure_foot: { name: 'Sağlam Adım', rank: 'G' },
+  night_eyes: { name: 'Gece Gözü', rank: 'G' },
   silver_tongue: { name: 'Gümüş Dil', rank: 'F' },
+  quick_hands: { name: 'Çabuk Eller', rank: 'F' },
+  beast_whisper: { name: 'Hayvan Fısıltısı', rank: 'F' },
+  iron_stomach: { name: 'Taş Mide', rank: 'F' },
+  storm_blood: { name: 'Fırtına Kanı', rank: 'E' },
+  hawk_sight: { name: 'Şahin Bakışı', rank: 'E' },
+  ember_heart: { name: 'Kor Yürek', rank: 'D' },
+  stone_skin: { name: 'Taş Deri', rank: 'D' },
+  mana_spring: { name: 'Mana Pınarı', rank: 'C' },
+  blade_saint: { name: 'Kılıç Ermişi', rank: 'B' },
+  dragon_vein: { name: 'Ejder Damarı', rank: 'A' },
+  kings_mark: { name: 'Hükümdar Mührü', rank: 'A' },
+  starborn: { name: 'Yıldız Doğumlu', rank: 'S' },
+  time_walker: { name: 'Zaman Yolcusu', rank: 'S' },
 };

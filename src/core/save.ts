@@ -154,6 +154,8 @@ export function migrateV8toV9(d: any): any {
   for (const k of Object.keys(d.flags)) if (/^(declined|postponed)_/.test(k)) delete d.flags[k];
   // B15: Ansiklopedi — Appraisal geçmişi, öldürme/toplama sayaçları ve tanışma bayraklarından
   if (!d.codex) d.codex = codexFromSave(d);
+  // B20: uyanış sahnesi yalnızca yeni oyunda (oyunu çoktan geçmiş eski kayıtta oynamaz)
+  if (d.flags.woke) d.flags.dp_awaken = true;
   // B13: Tokluk (alan yoksa 80)
   if (typeof d.satiety !== 'number') d.satiety = SATIETY_MIGRATE;
   d.saveVersion = 9;

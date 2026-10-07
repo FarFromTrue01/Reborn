@@ -207,7 +207,7 @@ const RAW_NPCS: Omit<NpcDef, 'schedule' | 'title'>[] = [
   // ======================================================================= ESNAF
   {
     id: 'smith', name: 'Gunnar', sheet: 'smith', voice: 'gruff', portrait: 'smith', personality: 'neutral', caste: 'burgher', shop: 'smith', role: 'smith',
-    creature: creature('smith', 'Gunnar', 'İnsan', 'Erkek', 41, 5, { STR: 9, VIT: 6, AGI: 5 }, {
+    creature: creature('smith', 'Gunnar', 'İnsan', 'Erkek', 41, 5, { STR: 9, VIT: 6, AGI: 5 }, { traits: ['iron_stomach'],
       appraisal: 'G+', titles: ['npc_smith'], equipment: { gloves: 'leather_gloves', boots: 'leather_boots' }, inventory: { firewood: 8 },
     }),
     bubbles: { any: ['Demir sıcakken dövülür.', 'Kömür yine pahalanmış.'], naked: ['Önce bir pantolon al, evlat. Sonra kılıç.'] },
@@ -229,7 +229,7 @@ const RAW_NPCS: Omit<NpcDef, 'schedule' | 'title'>[] = [
   },
   {
     id: 'healer', name: 'Ilse Nine', sheet: 'healer', voice: 'female_old', portrait: 'healer', personality: 'kind', caste: 'burgher', shop: 'healer', role: 'healer',
-    creature: creature('healer', 'Ilse', 'İnsan', 'Kadın', 67, 6, { VIT: 4, INT: 16, LUK: 4 }, {
+    creature: creature('healer', 'Ilse', 'İnsan', 'Kadın', 67, 6, { VIT: 4, INT: 16, LUK: 4 }, { traits: ['green_thumb'],
       appraisal: 'F', skills: [['healing_magic', 'E-'], ['first_aid', 'D-'], ['gathering', 'E']], inventory: { herb: 20, hp_potion_s: 5 },
     }),
     bubbles: { any: ['Bu otlar kendiliğinden kurumaz.', 'Rüzgâr değişti. Öksürük mevsimi.'], naked: ['Üşüteceksin evladım, bir şey giy.'] },
@@ -240,7 +240,7 @@ const RAW_NPCS: Omit<NpcDef, 'schedule' | 'title'>[] = [
   },
   {
     id: 'hunter', name: 'Garrick', sheet: 'hunter', voice: 'male', portrait: 'hunter', personality: 'shy', caste: 'commoner', shop: 'lodge', role: 'teacher',
-    creature: creature('hunter', 'Garrick', 'İnsan', 'Erkek', 33, 6, { STR: 3, AGI: 16, LUK: 5 }, {
+    creature: creature('hunter', 'Garrick', 'İnsan', 'Erkek', 33, 6, { STR: 3, AGI: 16, LUK: 5 }, { traits: ['night_eyes'],
       appraisal: 'G+', skills: [['archery', 'E'], ['stealth', 'F'], ['gathering', 'F']], guildRank: parseSubRank('F+'),
       equipment: { weapon: 'hunter_bow', chest: 'leather_vest', boots: 'leather_boots' }, inventory: { rabbit_pelt: 4, wolf_pelt: 1 },
     }),
@@ -287,7 +287,7 @@ const RAW_NPCS: Omit<NpcDef, 'schedule' | 'title'>[] = [
   },
   {
     id: 'captain', name: 'Kaptan Roderick', sheet: 'gate_captain', voice: 'bertram', portrait: 'captain', personality: 'proud', caste: 'elite',
-    creature: creature('captain', 'Roderick', 'İnsan', 'Erkek', 46, 11, { STR: 12, VIT: 14, AGI: 14, INT: 3, LUK: 1 }, {
+    creature: creature('captain', 'Roderick', 'İnsan', 'Erkek', 46, 11, { STR: 12, VIT: 14, AGI: 14, INT: 3, LUK: 1 }, { traits: ['sure_foot'],
       appraisal: 'E-', skills: [['spear_mastery', 'D-'], ['athletics', 'E']], titles: ['npc_watch'], guildRank: parseSubRank('D-'),
       equipment: { weapon: 'iron_spear', helmet: 'iron_cap', chest: 'padded_armor', pants: 'sturdy_pants', boots: 'hobnail_boots' },
     }),
@@ -465,7 +465,7 @@ const RAW_NPCS: Omit<NpcDef, 'schedule' | 'title'>[] = [
   // ======================================================================= 0.2.0: HALDOR'UN ÇİFTLİĞİ
   {
     id: 'haldor', name: 'Yaşlı Haldor', sheet: 'haldor', voice: 'male_old', portrait: 'haldor', personality: 'kind', caste: 'commoner',
-    creature: creature('haldor', 'Haldor', 'İnsan', 'Erkek', 71, 2, { STR: 3, VIT: 4, AGI: 1 }, { appraisal: 'G', skills: [['gathering', 'F-']], inventory: { bread: 2, apple: 4 } }),
+    creature: creature('haldor', 'Haldor', 'İnsan', 'Erkek', 71, 2, { STR: 3, VIT: 4, AGI: 1 }, { traits: ['green_thumb'], appraisal: 'G', skills: [['gathering', 'F-']], inventory: { bread: 2, apple: 4 } }),
     bubbles: {
       naked: ['Vay evlat... Üşüyeceksin bu hâlde.', 'Kimin nesi bu? Ormandan mı çıktı?'],
       rootless: ['Buğday kendini biçmez...', 'Ah, dizlerim. Ah, belim.', 'Bertram\'ın çırağı mı o?'],
@@ -852,7 +852,7 @@ const RAW_NPCS: Omit<NpcDef, 'schedule' | 'title'>[] = [
   },
   {
     id: 'woodcutter', name: 'Oduncu Brann', sheet: 'woodcutter', voice: 'gruff', portrait: 'woodcutter', personality: 'neutral', caste: 'commoner',
-    creature: creature('woodcutter', 'Brann', 'İnsan', 'Erkek', 42, 3, { STR: 7, VIT: 5 }, { inventory: { firewood: 20 } }),
+    creature: creature('woodcutter', 'Brann', 'İnsan', 'Erkek', 42, 3, { STR: 7, VIT: 5 }, { traits: ['sound_sleep'], inventory: { firewood: 20 } }),
     bubbles: {
       any: ['Kütük, kütük, kütük.', 'Güney ormanında bir şey dolaşıyor. Büyük bir şey.'],
       naked: ['Bu soğukta mı? Delisin sen.'],

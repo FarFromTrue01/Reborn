@@ -25,6 +25,7 @@ import { TITLES, TRAIT_NAMES } from '../data/titles';
 import { ITEMS } from '../data/items';
 import { monsterIconKey } from '../ui/portraits';
 import { renderCodexTab } from '../ui/codexTab';
+import { showDivineInfo } from '../ui/traitInfo';
 import type { MapMarker, MarkerKind } from '../world/mapMarkers';
 import { EQUIP_SLOTS, EQUIP_SLOT_NAMES, type EquipSlot } from '../core/types';
 import { equip, unequip, transact } from '../core/transactions';
@@ -530,6 +531,9 @@ export class MenuScene extends Phaser.Scene {
           const ch = 44 + 34 + 30 + 76 + Math.max(1, dv.skills.length) * 24 + 40;
           const by = this.card(inner, 0, y, W, ch, 'TRAIT · Divine Paladin (X)', 'divine', `Level ${dv.level}`, 'traits');
           inner.add(txt(this, 14, by - 2, 'Sadece sen görebilirsin. Appraisal ve lonca taşı bu trait\'i göremez.', { size: 13, italic: true, color: '#d8c890' }));
+          // B21: dokununca prologdaki ayrıntılı açıklamanın aynısı
+          const info = new Button(this, W - 84, by + 2, 'Ayrıntılar', () => void showDivineInfo(this), { w: 136, h: 30, size: 13, style: 'gold' });
+          inner.add(info);
           this.progress(inner, 14, by + 24, W - 28, 18, dv.exp / divineExpToNext(dv.level), 0xd9a530, `Divine EXP ${dv.exp} / ${divineExpToNext(dv.level)}`, '#fff6d0');
           const bw = (W - 28 - 4 * 10) / 5;
           DIVINE_STATS.forEach((ds, i) => {
