@@ -1,6 +1,6 @@
 // Silaha özel saldırı zaman çizelgeleri (Grup 4B). Phaser'a bağımlı değil: testlerde sınanır.
 //
-// Toplam süre (`attackDur`, DEX ve Divine Hız'a bağlı) değişmez; animasyon bu süreye ölçeklenir.
+// Toplam süre (`attackDur`, AGI ve Divine Hız'a bağlı) değişmez; animasyon bu süreye ölçeklenir.
 // Çizelge üç bölümdür: `pre` (tutma karesine kadar), `hold` (hazırlanma: karede bekle) ve `swing`
 // (geri kalan kareler). Hasar `impact` karesinin başladığı anda uygulanır.
 import type { WeaponType } from '../core/types';

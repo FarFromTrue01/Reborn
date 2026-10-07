@@ -1,4 +1,4 @@
-import { zeroStats, addStats } from './formulas';
+import { zeroStats, addStats, luckOutcome } from './formulas';
 import { MONSTERS, monsterRank, type MonsterDef } from '../data/monsters';
 import type { CreatureData } from './types';
 import { derive } from './creature';
@@ -13,7 +13,7 @@ export function randInt(min: number, max: number, rand: () => number = Math.rand
   return min + Math.floor(rand() * (max - min + 1));
 }
 
-/** Bir canavar örneği oluşturur; HP/MP formülden kesin hesaplanır. */
+/** Bir canavar örneği oluşturur; HP level tablosundan (hpByLevel), MP formülden. */
 export function createMonster(id: string, rand: () => number = Math.random, forceLevel?: number): CreatureData {
   const d = monsterDef(id);
   const level = forceLevel ?? randInt(d.levels[0], d.levels[1], rand);
@@ -37,7 +37,7 @@ export function createMonster(id: string, rand: () => number = Math.random, forc
     equipment: {},
     inventory: {},
     guildRank: null,
-    hpMod: d.hpMod,
+    hpFixed: d.hpByLevel[level],
     natural: d.natural,
     naturalDef: d.naturalDef,
   };
@@ -57,7 +57,8 @@ export function monsterExp(d: MonsterDef, level: number, rand: () => number = Ma
 }
 
 export interface DropResult {
-  items: { id: string; qty: number; special?: boolean }[];
+  /** luck: yalnızca LUK çarpanı sayesinde düştü (B9 "Şans!"). */
+  items: { id: string; qty: number; special?: boolean; luck?: boolean }[];
   money: number;
 }
 
@@ -78,12 +79,14 @@ export function dropTable(d: MonsterDef, dropMult: number): DropLine[] {
 export function rollDrops(d: MonsterDef, dropMult: number, rand: () => number = Math.random): DropResult {
   const items: DropResult['items'] = [];
   for (const dr of d.drops) {
-    if (rand() < Math.min(1, dr.chance * dropMult)) {
+    const r = luckOutcome(rand(), dr.chance, dr.chance * dropMult);
+    if (r !== 'miss') {
       const q = dr.qty ? randInt(dr.qty[0], dr.qty[1], rand) : 1;
-      items.push({ id: dr.id, qty: q });
+      items.push({ id: dr.id, qty: q, ...(r === 'luck' ? { luck: true } : {}) });
     }
   }
-  if (rand() < Math.min(1, d.special.chance * dropMult)) items.push({ id: d.special.id, qty: 1, special: true });
+  const sr = luckOutcome(rand(), d.special.chance, d.special.chance * dropMult);
+  if (sr !== 'miss') items.push({ id: d.special.id, qty: 1, special: true, ...(sr === 'luck' ? { luck: true } : {}) });
   let money = 0;
   if (d.money && rand() < d.money[2]) money = randInt(d.money[0], d.money[1], rand);
   return { items, money };

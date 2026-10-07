@@ -20,12 +20,12 @@ const titles: TitleDef[] = [
   {
     id: 'pack_hunter', name: 'Sürü Avcısı', rank: 'F',
     desc: 'Bir kurt sürüsünü tek başına dağıttın (aynı savaşta 3 kurt).',
-    bonus: { stats: { DEX: 1 }, damagePct: 0.02 },
+    bonus: { stats: { AGI: 1 }, damagePct: 0.02 },
   },
   // NPC title'ları
   { id: 'npc_retired', name: 'Kurt Sürüsü Avcısı', rank: 'E', desc: 'Gençliğinde bir kurt sürüsünü tek başına durdurdu.', bonus: { damagePct: 0.03 } },
   { id: 'npc_redblade', name: 'Kızıl Kılıç', rank: 'F', desc: 'Köyde nam salmış genç kılıççı.', bonus: { stats: { STR: 1 } } },
-  { id: 'npc_sharpeye', name: 'Keskin Göz', rank: 'F', desc: 'Kırk adımdan elma vuran okçu.', bonus: { stats: { DEX: 1 } } },
+  { id: 'npc_sharpeye', name: 'Keskin Göz', rank: 'F', desc: 'Kırk adımdan elma vuran okçu.', bonus: { stats: { AGI: 1 } } },
   { id: 'npc_reader', name: 'İnsan Okuyan', rank: 'E', desc: 'Lonca sınavlarında yüzlerce maceracıyı değerlendirdi.', bonus: { expPct: 0.02 } },
   { id: 'npc_smith', name: 'Örs Ustası', rank: 'F', desc: 'Bin kılıç dövdü.', bonus: { stats: { STR: 1 } } },
   { id: 'npc_merchant', name: 'Altın Terazi', rank: 'E', desc: 'Üç krallıkta ticaret yaptı, hiçbir pazarlığı kaybetmedi.', bonus: { stats: { INT: 1 } } },

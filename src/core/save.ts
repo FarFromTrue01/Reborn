@@ -5,7 +5,7 @@ import { newGuildState } from './guild';
 import { newQuestLog, startQuest, type QuestLog } from './quests';
 import { questDef, rankupQuest } from '../data/quests';
 import { BOARD_TEMPLATES } from '../data/sidequests';
-import { STAT_POINTS_PER_LEVEL } from './formulas';
+import { STAT_POINTS_PER_LEVEL, zeroStats } from './formulas';
 import { normalizeWallet, emptyWallet } from './money';
 import { normalizeSkillExp, ownedTechniques, sanitizeSlots } from './skills';
 import { SKILLS, REMOVED_TECHNIQUES } from '../data/skills';
@@ -93,7 +93,64 @@ const MIGRATIONS: ((d: any) => any)[] = [
   (d) => migrateV6toV7(d),
   // v7 → v8 (0.9.0): yeni skill sistemi — yetenek slotları, yeni EXP eşikleri, kaldırılan teknikler.
   (d) => migrateV7toV8(d),
+  // v8 → v9 (0.10.0): 5 stat (puanlar yeniden dağıtılır), Bertram'ın işi 2 gün, Tokluk, Ansiklopedi, kitaplar…
+  (d) => migrateV8toV9(d),
 ];
+
+/** 0.10.0'da çıkarılan statlar (kayıttan temizlenir). */
+const REMOVED_STATS = ['DEX', 'MNA'];
+
+/**
+ * 0.9.0 kaydını 0.10.0'a taşır (tests/g6.test.ts):
+ * - B9: 7 stat → 5 stat. Oyuncunun dağıttığı puanlar sıfırlanır, `unspent = 4 × level`; DEX/MNA alanları silinir;
+ *   bir kez "Stat sistemi değişti" bildirimi (`stat_reset_notice` bayrağı). HP/MP/dayanıklılık yüklenince yeni
+ *   tavanlara kırpılır (G.invalidate).
+ * - B12: Bertram'ın işi 3 → 2 vardiya: 1/3 → 1/2; 2/3 ya da üstü → iş bitmiş sayılır, ücret sahnesi bir sonraki
+ *   Bertram konuşmasında oynar (`bertram_pay_pending`; ödeme bir kez).
+ * - Görev ilerleme dizileri tanımla eşitlenir (0.10.0: "Hana Git"e Appraisal amacı eklendi).
+ */
+export function migrateV8toV9(d: any): any {
+  d.flags ??= {};
+  d.counters ??= {};
+  const p = d.player;
+  if (p) {
+    const lv = p.level ?? 0;
+    const spent = Object.values<number>(p.alloc ?? {}).reduce((a, b) => a + (b || 0), 0);
+    p.alloc = zeroStats();
+    p.unspent = STAT_POINTS_PER_LEVEL * lv;
+    if (lv > 0 || spent > 0) d.flags.stat_reset_notice = true;
+    for (const k of REMOVED_STATS) delete p.alloc[k];
+  }
+  // Bertram: 2 vardiya
+  const f = d.flags;
+  if (f.bertram_deal && !f.bertram_done) {
+    const work = d.counters.workDays ?? 0;
+    if (work >= 2) {
+      d.counters.workDays = 2;
+      f.bertram_pay_pending = true;
+    }
+    const st = d.quests?.quests?.m_bertram;
+    if (st && st.status === 'active' && Array.isArray(st.progress)) st.progress[0] = Math.min(2, st.progress[0] ?? 0);
+  }
+  padQuestProgress(d.quests);
+  d.saveVersion = 9;
+  return d;
+}
+
+/** Kayıttaki görev ilerleme dizilerini tanımla eşitler (yeni eklenen amaçlar: bitmiş görevde dolu, aktifte 0). */
+function padQuestProgress(log: any) {
+  if (!log?.quests) return;
+  for (const st of Object.values<any>(log.quests)) {
+    const def = st.def ?? questDef(st.id);
+    if (!def || !Array.isArray(st.progress)) continue;
+    const n = def.objectives.length;
+    while (st.progress.length < n) {
+      const o = def.objectives[st.progress.length];
+      st.progress.push(st.status === 'done' ? o.count ?? 1 : 0);
+    }
+    if (st.progress.length > n) st.progress.length = n;
+  }
+}
 
 /**
  * 0.8.0 kaydını 0.9.0'a taşır (tests/g5b.test.ts):
@@ -189,7 +246,8 @@ export function migrateV3toV4(d: any): any {
  */
 export function migrateV4toV5(d: any): any {
   if (d.player) {
-    d.player.unspent = (d.player.unspent ?? 0) + (STAT_POINTS_PER_LEVEL - 4) * (d.player.level ?? 0);
+    // 0.4.0'daki kural (6 − 4); 0.10.0'da puanlar yeniden dağıtılır (migrateV8toV9)
+    d.player.unspent = (d.player.unspent ?? 0) + (6 - 4) * (d.player.level ?? 0);
     if (d.player.wallet) d.player.wallet = normalizeWallet({ ...emptyWallet(), ...d.player.wallet });
   }
   d.saveVersion = 5;

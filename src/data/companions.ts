@@ -5,11 +5,17 @@
  * 0.8.0 (C6): yoldaşlar Joseph'e yardım eder, işini yapmaz. Değirmen bodrumunda Vera ve Lina her vuruşta bir dev
  * fare öldürüyordu (Vera ~6–15, Dev Fare 3 HP). Hasar çarpanı, daha uzun bekleme, görünür hazırlanma ve Joseph'in o
  * an vurduğu düşmanı bitirmekten kaçınma (bkz. companionTargetScore). Çarpan ×0,35 ile başladı; QA ölçümünde (C8
- * sonrası Vera STR 8, Lina DEX 8) Joseph vurmadan bodrum 12,4 sn'de temizlendi; ×0,25'te 11,5 sn (Vera bir dev
+ * sonrası Vera STR 8, Lina DEX 8 — 0.10.0'dan beri AGI) Joseph vurmadan bodrum 12,4 sn'de temizlendi; ×0,25'te 11,5 sn (Vera bir dev
  * fareyi hâlâ %45 olasılıkla tek vuruşta öldürüyordu) → ×0,15 (ölçümler PLAN.md'de).
  */
 export const COMPANION_DMG_MULT = 0.15;
-export const COMPANION_COOLDOWN: [number, number] = [2.2, 2.8];
+/**
+ * 0.10.0 (B11): yaratık ve yoldaş saldırı sıklığı ×0,75 — bekleme süreleri ×(1/0,75). Hazırlık (windup) süreleri
+ * aynı (tepki süresi). Joseph'in kendi saldırı hızına (Divine) dokunulmaz.
+ */
+export const ATTACK_RATE_SCALE = 0.75;
+/** Yoldaş saldırı beklemesi (sn): 0.9.0'daki [2,2, 2,8] / 0,75 ≈ [2,93, 3,73]. */
+export const COMPANION_COOLDOWN: [number, number] = [2.2 / ATTACK_RATE_SCALE, 2.8 / ATTACK_RATE_SCALE];
 export const COMPANION_WINDUP = 0.4;
 /** Joseph'in bu kadar saniye içinde vurduğu düşman "onun hedefi" sayılır. */
 export const JOSEPH_TARGET_SEC = 2.5;

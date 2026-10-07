@@ -1,7 +1,7 @@
 // Dövüş çözümü: hasar formülleri çekirdek modülden gelir, burada uygulanır.
-import { physicalDamage, spellDamage, mitigatedDamage, roundDamage, CRIT_MULT } from '../core/formulas';
+import { physicalDamage, spellDamage, mitigatedDamage, roundDamage, luckOutcome, CRIT_MULT } from '../core/formulas';
 import type { Derived } from '../core/creature';
-import { skillDamageMult } from '../core/creature';
+import { skillDamageMult, damageStat } from '../core/creature';
 import type { WeaponType } from '../core/types';
 
 export interface HitResult {
@@ -10,6 +10,8 @@ export interface HitResult {
   miss: boolean;
   sneak: boolean;
   raw: number;
+  /** B9: sonucu LUK değiştirdi ("Şans!"): şans eseri ıska (savunanın LUK'u) ya da LUK'un eklediği aralıkta kritik. */
+  luck?: 'miss' | 'crit';
 }
 
 function roll(min: number, max: number, rand = Math.random) {
@@ -21,38 +23,40 @@ export function resolvePhysical(att: { d: Derived; level: number }, def: { d: De
   mult?: number; weak?: boolean; sneakMult?: number; forceCrit?: boolean; weaponType?: WeaponType | null; extraTrait?: number;
 } = {}): HitResult {
   const missChance = def.luckyMiss ?? def.d.luckyMiss;
-  if (Math.random() < missChance) return { damage: 0, crit: false, miss: true, sneak: false, raw: 0 };
+  // şans eseri ıska yalnızca LUK'tan gelir: her ıska "Şans!"
+  if (Math.random() < missChance) return { damage: 0, crit: false, miss: true, sneak: false, raw: 0, luck: 'miss' };
   const base = roll(att.d.weaponDmg[0], att.d.weaponDmg[1]);
-  const crit = opts.forceCrit || Math.random() < att.d.crit;
+  const cr = opts.forceCrit ? 'hit' : luckOutcome(Math.random(), att.d.critNoLuck, att.d.crit);
+  const crit = cr !== 'miss';
   const sneak = !!opts.sneakMult;
   const raw = physicalDamage({
     weaponBase: base,
-    str: att.d.stats.STR,
+    str: damageStat(att.d, opts.weaponType ?? att.d.weaponType),
     skillMult: skillDamageMult(att.d, opts.weaponType ?? att.d.weaponType) * (opts.mult ?? 1),
     traitMult: att.d.divPower * (opts.extraTrait ?? 1),
     crit,
     weakPoint: false,
   }) * (opts.weak ? 1.5 : 1) * (sneak ? opts.sneakMult! : 1);
   const m = mitigatedDamage(raw, def.d.def, att.level, def.d.divEndurance);
-  return { damage: roundDamage(m), crit, miss: false, sneak, raw };
+  return { damage: roundDamage(m), crit, miss: false, sneak, raw, luck: cr === 'luck' ? 'crit' : undefined };
 }
 
 export function resolveSpell(att: { d: Derived; level: number }, def: { d: Derived; level: number }, base: [number, number] | number, opts: { mult?: number; element?: string } = {}): HitResult {
-  if (Math.random() < def.d.luckyMiss) return { damage: 0, crit: false, miss: true, sneak: false, raw: 0 };
+  if (Math.random() < def.d.luckyMiss) return { damage: 0, crit: false, miss: true, sneak: false, raw: 0, luck: 'miss' };
   const b = Array.isArray(base) ? roll(base[0], base[1]) : base;
-  const crit = Math.random() < att.d.crit * 0.5;
+  const cr = luckOutcome(Math.random(), att.d.critNoLuck * 0.5, att.d.crit * 0.5);
+  const crit = cr !== 'miss';
   const kind = opts.element === 'fire' || opts.element === 'ice' || opts.element === 'lightning' ? opts.element : 'spell';
   const raw = spellDamage({
     spellBase: b,
     int: att.d.stats.INT,
-    mna: att.d.stats.MNA,
     skillMult: skillDamageMult(att.d, kind as any) * (opts.mult ?? 1),
     traitMult: att.d.divPower,
     crit,
   });
   // Büyü: savunma yarı etkili
   const m = mitigatedDamage(raw, def.d.def * 0.5, att.level, def.d.divEndurance);
-  return { damage: roundDamage(m), crit, miss: false, sneak: false, raw };
+  return { damage: roundDamage(m), crit, miss: false, sneak: false, raw, luck: cr === 'luck' ? 'crit' : undefined };
 }
 
 export { CRIT_MULT };

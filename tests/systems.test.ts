@@ -99,14 +99,14 @@ describe('Appraisal', () => {
 describe('Canavarlar (belgedeki değerler)', () => {
   const hp = (id: string, lv: number) => derive(createMonster(id, Math.random, lv)).maxHp;
   // Tam tablo: tests/balance.test.ts
-  it('Fare Lv0 HP 1', () => expect(hp('rat', 0)).toBe(1));
-  it('Sümüksü Lv0–1 HP 2–3', () => {
-    expect(hp('slime', 0)).toBe(2);
-    expect(hp('slime', 1)).toBe(3);
+  it('Fare Lv0 HP 1,5 (0.10.0: ×1,5)', () => expect(hp('rat', 0)).toBe(1.5));
+  it('Sümüksü Lv0–1 HP 3–4,5', () => {
+    expect(hp('slime', 0)).toBe(3);
+    expect(hp('slime', 1)).toBe(4.5);
   });
-  it('Goblin Lv1–2 HP 5–7', () => {
-    expect(hp('goblin', 1)).toBe(5);
-    expect(hp('goblin', 2)).toBe(7);
+  it('Goblin Lv1–2 HP 7,5–10,5', () => {
+    expect(hp('goblin', 1)).toBe(7.5);
+    expect(hp('goblin', 2)).toBe(10.5);
   });
   it('EXP aralıkları', () => {
     for (const m of Object.values(MONSTERS)) {

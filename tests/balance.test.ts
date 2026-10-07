@@ -1,4 +1,6 @@
 // Grup 2 (0.4.0) denge tablosu: yaratık HP/hasar/rütbe, silah hasarları, ilk dövüşlerin vuruş sayıları.
+// 0.10.0 (B5/B9/B11): yaratık HP'leri ×1,5 ve level başına doğrudan (hpByLevel), Joseph 10 HP, 4 stat puanı/level,
+// yaratık ve yoldaş saldırı sıklığı ×0,75.
 import { describe, it, expect } from 'vitest';
 import { MONSTERS, monsterRank } from '../src/data/monsters';
 import { createMonster, dropTable } from '../src/core/monster';
@@ -9,29 +11,31 @@ import {
   UNARMED_DAMAGE, WEAPON_DAMAGE_BY_RANK, physicalDamage, mitigatedDamage, roundDamage, applyDamage, STAT_POINTS_PER_LEVEL, SP_PER_LEVEL,
 } from '../src/core/formulas';
 import { subRankToString } from '../src/core/ranks';
-import { skillDamageMult, type Derived } from '../src/core/creature';
+import { skillDamageMult, damageStat, type Derived } from '../src/core/creature';
 import { questDef } from '../src/data/quests';
+import { ATTACK_RATE_SCALE, COMPANION_COOLDOWN, COMPANION_WINDUP, COMPANION_DMG_MULT } from '../src/data/companions';
+import { NPC_BY_ID } from '../src/data/npcs';
 
 /** Rastgeleliksiz vuruş: verilen taban hasarla (aralıktan seçilmiş) kritik/ıskasız. */
 function hit(att: Derived, attLevel: number, def: Derived, base: number): number {
-  const raw = physicalDamage({ weaponBase: base, str: att.stats.STR, skillMult: skillDamageMult(att, att.weaponType), traitMult: att.divPower });
+  const raw = physicalDamage({ weaponBase: base, str: damageStat(att), skillMult: skillDamageMult(att, att.weaponType), traitMult: att.divPower });
   return roundDamage(mitigatedDamage(raw, def.def, attLevel, def.divEndurance));
 }
 
 const TABLE: [id: string, level: number, hp: number, dmg: [number, number], rank: string][] = [
-  ['rat', 0, 1, [1, 1], 'G-'],
-  ['barn_rat', 0, 1, [1, 1], 'G-'],
-  ['rabbit', 0, 1, [1, 1], 'G-'],
-  ['slime', 0, 2, [1, 1], 'G-'],
-  ['slime', 1, 3, [1, 1], 'G-'],
-  ['field_rat', 0, 2, [1, 2], 'G'],
-  ['giant_rat', 1, 3, [1, 2], 'G'],
-  ['wolf', 1, 6, [1, 2], 'G+'],
-  ['wolf', 2, 9, [1, 2], 'G+'],
-  ['goblin', 1, 5, [1, 3], 'G+'],
-  ['goblin', 2, 7, [1, 3], 'G+'],
-  ['goblin_shaman', 2, 4, [2, 3], 'F-'],
-  ['goblin_chief', 3, 15, [2, 5], 'F+'],
+  ['rat', 0, 1.5, [1, 1], 'G-'],
+  ['barn_rat', 0, 1.5, [1, 1], 'G-'],
+  ['rabbit', 0, 1.5, [1, 1], 'G-'],
+  ['slime', 0, 3, [1, 1], 'G-'],
+  ['slime', 1, 4.5, [1, 1], 'G-'],
+  ['field_rat', 0, 3, [1, 2], 'G'],
+  ['giant_rat', 1, 4.5, [1, 2], 'G'],
+  ['wolf', 1, 9, [1, 2], 'G+'],
+  ['wolf', 2, 13.5, [1, 2], 'G+'],
+  ['goblin', 1, 7.5, [1, 3], 'G+'],
+  ['goblin', 2, 10.5, [1, 3], 'G+'],
+  ['goblin_shaman', 2, 6, [2, 3], 'F-'],
+  ['goblin_chief', 3, 22.5, [2, 5], 'F+'],
 ];
 
 describe('Yaratık tablosu (hedef değerler)', () => {
@@ -46,6 +50,17 @@ describe('Yaratık tablosu (hedef değerler)', () => {
       expect(c.skills.find((s) => s.id === 'appraisal')!.rank).toBe(monsterRank(MONSTERS[id]));
     });
   }
+  it('Her yaratığın her level\'ı için hpByLevel tanımlı (B9)', () => {
+    for (const m of Object.values(MONSTERS))
+      for (let lv = m.levels[0]; lv <= m.levels[1]; lv++) expect(m.hpByLevel[lv], `${m.id} Lv${lv}`).toBeGreaterThan(0);
+  });
+  it('Yaratık HP\'si 0.9.0 değerlerinin 1,5 katı (B5)', () => {
+    const OLD: Record<string, number> = { 'rat/0': 1, 'slime/0': 2, 'slime/1': 3, 'field_rat/0': 2, 'giant_rat/1': 3, 'wolf/1': 6, 'wolf/2': 9, 'goblin/1': 5, 'goblin/2': 7, 'goblin_shaman/2': 4, 'goblin_chief/3': 15 };
+    for (const [k, v] of Object.entries(OLD)) {
+      const [id, lv] = k.split('/');
+      expect(MONSTERS[id].hpByLevel[Number(lv)], k).toBeCloseTo(v * 1.5);
+    }
+  });
   it('Tablo tüm yaratıkları ve level aralıklarını kapsıyor', () => {
     for (const m of Object.values(MONSTERS))
       for (let lv = m.levels[0]; lv <= m.levels[1]; lv++) expect(TABLE.some(([id, l]) => id === m.id && l === lv), `${m.id} Lv${lv}`).toBe(true);
@@ -123,24 +138,63 @@ describe('İlk dövüşler', () => {
     }
     return n;
   };
-  it('Fare yumrukla 2, sopayla 1 vuruşta ölür', () => {
+  it('Fare (1,5 HP) yumrukla 3, çatlak sopayla 2 vuruşta ölür (0.10.0)', () => {
     const rat = derive(createMonster('rat', Math.random, 0));
+    expect(rat.maxHp).toBe(1.5);
     const j = newJoseph();
-    expect(hitsToKill(rat.maxHp, hit(derive(j, { level: 0 }), 0, rat, 1))).toBe(2);
+    expect(hitsToKill(rat.maxHp, hit(derive(j, { level: 0 }), 0, rat, 1))).toBe(3);
     j.equipment.weapon = 'cracked_stick';
-    expect(hitsToKill(rat.maxHp, hit(derive(j, { level: 0 }), 0, rat, 2))).toBe(1);
+    expect(hitsToKill(rat.maxHp, hit(derive(j, { level: 0 }), 0, rat, 2))).toBe(2);
   });
-  it('Joseph 5 HP: fare 4 ısırıkta (0.8.0: Dayanıklılık 0,75), dev fare 2–4 ısırıkta öldürür', () => {
+  it('Joseph 10 HP: fare 8 ısırıkta (eski 4), dev fare 4–7 ısırıkta öldürür', () => {
     const j = joseph();
-    expect(j.maxHp).toBe(5);
+    expect(j.maxHp).toBe(10);
     const rat = derive(createMonster('rat', Math.random, 0));
-    expect(hitsToKill(j.maxHp, hit(rat, 0, j, 1))).toBe(4);
+    expect(hitsToKill(j.maxHp, hit(rat, 0, j, 1))).toBe(8);
     const gr = derive(createMonster('giant_rat', Math.random, 1));
-    expect(hitsToKill(j.maxHp, hit(gr, 1, j, 2))).toBe(2);
-    expect(hitsToKill(j.maxHp, hit(gr, 1, j, 1))).toBe(4);
+    expect(hitsToKill(j.maxHp, hit(gr, 1, j, 2))).toBe(4);
+    expect(hitsToKill(j.maxHp, hit(gr, 1, j, 1))).toBe(7);
   });
-  it('Level başına 6 stat puanı, 1 SP', () => {
-    expect(STAT_POINTS_PER_LEVEL).toBe(6);
+  it('Erken dövüş adil (B5 + B11): sopayla fare sürüsü yenilir; çıplak yumrukla tek fare yenilir, sürü zor', () => {
+    // basit süre modeli: Joseph'in saldırı süresi (0,42 sn / saldırı hızı) × vuruş sayısı;
+    // fare: hazırlık + bekleme / ATTACK_RATE_SCALE (ortalama) her ısırıkta
+    const rat = derive(createMonster('rat', Math.random, 0));
+    const ratBite = MONSTERS.rat.windup + MONSTERS.rat.cooldown / ATTACK_RATE_SCALE;
+    const jo = (weapon?: string) => {
+      const j = newJoseph();
+      if (weapon) j.equipment.weapon = weapon;
+      return derive(j, { level: 0 });
+    };
+    const ttk = (d: Derived, base: number, n: number) => n * hitsToKill(rat.maxHp, hit(d, 0, rat, base)) * (0.42 / d.attackSpeed);
+    const die = (n: number) => (hitsToKill(jo().maxHp, hit(rat, 0, jo(), 1)) / n) * ratBite;
+    expect(ttk(jo(), 1, 1)).toBeLessThan(die(1));
+    expect(ttk(jo('cracked_stick'), 2, 3)).toBeLessThan(die(3));
+    // çıplak yumrukla üç fare: Joseph yine kazanır ama pay dar (en fazla 2 kat)
+    expect(ttk(jo(), 1, 3)).toBeLessThan(die(3));
+    expect(die(3) / ttk(jo(), 1, 3)).toBeLessThan(2.5);
+  });
+  it('Saldırı sıklığı ×0,75 (B11): yoldaş beklemesi [2,93, 3,73] sn, hazırlık aynı', () => {
+    expect(ATTACK_RATE_SCALE).toBe(0.75);
+    expect(COMPANION_COOLDOWN[0]).toBeCloseTo(2.933, 2);
+    expect(COMPANION_COOLDOWN[1]).toBeCloseTo(3.733, 2);
+    expect(COMPANION_WINDUP).toBe(0.4);
+  });
+  it('Yoldaşlar erken dövüşte hâlâ işe yarar: Vera ve Lina bir fareyi en çok iki vuruşta, dev fareyi birkaç vuruşta yener', () => {
+    const vera = derive(NPC_BY_ID.vera.creature);
+    const lina = derive(NPC_BY_ID.lina.creature);
+    const rat = derive(createMonster('rat', Math.random, 0));
+    const gr = derive(createMonster('giant_rat', Math.random, 1));
+    for (const c of [vera, lina]) {
+      const lo = hit(c, 3, rat, c.weaponDmg[0]) * COMPANION_DMG_MULT;
+      expect(hitsToKill(rat.maxHp, roundDamage(lo))).toBeLessThanOrEqual(2);
+      const avg = roundDamage(hit(c, 3, gr, (c.weaponDmg[0] + c.weaponDmg[1]) / 2) * COMPANION_DMG_MULT);
+      expect(hitsToKill(gr.maxHp, avg)).toBeLessThanOrEqual(6);
+    }
+    // yaralı sahnesi: %25 can
+    expect(Math.round(vera.maxHp * 0.25)).toBeGreaterThan(0);
+  });
+  it('Level başına 4 stat puanı (0.10.0), 1 SP', () => {
+    expect(STAT_POINTS_PER_LEVEL).toBe(4);
     expect(SP_PER_LEVEL).toBe(1);
   });
 });

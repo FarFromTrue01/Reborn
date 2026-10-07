@@ -12,7 +12,7 @@ import { subRankToString, subRankLetter, type SubRank } from '../core/ranks';
 import { ITEMS } from '../data/items';
 import { KIND_ICON } from './hudQuests';
 import { fmtExp } from './format';
-import { guildBarSegments } from '../core/guild';
+import { guildBarSegments, guildBarLabel } from '../core/guild';
 
 /** Görev bitişinde gösterilecek ödüller (questrt → 'questdone'). */
 export interface QuestDoneInfo {
@@ -294,8 +294,8 @@ export function playQuestComplete(scene: Phaser.Scene, q: QuestDoneInfo, onDone:
           if (frac > 0) bar.fillRect(bx + 4, 10, Math.max(0, bw * frac - 8), 3);
           bar.lineStyle(1, COLORS.goldDark, 1);
           bar.strokeRoundedRect(bx, 8, bw, bh, bh / 2);
-          if (s.hi === null) lab.setText('En yüksek rütbe');
-          else lab.setText(`${Math.round(s.lo + frac * (s.hi - s.lo)) - s.lo} / ${s.hi - s.lo}`);
+          // B6: Lonca Kartı'yla aynı etiket (mutlak puan / sonraki eşik)
+          lab.setText(s.hi === null ? 'En yüksek rütbe' : guildBarLabel(Math.round(s.lo + frac * (s.hi - s.lo)), s.rank));
           // barın sonunda hedef rütbe rozeti; aralık değişince yeni hedef
           if (s.hi !== null && badgeRank !== s.rank + 1) {
             if (badgeRank >= 0) {

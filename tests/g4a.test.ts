@@ -85,7 +85,7 @@ import { nextReach, waitText, type ReachCtx } from '../src/world/reach';
 import { entryAtPost, giverMarks, SIDE_POSTS, type SideQuestView } from '../src/story/sideposts';
 import { scheduleAt } from '../src/data/npcs';
 import { migrate } from '../src/core/save';
-import { newGameState } from '../src/core/state';
+import { newGameState, CURRENT_SAVE_VERSION } from '../src/core/state';
 
 function opsFor(log: QuestLog, flags: Record<string, unknown>, rank: { v: number | null }): MainlineOps {
   return {
@@ -260,7 +260,7 @@ describe('Kayıt göçü v6 → v7 (0.6.0)', () => {
     for (const o of old.objectives) delete o.where;
     s.quests.quests[b.id] = { id: b.id, status: 'active', progress: old.objectives.map(() => 0), startedDay: 3, def: old };
     const m: any = migrate(JSON.parse(JSON.stringify(s)), 6);
-    expect(m.saveVersion).toBe(8);
+    expect(m.saveVersion).toBe(CURRENT_SAVE_VERSION);
     expect(m.quests.quests.m_celebrate.progress).toEqual([0, 0]);
     expect(m.quests.quests[b.id].def.objectives[0].where).toBeDefined();
   });

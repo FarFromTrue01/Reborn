@@ -283,7 +283,11 @@ describe('C1–C3: Joseph\'in hızı, hareket hızı ayarı, dayanıklılık', (
     expect(d.divEndurance).toBe(0.75);
     expect(naturalWalk(d.moveSpeed)).toBeCloseTo(BASE_SPEED / 2, 10);
     expect(naturalWalk(d.moveSpeed) * RUN_MULT).toBeGreaterThan(MONSTERS.rabbit.speed);
-    expect(MONSTERS.rabbit.speed).toBe(3.5);
+    // 0.10.0 (B10): tavşan 3,5 → 2,8 — yürüyen Joseph'ten biraz hızlı (2,6), koşudan belirgin yavaş (≈4,2)
+    expect(MONSTERS.rabbit.speed).toBe(2.8);
+    expect(MONSTERS.rabbit.speed).toBeGreaterThan(naturalWalk(d.moveSpeed));
+    expect(naturalWalk(d.moveSpeed) * RUN_MULT - MONSTERS.rabbit.speed).toBeGreaterThan(1);
+    expect(MONSTERS.rabbit.cornered).toBeTruthy();
   });
   it('hareket hızı ayarı: max = doğal hız, en az %40, max\'ı geçen max\'a sabitlenir, asla hızlandırmaz', () => {
     const nat = 2.6;
@@ -317,16 +321,16 @@ describe('C5: vur-kaç', () => {
 });
 
 import { STAT_POINTS_PER_LEVEL } from '../src/core/formulas';
-describe('C8: NPC statları = 6 × level', () => {
-  it('her NPC\'nin temel stat toplamı 6 × level (ekipman, unvan ve skill hariç)', () => {
-    expect(STAT_POINTS_PER_LEVEL).toBe(6);
+describe('C8 → B9 (0.10.0): NPC statları = 4 × level', () => {
+  it('her NPC\'nin temel stat toplamı 4 × level (ekipman, unvan ve skill hariç)', () => {
+    expect(STAT_POINTS_PER_LEVEL).toBe(4);
     for (const n of NPCS) {
       const sum = Object.values(n.creature.alloc).reduce((a, b) => a + b, 0);
       expect(sum, `${n.id} (L${n.creature.level})`).toBe(STAT_POINTS_PER_LEVEL * n.creature.level);
     }
   });
-  it('büyü kullanan NPC\'lerde MNA var', () => {
-    for (const n of NPCS) if (n.creature.skills.some((s) => /magic/.test(s.id))) expect(n.creature.alloc.MNA, n.id).toBeGreaterThan(0);
+  it('büyü kullanan NPC\'lerde INT var (MNA INT\'e birleşti)', () => {
+    for (const n of NPCS) if (n.creature.skills.some((s) => /magic/.test(s.id))) expect(n.creature.alloc.INT, n.id).toBeGreaterThan(0);
   });
 });
 

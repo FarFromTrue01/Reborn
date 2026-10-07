@@ -11,12 +11,13 @@ import { sortItems, SORT_PREFS } from '../core/itemSort';
 import { sortBar } from '../ui/sortBar';
 import { fmtExp, fmtHp } from '../ui/format';
 import { prestigeLabel, itemPrestige } from '../core/prestige';
-import { pointsToNext, RANK_THRESHOLDS, levelRequirement, examRequired, guildBar } from '../core/guild';
+import { pointsToNext, RANK_THRESHOLDS, levelRequirement, examRequired, guildBar, guildBarLabel } from '../core/guild';
 import { daysLeft, CITY_NAMES } from '../core/cards';
 import { ScrollList, panelChoice, confirmBox } from '../ui/panels';
 import { buildSettings } from '../ui/settingsPanel';
 import { itemLabel, itemEffectsText } from '../ui/format';
 import { STAT_KEYS, expToNext, STAT_POINTS_PER_LEVEL, strDamageMult } from '../core/formulas';
+import { statHintText, statNowText } from '../core/statText';
 import { subRankToString, subRankLetter, skillThreshold, SUBRANK_MAX } from '../core/ranks';
 import { SKILLS, RARITY_NAMES, TECHNIQUES } from '../data/skills';
 import { TITLES, TRAIT_NAMES } from '../data/titles';
@@ -336,12 +337,11 @@ export class MenuScene extends Phaser.Scene {
         if (nxt === null) {
           this.progress(inner, bx, lb + 30, bw, 20, 1, COLORS.gold, 'En yüksek rütbe', '#2a1a00');
         } else {
-          const { lo, hi: hi0, frac } = guildBar(gs.points, cur);
-          const hi = hi0 ?? lo;
+          const { frac } = guildBar(gs.points, cur);
           const lvNeed = levelRequirement(cur + 1);
           const note = nxt > 0 ? `${nxt} puan kaldı` : examRequired(cur + 1) ? 'Terfi sınavla' : p.level < lvNeed ? `Level ${lvNeed} gerekir` : 'Terfi hazır: Celeste\'yle konuş';
           inner.add(txt(this, bx + bw, lb + 2, note, { size: 14, bold: true, color: nxt > 0 ? '#d8c890' : '#9fe08a' }).setOrigin(1, 0));
-          this.progress(inner, bx, lb + 30, bw, 20, frac, COLORS.gold, `${gs.points - lo} / ${hi - lo}`, '#ffffff');
+          this.progress(inner, bx, lb + 30, bw, 20, frac, COLORS.gold, guildBarLabel(gs.points, cur), '#ffffff');
           // hedef: bir sonraki rütbenin rozeti
           const tg = this.add.graphics();
           tg.lineStyle(1.5, COLORS.goldDark, 1);
@@ -360,8 +360,10 @@ export class MenuScene extends Phaser.Scene {
 
     // ---------------------------------------------------------- STATS kartı
     if (show('stats')) {
-      const rowH = 54;
-      const ch = 44 + 34 + STAT_KEYS.length * rowH + 44;
+      // A4/B9: ipuçları formüllerin gerçek sabitlerinden (core/statText); satır yüksekliği metne göre
+      const hints = STAT_KEYS.map((k) => txt(this, 176, 0, statHintText(k), { size: 12, color: '#6f9fcf', italic: true, wrap: W - 290 }));
+      const rowHs = hints.map((h) => Math.max(54, 44 + h.height + 8));
+      const ch = 44 + 34 + rowHs.reduce((a, b) => a + b, 0) + 44;
       const by = this.card(inner, 0, y, W, ch, 'STATS', 'blue', `Dağıtılmamış: ${p.unspent}  ·  SP: ${p.sp}`, 'stats');
       let cx = 14;
       cx = this.chip(inner, cx, by, `Fiziksel hasar ×${strDamageMult(d.stats.STR).toFixed(2)}`, 0x1a3a6a, '#dff0ff');
@@ -371,7 +373,8 @@ export class MenuScene extends Phaser.Scene {
       this.chip(inner, cx, by, `DEF ${d.def}`, 0x1a3a6a, '#dff0ff');
       let ry = by + 34;
       const src = d.statSources;
-      for (const k of STAT_KEYS) {
+      STAT_KEYS.forEach((k, si) => {
+        const rowH = rowHs[si];
         const g = this.add.graphics();
         g.fillStyle(0x061230, 0.85);
         g.fillRoundedRect(14, ry, W - 28, rowH - 8, 8);
@@ -384,8 +387,9 @@ export class MenuScene extends Phaser.Scene {
         const bt = txt(this, 92, ry + (rowH - 8) / 2, String(base), { size: 24, bold: true, color: '#ffffff' }).setOrigin(0, 0.5);
         inner.add(bt);
         inner.add(plusStack(this, bt.x + bt.width + 5, ry + (rowH - 8) / 2, rowH - 10, plus, 14));
-        inner.add(txt(this, 176, ry + 4, `Toplam ${d.stats[k]}`, { size: 13, color: '#9fd6ff', bold: true }));
-        inner.add(txt(this, 176, ry + 23, statHint(k), { size: 13, color: '#6f9fcf', italic: true, wrap: W - 290 }));
+        inner.add(txt(this, 176, ry + 4, `Toplam ${d.stats[k]} · ${statNowText(k, d.stats[k])}`, { size: 13, color: '#9fd6ff', bold: true, wrap: W - 290 }));
+        hints[si].setY(ry + 24);
+        inner.add(hints[si]);
         if (p.unspent > 0) {
           const b = new Button(this, W - 50, ry + (rowH - 8) / 2, '+', () => {
             R.allocateStat(k);
@@ -395,7 +399,7 @@ export class MenuScene extends Phaser.Scene {
           inner.add(b);
         }
         ry += rowH;
-      }
+      });
       inner.add(txt(this, 14, ry + 4, p.unspent > 0 ? `Level atladıkça ${STAT_POINTS_PER_LEVEL} stat puanı kazanırsın. ${p.unspent} puan dağıtılmayı bekliyor.` : `Stat puanları level atlayınca gelir (her level +${STAT_POINTS_PER_LEVEL}).`, { size: 13, italic: true, color: p.unspent ? '#ffe9a0' : '#6f9fcf' }));
       y += ch + gap;
     }
@@ -1256,19 +1260,6 @@ function parseRank(s: string) {
   const L = 'GFEDCBASX'.indexOf(s[0]);
   const sub = s[1] === '-' ? 0 : s[1] === '+' ? 2 : 1;
   return L * 3 + sub;
-}
-
-function statHint(k: string) {
-  switch (k) {
-    case 'STR': return 'Fiziksel hasar +%8';
-    case 'VIT': return '+8 HP, dayanıklılık';
-    case 'AGI': return 'Hareket +%1,5 (en çok %60), kaçış, yenilenme';
-    case 'DEX': return 'Saldırı hızı +%2 (en çok %70), kritik';
-    case 'MNA': return '+3 MP, büyü gücü +%1, MP yenilenmesi';
-    case 'INT': return 'Büyü gücü +%6, büyü alanı +%3';
-    case 'LUK': return 'Drop şansı +%6, kritik +%0,6, şans eseri ıskalatma';
-  }
-  return '';
 }
 
 function tcol(t: number, solid: number) {

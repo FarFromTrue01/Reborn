@@ -1,5 +1,6 @@
 // Düşman yapay zekâsı.
 import Phaser from 'phaser';
+import { ATTACK_RATE_SCALE } from '../data/companions';
 import { Actor, dirFromVec, type Dir } from './actor';
 import { MONSTERS, type MonsterDef, type MonsterBehavior } from '../data/monsters';
 import { corneredStep, newCorneredState } from '../core/combat';
@@ -331,7 +332,7 @@ export class Enemy {
         } else body.setVelocity(0, 0);
         if (this.stateT >= dur) {
           this.setState('recover');
-          this.cooldownT = this.def.cooldown * (0.85 + Math.random() * 0.3);
+          this.cooldownT = (this.def.cooldown / ATTACK_RATE_SCALE) * (0.85 + Math.random() * 0.3);
         }
         break;
       }
@@ -429,7 +430,7 @@ export class Enemy {
       this.icon.setText('!').setColor('#ff5040');
       this.w.tweens.add({ targets: this.icon, scale: { from: 1.6, to: 1 }, duration: 200 });
       Sound.sfx('alert', 0.6);
-      this.cooldownT = Math.max(this.cooldownT, 0.5);
+      this.cooldownT = Math.max(this.cooldownT, 0.5 / ATTACK_RATE_SCALE);
       this.setState('chase');
       this.w.enterCombat();
     }

@@ -161,7 +161,7 @@ export function useTechnique(w: WorldScene, id: string): boolean {
       break;
     }
     case 'heal': {
-      const amt = Math.round(t.power * pw * spellPowerMult(G.d.stats.INT, G.d.stats.MNA) * G.d.healMult * 10) / 10;
+      const amt = Math.round(t.power * pw * spellPowerMult(G.d.stats.INT) * G.d.healMult * 10) / 10;
       w.healJoseph(amt, !!fx.healParty);
       if (skill && G.p.hp < G.d.maxHp) R.gainSkillExp(skill, 0.8);
       pl.setState('cast');

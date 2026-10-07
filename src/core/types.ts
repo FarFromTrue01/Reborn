@@ -261,8 +261,8 @@ export interface CreatureData {
   equipment: Partial<Record<EquipSlot, string>>;
   inventory: Record<string, number>;
   guildRank: SubRank | null;
-  /** Canavarlar için türe özgü HP değiştiricisi (bonuslar). */
-  hpMod?: { flat: number; mult: number };
+  /** Canavarlar için doğrudan max HP (0.10.0: level başına tablo, stat formülünden türetilmez). */
+  hpFixed?: number;
   /** Canavarlar için doğal silah (ısırık, pençe). */
   natural?: { name: string; dmg: [number, number] };
   /** Canavarlar için doğal zırh. */

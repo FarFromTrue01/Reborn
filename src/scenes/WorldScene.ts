@@ -1776,6 +1776,12 @@ export class WorldScene extends Phaser.Scene {
     const bonus = G.d.gatherBonus;
     qty += Math.floor(bonus) + (Math.random() < bonus - Math.floor(bonus) ? 1 : 0);
     if (Math.random() < (fx.gatherExtra2 ?? 0)) qty++;
+    // B9: LUK — toplamada çift ürün
+    const lucky = Math.random() < G.d.gatherDouble;
+    if (lucky) {
+      qty *= 2;
+      this.time.delayedCall(200, () => this.fx.luck(g.x * TILE + 16, g.y * TILE - 4, 'Şans! Çift ürün'));
+    }
     if (g.kind === 'herb' && Math.random() < (fx.rareGatherPct ?? 0)) {
       R.giveItems([{ id: 'silver_herb', qty: 1 }], 'Toplama');
       this.ui.toastInfo('Nadir bir ot buldun!');
@@ -2275,6 +2281,7 @@ export class WorldScene extends Phaser.Scene {
     this.fx.sparks(e.x, e.y - 18, res.crit ? 0xffd040 : 0xfff2c0, res.crit ? 12 : 7);
     const label = fmtHp(res.damage) + (res.crit ? '!' : '');
     this.fx.number(e.x, e.y - 40, label, res.crit ? 'crit' : 'dmg');
+    if (res.luck === 'crit') this.fx.luck(e.x, e.y - 64, 'Şans! Kritik');
     if (res.sneak) this.fx.number(e.x, e.y - 58, 'Gizli Saldırı!', 'sneak');
     if (counter) this.fx.number(e.x, e.y - 58, 'Karşı Saldırı!', 'divine');
     Sound.sfx(res.crit ? 'crit' : 'hit');
@@ -2348,7 +2355,7 @@ export class WorldScene extends Phaser.Scene {
     // drop
     const drops = rollDrops(e.def, G.d.dropMult);
     let i = 0;
-    for (const it of drops.items) this.dropPickup(e.x, e.y, it.id, it.qty, 0, i++, it.special);
+    for (const it of drops.items) this.dropPickup(e.x, e.y, it.id, it.qty, 0, i++, it.special, it.luck);
     if (drops.money) this.dropPickup(e.x, e.y, '', 0, drops.money, i++);
     // yeniden doğma zamanı
     const spawn = this.mapData.spawns.find((s) => e.spawnId.startsWith(s.id + '#'));
@@ -2356,7 +2363,7 @@ export class WorldScene extends Phaser.Scene {
     G.scheduleSave();
   }
 
-  dropPickup(x: number, y: number, id: string, qty: number, money: number, i: number, special = false) {
+  dropPickup(x: number, y: number, id: string, qty: number, money: number, i: number, special = false, luck = false) {
     const icon = id ? ITEMS[id].icon : 'coin_bronze';
     const img = this.add.image(x, y - 10, 'icons', this.textures.get('icons').has(icon) ? icon : 'stone').setScale(0.42).setDepth(y + 1);
     const ang = (i / 4) * Math.PI * 2 + Math.random();
@@ -2366,6 +2373,13 @@ export class WorldScene extends Phaser.Scene {
     if (special) {
       this.fx.glow(x, y - 10, 0xffd040, 40, 1200);
       this.ui.toastInfo('Nadir bir şey düştü!');
+    }
+    // B9: yalnızca LUK sayesinde düştü — eşyanın üstünde yonca parıltısı
+    if (luck) {
+      this.time.delayedCall(250, () => {
+        this.fx.glow(tx, ty - 12, 0x7dff6a, 30, 900);
+        this.fx.luck(tx, ty - 26);
+      });
     }
     this.pickups.push({ img, id, qty, money, x: tx, y: ty, t: 0 });
   }
@@ -2423,7 +2437,7 @@ export class WorldScene extends Phaser.Scene {
     }, v.normalize());
   }
 
-  resolveIncoming(e: Enemy | null, calc: () => { damage: number; crit: boolean; miss: boolean }, dir: Phaser.Math.Vector2) {
+  resolveIncoming(e: Enemy | null, calc: () => { damage: number; crit: boolean; miss: boolean; luck?: 'miss' | 'crit' }, dir: Phaser.Math.Vector2) {
     const pl = this.player;
     if (pl.dead || this.cutscene) return;
     // Karşı Saldırı (Kılıç Ustalığı B-): duruşta gelen darbe engellenir ve otomatik karşılık verilir
@@ -2452,7 +2466,9 @@ export class WorldScene extends Phaser.Scene {
     }
     const res = calc();
     if (res.miss) {
-      this.fx.number(pl.actor.x, pl.actor.y - 50, 'Iska!', 'miss');
+      // B9: Joseph'in LUK'u (şans eseri ıskalatma)
+      if (res.luck === 'miss') this.fx.luck(pl.actor.x, pl.actor.y - 50, 'Şans! Iska');
+      else this.fx.number(pl.actor.x, pl.actor.y - 50, 'Iska!', 'miss');
       Sound.sfx('miss');
       return;
     }

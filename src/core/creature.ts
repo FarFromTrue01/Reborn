@@ -1,6 +1,7 @@
 import {
-  addStats, critChance, dexAttackSpeedMult, agiMoveMult, maxHP, maxMP, maxStamina, zeroStats,
-  luckyMissChance, dropChanceMult, spellAreaMult, baseHP, STAT_KEYS, type Stats,
+  addStats, critChance, agiAttackSpeedMult, agiMoveMult, maxHP, maxMP, maxStamina, zeroStats, round1,
+  luckyMissChance, dropChanceMult, spellAreaMult, agiDodgeCostMult, agiDodgeWindowMult, gatherDoubleChance, skillExpMult,
+  statusDurationMult, STAT_KEYS, type Stats,
 } from './formulas';
 import { aggregateFx, type SkillFx } from './skills';
 import { EQUIP_SLOTS, type CreatureData, type WeaponType, type EquipSlot } from './types';
@@ -23,8 +24,16 @@ export interface Derived {
   weaponType: WeaponType | null;
   weaponName: string;
   crit: number;
+  /** Kritik şansı LUK olmadan ("Şans!" tespiti için). */
+  critNoLuck: number;
   luckyMiss: number;
   dropMult: number;
+  /** LUK: toplamada çift ürün şansı. */
+  gatherDouble: number;
+  /** INT: skill EXP kazancı çarpanı. */
+  skillExpMult: number;
+  /** VIT: durum etkisi süresi çarpanı. */
+  statusDurMult: number;
   attackSpeed: number;
   moveSpeed: number;
   dodgeWindowMult: number;
@@ -58,7 +67,7 @@ export function derive(c: CreatureData, divine?: DivineContext | null): Derived 
   const sources: Record<string, Partial<Stats>> = { Level: { ...c.alloc } };
   let stats = { ...c.alloc };
   let def = c.naturalDef ?? 0;
-  let hpFlat = c.hpMod?.flat ?? 0;
+  let hpFlat = 0;
   let hpPct = 0;
   let staminaFlat = 0;
   const dmgPct: Record<string, number> = {};
@@ -135,23 +144,25 @@ export function derive(c: CreatureData, divine?: DivineContext | null): Derived 
   return {
     stats,
     statSources: sources,
-    maxHp: c.hpMod
-      ? Math.max(1, Math.round((baseHP(c.level, stats.VIT) + hpFlat) * c.hpMod.mult * (1 + hpPct)))
-      : maxHP(c.level, stats.VIT, { hpFlat, hpPct }),
-    maxMp: maxMP(c.level, stats.MNA),
+    maxHp: c.hpFixed !== undefined ? Math.max(0.1, round1((c.hpFixed + hpFlat) * (1 + hpPct))) : maxHP(c.level, stats.VIT, { hpFlat, hpPct }),
+    maxMp: maxMP(c.level, stats.INT),
     maxStamina: maxStamina(stats.VIT, stats.AGI, { staminaFlat }),
     def,
     weaponDmg,
     weaponType: w?.weaponType ?? null,
     weaponName,
-    crit: critChance(stats.DEX, stats.LUK, wCrit),
+    crit: critChance(stats.AGI, stats.LUK, wCrit),
+    critNoLuck: critChance(stats.AGI, 0, wCrit),
     luckyMiss: luckyMissChance(stats.LUK),
     dropMult: dropChanceMult(stats.LUK),
-    attackSpeed: dexAttackSpeedMult(stats.DEX) * divSpeed * wSpd,
+    gatherDouble: gatherDoubleChance(stats.LUK),
+    skillExpMult: skillExpMult(stats.INT),
+    statusDurMult: statusDurationMult(stats.VIT),
+    attackSpeed: agiAttackSpeedMult(stats.AGI) * divSpeed * wSpd,
     moveSpeed: mv.move,
-    dodgeWindowMult: (1 + dodgeWin) * ov.windowMult,
+    dodgeWindowMult: (1 + dodgeWin) * agiDodgeWindowMult(stats.AGI) * ov.windowMult,
     slowmoMult: ov.slowmoMult,
-    dodgeCostMult: 1 + dodgeCost,
+    dodgeCostMult: (1 + dodgeCost) * agiDodgeCostMult(stats.AGI),
     runCostMult: 1 + runCost,
     detectionMult: 1 + detect,
     sneakMult: sneak,
@@ -170,6 +181,14 @@ export function derive(c: CreatureData, divine?: DivineContext | null): Derived 
     divLearning,
     divAdaptation,
   };
+}
+
+/**
+ * Fiziksel hasarın stat'ı (B9): yay AGI ile (eskiden DEX'e bağlı olan her şey AGI'de), diğer silahlar STR ile.
+ * Çarpan aynı: puan başına +%8.
+ */
+export function damageStat(d: Derived, weaponType: WeaponType | null | undefined = d.weaponType): number {
+  return weaponType === 'bow' ? d.stats.AGI : d.stats.STR;
 }
 
 /** Bir saldırı türü için skill+title hasar çarpanı. */

@@ -1,11 +1,15 @@
 // Elonth'un temel formülleri. Saf fonksiyonlar, birim testleri tests/formulas.test.ts.
 
-export const STAT_KEYS = ['STR', 'VIT', 'AGI', 'DEX', 'MNA', 'INT', 'LUK'] as const;
+/**
+ * 0.10.0 (B9): beş stat — DEX AGI'ye, MNA INT'e birleşti. Etkilerin sayıları `STAT_RULES`'ta; Status'taki ipuçları
+ * (MenuScene.statHint) bu sabitleri birebir gösterir.
+ */
+export const STAT_KEYS = ['STR', 'VIT', 'AGI', 'INT', 'LUK'] as const;
 export type StatKey = (typeof STAT_KEYS)[number];
 export type Stats = Record<StatKey, number>;
 
 export function zeroStats(): Stats {
-  return { STR: 0, VIT: 0, AGI: 0, DEX: 0, MNA: 0, INT: 0, LUK: 0 };
+  return { STR: 0, VIT: 0, AGI: 0, INT: 0, LUK: 0 };
 }
 
 export function addStats(a: Stats, b: Partial<Stats>): Stats {
@@ -14,6 +18,18 @@ export function addStats(a: Stats, b: Partial<Stats>): Stats {
   return r;
 }
 
+/** Stat başına etkiler (oranlar: 0.08 = %8; `Max` alanları tavan). */
+export const STAT_RULES = {
+  STR: { dmgPct: 0.08 },
+  VIT: { hpPct: 0.08, stamina: 5, statusDurPct: 0.02, statusDurMax: 0.4 },
+  AGI: {
+    movePct: 0.01, moveMax: 0.5, atkSpdPct: 0.015, atkSpdMax: 0.6, critPct: 0.004, critMax: 0.2, stamina: 3,
+    staminaRegenPct: 0.01, dodgeCostPct: 0.01, dodgeCostMax: 0.3, dodgeWindowPct: 0.01, dodgeWindowMax: 0.3,
+  },
+  INT: { mp: 3, mpRegenPct: 0.03, spellPct: 0.06, areaPct: 0.03, areaMax: 1, skillExpPct: 0.015, skillExpMax: 0.5 },
+  LUK: { critPct: 0.006, critMax: 0.1, missPct: 0.005, missMax: 0.1, dropPct: 0.06, doublePct: 0.01, doubleMax: 0.2 },
+} as const;
+
 // ---------------------------------------------------------------- Level / EXP
 
 /** Level n'den n+1'e geçmek için gereken EXP: 100 × (n+1). */
@@ -21,7 +37,8 @@ export function expToNext(level: number): number {
   return 100 * (level + 1);
 }
 
-export const STAT_POINTS_PER_LEVEL = 6;
+/** 0.10.0: level başına 4 stat puanı (eskiden 6). */
+export const STAT_POINTS_PER_LEVEL = 4;
 export const SP_PER_LEVEL = 1;
 
 export interface LevelGain {
@@ -53,47 +70,63 @@ export interface PoolBonuses {
   staminaFlat?: number;
 }
 
-export const HP_BASE = 5;
+/** 0.10.0: HP tabanı 10 (eskiden 5), level başına 8. VIT artık yüzdeli çarpan. */
+export const HP_BASE = 10;
 export const HP_PER_LEVEL = 8;
-export const HP_PER_VIT = 8;
+export const STAMINA_BASE = 50;
 
-/** Bonussuz HP tabanı: 5 + 8×Level + 8×VIT (canavarlar bunu kendi hpMod'larıyla ölçekler). */
-export function baseHP(level: number, vit: number): number {
-  return HP_BASE + HP_PER_LEVEL * level + HP_PER_VIT * vit;
+/** Bir ondalığa yuvarla (yaratık ve Joseph HP'leri: 1,5 HP'li fare 2'ye yuvarlanmaz). */
+export function round1(x: number): number {
+  return Math.round(x * 10) / 10;
 }
 
-/** Max HP = 5 + 8×Level + 8×VIT + bonuslar */
+/** Max HP = (10 + 8×Level + düz bonuslar) × (1 + 0,08×VIT) × (1 + yüzde bonuslar), bir ondalık. */
 export function maxHP(level: number, vit: number, b: PoolBonuses = {}): number {
-  const base = baseHP(level, vit) + (b.hpFlat ?? 0);
-  return Math.max(1, Math.floor(base * (1 + (b.hpPct ?? 0))));
+  const base = HP_BASE + HP_PER_LEVEL * level + (b.hpFlat ?? 0);
+  return Math.max(1, round1(base * (1 + STAT_RULES.VIT.hpPct * vit) * (1 + (b.hpPct ?? 0))));
 }
 
-/** Max MP = 1×Level + 3×MNA + bonuslar */
-export function maxMP(level: number, mna: number, b: PoolBonuses = {}): number {
-  const base = level + 3 * mna + (b.mpFlat ?? 0);
+/** Max MP = Level + 3×INT + bonuslar */
+export function maxMP(level: number, int: number, b: PoolBonuses = {}): number {
+  const base = level + STAT_RULES.INT.mp * int + (b.mpFlat ?? 0);
   return Math.max(0, Math.floor(base * (1 + (b.mpPct ?? 0))));
 }
 
-/** Dayanıklılık barı = 50 + 3×VIT + 2×AGI */
+/** Dayanıklılık = 50 + 5×VIT + 3×AGI + bonuslar */
 export function maxStamina(vit: number, agi: number, b: PoolBonuses = {}): number {
-  return 50 + 3 * vit + 2 * agi + (b.staminaFlat ?? 0);
+  return STAMINA_BASE + STAT_RULES.VIT.stamina * vit + STAT_RULES.AGI.stamina * agi + (b.staminaFlat ?? 0);
 }
 
 // ---------------------------------------------------------------- Stat etkileri
 
-/** STR: fiziksel hasar ×(1 + 0.08×STR) */
+/** STR: fiziksel hasar ×(1 + 0.08×STR), tavansız */
 export function strDamageMult(str: number): number {
-  return 1 + 0.08 * str;
+  return 1 + STAT_RULES.STR.dmgPct * str;
 }
 
-/** AGI: hareket hızı puan başına +%1,5 (en fazla +%60) */
+/** VIT: durum etkilerinin (zehir, kanama, yanma…) süresi puan başına −%2 (en fazla −%40). */
+export function statusDurationMult(vit: number): number {
+  return 1 - Math.min(STAT_RULES.VIT.statusDurMax, STAT_RULES.VIT.statusDurPct * vit);
+}
+
+/** AGI: hareket hızı puan başına +%1 (en fazla +%50) */
 export function agiMoveMult(agi: number): number {
-  return 1 + Math.min(0.6, 0.015 * agi);
+  return 1 + Math.min(STAT_RULES.AGI.moveMax, STAT_RULES.AGI.movePct * agi);
 }
 
-/** DEX: saldırı hızı puan başına +%2 (en fazla +%70) */
-export function dexAttackSpeedMult(dex: number): number {
-  return 1 + Math.min(0.7, 0.02 * dex);
+/** AGI: saldırı hızı puan başına +%1,5 (en fazla +%60) */
+export function agiAttackSpeedMult(agi: number): number {
+  return 1 + Math.min(STAT_RULES.AGI.atkSpdMax, STAT_RULES.AGI.atkSpdPct * agi);
+}
+
+/** AGI: kaçışın dayanıklılık bedeli puan başına −%1 (en fazla −%30): çarpan. */
+export function agiDodgeCostMult(agi: number): number {
+  return 1 - Math.min(STAT_RULES.AGI.dodgeCostMax, STAT_RULES.AGI.dodgeCostPct * agi);
+}
+
+/** AGI: kusursuz kaçış penceresi puan başına +%1 (en fazla +%30): çarpan. */
+export function agiDodgeWindowMult(agi: number): number {
+  return 1 + Math.min(STAT_RULES.AGI.dodgeWindowMax, STAT_RULES.AGI.dodgeWindowPct * agi);
 }
 
 export const BASE_CRIT = 0.05;
@@ -101,35 +134,55 @@ export const MAX_CRIT = 0.6;
 export const CRIT_MULT = 2;
 export const WEAK_POINT_MULT = 1.5;
 
-/** Kritik şansı: taban %5 + DEX %0,5/puan (≤%20) + LUK %0,6/puan (≤%10) + bonus, toplam ≤ %60 */
-export function critChance(dex: number, luk: number, bonus = 0): number {
-  const c = BASE_CRIT + Math.min(0.2, 0.005 * dex) + Math.min(0.1, 0.006 * luk) + bonus;
+/** Kritik şansı: taban %5 + AGI %0,4/puan (≤%20) + LUK %0,6/puan (≤%10) + bonus, toplam ≤ %60 */
+export function critChance(agi: number, luk: number, bonus = 0): number {
+  const c = BASE_CRIT + Math.min(STAT_RULES.AGI.critMax, STAT_RULES.AGI.critPct * agi) + Math.min(STAT_RULES.LUK.critMax, STAT_RULES.LUK.critPct * luk) + bonus;
   return Math.min(MAX_CRIT, c);
 }
 
-/** LUK: şans eseri ıskalatma +%0.5 (en fazla +%10) */
+/** LUK: şans eseri ıskalatma +%0,5 (en fazla %10) */
 export function luckyMissChance(luk: number): number {
-  return Math.min(0.1, 0.005 * luk);
+  return Math.min(STAT_RULES.LUK.missMax, STAT_RULES.LUK.missPct * luk);
 }
 
-/** LUK: drop şansı ×(1 + 0.06×LUK) */
+/** LUK: ganimet şansı ×(1 + 0.06×LUK) */
 export function dropChanceMult(luk: number): number {
-  return 1 + 0.06 * luk;
+  return 1 + STAT_RULES.LUK.dropPct * luk;
 }
 
-/** MNA: MP yenilenmesi puan başına +%3 (0.9.0) */
-export function mnaRegenMult(mna: number): number {
-  return 1 + 0.03 * mna;
+/** LUK: toplamada çift ürün şansı +%1 (en fazla %20) */
+export function gatherDoubleChance(luk: number): number {
+  return Math.min(STAT_RULES.LUK.doubleMax, STAT_RULES.LUK.doublePct * luk);
 }
 
-/** Büyü gücü: INT puan başına +%6, MNA puan başına +%1 */
-export function spellPowerMult(int: number, mna: number): number {
-  return 1 + 0.06 * int + 0.01 * mna;
+/** INT: MP yenilenmesi puan başına +%3 */
+export function intRegenMult(int: number): number {
+  return 1 + STAT_RULES.INT.mpRegenPct * int;
+}
+
+/** Büyü gücü: INT puan başına +%6 */
+export function spellPowerMult(int: number): number {
+  return 1 + STAT_RULES.INT.spellPct * int;
 }
 
 /** INT: büyü alanı puan başına +%3 (en fazla +%100) */
 export function spellAreaMult(int: number): number {
-  return 1 + Math.min(1, 0.03 * int);
+  return 1 + Math.min(STAT_RULES.INT.areaMax, STAT_RULES.INT.areaPct * int);
+}
+
+/** INT: skill EXP kazancı puan başına +%1,5 (en fazla +%50) */
+export function skillExpMult(int: number): number {
+  return 1 + Math.min(STAT_RULES.INT.skillExpMax, STAT_RULES.INT.skillExpPct * int);
+}
+
+/**
+ * LUK'un sonucu değiştirip değiştirmediği (B9, "Şans!" yazısı): zar `roll` (0..1), LUK'suz şans `base`, LUK'lu şans
+ * `withLuck`. 'luck': yalnızca LUK'un eklediği aralığa düştü; 'hit': LUK olmadan da tutardı; 'miss': tutmadı.
+ */
+export function luckOutcome(roll: number, base: number, withLuck: number): 'luck' | 'hit' | 'miss' {
+  if (roll < Math.min(1, base)) return 'hit';
+  if (roll < Math.min(1, withLuck)) return 'luck';
+  return 'miss';
 }
 
 // ---------------------------------------------------------------- Hasar
@@ -158,18 +211,17 @@ export function physicalDamage(h: PhysicalHit): number {
 export interface SpellHit {
   spellBase: number;
   int: number;
-  mna: number;
   skillMult?: number;
   traitMult?: number;
   crit?: boolean;
   weakPoint?: boolean;
 }
 
-/** Büyü hasarı = Büyü tabanı × (1 + 0.06×INT + 0.01×MNA) × skill çarpanları */
+/** Büyü hasarı = Büyü tabanı × (1 + 0.06×INT) × skill çarpanları */
 export function spellDamage(h: SpellHit): number {
   return (
     h.spellBase *
-    spellPowerMult(h.int, h.mna) *
+    spellPowerMult(h.int) *
     (h.skillMult ?? 1) *
     (h.traitMult ?? 1) *
     (h.crit ? CRIT_MULT : 1) *
@@ -237,18 +289,18 @@ export function hpRegenPerSec(maxHp: number, adaptation: number, inCombat: boole
 }
 
 /**
- * MP yenilenmesi (0.9.0, S4): saniyede 0,02 + max MP × 0,005; MNA puan başına +%3, Adaptasyon ile çarpılır,
- * savaşta ×0,3.
+ * MP yenilenmesi (0.9.0, S4): saniyede 0,02 + max MP × 0,005; INT puan başına +%3 (0.10.0: eskiden MNA), Adaptasyon
+ * ile çarpılır, savaşta ×0,3.
  */
-export function mpRegenPerSec(maxMp: number, mna: number, adaptation: number, inCombat: boolean): number {
+export function mpRegenPerSec(maxMp: number, int: number, adaptation: number, inCombat: boolean): number {
   if (maxMp <= 0) return 0;
   const base = 0.02 + 0.005 * maxMp;
-  return base * (1 + 0.03 * mna) * adaptation * (inCombat ? 0.3 : 1);
+  return base * intRegenMult(int) * adaptation * (inCombat ? 0.3 : 1);
 }
 
 /** AGI dayanıklılık yenilenmesini puan başına %1 artırır. */
 export function staminaRegenPerSec(agi: number, adaptation: number, inCombat: boolean): number {
-  const base = 18 * (1 + 0.01 * agi);
+  const base = 18 * (1 + STAT_RULES.AGI.staminaRegenPct * agi);
   return base * adaptation * (inCombat ? 0.5 : 1);
 }
 

@@ -433,7 +433,7 @@ export class Player {
       const rh = regenStep(p.hp, d.maxHp, hpGain, this.regenAcc.hp);
       p.hp = rh.value;
       this.regenAcc.hp = rh.acc;
-      const rm = regenStep(p.mp, d.maxMp, mpRegenPerSec(d.maxMp, d.stats.MNA, ad, this.inCombat) * dt, this.regenAcc.mp);
+      const rm = regenStep(p.mp, d.maxMp, mpRegenPerSec(d.maxMp, d.stats.INT, ad, this.inCombat) * dt, this.regenAcc.mp);
       p.mp = rm.value;
       this.regenAcc.mp = rm.acc;
       if (this.staminaDelay <= 0) {
@@ -656,7 +656,8 @@ export class Player {
 
   /** Joseph'e durum etkisi (İlk Yardım B-: olumsuz etkiler kısa sürer). */
   addStatus(st: Status) {
-    const r = applyStatus(this.statuses, { ...st, t: scaledDuration(st.t, this.d.fx.debuffDurPct ?? 0) }, { level: G.p.level }, 999);
+    // B9: VIT durum etkisi süresini kısaltır (puan başına −%2, en çok −%40); skill pasifi de ayrıca
+    const r = applyStatus(this.statuses, { ...st, t: scaledDuration(st.t, this.d.fx.debuffDurPct ?? 0) * this.d.statusDurMult }, { level: G.p.level }, 999);
     this.statuses = r.list;
   }
 

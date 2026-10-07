@@ -29,6 +29,7 @@ import { HIDDEN_DISCOVERIES } from '../data/skills';
 import { weekOfDay } from '../core/skills';
 import { panelChoice } from '../ui/panels';
 import { fmtHp } from '../ui/format';
+import { STAT_KEYS } from '../core/formulas';
 import { divineStat, DIVINE_STATS, DIVINE_STAT_NAMES } from '../core/divine';
 import { ensureCG } from '../ui/portraits';
 import { Display } from '../game/display';
@@ -441,6 +442,11 @@ export class Director {
     this.ch2.applyEscort();
     // A7.9: han sahnesinin Appraisal adımında kaydedilip yeniden yüklendiyse "Hana Git" kapanır (sahne tekrar oynamaz)
     if (G.flag('inn_met') && Q.active('m_inn')) Q.complete('m_inn', { quiet: true });
+    // B9: 0.9.0 kaydından gelindi — statlar sıfırlandı (bir kez)
+    if (G.flag('stat_reset_notice')) {
+      delete G.state.flags.stat_reset_notice;
+      this.w.time.delayedCall(1500, () => R.sysmsg('STAT SİSTEMİ DEĞİŞTİ', [`Stat sistemi değişti, puanlarını yeniden dağıt (${G.p.unspent} puan · Menü → Status).`], { sound: 'system' }));
+    }
     if (!G.flag('woke')) this.wakeScene();
     else this.ui.showZone(this.w.zone?.name ?? this.w.mapData.name);
     this.w.updateMusic();
@@ -621,7 +627,7 @@ export class Director {
       await this.think('Kalkabiliyorum. Ama bu beden... benim değil gibi. Çok hafif. Ve çok... zayıf.');
       await this.think('Üstümde yırtık bir şorttan başka hiçbir şey yok.');
       // Status penceresi kısa süre
-      R.sysmsg('STATUS', ['Joseph · İnsan · Level 0', 'HP 5/5 · MP 0/0', 'STR 0 · VIT 0 · AGI 0 · DEX 0 · MNA 0 · INT 0 · LUK 0', 'Skill: Appraisal (G-)'], { sound: 'system' });
+      R.sysmsg('STATUS', ['Joseph · İnsan · Level 0', `HP ${fmtHp(G.d.maxHp)}/${fmtHp(G.d.maxHp)} · MP 0/0`, STAT_KEYS.map((k) => `${k} ${G.d.stats[k]}`).join(' · '), 'Skill: Appraisal (G-)'], { sound: 'system' });
       await wait(this.w, 2600);
       await this.think('Gerçekten oradaymış. O mavi pencere... Rüya değil.');
       // Manzara
@@ -1383,9 +1389,11 @@ export class Director {
     c.add(txt(this.ui, 300, 16, '【 APPRAISAL TAŞI — LONCA KAYDI 】', { size: 19, font: FONT.title, color: '#e6f6ff', bold: true }).setOrigin(0.5, 0));
     const rows = [
       ['İsim', 'Joseph'], ['Irk', 'İnsan'], ['Cinsiyet', 'Erkek'], ['Yaş', '18'],
-      ['Level', '0'], ['HP', `${G.d.maxHp}`], ['MP', `${G.d.maxMp}`],
-      ['Statlar', 'STR 0 · VIT 0 · AGI 0 · DEX 0 · MNA 0 · INT 0 · LUK 0'],
+      ['Level', `${G.p.level}`], ['HP', fmtHp(G.d.maxHp)], ['MP', `${G.d.maxMp}`],
+      ['Statlar', STAT_KEYS.map((k) => `${k} ${G.d.stats[k]}`).join(' · ')],
       ['Skill', 'Appraisal (G-)'],
+      // B21: taş trait'i göremez (Divine Paladin hiçbir Appraisal'da görünmez)
+      ['Trait', '—'],
     ];
     rows.forEach(([k, v], i) => {
       c.add(txt(this.ui, 30, 60 + i * 30, k, { size: 17, bold: true, color: '#cfeaff' }));

@@ -48,6 +48,25 @@ export class FX {
     this.scene.tweens.add({ targets: t, alpha: 0, delay: kind === 'crit' ? 650 : 450, duration: 300, onComplete: () => t.destroy() });
   }
 
+  /**
+   * B9: LUK sonucu değiştirdiğinde küçük yonca simgeli "Şans!" yazısı (şans eseri ıska, LUK kritiği, LUK ganimeti,
+   * çift ürün).
+   */
+  luck(x: number, y: number, text = 'Şans!') {
+    const z = this.scene.cameras.main.zoom;
+    const c = this.scene.add.container(x, y).setDepth(950001);
+    const ic = this.scene.add.image(0, 0, 'uiicons', 'LUK').setScale(15 / 72);
+    const t = this.scene.add.text(9, 0, text, { fontFamily: FONT.ui, fontSize: '13px', color: '#9dff7a', fontStyle: 'bold', stroke: '#0a2a10', strokeThickness: 2 });
+    t.setResolution(z).setOrigin(0, 0.5);
+    ic.x = -(t.width + 9) / 2 + 7;
+    t.x = ic.x + 9;
+    c.add([ic, t]);
+    c.setScale(0.6);
+    this.scene.tweens.add({ targets: c, scale: 1, duration: 160, ease: 'Back.Out' });
+    this.scene.tweens.add({ targets: c, y: y - 22, duration: 900, ease: 'Cubic.Out' });
+    this.scene.tweens.add({ targets: c, alpha: 0, delay: 700, duration: 300, onComplete: () => c.destroy() });
+  }
+
   sparks(x: number, y: number, color = 0xfff2b0, n = 7, speed = 120) {
     for (let i = 0; i < n; i++) {
       const a = Math.random() * Math.PI * 2;

@@ -227,3 +227,23 @@ describe('yaratık/eşya kaynakları süzülür (B10, A7.6)', () => {
     expect(sourceWaitText({ item: 'herb' }, done, 1000)).toBe('Bugünlük şifalı ot kalmadı — yarın yeniden toplanır');
   });
 });
+
+import { guildBar as gbar6, guildBarLabel } from '../src/core/guild';
+import { parseSubRank } from '../src/core/ranks';
+describe('Lonca kartı etiketi: mutlak puan / sonraki eşik (B6)', () => {
+  const R = (s: string) => parseSubRank(s);
+  it('örnekler; çubuğun dolum oranı aynı', () => {
+    expect(guildBarLabel(0, R('G-'))).toBe('0 / 40');
+    expect(guildBarLabel(39, R('G-'))).toBe('39 / 40');
+    expect(guildBarLabel(40, R('G'))).toBe('40 / 100');
+    expect(gbar6(40, R('G')).frac).toBe(0);
+    expect(guildBarLabel(70, R('G'))).toBe('70 / 100');
+    expect(gbar6(70, R('G')).frac).toBeCloseTo(0.5);
+    expect(guildBarLabel(80, R('G'))).toBe('80 / 100');
+    expect(gbar6(80, R('G')).frac).toBeCloseTo(2 / 3);
+    expect(guildBarLabel(100, R('G+'))).toBe('100 / 180');
+    expect(guildBarLabel(200, R('F-'))).toBe('200 / 300');
+    expect(guildBarLabel(150000, R('X-'))).toBe('150000 / 220000');
+    expect(guildBarLabel(999999, R('X'))).toBe('En yüksek rütbe');
+  });
+});

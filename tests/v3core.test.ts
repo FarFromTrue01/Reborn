@@ -13,7 +13,7 @@ import { canSleep, absMinute } from '../src/core/sleep';
 import { buyCard, daysLeft, hasValidCard, totalDaysLeft, CARD_DAYS, CARD_PRICE } from '../src/core/cards';
 import { newQuestLog, startQuest, advance, notify, finishQuest, isActive, isDone, allObjectivesDone, visibleObjectives, expired, setProgress, type QuestDef } from '../src/core/quests';
 import { questDef, MAIN_QUESTS } from '../src/data/quests';
-import { migrate, MemoryStorage, writeSave, readSave } from '../src/core/save';
+import { migrate, migrateV4toV5, MemoryStorage, writeSave, readSave } from '../src/core/save';
 import { newGameState, CURRENT_SAVE_VERSION } from '../src/core/state';
 import { sanitizeSettings, SETTINGS_VERSION } from '../src/game/settings';
 import { ITEMS } from '../src/data/items';
@@ -297,15 +297,16 @@ describe('Kayıt göçü v3 (0.2.0) → v4 (0.3.0)', () => {
     s.pos = { map: 'world', x: 172, y: 74, facing: 'down' };
     return Object.assign(s, extra);
   };
-  it('Sürüm 8', () => expect(CURRENT_SAVE_VERSION).toBe(8));
-  it('Bertram\'ın işinin ortasında: 3/4 vardiya → 2/3 (son vardiyada ödeme alır), görev aktif', () => {
+  it('Sürüm 9 (0.10.0)', () => expect(CURRENT_SAVE_VERSION).toBe(9));
+  it('Bertram\'ın işinin ortasında: 3/4 vardiya → 2/3 (v4) → 0.10.0\'da iş bitmiş, ücret sahnesi bekliyor', () => {
     const d = migrate(v3({ woke: true, inn_met: true, bertram_deal: true }, 3), 3);
     expect(d.counters.workDays).toBe(2);
     expect(d.quests.quests.m_bertram.status).toBe('active');
     expect(d.quests.quests.m_bertram.progress[0]).toBe(2);
+    expect(d.flags.bertram_pay_pending).toBe(true);
     expect(d.quests.quests.m_inn.status).toBe('done');
     expect(d.quests.tracked).toBe('m_bertram');
-    expect(JOBS.bertramShifts).toBe(3);
+    expect(JOBS.bertramShifts).toBe(2);
   });
   it('1/4 vardiya → 1/3', () => {
     const d = migrate(v3({ woke: true, inn_met: true, bertram_deal: true }, 1), 3);
@@ -340,10 +341,10 @@ describe('Kayıt göçü v3 (0.2.0) → v4 (0.3.0)', () => {
     const st = new MemoryStorage();
     const s = newGameState();
     writeSave(st, 'auto', s);
-    expect(readSave(st, 'auto')!.saveVersion).toBe(8);
+    expect(readSave(st, 'auto')!.saveVersion).toBe(CURRENT_SAVE_VERSION);
     st.setItem('elonth.save.manual1', JSON.stringify({ v: 1, savedAt: 1, summary: 'x', data: { ...v3({ woke: true }), saveVersion: 1 } }));
     const r = readSave(st, 'manual1')!;
-    expect(r.saveVersion).toBe(8);
+    expect(r.saveVersion).toBe(CURRENT_SAVE_VERSION);
     expect(r.guild).toBeTruthy();
     expect(r.quests.tracked).toBe('m_inn');
   });
@@ -376,9 +377,11 @@ describe('Kayıt göçü v4 (0.3.x) → v5 (0.4.0)', () => {
     s.player.level = 3;
     s.player.unspent = 1;
     s.player.wallet = { bronze: 250, silver: 1, platinum: 0, gold: 0, diamond: 0 };
+    expect(migrateV4toV5(JSON.parse(JSON.stringify(s))).player.unspent).toBe(1 + 2 * 3);
     const m = migrate(s, 4);
     expect(m.saveVersion).toBe(CURRENT_SAVE_VERSION);
-    expect(m.player.unspent).toBe(1 + 2 * 3);
+    // 0.10.0 (B9): puanlar yeniden dağıtılır — 4 × level
+    expect(m.player.unspent).toBe(4 * 3);
     expect(m.player.wallet).toEqual({ bronze: 50, silver: 3, platinum: 0, gold: 0, diamond: 0 });
   });
   it('Level 0 kaydı değişmez', () => {

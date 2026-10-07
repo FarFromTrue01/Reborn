@@ -42,11 +42,11 @@ export const THEFT_SUSPECTS: Record<string, { thief: boolean; at: string; clue: 
   },
   apprentice: {
     thief: false, at: 'smithy_yard',
-    clue: ['Çırak Ott. On beş yaşında, Level 1. STR 3, DEX 1.', 'Elleri kömür karası. Bütün sabah körük çekmiş; kollarındaki is taze.'],
+    clue: ['Çırak Ott. On beş yaşında, Level 1. STR 2, VIT 1, AGI 1.', 'Elleri kömür karası. Bütün sabah körük çekmiş; kollarındaki is taze.'],
   },
   washer: {
     thief: true, at: 'wash_line',
-    clue: ['Çamaşırcı Wynn. Level 2. AGI 7, DEX 5.', 'Bir çamaşırcı için... fazla çevik. Köydeki herkesten hızlı. Ve önlüğünün cebi bir yana sarkıyor.'],
+    clue: ['Çamaşırcı Wynn. Level 2. AGI 8.', 'Bir çamaşırcı için... fazla çevik. Köydeki herkesten hızlı. Ve önlüğünün cebi bir yana sarkıyor.'],
   },
 };
 

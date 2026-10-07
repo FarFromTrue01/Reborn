@@ -34,7 +34,11 @@ export interface MonsterDef {
   /** Level aralığı; her level için kesin stat tablosu. */
   levels: [number, number];
   statsByLevel: Record<number, Partial<Stats>>;
-  hpMod: { flat: number; mult: number };
+  /**
+   * 0.10.0 (B5/B9): level başına doğrudan HP (stat formülünden türetilmez; bir ondalıklı olabilir). Statlar yalnızca
+   * hasar ve hız için.
+   */
+  hpByLevel: Record<number, number>;
   natural: { name: string; dmg: [number, number] };
   naturalDef: number;
   exp: [number, number];
@@ -73,12 +77,13 @@ export interface MonsterDef {
   desc: string;
 }
 
-// HP'ler hedeftir: (5 + 8×Level + 8×VIT + hpMod.flat) × hpMod.mult, tests/balance.test.ts doğrular.
-// Fare/Ahır Faresi/Tavşan 1 · Sümüksü 2/3 · Tarla Faresi 2 · Dev Fare 3 · Kurt 6/9 · Goblin 5/7 · Şaman 4 · Şef 15.
+// 0.10.0 (B5/B9): HP'ler level başına doğrudan değer (hpByLevel), 0.9.0 değerlerinin 1,5 katı; tests/balance.test.ts
+// doğrular. Fare/Ahır Faresi/Tavşan 1,5 · Sümüksü 3/4,5 · Tarla Faresi 3 · Dev Fare 4,5 · Kurt 9/13,5 · Goblin 7,5/10,5 ·
+// Şaman 6 · Şef 22,5. Statlar (DEX → AGI, MNA → INT birleşik) yalnızca hasar ve hız için.
 const list: MonsterDef[] = [
   {
     id: 'rat', name: 'Fare', levels: [0, 0], statsByLevel: { 0: {} },
-    hpMod: { flat: -4, mult: 1 }, natural: { name: 'Isırık', dmg: [1, 1] }, naturalDef: 0,
+    hpByLevel: { 0: 1.5 }, natural: { name: 'Isırık', dmg: [1, 1] }, naturalDef: 0,
     exp: [1, 2],
     drops: [{ id: 'rat_tail', chance: 0.6 }, { id: 'small_stone', chance: 0.08 }],
     special: { id: 'gnawed_ring', chance: 0.012 },
@@ -88,7 +93,7 @@ const list: MonsterDef[] = [
   },
   {
     id: 'barn_rat', name: 'Ahır Faresi', levels: [0, 0], statsByLevel: { 0: {} },
-    hpMod: { flat: -4, mult: 1 }, natural: { name: 'Isırık', dmg: [1, 1] }, naturalDef: 0,
+    hpByLevel: { 0: 1.5 }, natural: { name: 'Isırık', dmg: [1, 1] }, naturalDef: 0,
     exp: [1, 2],
     drops: [{ id: 'rat_tail', chance: 1 }],
     special: { id: 'gnawed_ring', chance: 0.01 },
@@ -98,7 +103,7 @@ const list: MonsterDef[] = [
   },
   {
     id: 'field_rat', name: 'Tarla Faresi', levels: [0, 0], statsByLevel: { 0: {} },
-    hpMod: { flat: -3, mult: 1 }, natural: { name: 'Isırık', dmg: [1, 2] }, naturalDef: 0,
+    hpByLevel: { 0: 3 }, natural: { name: 'Isırık', dmg: [1, 2] }, naturalDef: 0,
     exp: [2, 3],
     drops: [{ id: 'rat_tail', chance: 0.85 }, { id: 'small_stone', chance: 0.06 }],
     special: { id: 'gnawed_ring', chance: 0.015 },
@@ -108,7 +113,7 @@ const list: MonsterDef[] = [
   },
   {
     id: 'giant_rat', name: 'Dev Fare', levels: [1, 1], statsByLevel: { 1: { STR: 2, VIT: 2, AGI: 1 } },
-    hpMod: { flat: 1, mult: 0.1 }, natural: { name: 'Kemirme', dmg: [1, 2] }, naturalDef: 1,
+    hpByLevel: { 1: 4.5 }, natural: { name: 'Kemirme', dmg: [1, 2] }, naturalDef: 1,
     exp: [5, 7],
     drops: [{ id: 'rat_tail', chance: 1 }, { id: 'small_stone', chance: 0.1 }],
     special: { id: 'gnawed_ring', chance: 0.03 },
@@ -117,8 +122,8 @@ const list: MonsterDef[] = [
     desc: 'Değirmen bodrumunun karanlığında un çuvallarıyla şişmiş, köpek iriliğinde fareler.',
   },
   {
-    id: 'slime', name: 'Sümüksü', levels: [0, 1], statsByLevel: { 0: {}, 1: { STR: 2, MNA: 1, INT: 1 } },
-    hpMod: { flat: 11, mult: 0.125 }, natural: { name: 'Asit Teması', dmg: [1, 1] }, naturalDef: 1,
+    id: 'slime', name: 'Sümüksü', levels: [0, 1], statsByLevel: { 0: {}, 1: { STR: 2, INT: 2 } },
+    hpByLevel: { 0: 3, 1: 4.5 }, natural: { name: 'Asit Teması', dmg: [1, 1] }, naturalDef: 1,
     exp: [3, 5],
     drops: [{ id: 'slime_jelly', chance: 0.7 }, { id: 'color_core', chance: 0.07 }],
     special: { id: 'slime_gloves', chance: 0.015 },
@@ -128,20 +133,20 @@ const list: MonsterDef[] = [
   },
   {
     id: 'rabbit', name: 'Orman Tavşanı', levels: [0, 0], statsByLevel: { 0: {} },
-    hpMod: { flat: -4, mult: 1 }, natural: { name: 'Tekme', dmg: [1, 1] }, naturalDef: 0,
+    hpByLevel: { 0: 1.5 }, natural: { name: 'Tekme', dmg: [1, 1] }, naturalDef: 0,
     exp: [1, 1],
     drops: [{ id: 'rabbit_meat', chance: 0.85 }, { id: 'rabbit_pelt', chance: 0.12 }],
     special: { id: 'rabbit_charm', chance: 0.02 },
     // Saldırı değerleri yalnızca köşeye sıkışınca kullanılır.
-    behavior: 'flee', speed: 3.5, sight: 4.5, fov: 360, attackRange: 0.8, windup: 0.55, cooldown: 1.8,
+    behavior: 'flee', speed: 2.8, sight: 4.5, fov: 360, attackRange: 0.8, windup: 0.55, cooldown: 1.8,
     cornered: { after: 8, range: 3, calm: 5, calmRange: 5 },
     rank: 'G-', sprite: 'm_rabbit', attack: 'melee', radius: 0.3,
     desc: 'Ürkek ve çevik. Saldırmaz ama yakalamak zordur. Köşeye sıkışırsa tekme atar.',
   },
   {
     id: 'wolf', name: 'Yaban Kurdu', levels: [1, 2],
-    statsByLevel: { 1: { STR: 1, AGI: 2, VIT: 1 }, 2: { STR: 2, AGI: 3, VIT: 2, DEX: 1 } },
-    hpMod: { flat: 11, mult: 0.1875 }, natural: { name: 'Isırık', dmg: [1, 2] }, naturalDef: 1,
+    statsByLevel: { 1: { STR: 1, AGI: 2, VIT: 1 }, 2: { STR: 2, AGI: 4, VIT: 2 } },
+    hpByLevel: { 1: 9, 2: 13.5 }, natural: { name: 'Isırık', dmg: [1, 2] }, naturalDef: 1,
     exp: [8, 15],
     drops: [{ id: 'wolf_pelt', chance: 0.55 }, { id: 'wolf_fang', chance: 0.35 }],
     special: { id: 'wolf_fang_necklace', chance: 0.015 },
@@ -151,8 +156,8 @@ const list: MonsterDef[] = [
   },
   {
     id: 'goblin', name: 'Goblin', levels: [1, 2],
-    statsByLevel: { 1: { STR: 2, AGI: 1, VIT: 1 }, 2: { STR: 4, AGI: 2, VIT: 1, DEX: 1 } },
-    hpMod: { flat: -1, mult: 0.25 }, natural: { name: 'Paslı Bıçak', dmg: [1, 3] }, naturalDef: 1,
+    statsByLevel: { 1: { STR: 2, AGI: 1, VIT: 1 }, 2: { STR: 4, AGI: 3, VIT: 1 } },
+    hpByLevel: { 1: 7.5, 2: 10.5 }, natural: { name: 'Paslı Bıçak', dmg: [1, 3] }, naturalDef: 1,
     exp: [15, 30],
     drops: [{ id: 'goblin_ear', chance: 0.65 }, { id: 'goblin_trinket', chance: 0.2 }],
     special: { id: 'goblin_cleaver', chance: 0.02 },
@@ -163,8 +168,8 @@ const list: MonsterDef[] = [
   },
   {
     id: 'goblin_shaman', name: 'Goblin Şamanı', levels: [2, 2],
-    statsByLevel: { 2: { INT: 4, MNA: 3, VIT: 1 } },
-    hpMod: { flat: -13, mult: 0.25 }, natural: { name: 'Ateş Kıvılcımı', dmg: [2, 3] }, naturalDef: 0,
+    statsByLevel: { 2: { INT: 7, VIT: 1 } },
+    hpByLevel: { 2: 6 }, natural: { name: 'Ateş Kıvılcımı', dmg: [2, 3] }, naturalDef: 0,
     exp: [25, 32],
     drops: [{ id: 'goblin_ear', chance: 0.7 }, { id: 'herb', chance: 0.4, qty: [1, 2] }],
     special: { id: 'scroll_spark', chance: 0.06 },
@@ -175,8 +180,8 @@ const list: MonsterDef[] = [
   },
   {
     id: 'goblin_chief', name: 'Goblin Şefi', levels: [3, 3],
-    statsByLevel: { 3: { STR: 6, VIT: 3, AGI: 2, DEX: 1 } },
-    hpMod: { flat: 7, mult: 0.25 }, natural: { name: 'Çivili Sopa', dmg: [2, 5] }, naturalDef: 3,
+    statsByLevel: { 3: { STR: 6, VIT: 3, AGI: 3 } },
+    hpByLevel: { 3: 22.5 }, natural: { name: 'Çivili Sopa', dmg: [2, 5] }, naturalDef: 3,
     exp: [55, 65],
     drops: [{ id: 'chief_tusk', chance: 1 }, { id: 'map_forest_deep', chance: 1 }, { id: 'goblin_trinket', chance: 1, qty: [2, 3] }],
     special: { id: 'goblin_cleaver', chance: 0.2 },

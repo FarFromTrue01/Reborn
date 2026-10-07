@@ -1,6 +1,6 @@
 // Oyun kuralları: EXP, level, Divine, skill, eşya — bildirimleriyle birlikte.
 import { G } from './G';
-import { addExp, STAT_POINTS_PER_LEVEL, SP_PER_LEVEL, type StatKey } from '../core/formulas';
+import { addExp, round2, STAT_POINTS_PER_LEVEL, SP_PER_LEVEL, type StatKey } from '../core/formulas';
 import { addDivineExp, victoryDivineExp, isMeaningfulVictory, trainingExp, streakMultiplier, TRAINING_SESSIONS_PER_DAY, divineExpToNext } from '../core/divine';
 import { fmtMult, fmtHp } from '../ui/format';
 import { addSkillExp, canLearnThisWeek, weekOfDay, newSkill, ownedTechniques, sanitizeSlots } from '../core/skills';
@@ -57,8 +57,8 @@ export function gainExp(amount: number): number {
     p.unspent += STAT_POINTS_PER_LEVEL * r.levelsGained;
     p.sp += SP_PER_LEVEL * r.levelsGained;
     G.invalidate();
-    p.hp += G.d.maxHp - before;
-    p.mp += G.d.maxMp - beforeMp;
+    p.hp = round2(p.hp + G.d.maxHp - before);
+    p.mp = round2(p.mp + G.d.maxMp - beforeMp);
     sysmsg('LEVEL ATLADIN', [
       `Level ${p.level - r.levelsGained} → Level ${p.level}`,
       `+${STAT_POINTS_PER_LEVEL * r.levelsGained} stat puanı · +${SP_PER_LEVEL * r.levelsGained} SP`,
@@ -90,8 +90,8 @@ export function allocateStat(k: StatKey): boolean {
   const beforeMp = G.d.maxMp;
   G.invalidate();
   // Max artışı mevcut değere de eklenir
-  p.hp += Math.max(0, G.d.maxHp - beforeHp);
-  p.mp += Math.max(0, G.d.maxMp - beforeMp);
+  p.hp = round2(p.hp + Math.max(0, G.d.maxHp - beforeHp));
+  p.mp = round2(p.mp + Math.max(0, G.d.maxMp - beforeMp));
   G.scheduleSave();
   return true;
 }
@@ -167,7 +167,8 @@ export function skillState(id: string) {
 export function gainSkillExp(id: string, raw: number) {
   const idx = G.p.skills.findIndex((s) => s.id === id);
   if (idx < 0 || raw <= 0) return;
-  const amt = raw * G.d.divLearning;
+  // B9: INT skill EXP kazancını artırır (+%1,5/puan, en çok +%50)
+  const amt = raw * G.d.divLearning * G.d.skillExpMult;
   const r = addSkillExp(G.p.skills[idx], amt);
   G.p.skills[idx] = r.state;
   if (r.rankUps.length) {

@@ -95,7 +95,7 @@ export function newJoseph(): GameState['player'] {
     alloc: zeroStats(),
     unspent: 0,
     sp: 0,
-    hp: 5,
+    hp: 10,
     mp: 0,
     stamina: 50,
     skills: [newSkill('appraisal')],
@@ -150,7 +150,7 @@ export function newGameState(): GameState {
   };
 }
 
-export const CURRENT_SAVE_VERSION = 8;
+export const CURRENT_SAVE_VERSION = 9;
 
 /** Dünya haritasının 0.1.x boyutları (sis haritası göçü için). */
 export const OLD_WORLD_W = 150;

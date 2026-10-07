@@ -414,7 +414,7 @@ export default async ({ page, wait, shot, evalG }) => {
   if (want('slot') || want('skills')) {
     log('== S5 yetenek slotu ve S1 skill listesi');
     await giveSkills([['sword_mastery', 9], ['fire_magic', 3], ['ice_magic', 6], ['war_cry', 0], ['storm_blade', 2], ['stealth', 25]]);
-    await W(() => { const G = window.__G; G.state.skillSlots = [null, null]; G.p.equipment.weapon = 'rusty_shortsword'; G.p.level = 6; G.p.alloc.MNA = 60; G.invalidate(); G.p.mp = G.d.maxMp; });
+    await W(() => { const G = window.__G; G.state.skillSlots = [null, null]; G.p.equipment.weapon = 'rusty_shortsword'; G.p.level = 6; G.p.alloc.INT = 60; G.invalidate(); G.p.mp = G.d.maxMp; });
     await openMenu('status', 'skills');
     await shot('g5b_s5_slots_empty');
     await pressNamed('Menu', 'slot_double_slash');
@@ -436,7 +436,7 @@ export default async ({ page, wait, shot, evalG }) => {
   if (want('fx')) {
     log('== S6/S7 durum etkileri');
     await giveSkills([['sword_mastery', 15], ['fire_magic', 3], ['ice_magic', 12], ['war_cry', 0]]);
-    await W(() => { const G = window.__G; G.p.equipment.weapon = 'rusty_shortsword'; G.p.level = 6; G.p.alloc.MNA = 60; G.p.alloc.VIT = 30; G.invalidate(); G.p.mp = G.d.maxMp; G.p.hp = G.d.maxHp; });
+    await W(() => { const G = window.__G; G.p.equipment.weapon = 'rusty_shortsword'; G.p.level = 6; G.p.alloc.INT = 60; G.p.alloc.VIT = 30; G.invalidate(); G.p.mp = G.d.maxMp; G.p.hp = G.d.maxHp; });
     await tpPoint('world', 'forest_edge', 0, 0, 'right');
     const spawn = (m, n = 3) => W(([m, n]) => { const w = window.__game.scene.getScene('World'); for (const e of w.enemies) { e.destroy(); } w.enemies = []; const a = w.player.actor; const es = w.spawnAt(m, Math.floor(a.x / 32) + 2, Math.floor(a.y / 32), n, 1); for (const e of es) { e.becomeAware(false); e.cooldownT = 99; } return es.length; }, [m, n]);
     const use = (tech) => W((tech) => { const G = window.__G; const w = window.__game.scene.getScene('World'); G.state.skillSlots = [tech, null]; w.player.skillCd = {}; G.p.mp = G.d.maxMp; w.player.setState('free'); w.useSkillSlot(0); }, tech);

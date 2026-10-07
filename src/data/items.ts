@@ -24,7 +24,7 @@ const list: ItemDef[] = [
   },
   {
     id: 'hunting_knife', name: 'Av Bıçağı', kind: 'weapon', slot: 'weapon', rank: 'G',
-    saygınlık: 1, price: 140, dmg: [2, 4], weaponType: 'dagger', stats: { DEX: 1 }, icon: 'dagger', visual: 'w_dagger',
+    saygınlık: 1, price: 140, dmg: [2, 4], weaponType: 'dagger', stats: { AGI: 1 }, icon: 'dagger', visual: 'w_dagger',
     desc: 'Avcıların deri yüzmekte kullandığı bıçak. Elde hafif durur.',
   },
   {
@@ -44,7 +44,7 @@ const list: ItemDef[] = [
   },
   {
     id: 'hunter_bow', name: 'Avcı Yayı', kind: 'weapon', slot: 'weapon', rank: 'F',
-    saygınlık: 3, price: 600, dmg: [4, 8], weaponType: 'bow', stats: { DEX: 1 }, icon: 'bow_good', visual: 'w_bow',
+    saygınlık: 3, price: 600, dmg: [4, 8], weaponType: 'bow', stats: { AGI: 1 }, icon: 'bow_good', visual: 'w_bow',
     desc: 'Porsuk ağacından, iyi gerilmiş bir yay.',
   },
   {
@@ -87,7 +87,7 @@ const list: ItemDef[] = [
   },
   {
     id: 'leather_gloves', name: 'Deri Eldiven', kind: 'armor', slot: 'gloves', rank: 'G',
-    saygınlık: 1, price: 70, def: 0, stats: { DEX: 1 }, icon: 'gloves', visual: 'a_gloves',
+    saygınlık: 1, price: 70, def: 0, stats: { AGI: 1 }, icon: 'gloves', visual: 'a_gloves',
     desc: 'İnce deri. Kavrayışı iyileştirir.',
   },
   {
@@ -157,7 +157,7 @@ const list: ItemDef[] = [
   },
   {
     id: 'slime_gloves', name: 'Yapışkan Eldiven', kind: 'armor', slot: 'gloves', rank: 'G',
-    saygınlık: -1, price: 115, sell: 15, def: 0, stats: { DEX: 2 }, icon: 'gloves_slime', special: 'Kavrayış mükemmel, temizlik berbat.',
+    saygınlık: -1, price: 115, sell: 15, def: 0, stats: { AGI: 2 }, icon: 'gloves_slime', special: 'Kavrayış mükemmel, temizlik berbat.',
     desc: 'Sümüksünün içinde erimemiş bir eldiven. Hâlâ yapış yapış.',
   },
 

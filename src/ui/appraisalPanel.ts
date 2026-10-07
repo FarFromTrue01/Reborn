@@ -200,10 +200,10 @@ export function buildAppraisalPanel(scene: Phaser.Scene, c: any, npc: NpcDef | n
   ry += 58;
 
   if (!creature) {
-    // statlar: 7 kutucuk, tek sıra
+    // statlar: 5 kutucuk (0.10.0), tek sıra, boşluk bırakmadan eşit genişlik
     sectionHead('Statlar', 'stats', ry);
     ry += 18;
-    const sw = (RW - 6 * 6) / 7;
+    const sw = (RW - 6 * (STAT_KEYS.length - 1)) / STAT_KEYS.length;
     // 0.9.0: solda temel stat, sağında üst üste renkli artılar (yeşil ekipman, sarı unvan, mor skill).
     // Bir kaynak görülemiyorsa (???) onun artısı gösterilmez; statlar görülebiliyorsa temel stat yine görünür.
     const vis = { Ekipman: v.stats, Title: v.title, Skill: v.skills };

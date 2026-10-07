@@ -112,6 +112,15 @@ export function guildBar(points: number, rank: SubRank): { lo: number; hi: numbe
 }
 
 /**
+ * B6 (0.10.0): barın etiketi — mutlak puan / bir sonraki kademenin eşiği ("70 / 100"). Barın dolum oranı aynı kalır
+ * (`guildBar`: mevcut kademenin başından). En yüksek kademede "En yüksek rütbe".
+ */
+export function guildBarLabel(points: number, rank: SubRank): string {
+  const { hi } = guildBar(points, rank);
+  return hi === null ? 'En yüksek rütbe' : `${points} / ${hi}`;
+}
+
+/**
  * Puan artışının bar dilimleri: önceki puandan yeni puana. Bir rütbe eşiği geçilirse o aralık dolar ve bir sonraki
  * aralıkta baştan başlar (rütbe terfi konuşmasıyla değişse de bar eşiklere göre ilerler).
  */
