@@ -9,6 +9,7 @@ import { ensureCG } from '../ui/portraits';
 import { divineExpToNext, divineStat, DIVINE_STATS, DIVINE_STAT_NAMES } from '../core/divine';
 import { buildAppraisalPanel } from '../ui/appraisalPanel';
 import { G } from '../game/G';
+import { readTimeMs, STATUS_SCREEN_MS } from '../core/readTime';
 
 /** Prolog: kaza, ölüm, beyaz boşluk ve Status'un oluşması. */
 export class PrologueScene extends Phaser.Scene {
@@ -30,13 +31,9 @@ export class PrologueScene extends Phaser.Scene {
     this.cameras.main.setZoom(Display.uiZoom);
     this.cameras.main.setOrigin(0, 0);
     this.cameras.main.setBackgroundColor('#000000');
-    this.input.on('pointerdown', () => {
-      Sound.unlock();
-      this.advance?.();
-    });
-    this.input.keyboard?.on('keydown', () => this.advance?.());
-    const skip = new Button(this, Display.uiW - 90, 40, 'Geç »', () => this.finish(), { w: 130, h: 48, style: 'ghost', size: 16, textColor: '#777' });
-    skip.setDepth(100);
+    // 0.11.0 (C2): prolog atlanamaz ve dokunuşla/klavyeyle hızlanmaz; satırlar okuma süresi dolunca kendiliğinden
+    // ilerler. Etkileşilebilen tek şey "TRAIT ÇEVİR" düğmesi. (Dokunuş yalnızca sesi açar.)
+    this.input.on('pointerdown', () => Sound.unlock());
     this.run();
   }
 
@@ -44,7 +41,7 @@ export class PrologueScene extends Phaser.Scene {
     return new Promise<void>((r) => this.time.delayedCall(ms, r));
   }
 
-  /** Daktilo yazısı; dokununca hızlanır, sonra devam eder. */
+  /** Daktilo yazısı; yazılınca okuma süresi (core/readTime) dolunca devam eder. Dokunuş hızlandırmaz. */
   type(t: Phaser.GameObjects.Text, text: string, voice: string, speed = 30): Promise<void> {
     return new Promise((resolve) => {
       let i = 0;
@@ -60,7 +57,7 @@ export class PrologueScene extends Phaser.Scene {
               this.advance = null;
               resolve();
             };
-            this.time.delayedCall(1800 + text.length * 25, () => this.advance?.());
+            this.time.delayedCall(readTimeMs(text), () => this.advance?.());
             return;
           }
           i++;
@@ -68,12 +65,6 @@ export class PrologueScene extends Phaser.Scene {
           t.setText(text.slice(0, i));
         },
       });
-      this.advance = () => {
-        if (!done) {
-          i = text.length;
-          t.setText(text);
-        }
-      };
     });
   }
 
@@ -143,7 +134,7 @@ export class PrologueScene extends Phaser.Scene {
     this.finish();
   }
 
-  /** Dokunuş bekle (ya da süre dolunca devam). */
+  /** Süre dolunca devam (0.11.0: dokunuş geçmez). */
   private tapOrWait(ms: number) {
     return new Promise<void>((resolve) => {
       this.advance = () => {
@@ -301,7 +292,7 @@ export class PrologueScene extends Phaser.Scene {
       o.setAlpha(0);
       this.tweens.add({ targets: o, alpha: 1, duration: 500 });
     }
-    await this.tapOrWait(30000);
+    await this.tapOrWait(readTimeMs(['X — DIVINE PALADIN', '[Sistem] Elonth\'ta bu trait\'e sahip başka biri kayıtlı değil.', ...block.list.map((o) => (o as Phaser.GameObjects.Text).text ?? '')].join(' ')));
     this.tweens.add({ targets: root, alpha: 0, duration: 500 });
     await this.wait(550);
     root.destroy();
@@ -364,7 +355,7 @@ export class PrologueScene extends Phaser.Scene {
         this.advance = null;
         resolve();
       };
-      this.time.delayedCall(8000, () => this.advance?.());
+      this.time.delayedCall(STATUS_SCREEN_MS, () => this.advance?.());
     });
     this.tweens.add({ targets: holder, alpha: 0, scaleY: 0.02, duration: 500 });
     await this.wait(600);

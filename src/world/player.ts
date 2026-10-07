@@ -210,7 +210,7 @@ export class Player {
 
   // ================================================================= silahı sırta koyma / çekme
   canSheathe(): boolean {
-    return G.settings.sheathWeapon !== false && !!this.weaponVisual && this.actor.hasCarry();
+    return !!this.weaponVisual && this.actor.hasCarry();
   }
 
   applyWeaponMode() {
@@ -552,7 +552,7 @@ export class Player {
         }
         if (Input.consume('attack')) { this.pressNormal(); break; }
         // A6: ağır saldırı basılı tutulur (şarj), bırakınca çıkar
-        if (Input.held.has('heavy') && !this.w.cutscene) { this.beginCharge(); break; }
+        if (Input.held.has('heavy') && Input.enabled && !this.w.cutscene) { this.beginCharge(); break; }
         for (let i = 1; i <= 4; i++) if (Input.consume(('skill' + i) as any)) this.w.useSkillSlot(i - 1);
         for (let i = 1; i <= 3; i++) if (Input.consume(('div' + i) as any)) this.w.useDivineSlot(i - 1);
         if (Input.consume('interact')) this.w.interact();

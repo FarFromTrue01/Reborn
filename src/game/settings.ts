@@ -9,7 +9,6 @@ export interface Settings {
   music: number; // 0..1
   sfx: number;
   voice: number;
-  shake: boolean;
   /** Grafik kalitesi: ışık geçişi, sis, parçacıklar ve çizim çözünürlüğü (bkz. qualityDprCap). */
   quality: 'low' | 'medium' | 'high';
   /** FPS sınırı: 60 / 120 / 144; 0 = sınırsız (ekran yenileme hızı). */
@@ -24,12 +23,8 @@ export interface Settings {
    * (core/movement walkSetting). Eski "Karakter hızı" çarpanının (moveSpeed) yerine.
    */
   walkSpeed: number | null;
-  /** Yardımlı savaş (C5): saldırıda menzildeki en yakın düşmana dön. */
-  assistCombat: boolean;
   /** Geliştirici modu (C6): başlık ekranında sürüme 7 kez dokununca açılır. */
   devMode: boolean;
-  /** Silahı sırta koy (0.7.0): savaş dışında silah sırtta/belde; kapalıyken hep elde. */
-  sheathWeapon: boolean;
 }
 
 export const FPS_CAPS = [60, 120, 144, 0] as const;
@@ -45,7 +40,13 @@ export function fpsLoopConfig(cap: FpsCap, qa: boolean): { target: number; limit
 }
 
 const KEY = 'elonth.settings';
-export const SETTINGS_VERSION = 4;
+/**
+ * Sürüm 5 (0.11.0, C3): Yardımlı savaş, Ekran sarsıntısı ve vuruş donması, Silahı sırta koy ayarları kalktı; üçü de
+ * her zaman açık davranır (eski değerler yok sayılır).
+ */
+export const SETTINGS_VERSION = 5;
+/** C3: kalkan ayarlar (eski kayıtlarda görülürse silinir). */
+export const REMOVED_SETTINGS = ['assistCombat', 'shake', 'sheathWeapon'] as const;
 
 
 export function isTouchDevice(): boolean {
@@ -65,16 +66,13 @@ export function defaultSettings(touch = isTouchDevice()): Settings {
     music: 0.55,
     sfx: 0.8,
     voice: 0.7,
-    shake: true,
     quality: 'high',
     fpsCap: 60,
     showFps: false,
     joystick: touch ? 'fixed' : 'float',
     joyChosen: false,
     walkSpeed: null,
-    assistCombat: true,
     devMode: false,
-    sheathWeapon: true,
   };
 }
 
@@ -87,6 +85,7 @@ export const DEFAULT_SETTINGS: Settings = defaultSettings(false);
  * - Sürüm 1 (0.2.0) ayarlarında oyuncu bilerek seçim yapmadıysa dokunmatik cihazda bir kez 'fixed' yapılır.
  * - Sürüm 2 → 3 (0.7.0): `sheathWeapon` (Silahı sırta koy) açık olarak eklenir.
  * - Sürüm 3 → 4 (0.8.0): "Karakter hızı" çarpanı (moveSpeed) kalkar; yerine Hareket hızı (walkSpeed) "Max" olarak gelir.
+ * - Sürüm 4 → 5 (0.11.0): assistCombat, shake, sheathWeapon kalkar (hep açık).
  */
 export function sanitizeSettings(s: Partial<Settings> & Record<string, any>, touch = isTouchDevice()): Settings {
   const def = defaultSettings(touch);
@@ -95,17 +94,15 @@ export function sanitizeSettings(s: Partial<Settings> & Record<string, any>, tou
   if (r.joystick !== 'fixed' && r.joystick !== 'float') r.joystick = def.joystick;
   if (ver < 2) {
     if (touch && !s.joyChosen) r.joystick = 'fixed';
-    if (typeof s.assistCombat !== 'boolean') r.assistCombat = true;
   }
-  // Sürüm 3 (0.7.0): silahı sırta koyma ayarı eklendi, varsayılan açık
-  if (ver < 3 || typeof r.sheathWeapon !== 'boolean') r.sheathWeapon = true;
+  // Sürüm 5 (0.11.0): kalkan ayarlar yok sayılır
+  for (const k of REMOVED_SETTINGS) delete (r as any)[k];
   // Sürüm 4 (0.8.0): eski çarpan anlamını yitirdi (hız artık yalnızca yavaşlatılabilir) → Max
   delete (r as any).moveSpeed;
   if (ver < 4 || typeof r.walkSpeed !== 'number' || !isFinite(r.walkSpeed) || r.walkSpeed <= 0) r.walkSpeed = null;
   if (!['low', 'medium', 'high'].includes(r.quality)) r.quality = 'high';
   if (!(FPS_CAPS as readonly number[]).includes(r.fpsCap)) r.fpsCap = 60;
   r.joyChosen = !!r.joyChosen;
-  r.assistCombat = r.assistCombat !== false;
   r.devMode = !!r.devMode;
   r.v = SETTINGS_VERSION;
   return r;

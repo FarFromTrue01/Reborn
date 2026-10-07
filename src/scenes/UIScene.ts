@@ -11,6 +11,7 @@ import { QuestBox, PartyBars } from '../ui/hudQuests';
 import { playQuestComplete, playRankUp, type QuestDoneInfo, type PromotionInfo } from '../ui/celebrations';
 import { buildAppraisalPanel } from '../ui/appraisalPanel';
 import { ToastStack } from '../ui/toastStack';
+import { readTimeMs } from '../core/readTime';
 import { buildSysBox } from '../ui/sysBox';
 import { sysDuration, sysPlacement } from '../ui/sysLayout';
 import { SysFlow } from '../ui/sysFlow';
@@ -105,6 +106,11 @@ export class UIScene extends Phaser.Scene {
   hudPanelH = 166;
   /** HUD'un alt kenarı (görev kutusu ve yoldaş çubukları dahil): bildirimler bunun altına dizilir. */
   hudBottom = 170;
+  /**
+   * C2 (0.11.0): uyanıştan ilk serbest ana kadar diyalog kendiliğinden akar (dokunuş/klavye geçmez), menü, Appraisal
+   * ve saldırı düğmeleri etkisiz. Director.setAutoFlow açar/kapar.
+   */
+  autoFlow = false;
   /** B2: sağ üst saat/bölge kutusunun sol kenarı (sistem bildirimi bu ikisinin arasına yerleşir). */
   hudClockX = 9999;
   questBox: QuestBox | null = null;
@@ -174,6 +180,8 @@ export class UIScene extends Phaser.Scene {
     this.hudPanelH = 166;
     this.satIcon = null;
     this.hudBottom = 170;
+    this.autoFlow = false;
+    Input.enabled = true;
     this.hudClockX = 9999;
     this.questBox = null;
     this.partyBars = null;
@@ -1221,6 +1229,7 @@ export class UIScene extends Phaser.Scene {
     const hit = this.add.zone(0, 0, W, H).setOrigin(0, 0).setInteractive();
     hit.on('pointerdown', () => this.advanceDialogue());
     c.addAt(hit, 0);
+    arrow.setVisible(false);
     this.dlg = c;
     return t;
   }
@@ -1266,17 +1275,22 @@ export class UIScene extends Phaser.Scene {
       else s.textObj.setText(s.full.slice(0, s.shown));
       if (s.shown >= s.full.length) {
         s.done = true;
-        (this.dlg?.getByName('arrow') as Phaser.GameObjects.Text)?.setVisible(true);
+        if (!this.autoFlow) (this.dlg?.getByName('arrow') as Phaser.GameObjects.Text)?.setVisible(true);
       }
+    } else if (this.autoFlow) {
+      // C2: okuma süresi dolunca kendiliğinden (core/readTime)
+      s.auto += dt;
+      if (s.auto * 1000 >= readTimeMs(s.full)) this.advanceDialogue(true);
     } else if (G.settings.autoAdvance) {
       s.auto += dt;
       if (s.auto > 1.2 + s.full.length * 0.03) this.advanceDialogue();
     }
   }
 
-  advanceDialogue() {
+  advanceDialogue(fromAuto = false) {
     const s = this.dlgState;
     if (!s) return;
+    if (this.autoFlow && !fromAuto) return;
     if (!s.done) {
       s.shown = s.full.length;
       if (s.rich) s.rich.show(s.shown);
@@ -1394,8 +1408,17 @@ export class UIScene extends Phaser.Scene {
   }
 
   // ================================================================== menü ve ekranlar
+  /** C2: kendiliğinden akış (uyanış): diyalog dokunuşla geçmez, düğmeler (menü, Appraisal, saldırı …) etkisiz. */
+  setAutoFlow(on: boolean) {
+    this.autoFlow = on;
+    Input.enabled = !on;
+    if (on) Input.clear();
+    this.touch?.setAlpha(on ? 0.35 : 1);
+    this.refreshButtons();
+  }
+
   openMenu(tab?: string) {
-    if (this.menuIsOpen || this.dialogueOpen() || this.world?.cutscene) return;
+    if (this.menuIsOpen || this.dialogueOpen() || this.world?.cutscene || this.autoFlow) return;
     this.menuIsOpen = true;
     this.closeAppraisal();
     // A3/A4: menü opak; arkadaki World ve UI duraklatılır ve çizilmez (müzik sürer).

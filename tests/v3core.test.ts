@@ -335,9 +335,10 @@ describe('B2: ayarlar', () => {
     expect(sanitizeSettings({ v: 2, joystick: 'float', joyChosen: true }, true).joystick).toBe('float');
     expect(sanitizeSettings({}, true).v).toBe(SETTINGS_VERSION);
   });
-  it('Yardımlı savaş varsayılan açık, geliştirici modu kapalı', () => {
-    const s = sanitizeSettings({}, true);
-    expect(s.assistCombat).toBe(true);
+  it('Yardımlı savaş ayarı kalktı (0.11.0: hep açık), geliştirici modu kapalı', () => {
+    const s = sanitizeSettings({ assistCombat: false, shake: false } as any, true);
+    expect('assistCombat' in s).toBe(false);
+    expect('shake' in s).toBe(false);
     expect(s.devMode).toBe(false);
   });
 });

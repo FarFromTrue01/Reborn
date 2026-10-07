@@ -222,7 +222,7 @@ export class MinigameScene extends Phaser.Scene {
         this.hits += 0.6 + q * 0.4;
         this.logs++;
         Sound.sfx('chop');
-        if (G.settings.shake) this.cameras.main.shake(80, 0.004);
+        this.cameras.main.shake(80, 0.004);
         this.zoneC = 0.2 + Math.random() * 0.6;
         this.zoneW = Math.max(0.08, 0.16 - this.logs * 0.006);
         this.flash(0x9fe08a);

@@ -1031,7 +1031,7 @@ export class WorldScene extends Phaser.Scene {
     const g = this.assistMark;
     if (!g || !this.player) return;
     g.clear();
-    if (!G.settings.assistCombat || this.cutscene || this.frozen) return;
+    if (this.cutscene || this.frozen) return;
     this.assistMarkT -= this.game.loop.delta / 1000;
     let t: Enemy | null = this.assistMarkT > 0 && this.assistLast?.alive ? this.assistLast : null;
     if (!t && this.player.inCombat) t = this.assistTarget(this.player.weaponReach());
@@ -2303,7 +2303,7 @@ export class WorldScene extends Phaser.Scene {
   aimAssist(reach: number): Phaser.Math.Vector2 {
     const a = this.player.actor;
     // C5: Yardımlı savaş açıkken en yakın düşmana dön ve ona vur (sırtı dönük olsa bile)
-    if (G.settings.assistCombat) {
+    {
       const t = this.assistTarget(reach);
       if (t) {
         Input.aim = null;
@@ -2427,11 +2427,11 @@ export class WorldScene extends Phaser.Scene {
     // savurmaz — vur-kaç için düşman yerinde kalır. Joseph'e vurulunca onun savrulması sürer.
     // B23: vuruş donması (isabet 0,05 / kritik 0,09 sn; saldıran ve vurulan), yerinde tepki, malzemeye göre parçacık ve ses
     e.actor.flash(0xffffff, 0.08);
-    const stop = hitstopFor(res.crit, G.settings.shake);
+    const stop = hitstopFor(res.crit, true);
     e.actor.frozenT = stop;
     pl.actor.frozenT = stop;
     this.fx.combat.react(e.actor as any);
-    if (G.settings.shake) this.cameras.main.shake(res.crit ? 140 : o.heavy ? 110 : 70, (res.crit ? 0.006 : 0.003) * (4 / Display.worldZoom));
+    this.cameras.main.shake(res.crit ? 140 : o.heavy ? 110 : 70, (res.crit ? 0.006 : 0.003) * (4 / Display.worldZoom));
     this.fx.combat.impact(e.x, e.y - 18, materialOf(e.def.id), res.crit, (x, y, color, n) => this.fx.sparks(x, y, res.crit ? 0xffd040 : color, n));
     const label = fmtHp(res.damage) + (res.crit ? '!' : '');
     this.fx.number(e.x, e.y - 40, label, hitNumberKind(res.damage, res.raw, res.crit));
@@ -2724,7 +2724,7 @@ export class WorldScene extends Phaser.Scene {
     pl.invulnT = 0.45;
     this.fx.number(pl.actor.x, pl.actor.y - 50, `-${fmtHp(d)}`, 'hurt');
     Sound.sfx('hurt');
-    if (G.settings.shake) this.cameras.main.shake(120, 0.008 * (4 / Display.worldZoom));
+    this.cameras.main.shake(120, 0.008 * (4 / Display.worldZoom));
     // B23: ekran kenarı aldığın hasar oranında kızarır
     this.ui.flashDamage(hurtEdgeAlpha(d, G.d.maxHp));
     if (p.hp <= 0) {
@@ -2945,7 +2945,7 @@ export class WorldScene extends Phaser.Scene {
     pl.actor.play('cast', { loop: false, restart: true, speed: 1.4 });
     this.fx.ring(pl.actor.x, pl.actor.y - 14, 0xffb070, r, 450);
     this.fx.ring(pl.actor.x, pl.actor.y - 14, 0xffe0b0, r * 0.7, 350);
-    if (G.settings.shake) this.cameras.main.shake(160, 0.004 * (4 / Display.worldZoom));
+    this.cameras.main.shake(160, 0.004 * (4 / Display.worldZoom));
     Sound.sfx('alert', 1);
     for (const e of this.enemies) {
       if (!e.alive || Math.hypot(e.x - pl.actor.x, e.y - pl.actor.y) > r + e.actor.bodyR) continue;

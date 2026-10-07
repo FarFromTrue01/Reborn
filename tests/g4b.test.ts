@@ -142,17 +142,15 @@ describe('Taşıma katmanları pelerinle (4b)', () => {
   });
 });
 
-describe('Ayar: Silahı sırta koy (4d)', () => {
-  it('Varsayılan açık; sürüm 4 (0.8.0)', () => {
-    expect(SETTINGS_VERSION).toBe(4);
-    expect(defaultSettings(true).sheathWeapon).toBe(true);
-    expect(defaultSettings(false).sheathWeapon).toBe(true);
+describe('Ayar: Silahı sırta koy (4d) — 0.11.0 (C3) ayar kalktı, hep açık', () => {
+  it('Sürüm 5; ayar alanı yok', () => {
+    expect(SETTINGS_VERSION).toBe(5);
+    expect('sheathWeapon' in defaultSettings(true)).toBe(false);
   });
-  it('Eski (v2) ayarlar açık olarak göçer; seçim korunur', () => {
-    const old = sanitizeSettings({ v: 2, joystick: 'fixed', joyChosen: true } as any, true);
-    expect(old.sheathWeapon).toBe(true);
-    expect(old.v).toBe(4);
-    expect(sanitizeSettings({ v: 3, sheathWeapon: false } as any, true).sheathWeapon).toBe(false);
-    expect(sanitizeSettings({ v: 3, sheathWeapon: 'x' } as any, true).sheathWeapon).toBe(true);
+  it('Eski ayarlardaki değer (kapalı bile olsa) yok sayılır; diğer seçimler korunur', () => {
+    const old = sanitizeSettings({ v: 3, sheathWeapon: false, joystick: 'fixed', joyChosen: true } as any, true);
+    expect('sheathWeapon' in old).toBe(false);
+    expect(old.v).toBe(5);
+    expect(old.joystick).toBe('fixed');
   });
 });

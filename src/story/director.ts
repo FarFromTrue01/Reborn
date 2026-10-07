@@ -19,7 +19,7 @@ import { transact, equip } from '../core/transactions';
 import { walletTotal, emptyWallet, formatPrice } from '../core/money';
 import { nextMorning, hourOf, clockLabel, fromAbsMinute, advanceWithDays } from '../core/time';
 import { canSleep, absMinute } from '../core/sleep';
-import { SHIFT_MEAL, SHIFT_LUNCH, shiftSatiety } from '../core/hunger';
+import { SHIFT_MEAL, SHIFT_LUNCH, shiftSatiety, SATIETY_MAX } from '../core/hunger';
 import { codexMeet } from '../core/codex';
 import { awakenDue } from '../core/traitWheel';
 import { activeQuests, type QuestGuide, type QuestTarget } from '../core/quests';
@@ -496,6 +496,8 @@ export class Director {
     }
     if (G.flag('woke')) this.w.time.delayedCall(3000, () => this.ch2.checkDeadlines());
     if (!G.flag('woke')) this.wakeScene();
+    // C2: uyanmış ama Divine uyanışı henüz olmamış eski kayıt: düğmeler uyanışa kadar etkisiz
+    else if (!G.flag('dp_awaken')) this.ui.setAutoFlow(true);
     else this.ui.showZone(this.w.zone?.name ?? this.w.mapData.name);
     this.w.updateMusic();
   }
@@ -652,6 +654,8 @@ export class Director {
 
   // ============================================================ sahne: uyanış
   wakeScene() {
+    // C2: uyanıştan ilk serbest ana kadar (Divine uyanışı bitene dek) iç sesler kendiliğinden akar
+    this.ui.setAutoFlow(true);
     this.scene(async () => {
       G.setFlag('woke');
       const a = this.w.player.actor;
@@ -722,7 +726,7 @@ export class Director {
     a.play('idle');
     Sound.sfx('hurt', 0.8);
     Sound.sfx('thud', 0.7);
-    if (G.settings.shake) w.cameras.main.shake(220, 0.006 * (4 / Display.worldZoom));
+    w.cameras.main.shake(220, 0.006 * (4 / Display.worldZoom));
     ui.flashDamage(0.35);
     const lean = fx >= 0 ? 9 : -9;
     await new Promise<void>((r) => w.tweens.add({ targets: a, angle: lean, scaleY: a.scaleY * 0.86, y: a.y + 5, duration: 220, ease: 'Quad.In', onComplete: () => r() }));
@@ -773,6 +777,8 @@ export class Director {
     await new Promise<void>((r) => w.tweens.add({ targets: a, angle: 0, scaleY: a.scaleY / 0.86, y: a.y - 5, duration: 380, ease: 'Quad.Out', onComplete: () => r() }));
     a.body2?.reset(a.x, a.y);
     await this.think('Bu ışık... Status\'taki o trait. Divine Paladin.');
+    // C2: uyanış bitti — ilk serbest an: joystick ve düğmeler açılır
+    this.ui.setAutoFlow(false);
   }
 
   // ============================================================ karşılaşmalar
@@ -786,6 +792,8 @@ export class Director {
       void this.scene(async () => this.divineAwaken());
       return;
     }
+    // C2: uyanış sahnesi yarıda kaldıysa (hata) kendiliğinden akış açık kalmasın
+    if (this.ui.autoFlow && G.flag('dp_awaken') && !this.busy) this.ui.setAutoFlow(false);
     if (!this.busy) this.ch2.tick(dt);
     // ana görev güvencesi: sahne dışında yarım saniyede bir
     this.mainT -= dt;
@@ -1237,7 +1245,8 @@ export class Director {
     const end = Math.max(G.state.time.minute, 21 * 60);
     R.setSatiety(shiftSatiety(G.state.satiety ?? 100, end - G.state.time.minute));
     G.state.time.minute = end;
-    R.toast(`Bertram'ın öğle yemeği ve güveci: Tokluk ${Math.round(G.state.satiety)}`, 'info', 'inv_food');
+    // C1: son vardiya gecesi ziyafetle biter (bertramSpeech) — ara bildirim yalnızca önceki günlerde
+    if (shift < total) R.toast(`Bertram'ın öğle yemeği ve güveci: Tokluk ${Math.round(G.state.satiety)}`, 'info', 'inv_food');
     G.p.hp = G.d.maxHp;
     G.p.stamina = G.d.maxStamina;
     Q.notify('custom', 'shift');
@@ -1263,7 +1272,12 @@ export class Director {
   /** Üçüncü günün sonunda: ödeme ve dünyanın düzeni üzerine uzun konuşma. */
   async bertramSpeech() {
     await this.say('bertram', 'İki gün. Bir kere bile sızlanmadın. Bir tabak da kırmadın... Fenn\'in kırdığını saymazsak.');
-    await this.say('bertram', 'Önce güvecini al. Bugünün yemeği de benden.');
+    // 0.11.0 (C1): son gece ziyafet — Tokluk 100 (lonca kaydına kadar para harcanamayacağı için karnı tok başlasın)
+    await this.say('bertram', 'Önce sofraya otur. Son akşamın, bugün ziyafet var: kızarmış tavuk, taze ekmek, bal. Hepsi benden.');
+    R.setSatiety(SATIETY_MAX);
+    R.toast(`Bertram'ın ziyafeti: Tokluk ${SATIETY_MAX}`, 'info', 'inv_food');
+    Sound.sfx('coin', 0.3);
+    await this.think('Böyle bir sofra... Bu dünyada ilk kez karnım gerçekten doydu.');
     await this.say('bertram', 'Al. Elli bronz, sözleştiğimiz gibi. Gömlek, pantolon, ayakkabı da senin.');
     R.giveMoney(JOBS.bertramPay, 'Bertram\'ın ücreti');
     Sound.sfx('coin');

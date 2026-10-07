@@ -1,4 +1,5 @@
 // Oyun kuralları: EXP, level, Divine, skill, eşya — bildirimleriyle birlikte.
+import { GUILD_LOCK_TEXT, GUILD_LOCK_TITLE, spendLock } from '../core/spendLock';
 import { G } from './G';
 import { hungerState, decaySatiety, eatSatiety, SATIETY_MAX } from '../core/hunger';
 import { addExp, round2, STAT_POINTS_PER_LEVEL, SP_PER_LEVEL, type StatKey } from '../core/formulas';
@@ -287,18 +288,27 @@ export function giveMoney(bronze: number, label: string, silent = false): boolea
 }
 
 /**
- * E3: harcama kilidi (G3'ün ödülünden şifacıya varana kadar). Kilitliyse Joseph'in düşüncesi döner.
- * allow: kilide rağmen izin verilen ödeme (şifacının tedavisi).
+ * Harcama kilidi (core/spendLock): E3 hikâye kilidi (G3'ün ödülünden şifacıya varana kadar) ve 0.11.0 (C1) lonca
+ * kaydına kadar kilit. Kilitliyse nedeni döner; lonca kilidinde "ÖNCE LONCA" bildirimi çıkar.
+ * allow: kilide rağmen izin verilen ödeme (şifacının tedavisi, cezalar).
  */
-export function spendBlocked(allow = false): string | null {
-  if (!G.flag('spend_lock') || allow) return null;
-  return 'Bu paraya şimdi dokunamam.';
+export function spendBlocked(allow = false, label = ''): string | null {
+  const why = spendLock({ member: !!G.state.guild.member, exempt: !!G.flag('spend_free'), storyLock: !!G.flag('spend_lock') }, label, allow);
+  if (why === 'story') return 'Bu paraya şimdi dokunamam.';
+  if (why === 'guild') return GUILD_LOCK_TEXT;
+  return null;
+}
+
+/** Kilitli harcama girişimi: hikâye kilidinde iç ses, lonca kilidinde sistem bildirimi. */
+function reportBlocked(reason: string) {
+  if (reason === GUILD_LOCK_TEXT) sysmsg(GUILD_LOCK_TITLE, [GUILD_LOCK_TEXT], { sound: 'alert' });
+  else G.events.emit('think', reason);
 }
 
 export function buy(id: string, qty: number, unitPrice: number, label: string) {
-  const blocked = spendBlocked();
+  const blocked = spendBlocked(false, label);
   if (blocked) {
-    G.events.emit('think', blocked);
+    reportBlocked(blocked);
     return { ok: false, reason: blocked };
   }
   const r = transact(G.p as any, { label, pay: unitPrice * qty, give: [{ id, qty }] });
@@ -320,9 +330,9 @@ export function sell(id: string, qty: number, unitPrice: number, label: string) 
 }
 
 export function pay(amount: number, label: string, allowWhenLocked = false) {
-  const blocked = spendBlocked(allowWhenLocked || label === 'Lonca cezası');
+  const blocked = spendBlocked(allowWhenLocked || label === 'Lonca cezası', label);
   if (blocked) {
-    G.events.emit('think', blocked);
+    reportBlocked(blocked);
     return { ok: false, reason: blocked };
   }
   return transact(G.p as any, { label, pay: amount });
