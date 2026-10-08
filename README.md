@@ -23,7 +23,7 @@ Başka bir uygulamaya geçince oyun durur, ses susar ve otomatik kaydedilir. Tar
 | Yürü | Sanal joystick: sabit modda (dokunmatikte varsayılan) yalnızca sol alttaki daire, serbest modda ekranın sol yarısı | WASD / ok tuşları |
 | Koş (dayanıklılık harcar) | Joystick'i kenara kadar it | Shift |
 | Saldırı | **Saldır** | J veya sol tık (tıklanan yöne) |
-| Ağır saldırı (kısa hazırlanma; hazırlanırken Kaçış ile iptal) | **Ağır** | K |
+| Ağır saldırı (0.11.0: **basılı tut**, halka 0,5 sn'de dolar, dolunca bırak; dolmadan bırakmak boşa gider, Kaçış iptal eder) | **Ağır** (basılı tut) | K (basılı tut) |
 | Kaçış (yuvarlanma) | **Kaçış** | Boşluk veya sağ tık |
 | Etkileşim (konuş, gir, topla, uyu) | **Etkileşim** (menzilde bir şey varsa parlar: Konuş mavi, diğerleri yeşil) | E / Enter |
 | Hızlı yemek | Kaçış'ın solundaki yemek butonu | F |
@@ -37,24 +37,27 @@ Başka bir uygulamaya geçince oyun durur, ses susar ve otomatik kaydedilir. Tar
 | Konuşmayı ilerlet | Ekrana dokun | Boşluk / Enter / E |
 
 İpuçları:
-- Düşmanlar saldırmadan önce **kırmızı parlar ve önlerinde bir uyarı alanı çizilir**. Tam o anda kaçarsan **Mükemmel Kaçış**: zaman yavaşlar, sıradaki vuruşun ×1.5 olur ve kaçışın dayanıklılığı (Işık Adımı'nda ışığı) geri gelir — mükemmel kaçış bedavadır.
-- Kırmızı parlarken (hazırlık) vurursan saldırısını **kesersin**; savurmaya başlamışsa kesilmez. Kesilen düşman 1,2 sn boyunca yeniden kesilemez (hasar ve geri tepme yine işler), yani arka arkaya vurup kilitleyemezsin. Boss'lar yalnızca **ağır vuruşla** kesilir.
+- Düşmanlar saldırmadan önce **kırmızı parlar ve önlerinde bir uyarı alanı çizilir**. 0.11.0: alanın yönü hazırlık başında kilitlenir ve hasar alanı **tam olarak** kırmızı alandır — yürüyerek dışına çıkarsan vurulmazsın. Tam vuruş anında kaçarsan **Mükemmel Kaçış**: zaman yavaşlar, kaçışın dayanıklılığı (Işık Adımı'nda ışığı) geri gelir ve 0,6 sn'lik **karşı saldırı** penceresi açılır: içindeki ilk vuruş kesin kritik ve sendeletir (Kaçınma A-: 1,0 sn, ×1,3).
+- Vurmak artık hazırlığı **kesmez**. Her vuruş düşmanın **sendeleme barını** (can barının altındaki sarı çizgi) doldurur: normal 1, ritmin 3. vuruşu 2, dolu ağır saldırı 3, karşı saldırı 3. Bar dolunca düşman 1,2 sn **sersemler** (başında yıldızlar): saldıramaz, yürümez, %50 fazla hasar alır. Sersemletmek Işık barına +10 verir (normal vuruş +3).
+- **Ritim:** saldırı üç vuruşluk bir zincirdir (hızlı, hızlı, yavaş ve güçlü). Sonraki basış savuruşun yarısından sonra sayılır; tuşa durmadan basmak zinciri hızlandırmaz. 3. vuruştan sonra kısa bir toparlanma (yalnızca kaçış).
+- **Saldırı sırası:** aynı hedefe aynı anda yalnızca bir düşman (ormanın derinliklerinde iki) saldırır; sırasını bekleyenler çevrende dolaşır. Düşmanlar kovalarken eskisinden yavaş (×0,75).
 - Seni fark etmemiş bir düşmana arkadan vurmak ×1.5 (**Gizli Saldırı**). Başlarındaki **?** göstergesi dolarsa seni fark ederler.
 - Level 0 Joseph için bir fare bile tehlikelidir (Joseph 10 HP, fare 1,5 HP; sekiz ısırık Joseph'i yere serer). Bu kasıtlıdır — fare yumrukla üç, Bertram'ın çatlak sopasıyla iki vuruşta ölür (0.10.0: yaratık HP'leri ×1,5).
 - Orman tavşanı kaçar; onu ~8 sn boyunca 3 karo içinde kovalarsan köşeye sıkışır ve tekmeyle karşılık verir. Uzaklaşınca yine ürker.
 - Ölünce son uyuduğun yatakta (yoksa ormanda uyandığın yerde) doğarsın; paranın %10'u ve o gün kazandığın EXP kaybolur.
-- Köydeki antrenman alanında (odun kesme kütüğü, taş, koşu parkuru) günde 3 kez Divine EXP kazanabilirsin (seans başına 12–25). Zamanla yetmez hâle gelir; yeni antrenman yerleri ve güçlü düşmanlar aramak gerekir.
+- Köydeki antrenman alanında (odun kesme kütüğü, taş, koşu parkuru) günde 3 kez Divine EXP kazanabilirsin (0.11.0: seans başına 4–10, performansa göre; seans yalnızca başarıda sayılır). Mini oyunlar spamlanamaz: savuruştan sonra 0,4 sn yeni basış yok, ıska süreden 1 sn düşer, hedefe ulaşamazsan "Tekrar dene" (antrenmanda "Bırak" da).
 - Ağaç tepeleri ve çatıların arkasına geçen sen ya da bir canavar olunca o dekor yarı saydam olur.
 - Yemekler bekleme süresine tabidir: her yemekten sonra 10 sn, art arda 3. yemekten sonra 60 sn. Son yemekten 60 sn geçince zincir sıfırlanır.
 - **Koşu ücretsiz (0.10.0):** koşmak dayanıklılık harcamaz, nefes nefese kilidi yok. Dayanıklılık kaçış ve ağır vuruş içindir.
 - **Tokluk (0.10.0):** 0–100; uyanıkken saatte −4, uyurken −2. 30'un altında *Aç* (dayanıklılık yenilenmesi −%50), 10'un altında *Çok aç* (HP yenilenmesi durur, en yüksek dayanıklılık −%25). Açlık öldürmez. Her yiyecek Tokluk verir (Elma 10, Ekmek 20, Ballı Çörek 25, Köy Peyniri 25, Kuru Et 30, Sıcak Güveç 40, Etli Börek 50); 95 ve üstünde "Tokum." (yenmez). Yeni oyun 40 ile başlar; Bertram'ın vardiya günlerinde öğle (+30) ve akşam güveci (+40) bedava; Haldor hasattan sonra bir ekmek verir; elma ağaçları her gün yeniden meyve verir. HUD'da dayanıklılığın altında Tokluk barı; hızlı yeme düğmesi ihtiyaca en uygun yiyeceği seçer.
-- **Yardımlı savaş** (varsayılan açık): saldırı tuşu menzildeki en yakın düşmana döner ve vurur (arkandaki dahil); hedefin altında bir işaret belirir. Kapalıyken eski davranış: baktığın yöne, küçük bir nişan düzeltmesiyle.
+- **Yardımlı savaş** (0.11.0: her zaman açık): saldırı tuşu menzildeki en yakın düşmana döner ve vurur (arkandaki dahil); hedefin altında bir işaret belirir.
 - **Silah animasyonları (0.7.0):** her silah elde görünür ve kendine göre sallanır/saplanır/gerilir. Hasar, silahın düşmana değdiği **darbe karesinde** işler (kesme mekaniği de o anda). Ağır vuruş silaha göre: kılıç ve sopa geriye çekip hızlı ve geniş savurur (öne adım + savurma izi), hançer hızla saplar, mızrak uzun hazırlanıp öne atılır, yay daha uzun gerilip güçlü bırakılır (geri tepme). Hazırlanma sırasında **Kaçış** vuruşu iptal eder.
-- **Silahı sırta koyma:** savaş dışında 6 sn saldırmazsan Joseph silahını sırtına (hançeri beline) koyar; düşman fark edince ya da saldırı tuşuna basınca çeker. Sırttayken saldırırsan çekme ~0,17 sn sürer ve saldırı hemen arkasından gelir. Hikâye sahnelerinde ve diyalogda silah hep sırttadır; köyün güvenli bölgelerinde ve iç mekânda ilk saldırıda çekilir, kısa süre sonra yine sırta konur. Ayarlar → Oynanış → *Silahı sırta koy* kapalıyken silah hep elde kalır.
+- **Silahı sırta koyma:** savaş dışında 6 sn saldırmazsan Joseph silahını sırtına (hançeri beline) koyar; düşman fark edince ya da saldırı tuşuna basınca çeker. Sırttayken saldırırsan çekme ~0,17 sn sürer ve saldırı hemen arkasından gelir. Hikâye sahnelerinde ve diyalogda silah hep sırttadır; köyün güvenli bölgelerinde ve iç mekânda ilk saldırıda çekilir, kısa süre sonra yine sırta konur.
 - Konuşurken, Appraisal/menü/dükkân açıkken ya da toplarken Joseph durur; joystick basılı kaldıysa iş bitince yürüme kaldığı yerden sürer.
-- Ayarlar (kaydırılabilir; Görüntü · Ses · Oynanış · Kontroller bölümleri, geliştirici modunda + Geliştirici; başlık ekranında "Kapat" sabit): arayüz boyutu, metin hızı, sesler, **hareket hızı** ("Hareket hızı (max = X)": Joseph'in doğal yürüme hızının %40'ı ile %100'ü arasında, −/+ 0,1 ya da sayı girerek; varsayılan Max — ayar Joseph'i hiçbir zaman hızlandırmaz; ayar sürümü 4), otomatik ilerleme, ekran sarsıntısı, FPS göstergesi, **FPS sınırı** (60 / 120 / 144 / Sınırsız; varsayılan 60 — yüksek değer daha akıcı ama pili hızlı tüketir), **grafik kalitesi** (çözünürlüğü de belirler: Yüksek en fazla 2x, Orta 1,5x, Düşük 1x cihaz pikseli; ayrıca ışık geçişi, orman sisi ve parçacıklar; menü kapanınca uygulanır), joystick modu (dokunmatikte varsayılan: sol altta sabit), **tam ekran** (iPhone'da: "Tam ekran için oyunu ana ekrana ekle"), yardımlı savaş, **silahı sırta koy** (varsayılan açık; ayar sürümü 3).
+- Ayarlar (kaydırılabilir; Görüntü · Ses · Oynanış · Kontroller bölümleri, geliştirici modunda + Geliştirici; başlık ekranında "Kapat" sabit): arayüz boyutu, metin hızı, sesler, **hareket hızı** ("Hareket hızı (max = X)": Joseph'in doğal yürüme hızının %40'ı ile %100'ü arasında, −/+ 0,1 ya da sayı girerek; varsayılan Max — ayar Joseph'i hiçbir zaman hızlandırmaz; ayar sürümü 4), otomatik ilerleme, FPS göstergesi, **FPS sınırı** (60 / 120 / 144 / Sınırsız; varsayılan 60 — yüksek değer daha akıcı ama pili hızlı tüketir), **grafik kalitesi** (çözünürlüğü de belirler: Yüksek en fazla 2x, Orta 1,5x, Düşük 1x cihaz pikseli; ayrıca ışık geçişi, orman sisi ve parçacıklar; menü kapanınca uygulanır), joystick modu (dokunmatikte varsayılan: sol altta sabit), **tam ekran** (iPhone'da: "Tam ekran için oyunu ana ekrana ekle"). 0.11.0: yardımlı savaş, ekran sarsıntısı/vuruş donması ve silahı sırta koyma ayarları kalktı, hep açık (ayar sürümü 5).
 - Menü ve Appraisal paneli açıkken oyun zamanı durur (müzik sürer). Mini oyunlar ve konuşmalar eski davranışını korur.
-- **Geliştirici modu:** başlık ekranında sürüm numarasına 7 kez dokun. Menüde *Geliştirici* sekmesi açılır (Level/stat/HP/MP/para, skill rütbesi ve EXP, saat/gün, ışınlanma, görev ilerletme, Lonca Puanı); NPC'lerin başında Saygınlık değerleri görünür. Ayarlar'dan kapatılır. Normal oyuncu hiçbirini görmez.
+- **Geliştirici modu:** başlık ekranında sürüm numarasına 7 kez dokun. Menüde *Geliştirici* sekmesi açılır (Level/stat/HP/MP/para, skill rütbesi ve EXP, saat/gün, ışınlanma, görev ilerletme, Lonca Puanı); NPC'lerin başında Saygınlık değerleri görünür. 0.11.0: hikâye kontrol noktaları, görev hedefine ışınlan, ölümsüzlük, tek vuruş, yaratık doğur, bölgeyi yeniden doğur, hata ayıklama katmanı (saldırı alanları, sendeleme, sıra hakları), saat ×4/durdur, skill ve eşya ekle, Divine ±, SP +1, Sistem Teklifi, Ansiklopedi aç/sıfırla, aranabilir bayrak görüntüleyici, kaydı JSON olarak kopyala/yükle, hata kaydı (ekranın üstünde kırmızı sayaç). Ayarlar'dan kapatılır. Normal oyuncu hiçbirini görmez.
+- **Kayıt yuvaları (0.11.0):** 3 yuva; oyun otomatik olarak oynanan yuvaya kaydeder. Başlıkta *Devam* son yuvayı açar, *Yeni Oyun* yuva seçtirir (dolu yuvada onay), *Yükle* istenen yuvayı açar. Eski kayıtlar ilk açılışta yuvalara taşınır (otomatik → Yuva 1, elle 1–2 → Yuva 2–3, elle 3 → "Eski kayıt").
 
 ## Sistemler (özet)
 
@@ -256,6 +259,32 @@ URL='http://localhost:4173/?qa=1' DPR=1 OUT=screens/g4b node tools/qa/shot.mjs g
 URL='http://localhost:4173/?qa=1' DPR=1 node tools/qa/shot.mjs g4bperf   # meydanda silah + pelerinle FPS, saldırı sırasında FPS
 ```
 
+### `window.__qa` (betik API'si, 0.11.0)
+
+`?qa=1` adresiyle ya da geliştirici modunda açılır. Başsız tarayıcı betikleri oyunun iç alanlarına dokunmadan bunları kullanır (örnek: `tools/qa/steps_g7.mjs`).
+
+| Çağrı | Ne yapar |
+| --- | --- |
+| `await __qa.checkpoint(ad)` | Hikâye kontrol noktasını yeni bir oyundan kurar (görevler, bayraklar, envanter, para, lonca, konum), World ve UI sahnelerini yeniden başlatır; hazır olunca `true`. Adlar: `awake`, `bertram_done`, `harvest_done`, `registered`, `vl_friends`, `celebrate`, `theft_done`, `gate` |
+| `__qa.checkpoints()` | `{ id, name }` listesi |
+| `__qa.teleport(harita, x, y, yön?)` | Haritaya ve kareye ışınlar (`'world'`, `'inn'`, `'guild'` …) |
+| `__qa.spawn(yaratık, x?, y?, adet?)` | Yaratık doğurur (varsayılan: Joseph'in 3 kare sağı); `uid` listesi döner |
+| `__qa.respawn()` | Bölgedeki bütün yaratıkları yeniden doğurur |
+| `__qa.god(açık = true)` | Ölümsüzlük (alınan hasar gri sayı olarak görünür, uygulanmaz) |
+| `__qa.oneHit(açık = true)` | Tek vuruşta öldürme |
+| `__qa.debug(açık = true)` | Hata ayıklama katmanı: saldırı alanları, sendeleme barları, saldırı sırası hakları |
+| `__qa.setTime(gün, dakika)` | Oyun saatini ayarlar (dakika: günün dakikası, ör. 600 = 10:00) |
+| `__qa.clock(çarpan, durdur?)` | Oyun saatinin hızı (ör. 4) ve durdurma |
+| `__qa.state()` | Özet: harita, kare, saat, level, HP, para, lonca, Divine, Tokluk, grup, açık görevler ve amaçları, sahne, düşmanlar (durum, HP, sendeleme), hata sayısı |
+| `__qa.errors()` / `__qa.errorsText()` | Hata kaydı (yakalanmamış hatalar ve sahne hataları; yığın iziyle) |
+| `__qa.exportSave()` | Aktif durum JSON olarak |
+| `__qa.importSave(json, yuva?)` | JSON'u bir yuvaya yazar (varsayılan: oynanan yuva); ardından o yuvayı yükle |
+
+```bash
+npm run build && npx vite preview --port 4173 &
+URL='http://localhost:4173/?qa=1' DPR=1 OUT=tools/qa/g7 node tools/qa/shot.mjs g7   # Grup 7 uçtan uca (ONLY=d,cp,combat,b,c)
+```
+
 Görseller önceden üretilmiş olarak depodadır (`assets/gfx`). Yeniden üretmek için:
 
 ```bash
@@ -290,6 +319,12 @@ Oyun yalnızca `main` dalından yayınlanır (GitHub Actions → `github-pages` 
 
 ## Sürüm notları
 
+- **0.11.0** — Grup 7: dövüş sistemi, oyuncu notları ve hatalar (bkz. `PLAN.md`).
+  - *Dövüş — hamle ve karşı hamle:* vurmak saldırıyı kesmez; kırmızı alanın yönü kilitlenir ve hasar alanı tam olarak kırmızı alan; sendeleme barı ve sersemleme (%50 fazla hasar); aynı hedefe sırayla saldırı, bekleyenler çevrede dolaşır; 3 vuruşluk ritim (spam hızlandırmaz); basılı tutulan ağır saldırı; kusursuz kaçıştan sonra 0,6 sn karşı saldırı (kesin kritik); kovalama ×0,75; Işık barı asıl kaçış ve sersemletmeyle dolar; yoldaşlar sersemlemiş düşmanı önceler; Vera'nın dersleri yeni sisteme göre.
+  - *Hatalar:* takılı kalan bildirim, üst üste binen sistem bildirimleri (yeni tasarım: simgeli satırlar, içeriğe göre büyüyen koyu kutu), üst üste binen düşünce balonları (sıra, takip, zemin), sahne hatalarına koruma, Appraisal'da her fare ayrı hedef sayılıyordu, panoda "YARIN", lonca duvarı HUD'un altında, kart paneli.
+  - *Oyuncu notları:* Bertram'ın ziyafeti ve loncaya kadar harcama kilidi; prolog ve uyanış kendiliğinden akar (atlanamaz); üç ayar kalktı; yeni pano, rütbe tahtası ve 9 ayrı rütbe rengi; terfi animasyonu atlanamaz; İlk Kadeh ve hırsızlık saat beklemez; Divine level'da altın ışık; yoldaşlarla kapılar ve görev bölgesi; Appraisal ve Divine EXP'si yavaşladı; mini oyunlar spamlanamaz; Sistem Teklifi öğreticisi ve yeni kartlar; Ansiklopedide yeni keşif işareti, rütbe rozetleri, Appraisal anlık kaydı, sayaçlar; trait satırı yalnızca görülebiliyorsa; rütbenin altındaki görevler az puan verir, yeni rütbe eşikleri; ganimet ışıldar ve kaybolmadan önce yanıp söner.
+  - *Kayıt yuvaları:* 3 yuva, her biri kendi otomatik kaydıyla; Yeni Oyun yuva seçtirir.
+  - *Geliştirme:* kontrol noktaları, dövüş araçları, hata kaydı ve `window.__qa` betik API'si. Kayıtlar otomatik taşınır (kayıt sürümü 10; eski kayıtlar yuvalara kopyalanır, hiçbiri silinmez).
 - **0.10.0** — Grup 6: hatalar, denge, yeni sistemler (bkz. `PLAN.md`).
   - *Başlangıç:* Prologda trait çarkı (olasılık tablosu, Divine Paladin %0,0001); ilk adımda tökezleme ve Divine uyanışı; trait metinleri (Bertram, lonca taşı, Celeste, Ilse Nine, iç sesler).
   - *Yönlendirme:* Haritalar arası ok her zaman bir geçişi gösterir; beklemelerde ok yatağa ve "Yukarı çık ve uyu"; görev saatine kadar uyku öğreticisi; isteğe bağlı amaçlar; pano anlatımı; alt görevin hedefi; en yakın toplanmamış ot; yaratık kalmayınca dönüş saati. Bütün ana görev geçişleri günün her saatinde denetlendi (`tests/chainTimes.test.ts`).

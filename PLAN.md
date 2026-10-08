@@ -1,7 +1,7 @@
 # Güncelleme planı — devam notu
 
 Dört aşamalı plan — **tamamlandı (0.7.0)**. Her oturum yalnızca kendi grubunu yaptı ve bu dosyayı güncelledi.
-0.7.0 sonrası plan iki yarı: **Grup 5A** (hatalar, dünya, denge, silah görselleri) — ✅ 0.8.0; **Grup 5B** (arayüz ve beceri sistemi) — ✅ 0.9.0. Ardından **Grup 6** (hatalar, oyuncu notları, denge ve yeni sistemler) — ✅ 0.10.0.
+0.7.0 sonrası plan iki yarı: **Grup 5A** (hatalar, dünya, denge, silah görselleri) — ✅ 0.8.0; **Grup 5B** (arayüz ve beceri sistemi) — ✅ 0.9.0. Ardından **Grup 6** (hatalar, oyuncu notları, denge ve yeni sistemler) — ✅ 0.10.0; **Grup 7** (yeni dövüş sistemi, hatalar, oyuncu notları, kayıt yuvaları, geliştirici modu) — ✅ 0.11.0.
 
 | Grup | Kapsam | Durum |
 | --- | --- | --- |
@@ -13,6 +13,7 @@ Dört aşamalı plan — **tamamlandı (0.7.0)**. Her oturum yalnızca kendi gru
 | **5A. Hatalar, dünya, denge, silah görselleri** | Sistem bildirimi, kapı amacı, QA yoklaması; elmalar, görev eşyası, otlar, Dorn/muhafız yürüyüşü, Varg, dükkânlar, şort, doğu suru, mini oyun müziği ve servis hedefi, karartma, savaş ganimeti, satış aralığı, sabit joystick; hız, kaçış, hasar sayıları, yoldaşlar, NPC statları; silah kareleri | ✅ 0.8.0 |
 | **5B. Arayüz ve beceri sistemi** | Kısım 1: dükkân/yan görev seçenekleri, mavi ünlem, mini harita, Görevler düğmeleri, Konuşmalar, lonca barı, prolog Status, Appraisal, renkli artılar, savunma, kaydırma, sıralama, satın alma animasyonu · Kısım 2: skill sistemi | ✅ 0.9.0 |
 | **6. Hatalar, denge, yeni sistemler** | Kaydırma jesti, saat ilerletme, zincir saat denetimi, haritalar arası ok ve uyku yönlendirmesi, isteğe bağlı amaçlar; beş stat, yaratık HP ×1,5, görev EXP ×2, saldırı sıklığı, orman açıklıkları; Tokluk, Ansiklopedi, harita işaretleri, pano süre uyarıları, Bertram 2 gün ve çöp kutusu, skill yalnızca SP, ücretsiz koşu, dövüş geri bildirimi; trait çarkı, Divine uyanışı, trait metinleri | ✅ 0.10.0 |
+| **7. Dövüş sistemi, oyuncu notları, hatalar** | Hamle ve karşı hamle (kırmızı alan = hasar alanı, sendeleme ve sersemleme, saldırı sırası, 3 vuruşluk ritim, basılı tutulan ağır saldırı, karşı saldırı); bildirim, balon, sahne koruması, Appraisal anahtarı, lonca kamerası, kart paneli; ziyafet ve harcama kilidi, kendiliğinden akan prolog, ayarlar, rütbe paleti, İlk Kadeh/hırsızlık saatleri, Divine ışığı, yoldaş bölgeleri, Appraisal/Divine EXP, mini oyunlar, Sistem Teklifi öğreticisi, Ansiklopedi, lonca puanı, ganimet ışığı; 3 kayıt yuvası; kontrol noktaları ve `window.__qa` | ✅ 0.11.0 |
 
 ## Grup 1'de yapılanlar (0.3.1)
 
@@ -316,6 +317,150 @@ Kurallar talimattaki gibi; sayılar değiştirilmedi. Saf kurallar `src/core/ski
 - **Denge notu:** MP formülü büyüleri erken oyunda pahalı yapıyor (Kıvılcım 10 MP; Level 0'da MNA'sız max MP 0, Level 6 + 4 MNA → 18). Sayılar talimattaki gibi bırakıldı.
 - Gerçek tablette denenemedi (yalnızca başsız tarayıcı).
 
+## Grup 7'de yapılanlar (0.11.0)
+
+Talimat: yeni dövüş sistemi (A1–A12), hatalar (B1–B8), oyuncu notları (C1–C16), kayıt yuvaları (D), geliştirici modu ve QA altyapısı (E), testler ve uçtan uca QA (F). Kayıt değişikliklerinin hepsi tek göçte (v9 → v10). Talimattan ayrıldığım yerler aşağıda **Kararlar**'da.
+
+### A. Dövüş: hamle ve karşı hamle
+
+Tablette yeni buton yok (Saldır, Ağır, Kaçış); yardımlı savaş her zaman açık. Saf kurallar `src/core/` altında, testleri `tests/g7combat.test.ts`.
+
+- **A1:** `canInterrupt` ve `INTERRUPT_LOCKOUT_SEC` kalktı. Normal ve ağır vuruş hazırlığı kesmez; hasar verir, sendeleme barını doldurur. Hazırlığı yalnızca sersemleme ve durum etkileri (donma, sersemletme, felç) bozar (`Enemy.cancelWindup`).
+- **A2:** `src/core/telegraph.ts`: `telegraphShape` (koni: yarıçap `(attackRange + 0,4) × karo`, ±0,9 rad; ağır saldırıda daire ×1,7; büyü/okta çizgi) ve `inTelegraph`. Şekil hazırlık başında kurulur ve kilitlenir; `strike()` hedefe yeniden dönmez, atılma kilitli yönde ve hasar alanını büyütmez. Kırmızı alan (`drawTelegraph`) ve hasar (`Enemy.strikeHits`) aynı şekli kullanır; yoldaşlara saldıranlarda da.
+- **A3 sendeleme:** `src/core/stagger.ts` (kapasite tablosu talimattaki gibi, tabloda olmayan 4). 2 sn vurulmazsa saniyede 1 boşalır; dolunca 1,2 sn (boss 0,8) sersemleme: saldırmaz, yürümez, hasar ×1,5, hazırlık iptal ve saldırı hakkı bırakılır, bar sıfırlanır; sonraki 3 sn dolum yarıya iner. Görsel: can barının altında ince sarı çizgi (ilk vuruştan sonra), dolunca kısa parlama, sersemken başın üstünde dönen yıldızlar ve yalpalama (`EState 'stunned'`). Dolum tablosu aşağıda.
+- **A4 saldırı sırası:** `src/core/attackQueue.ts`. Hedef başına ayrı sıra (Joseph ve her yoldaş). N: `forest_mid`, `forest_deep`, `north_woods`, `goblin_camp` 2, diğer bölgeler 1; boss kendi hakkı dışında en fazla 1 yardımcı. Hak hazırlık başında alınır; saldırı bitince, ölünce, kaçınca ya da sersemleyince bırakılır; en uzun bekleyen önce, saldırısını bitiren sıranın sonuna. Aynı hedefe iki vuruş arası en az 0,5 sn (`STRIKE_GAP`). Sırasını bekleyen yeni `'circle'` durumunda hedefin 2–3 kare çevresinde yavaşça dolaşır ve hedefe döner.
+- **A5 ritim:** `src/core/rhythm.ts`. 1. ve 2. vuruş süre ×0,85, 3. vuruş ×1,35, hasar ×1,4, sendeleme 2, büyük savuruş. Sonraki basış savuruşun %55'inden bitişten 0,35 sn sonrasına kadar tamponlanır; %55'ten önceki basış yok sayılır; pencere kaçarsa zincir başa döner. 3. vuruştan sonra 0,3 sn yalnızca kaçış. `combo`/`comboAt` bu ritme dönüştü; Kılıç Ustalığı A-'nın `comboFinisher`'ı 3. vuruşun üstüne. Yay ritmin dışında.
+- **A6 ağır saldırı:** basılı tut (K ya da Ağır butonu; tablette basma/bırakma olayları) → 0,5 sn'de dolan halka, hareket ×0,4; dolunca bırakınca ×1,8 hasar, sendeleme 3, dayanıklılık 18 (indirimlerle). Dolmadan bırakmak bedelsiz boşa gider; vurulmak ya da kaçmak iptal eder (`chargeStep`).
+- **A7:** kusursuz kaçıştan sonra karşı saldırı penceresi 0,6 sn; içindeki ilk vuruş kesin kritik ve sendeleme 3 ("Karşı Saldırı!"). Kaçınma A- artık: "Karşı saldırı penceresi 0,6 → 1,0 sn ve karşı vuruş hasarı ×1,3" (`counterSkilled`).
+- **A8:** kovalama hızı `def.speed × 0,75` (`chaseSpeed`); atılma ve tavşanın kaçışı aynı. Test: başlangıç Joseph'i fare, sümüksü ve ahır faresinden yavaş değil.
+- **A9:** yumrukla fare 3, sümüksü 6 vuruş; sopayla 2 ve 3 (bkz. Kararlar). `creature.ts` yumruk tabanını artık `UNARMED_DAMAGE` sabitinden alır.
+- **A10:** `LIGHT_ON_HIT` 7 → 3, sersemletme +10 (`LIGHT_ON_STUN`), kusursuz kaçış 14.
+- **A11:** yoldaşların hedef puanı sersemlemiş düşmanı öne alır; düşmanlar yoldaşlara da A2/A4 kurallarıyla saldırır; yoldaş hasarı aynı.
+- **A12:** Vera'nın dersleri (`src/data/lessons.ts`, `VERA_LESSON`) dünya içi dille: kırmızı alandan çıkmak, son anda kaçıp hemen vurmak, ritimle vurmak, gücünü toplayıp sendeletmek.
+
+#### Sendeleme dolum tablosu
+
+| Kaynak | Dolum |
+| --- | --- |
+| Normal vuruş (1., 2.) | 1 |
+| Ritmin 3. vuruşu | 2 |
+| Ağır saldırı (dolu şarj) | 3 |
+| Karşı saldırı penceresindeki vuruş | 3 |
+| Savuşturma (Kılıç Ustalığı karşı saldırısı) | 3 |
+| Çift Kesik, Süpürme, Fırtına Dansı, Ateş Topu, Gök Gürültüsü, Yargı Işığı (Divine) | 2 |
+| Delici Hamle, Gök Yaran, Buzul Mızrağı, Göğün Hükmü | 3 |
+| Rüzgâr Kesiği, Kıvılcım, Cehennem Çemberi, Buz Kıymığı, Donduran Halka, Statik Ok ve tabloda olmayan teknikler | 1 |
+| Işık Patlaması (Divine, çevreyi iter) | barı doldurur (99) |
+
+Kaynak: `STAGGER_FILL`, `SKILL_STAGGER` (`src/core/stagger.ts`). Alan ve sürekli hasar 1, tek hedefe güçlü vuruşlar 2–3.
+
+### B. Hatalar
+
+- **B1:** `src/ui/toastStack.ts` (Phaser'sız): yeniden dizme yalnızca konumu tween'ler, alpha'ya dokunmaz; kaybolan bildirim işaretli; her bildirimin ömrü var (2,6 sn görünür + 0,4 sn kaybolma, en geç 4,2 sn'de yok edilir). Test ve QA: kaybolma sırasında HUD yüksekliği değişse de bildirim gider.
+- **B2:** `src/ui/sysBox.ts` + `src/ui/sysLayout.ts`: satırlar ölçülen yükseklikle dizilir, kutu içeriğe göre büyür; satır başında türüne göre renkli simge (level, stat, SP, Max HP, skill rütbesi, yeni yetenek, para, eşya, görev, uyarı); başlıkta tür şeridi (level altın, skill mavi, Divine beyaz-altın, uyarı kırmızı, görev yeşil); "etiket · değer" biçimi; koyu opak zemin, ince altın kenar. Konum sol panel ile saat kutusunun arasında, sığmazsa altlarına iner (`sysPlacement`). `MenuScene.showNotice` aynı kutuyu kullanır.
+- **B3:** `src/world/bubbleQueue.ts`: karakter başına sıra, balon karakteri izler; düşünce italik, yuvarlak köşeli ve "…" kabarcıklı, konuşma normal ve kuyruklu; yarı saydam koyu zemin.
+- **B4:** `Director.scene()` hatayı yakalar: sahne kapanır (cutscene iner, diyalog kapanır, kamera Joseph'e döner), hata geliştirici hata kaydına (`src/game/errorLog.ts`) yazılır, `ensureMainQuest` zinciri sürdürür. `say/face/walk/pan` yok edilmiş aktörü sessizce atlar; sahnede kullanılan NPC'ler program yüzünden ayrılmaz.
+- **B5:** yaratıkta Appraisal anahtarı tür kimliği (`m_rat`), kişide NPC kimliği (`appraisalKey`); göç eski `m_<uid>` anahtarlarını türe çevirir.
+- **B6/C4:** `BootScene` pano dokusu yeniden çizildi (ahşap çerçeve, iğneli ilanlar, mühürler, küçük rozetler; "YARIN" yok).
+- **B7:** iç mekânda kamera sınırına sağ üst HUD yüksekliği (saat/bölge kutusu, mini harita) ve QA'dan sonra sağdaki HUD sütunu da eklendi; oyuncu panonun ya da rütbe tahtasının önündeyken iki tahta da görünür (QA ölçümü). İç mekânda bölge kutusunda kısa ad ("Maceracılar Loncası").
+- **B8:** C12'deki kart paneli.
+
+### C. Oyuncu notları
+
+- **C1:** son vardiya gecesi ziyafet: Tokluk 100 ("Bertram'ın ziyafeti: Tokluk 100"). `src/core/spendLock.ts`: loncaya kaydolana kadar alış, yemek, yatak engelli; "ÖNCE LONCA — Maceracılar Loncası'na kaydolana kadar paranı harcayamazsın. Kayıt ücreti bir gümüş."; kayıt ücreti ve satış serbest. Göç: kayıtsız eski kayıtlarda `spend_free` (kilit yok). Test: kayda kadar vardiya yemekleri, ziyafet, Haldor'un ekmeği ve elmalarla Tokluk normale çıkar.
+- **C2:** prologda "Geç »" yok; dokunma ve klavye yazıyı geçmez; satırlar `readTimeMs` (2,2 sn + harf başına 45 ms) sonra kendiliğinden ilerler, Status ~8 sn. Tek etkileşim "TRAIT ÇEVİR". Dünyada ilk yürümeye kadarki iç sesler ve uyanış sahnesi `UIScene.setAutoFlow` ile kendiliğinden akar; bu sürede menü, Appraisal ve saldırı etkisiz, joystick sahne bitince açılır.
+- **C3:** Yardımlı savaş, ekran sarsıntısı/vuruş donması ve silahı sırta koyma ayarları kalktı, hep açık (`REMOVED_SETTINGS`, ayar sürümü 5).
+- **C4:** rütbe paleti ayrıldı (`RANK_BG/EDGE/TEXT`, `src/ui/rankPalette.ts`): G kahverengi, F demir grisi, E bronz, D gümüş, C yeşim, B safir, A altın, S kızıl yakut, X mor. Rozet atlası `tools/build_uiicons.py --ranks-only` ile yeniden üretildi; rütbe tahtasında 9 rozet yan yana.
+- **C5:** terfi animasyonu atlanamaz; bitince "Kapatmak için dokun", otomatik kapanma yok. Görev bitiş animasyonu aynı (`overlayRules`).
+- **C6:** `m_celebrate` hana herhangi bir saatte girilince başlar (Vera ve Lina zorla yerleştirilir); İlk Kadeh bitip handan çıkılınca kâhyanın sahnesi ve `m_theft` (kâhya ve şüpheliler yerleştirilir, görev bitene kadar ayrılmaz). `m_next_day` başlığı "Dışarıdaki Gürültü". Zincir tablosu aşağıda.
+- **C7:** her Divine level atlamada altın ışık sütunu, parçacıklar, 2 sn aura ve küçük "DIVINE LEVEL N" (`Director.divineLevelFx`); oyunu durdurmaz.
+- **C8:** `src/core/partyZone.ts` (veriden görev bölgeleri: `m_wounded`, `f_wolves`, `f_cellar`). Yoldaşlıyken yalnızca görevin kapıları açık; diğerlerinde Vera'nın üç repliği sırayla. Bölgenin dışına çıkınca Vera uyarır; ~8 kare ya da 10 sn daha uzaklaşınca ekran kararır, grup rotaya döner.
+- **C9:** yeni hedef (kişi ya da yaratık türü) tam EXP, beklemesiz; incelenmiş hedef 1/5, günde bir, 10 sn bekleme; taban ×0,5 (`APPRAISAL_BASE_SCALE`, `claimAppraisalExp`).
+- **C10:** `challengeRate` ÷3 (talimattaki tablo), seri bonusu en fazla ×1,5 (test), antrenman [4, 10] ve performansa göre. Simülasyon sonucu aşağıda.
+- **C11:** `src/core/minigameRules.ts`: 0,4 sn savuruş kilidi, ıska −1 sn ve kırmızı parlama, hasat 22 sn'de 10 demet, odun 24 sn'de 10 kütük, taş sürenin %60'ı bölgede, koşuda 0,12 sn'den sık basış hızı düşürür. Kaybedince "Kaybettin" + "Tekrar dene" (antrenmanda ayrıca "Bırak": EXP yok, seans sayılmaz). Haldor yalnızca başarıda öder.
+- **C12:** ilk SP'de isteğe bağlı "Sistem Teklifi'ni dene" amacı, HUD menü düğmesi parlar, Status'taki düğme vurgulu; ilk açılışta sistem açıklaması. `panelChoice` yeniden: tam ekran karartma, 2:3 opak kartlar (simge, ad, nadirlik etiketi, açıklama, şans çubukları ya da rütbe tablosu, düğme; `cardLayout`), başlık ve "Vazgeç"/"Hiçbirini seçme" ayrı; "Hiçbirini seçme"de onay.
+- **C13:** yeni kayıtta kırmızı "!" (dokununca `seen`), tür sekmelerinde ve menüdeki Ansiklopedi düğmesinde sayı rozeti; listede ad kutusunun sağında rütbe rozeti; Appraisal anlık kaydı (`personSnapshot`, kart altında "Appraisal: G- ile incelendi · 4. gün"), yeniden incelemede güncellenir, göçte bir kez oluşturulur; tür ve bölge sayaçları; bilinenler önce (alfabetik); kendi simgesi.
+- **C14:** trait satırı yalnızca görülebiliyorsa (panel ve Ansiklopedi); yaratıkta hiç yok.
+- **C15:** rütbenin bir harf altı %25 (aşağı yuvarlanır), iki ve daha fazla altı 0; grupta önce %50 (`questPointsFor`); pano ve bitiş animasyonunda gerçek puan ("rütbenin altında"). Yeni `RANK_THRESHOLDS` talimattaki gibi; rütbe düşürülmez.
+- **C16:** `src/world/lootFx.ts` + `lootRules.ts`: nabız gibi atan halka, ara sıra parıltı; sıradan beyaz-sarı, para altın, özel altın ışık sütunu; son 15 sn yanıp söner; en çok 20 efekt (havuz).
+
+### D. Kayıt yuvaları
+
+`src/core/slots.ts` (Phaser'sız) + `src/ui/slotPicker.ts`. 3 yuva, otomatik kayıt oynanan yuvaya (`G.slot`, `elonth.slot.N`). Başlık: "Devam" son oynanan yuva; "Yeni Oyun" yuva seçimi (özet: level, rütbe, gün, son kayıt zamanı ya da "Boş"; dolu yuvada "Yuva 2'deki kayıt silinecek ve yerine yeni oyun yazılacak. Emin misin?"); "Yükle". Oyun içinde "Kaydet" oynanan yuvaya, diğer yuvalar "Yükle". Göç bir kez: `auto` → Yuva 1, `manual1` → 2, `manual2` → 3; `manual3` "Eski kayıt" olarak listelenir, yüklenince yuva seçtirilir; eski anahtarlar silinmez.
+
+**v10 göçü** (`migrateV9toV10`): Appraisal anahtarları türe, kayıtsız oyuncuya `spend_free`, Ansiklopedi anlık kayıtları (o anki Appraisal rütbesiyle).
+
+### E. Geliştirici modu ve QA altyapısı
+
+- **Kontrol noktaları** (`src/story/checkpoints.ts`): Uyanış sonrası, Bertram'ın işi bitti, Hasat bitti, Loncaya kayıtlı (pano açık), Vera-Lina dostluğu sonrası, İlk Kadeh, Hırsızlık bitti, Kapı. Her nokta yeni oyundan kurulur: biten görevler sırayla ve `QUEST_EFFECTS` (bayraklar, eşyalar, para, lonca, Ansiklopedi), sıradaki ana görev, saat, level, puan, konum. Geliştirici "Tamamla" da `QUEST_EFFECTS`'i uygular (Grup 6'daki bilinen sorun: `bertram_done` kurulmuyordu).
+- **Panel:** ışınlan (harita/nokta listesi, görev hedefine), ölümsüzlük, tek vuruş, yaratık doğur, bölgeyi yeniden doğur, hata ayıklama katmanı (saldırı alanları, sendeleme, sıra hakları), saat ×4 ve durdur, skill ekle/rütbe, Divine ±, SP +1, haftadan bağımsız Sistem Teklifi, eşya ekle, Ansiklopedi aç/sıfırla, aranabilir bayrak/sayaç görüntüleyici, kaydı JSON olarak kopyala/yapıştırıp yuvaya yükle, hata listesi (yığın izi, Kopyala, Temizle). Geliştirici modunda ekranın üstünde kırmızı hata sayacı (dokununca Geliştirici sekmesi).
+- **`window.__qa`** (`src/game/qaApi.ts`; `?qa=1` ya da geliştirici modu): belgesi README'de.
+
+### Kararlar (belirsiz kalanlar ve talimattan ayrıldığım yerler)
+
+- **A9 yumruk:** `UNARMED_DAMAGE` [1, 1] kaldı. L0 Joseph'te Divine Güç ×0,5 uygulandığı için etkin vuruş zaten 0,5 (fare 1,5 HP → 3, sümüksü 3 HP → 6 vuruş; QA ölçümü). Taban 0,5 yapılsaydı vuruş 0,3'e yuvarlanır, fare 5 / sümüksü 10 vuruşa çıkardı; talimattaki beklenen sayılar esas alındı.
+- **C15 eşikleri:** G eşiği 40 → 60 olduğundan `f_wolves` sonrası G'ye yetmeyen puan artık sık görülür; `m_gpoints` adımı (panodan G ilanları) bunu karşılar, metinler eşiği `RANK_THRESHOLDS[1]`'den alır.
+- **C6:** hırsızlık sahnesi, İlk Kadeh bittikten sonra hanın kapısından dünyaya çıkıldığı anda başlar (`theft_day` kapısı tamamen kalktı). `m_next_day` adımı yalnızca "Handan çık" amacı olarak kaldı, başlığı "Dışarıdaki Gürültü".
+- **Sendeleme dolumu:** yeteneklerin değerleri yukarıdaki tabloda; Işık Patlaması (Divine) barı doldurur.
+- **B7:** iç mekânda kamera sağdaki HUD sütununu (196 birim) da hesaba katar; talimat yalnızca sağ üst kutuyu söylüyordu, QA'da panonun sağı yuvarlak düğmelerin altında kaldı.
+- **Kontrol noktaları:** her nokta yeni bir oyundan kurulur (önceki duruma eklenmez); noktalar arası günler biten görev sayısına göre dağıtılır. `checkpoint()` UI sahnesini de yeniden kurar (önceki durumun açık panelleri taşınmaz).
+- **Tek kayıt göçü (v9 → v10)** B5, C1, C13'ü kapsar; yuva göçü (D) kayıt verisi değil anahtar düzeni olduğundan ayrı ve bir kez (`elonth.slot.migrated`).
+
+### Zincir saat denetimi (C6 sonrası)
+
+`CHAIN_TABLE=1 npx vitest run tests/chainTimes.test.ts`. Açıklamasız kilitlenme yok.
+
+| Geçiş | İlk amaç | Günün saatleri |
+|---|---|---|
+| (uyanış) → m_inn | Brindlewood'daki hana git | 00–00 hemen |
+| m_inn → m_bertram | Handa çalış (Bertram'la konuş) | 00–06 bekle (uyku) · 06–15 hemen · 15–00 bekle (uyku) |
+| m_bertram → m_harvest | Yaşlı Haldor'u bul | 00–06 bekle (uyku) · 06–16 hemen · 16–00 bekle (uyku) |
+| m_harvest → m_register | Bir gümüş biriktir (100 bronz) | 00–05 bekle (uyku) · 05–00 hemen |
+| m_register → m_weapon | Handa Bertram'la konuş | 00–05 bekle (uyku) · 05–00 hemen |
+| m_weapon → m_board | Loncaya dön, panodan görev al | 00–05 bekle (uyku) · 05–00 hemen |
+| m_board → g1_rats | Ahırdaki fareleri temizle | 00–00 hemen |
+| m_grank → m_air | Ormanın kenarına yürü | 00–00 hemen |
+| m_air → m_wounded | Lina'yı taşı; Vera'yla şifacıya git | 00–00 hemen |
+| m_wounded → m_vl_rest | Vera ve Lina'yı bul | 00–00 bekle (uyku) |
+| m_vl_rest → f_wolves | Vera ve Lina'yla otlağa git | 00–00 hemen |
+| f_wolves → m_celebrate | Hana git | 00–00 hemen |
+| m_celebrate → m_next_day | Handan çık | 00–00 hemen |
+| m_next_day → m_theft | Şüphelileri incele (Appraisal) | 00–00 hemen |
+| m_theft → m_vl_cellar | Vera ve Lina'yla konuş | 00–00 bekle (uyku) |
+| m_vl_cellar → f_cellar | Değirmene git | 00–00 hemen |
+| f_cellar → m_silver | 10 gümüş biriktir (1.000 bronz) | 00–05 bekle (uyku) · 05–00 hemen |
+| m_silver → m_farewell | Handa Bertram'la konuş | 00–05 bekle (uyku) · 05–00 hemen |
+| m_farewell → m_gate | Kaptan Roderick'ten giriş kartı al (10 gümüş) | 00–00 hemen |
+
+Değişen iki satır: `f_wolves → m_celebrate` (eskiden 00–18 bekle) ve `m_celebrate → m_next_day` (eskiden ertesi güne bağlı).
+
+### Divine simülasyonu (C10)
+
+`tests/g7.test.ts` ("kaba simülasyon"): her gün o anki levele uygun yaratıktan 20 öldürme (seri bonusuyla), 3 antrenman (ortalama performans, [4, 10]), görevlerden 20 EXP. Sonuç: **Divine 1'e normal level ≈ 2,96'da (5. gün) ulaşılır** (test 2,5–3,5 aralığını denetler).
+
+### Testler
+
+653 → 747 (29 dosya). Yeni: `tests/g7combat.test.ts` (A: kırmızı alan = hasar alanı, yön kilidi, sendeleme dolum/boşalma/sersemleme/sonrası, saldırı sırası, ritim penceresi ve tampon, şarj, karşı pencere, kovalama hızı, yumruk sayıları, Işık), `tests/g7.test.ts` (B1 ömür, B2 düzen ve simgeler, B3 sıra, B5/C9 Appraisal, C1 harcama kilidi ve Tokluk, C2 okuma süresi, C3 ayarlar, C4 palet, C5, C8 bölge ve kapı, C10 oranlar ve simülasyon, C11 mini oyun kuralları, C12 kart düzeni, C13 anlık kayıt ve sayaçlar, C15 indirim ve eşikler, C16 ganimet, D yuvalar ve göç, v10 göçü, hata kaydı, Vera'nın dersi), `tests/g7dev.test.ts` (kontrol noktaları: konum, sıradaki görev, göçten geçme; "Tamamla" yan etkileri; hata sayacı). Kurallar değiştiği için güncellenenler: `combat` (kesme kuralı kalktı), `divine` (oranlar, öldürme sayıları), `systems` (Appraisal EXP), `chapter2`/`v3core`/`g5b`/`g6` (rütbe eşikleri ve puanlar), `chainTimes` (C6).
+
+### Uçtan uca QA (başsız Chromium, 1280×854, DPR 1, üretim derlemesi)
+
+`npm run build && npx vite preview --port 4173 &` ve `URL='http://localhost:4173/?qa=1' DPR=1 OUT=tools/qa/g7 node tools/qa/shot.mjs g7` (`ONLY=d,cp,combat,b,c`). Betik `window.__qa` kullanır. Son tam tur: **bütün denetimler ✓, konsolda hata ve uyarı yok.** Ekran görüntüleri `tools/qa/g7/` (128 renk):
+
+- **D:** boş Yuva 2'ye Yeni Oyun onaysız başladı (`g7_d_slot_picker_empty`), otomatik kayıt Yuva 2'ye (4. gün), dolu yuvada onay (`g7_d_slot_picker_filled`, `g7_d_overwrite_confirm`), Vazgeç ile başlamadı.
+- **E:** 8 kontrol noktası; her birinde sıradaki görev amacı ve ok hedefi doğru, hata kaydı boş (`g7_e_cp_*`).
+- **A1** hazırlanırken vurulan fare saldırısını sürdürdü (windup → strike). **A2** Joseph her karede (postupdate) yerinde tutularak: yanda ve arkada vurulmadı, içinde vuruldu (`g7_a2_inside_hit`). **A4** üç fare: aynı anda en çok bir saldırı, diğerleri dolaşıyor (`g7_a4_queue_circling`, hata ayıklama katmanıyla `…_debug`). **A5** oyun saatiyle 3,5 sn sürekli basış: 6 vuruş, her ara ≥ savuruş süresi, 3. vuruş geldi. **A3** sersemleme (`g7_a3_stunned`). **A6** şarj halkası (`g7_a6_charge_ring`), dolu bırakınca ağır vuruş. **A7** 0,60 sn pencere, ilk vuruş kesin kritik. **A9** yumrukla level 0 fare 3, sümüksü 6 vuruş.
+- **B1** kaybolan bildirim HUD boyu değişirken yok oldu. **B2** uzun satır (`g7_b2_long_line`), art arda level/skill/Divine (`g7_b2_seq_*`), menüde (`g7_b2_menu_notice`): yazılar çakışmıyor ve taşmıyor, kutu panellere binmiyor. **B3** iki iç ses sırayla, aynı anda tek balon. **B7** pano ve rütbe tahtasının önünde ikisi de HUD dışında (`g7_b7_guild_*`), kısa bölge adı.
+- **C1** kayıt öncesi harcama engeli, ziyafet Tokluk 100. **C6** İlk Kadeh 10:00'da başladı (`g7_c6_celebrate_morning`), masaya oturulunca bitti, handan çıkınca hırsızlık (`g7_c6_theft_start`). **C7** Divine level ışığı (`g7_c7_divine_aura`). **C8** yoldaşlıyken han kapısı kilitli, Vera'nın repliği (`g7_c8_party_door`). **C9/B5** anahtar `m_rat`, ikinci fare daha az EXP. **C13** sayaçlar, "!" ve "Appraisal: G- ile incelendi · 4. gün" (`g7_c13_codex_rat`). **C11** "Kaybettin", "Tekrar dene", "Bırak" (`g7_c11_minigame_lose`). **C12** menü düğmesi parlıyor (`g7_c12_menu_button_glow`), Status düğmesi, ilk açıklama (`g7_c12_offer_intro`), SP kartları (`g7_b8_offer_cards`; 41 yazı, çakışma yok). **C4** rütbe tahtası ve pano (`g7_c4_*`). **C16** ışıltı ve ışık sütunu (`g7_c16_loot_glow`), son 15 sn yanıp sönme, ömür sonunda kalkma. **C2** prologda "Atla" yok, dokunmak ilerletmiyor, yazılar trait çarkına kendiliğinden aktı (`g7_c2_trait_wheel`).
+
+QA'nın bulup düzelttikleri: loncada panonun sağı yuvarlak düğmelerin altında kalıyordu (kamera sağ HUD sütununu da hesaba katıyor); kontrol noktası önceki durumdan kalan Divine skill seçim panelini taşıyordu (UI sahnesi de yeniden kuruluyor); kontrol noktaları Sistem Teklifi açıklamasını atlatıyordu (`offer_intro` artık kurulmuyor); açıklamanın son satırı "etiket · değer" olarak bölünüp garip görünüyordu (yeniden yazıldı); `m_next_day`'in "Ertesi Gün" başlığı C6'dan sonra yanlıştı; hata ayıklama katmanında Joseph'in etiketi düşman etiketleriyle çakışıyordu (baş üstüne alındı).
+
+### Elle denenemeyenler / basitleştirilenler
+
+- Gerçek tablette denenmedi; Ağır butonunun dokunmatik basılı tutması yalnızca kodla (QA'da klavye K).
+- Sersemleme, kusursuz kaçış ve yumruk sayıları QA'da oyunun kendi çağrılarıyla (`hitEnemy`, `perfectDodge`) zorlandı; mini oyun kaybı süre ilerletilerek. C5 terfi animasyonu, C8'in "rotaya dönüş" kararması, uyanış sahnesinin kendiliğinden akışı ve "Eski kayıt" yükleme akışı bu turda ekranda denenmedi; birim testleriyle doğrulandı.
+- Geliştirici panelinin düğmeleri QA'da tek tek tıklanmadı; aynı işlevler `window.__qa` üzerinden kullanıldı.
+- Divine simülasyonu kaba bir modeldir (sabit öldürme ve antrenman sayıları).
+
 ## Grup 6'da yapılanlar (0.10.0)
 
 Talimat: hatalar (A1–A7) ve oyuncu notları/kararları (B1–B23). Dövüş sisteminin kökten değişimi bu grupta yok; yalnızca sayısal denge ve geri bildirim. Sayılar talimattaki gibi; ayrıldığım yerler aşağıda **Kararlar**'da.
@@ -451,11 +596,13 @@ QA'nın bulup düzelttikleri: trait çarkının sonucunda kart olasılık tablos
 
 ## Sonraki oturum için notlar
 
+- **Grup 7 tamamlandı (0.11.0).** Açık kalanlar yukarıda "Elle denenemeyenler / basitleştirilenler" altında. QA için önce `window.__qa` (README) ve kontrol noktaları; yeni hikâye adımı eklenince `src/story/checkpoints.ts`'deki `QUEST_EFFECTS`'e yan etkilerini yazmak gerekir (yoksa "Tamamla" ve kontrol noktaları bayrakları kurmaz). Eski QA betikleri (`steps_g6.mjs` vb.) `TitleScene.newGame(false)` çağırıyor; 0.11.0'da Yeni Oyun yuva seçtirdiği için bunlar `pickSlot`/`__qa.checkpoint` ile güncellenmeli. Görev bölgeleri (`PARTY_ZONES`) ve saldırı sırası sınırları (`queueLimit`) veriden; yeni bölge/görev gelince tabloya eklenmeli. Sendeleme tablosunda olmayan yeni yaratıklar 4 kapasite alır.
+
 - **Grup 6 tamamlandı (0.10.0).** Açık kalanlar yukarıda "Elle denenemeyenler / basitleştirilenler" altında. Dövüş sisteminin kökten değişimi bir sonraki grupta (bu grupta yalnızca sayılar ve geri bildirim değişti). Ansiklopedinin "Eros" sayfası şehir içeriği gelince dolacak; yapı yeni türlere ("Eşyalar", "Yerler") açık (`CODEX_KINDS`).
 
 - **Grup 5B tamamlandı (0.9.0).** Açık kalanlar yukarıda "Yapılamayan / basitleştirilen" altında; 2. yetenek slotu kodda hazır (`SKILL_SLOTS_OPEN`), açılış koşulu henüz yok. 4B'nin "tatmin edici olmayanlar" listesindeki kabza, yay/mızrak yürüyüşü, hançer yukarı saplama, pala vurulma, sırttaki görünümler, süzülen yay ve çatlak sopa 5A'da (D1–D7) ele alındı.
 - 4B'den açık kalanlar: ileride gürz/topuz için `w_club` hazır, uzun kılıç için LPC `longsword` saldırı sayfaları (192 px, klasik gövdeyle birebir uyumlu) kullanılabilir. Terfi animasyonu için ayrı bir ses bestesi hâlâ yok (mevcut `levelup` + `holy`). `fmtHp` 10 altını hep bir ondalık gösterir ("HP 5,0 / 5,0").
-- **4A'dan kalanlar / karar bekleyenler:** tam haritada mavi işaretler henüz keşfedilmemiş (sisli) yerlerde de görünür — yön bulmak için bilerek bırakıldı, istenirse sise bağlanabilir. Kâhyanın kesesinde 4 şüpheli var (ilerleme 0/4). Bölüm I'in mini oyunlu adımları (iş, hasat) geliştirici "Tamamla" ile geçilince güvence bir sonraki görevi açar ama sahne bayraklarını (ör. `bertram_done`) kurmaz; gerçek oyunda bu yol kullanılmaz.
+- **4A'dan kalanlar / karar bekleyenler:** tam haritada mavi işaretler henüz keşfedilmemiş (sisli) yerlerde de görünür — yön bulmak için bilerek bırakıldı, istenirse sise bağlanabilir. Kâhyanın kesesinde 4 şüpheli var (ilerleme 0/4). Bölüm I'in mini oyunlu adımları geliştirici "Tamamla" ile geçilince sahne bayraklarını kurmuyordu — 0.11.0'da `QUEST_EFFECTS` ile çözüldü.
 - Eski plandaki "yardımlı savaş, yoldaş YZ" maddeleri Grup 2 talimatında yoktu, dokunulmadı (yoldaşlar silah ×2'den dolaylı güçlendi: düşük HP'li ilk yaratıkları hızlı bitirirler, Joseph'in EXP'si yalnızca kendi vurduklarından gelir). 0.8.0'da (C6) yoldaşların hasarı, temposu ve hedef seçimi ayarlandı; yardımlı savaşa dokunulmadı.
 - **Grup 4 için:** Tarla Faresi yalnızca otlak görevinde doğuyor; dünyaya (güney tarlaları) yerleştirmek içerik işi. `pack_hunter` title'ı artık otlak görevinden değil, ormandaki kurtlardan gelir.
 
